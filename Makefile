@@ -39,7 +39,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 
 default: all
 
-all: lib$(LIBNAME).a testmain
+all: lib$(LIBNAME).a testmain gldraw
 #all: lib$(LIBNAME).a 
 
 lib$(LIBNAME).a : $(OBJS)
@@ -51,6 +51,8 @@ lib$(LIBNAME).a : $(OBJS)
 testmain: testmain.o lib$(LIBNAME).a
 	$(C++) -o testmain testmain.o -L. -l$(LIBNAME) -lm
 
+gldraw: gldraw.o  lib$(LIBNAME).a
+	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) -lm -lglut -lGL
 clean:
 	rm -f *.o *.a
 
