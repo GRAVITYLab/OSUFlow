@@ -1,0 +1,33 @@
+/*
+ *  cm5 volume renderer: calc_subvolume
+ *
+ * Purpose:
+
+ * Calculate the portion of the volume that each processor will be
+ * dealing with and send it a message describing the bounds.
+ *
+ * James S. Painter (painter@cs.utah.edu)     August 15 1992
+ * Univesity of Utah, Computer Science Department 
+ *
+ * Copyright (c) 1992 University of Utah
+ * Copying, use and development for non-commercial purposes permitted.
+ *                  All rights for commercial use reserved.
+ */
+
+/* Data Types */
+typedef
+  struct volume_bounds_tag	/* Bounds within a volume */
+{
+  int xmin, xmax; 
+  int ymin, ymax;
+  int zmin, zmax;
+} volume_bounds_type;
+
+/* Function Prototypes */
+
+/*
+ * Given the total data volume size, split the volume up into pieces
+ * and send a message to each processing node informing it what part of
+ * the volume it will be dealing with.
+ */ 
+volume_bounds_type* calc_subvolume(int vxdim, int vydim, int vzdim, int nproc);
