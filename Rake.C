@@ -74,7 +74,7 @@ void SeedGenerator::GetSeeds(VECTOR3* pSeeds, const bool bRandom)
 // generate seeds from a given point sets
 //////////////////////////////////////////////////////////////////////////
 void SeedGenerator::GetSeeds(VECTOR3* pSeeds,
-							 vector<VECTOR3>& pPointSets)
+			     vector<VECTOR3>& pPointSets)
 {
 	int totalNum, index;
 	
@@ -107,7 +107,7 @@ void LineRake::GenSeedRandom(const size_t  numSeeds[3],
 	int totalNum;
 
 	// initialize random number generator
-	srand((unsigned)time(NULL));
+	//	srand((unsigned)time(NULL));
 
 	totalNum = numSeeds[0] * numSeeds[1] * numSeeds[2];
 	for(int iFor = 0; iFor < totalNum; iFor++)
@@ -268,10 +268,11 @@ void SolidRake::GenSeedRandom(const size_t numSeeds[3],
 	lhh[0] = lll[0];	lhh[1] = hhh[1];	lhh[2] = hhh[2];
 
 	// initialize random number generator
-	srand((unsigned)time(NULL));
+
+	//	srand((unsigned)time(NULL));
 
 	totalNum = numSeeds[0] * numSeeds[1] * numSeeds[2];
-	printf(" numseed = %d\n", totalNum); 
+	printf(" solid numseed = %d\n", totalNum); 
 	for(iFor = 0; iFor < totalNum; iFor++)
 	{
 		float coeff[3];

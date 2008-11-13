@@ -123,7 +123,7 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax)
 	float *p = pData; 
 	for (int z = sMin[2]; z<=sMax[2]; z++) {
 	  for (int y = sMin[1]; y<=sMax[1]; y++) {
-	    long offset = (z*dimension[0]*dimension[1]+y*dimension[0])*3*4; 
+	    long offset = (z*dimension[0]*dimension[1]+y*dimension[0]+sMin[0])*3*4; 
 	    fseek(fIn, offset, SEEK_SET); 
 	    int size = (sMax[0]-sMin[0]+1)*3; 
 	    fread(p, sizeof(float), size, fIn); 

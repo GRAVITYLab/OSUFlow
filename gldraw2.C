@@ -13,6 +13,7 @@
 #include <GL/gl.h>
 
 #include "OSUFlow.h"
+#include "calc_subvolume.h"
 
 #include <list>
 #include <iterator>
@@ -30,38 +31,50 @@ int xform_mode = 0;
 #define XFORM_SCALE 2 
 
 OSUFlow *osuflow; 
-VECTOR3 minLen, maxLen; 
-list<vtListSeedTrace*> sl_list; 
+
+list<vtListSeedTrace*> *sl_list; 
+OSUFlow **osuflow_list; 
 
 bool toggle_draw_streamlines = false; 
 bool toggle_animate_streamlines = false; 
 float center[3], len[3]; 
 int first_frame = 1; 
 
+int nproc = 64; 
+
 ////////////////////////////////////////////////////////
 
 void compute_streamlines() {
-
+  
+  VECTOR3 minLen, maxLen; 
   float from[3], to[3]; 
 
-  from[0] = minLen[0];   from[1] = minLen[1];   from[2] = minLen[2]; 
-  to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
+  for (int i=0; i<nproc; i++) {
 
-  printf("generating seeds...\n"); 
-  osuflow->SetRandomSeedPoints(from, to, 100); 
-  int nSeeds; 
-  VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
-  for (int i=0; i<nSeeds; i++) 
-    printf(" seed no. %d : [%f %f %f]\n", i, seeds[i][0], 
-	   seeds[i][1], seeds[i][2]); 
+    osuflow_list[i]->Boundary(minLen, maxLen); // get the subdomain buondary 
 
-  sl_list.clear(); 
+    from[0] = minLen[0];   from[1] = minLen[1];   from[2] = minLen[2]; 
+    to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
 
-  printf("compute streamlines..\n"); 
-  osuflow->SetIntegrationParams(1, 5); 
-  osuflow->GenStreamLines(sl_list , FORWARD_DIR, 500, 0); 
-  printf(" done integrations\n"); 
-  printf("list size = %d\n", sl_list.size()); 
+    printf("---------------------  %d   -------------------------\n", i); 
+
+    printf(" seeds range [%f %f %f]:[%f %f %f]\n", from[0], from[1], from[2], 
+	   to[0], to[1], to[2]); 
+
+    osuflow_list[i]->SetRandomSeedPoints(from, to, 20); // set range for seed locations
+
+
+    int nSeeds; 
+    VECTOR3* seeds = osuflow_list[i]->GetSeeds(nSeeds); 
+    for (int j=0; j<nSeeds; j++) 
+      printf(" seed no. %d : [%f %f %f]\n", j, seeds[j][0], 
+	     seeds[j][1], seeds[j][2]); 
+
+
+    sl_list[i].clear(); 
+    osuflow_list[i]->SetIntegrationParams(1, 5); 
+    osuflow_list[i]->GenStreamLines(sl_list[i], FORWARD_DIR, 500, 0); 
+  }
 }
 
 void draw_streamlines() {
@@ -71,26 +84,32 @@ void draw_streamlines() {
   glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
   glTranslatef(-len[0]/2.0, -len[1]/2.0, -len[2]/2.0); 
 
-  printf("draw streamlines.\n"); 
   glColor3f(1,1,0); 
+
   std::list<vtListSeedTrace*>::iterator pIter; 
 
-  pIter = sl_list.begin(); 
-  for (; pIter!=sl_list.end(); pIter++) {
-    vtListSeedTrace *trace = *pIter; 
-    std::list<VECTOR3*>::iterator pnIter; 
-    pnIter = trace->begin(); 
-    glBegin(GL_LINE_STRIP); 
-    for (; pnIter!= trace->end(); pnIter++) {
-      VECTOR3 p = **pnIter; 
-      //printf(" %f %f %f ", p[0], p[1], p[2]); 
-      glVertex3f(p[0], p[1], p[2]); 
+  for (int i=0; i<nproc; i++) {   // looping through all subdomains 
+    pIter = sl_list[i].begin(); 
+    for (; pIter!=sl_list[i].end(); pIter++) {
+      vtListSeedTrace *trace = *pIter; 
+      std::list<VECTOR3*>::iterator pnIter; 
+      pnIter = trace->begin(); 
+      glBegin(GL_LINE_STRIP); 
+      for (; pnIter!= trace->end(); pnIter++) {
+	VECTOR3 p = **pnIter; 
+	//printf(" %f %f %f ", p[0], p[1], p[2]); 
+	glVertex3f(p[0], p[1], p[2]); 
+      }
+      glEnd(); 
     }
-    glEnd(); 
   }
   glPopMatrix(); 
 }
 
+void animate_streamlines() {
+}
+
+/*
 void animate_streamlines() {
 
   std::list<vtListSeedTrace*>::iterator pIter; 
@@ -152,6 +171,7 @@ void animate_streamlines() {
   if (first_frame == 1) first_frame = 0; 
   sleep(.5); 
 }
+*/
 
 ////////////////////////////////////////////// 
 
@@ -186,7 +206,6 @@ void display()
   else if (toggle_animate_streamlines == true)
     animate_streamlines(); 
 
-  printf(" len %f %f %f\n", len[0], len[1], len[2]); 
   glPushMatrix(); 
   glScalef(1.0, len[1]/len[0], len[2]/len[0]); 
   draw_cube(0,0,1);
@@ -207,7 +226,6 @@ void display()
 }
 
 void timer(int val) {
-  printf("call idle....\n"); 
   if (toggle_animate_streamlines == true) {
     //    animate_streamlines(); 
     glutPostRedisplay(); 
@@ -281,23 +299,37 @@ int main(int argc, char** argv)
 {
   // read in the vector field 
 
+  VECTOR3 minLen, maxLen; 
   VECTOR3 minB, maxB; 
+  volume_bounds_type *vb_list; 
 
-  osuflow = new OSUFlow(); 
+
+  printf("hello! entering testmain...\n"); 
+
+  OSUFlow *osuflow = new OSUFlow(); 
   printf("read file %s\n", argv[1]); 
-  minB[0] = 0; minB[1] = 0; minB[2] = 0; 
-  maxB[0] = 100; maxB[1] = 100; maxB[2] = 300;  
-  osuflow->LoadData((const char*)argv[1], true, minB, maxB); //true: a steady flow field 
-
-  //  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
-  osuflow->Boundary(minLen, maxLen); // get the boundary 
-  minB[0] = minLen[0]; minB[1] = minLen[1];  minB[2] = minLen[2];
-  maxB[0] = maxLen[0]; maxB[1] = maxLen[1];  maxB[2] = maxLen[2];
-  osuflow->SetBoundary(minB, maxB);  // set the boundary. just to test
-                                     // the subsetting feature of OSUFlow
+  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
+  osuflow->Boundary(minLen, maxLen); 
   printf(" volume boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n", 
                                 minLen[0], maxLen[0], minLen[1], maxLen[1], 
                                 minLen[2], maxLen[2]); 
+
+  vb_list = calc_subvolume(maxLen[0]-minLen[0], maxLen[1]-minLen[1], maxLen[2]-minLen[2], nproc); 
+
+  osuflow_list = new OSUFlow*[nproc];  // create a list of subdomains 
+  sl_list = new list<vtListSeedTrace*>[nproc]; //one streamlines list for each subdomain 
+
+
+  for (int i=0; i<nproc; i++) {
+    osuflow_list[i] = new OSUFlow(); 
+    printf("PE %d:  %d %d %d : %d %d %d\n", i, vb_list[i].xmin,  vb_list[i].ymin,  vb_list[i].zmin, 
+	   vb_list[i].xmax,  vb_list[i].ymax,  vb_list[i].zmax); 
+    VECTOR3 minB, maxB; 
+    minB[0] = vb_list[i].xmin;  minB[1] = vb_list[i].ymin;     minB[2] = vb_list[i].zmin; 
+    maxB[0] = vb_list[i].xmax;  maxB[1] = vb_list[i].ymax;     maxB[2] = vb_list[i].zmax; 
+    osuflow_list[i]->LoadData((const char*)argv[1], true, minB, maxB); 
+  }
+  // done readnig subdomain of data 
 
   center[0] = (minLen[0]+maxLen[0])/2.0; 
   center[1] = (minLen[1]+maxLen[1])/2.0; 
