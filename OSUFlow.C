@@ -39,6 +39,26 @@ void OSUFlow::LoadData(const char* fname, bool bStatic)
 		InitTimeVaryingFlowField();
 }
 
+
+//sMin/sMax are local min and max range of the data that are held within 
+void OSUFlow::LoadData(const char* fname, bool bStatic, 
+		       VECTOR3 sMin, VECTOR3 sMax)  
+{
+	flowName = new char[255];
+	strcpy(flowName, fname);
+
+	bStaticFlow = bStatic;
+
+	if(bStaticFlow)
+	  InitStaticFlowField(sMin, sMax);
+	else
+	  InitTimeVaryingFlowField(); // to be implemented 
+}
+
+/////////////////////////////////////////////////////////////////
+//
+//Read the whole datafile and create a vectorfield object based on that 
+//
 void OSUFlow::InitStaticFlowField(void)
 {
 	FILE *fIn;
@@ -67,10 +87,89 @@ void OSUFlow::InitStaticFlowField(void)
 	pSolution = new Solution(ppVector, totalNum, 1);
 	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
 	// set the boundary of physical grid
-	VECTOR3 minB, maxB;
-	minB.Set(0.0, 0.0, 0.0);
-	maxB.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
-	pRegularCGrid->SetBoundary(minB, maxB);
+	gMin.Set(0.0, 0.0, 0.0);
+	lMin.Set(0.0, 0.0, 0.0);
+	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
+	lMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
+	pRegularCGrid->SetBoundary(gMin, gMax);
+	assert(pSolution != NULL && pRegularCGrid != NULL);
+	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
+	if(!flowField->IsNormalized())
+		flowField->NormalizeField(true);
+}
+
+/////////////////////////////////////////////////////////////////
+//
+//Read only a subdomain and create a vectorfield object based on that 
+//
+void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax)
+{
+	FILE *fIn;
+	int dimension[3], totalNum;
+	float* pData = NULL;
+	int lxdim, lydim, lzdim; 
+	
+	fIn = fopen(flowName, "rb");
+	assert(fIn != NULL);
+	fread(dimension, sizeof(int), 3, fIn);
+	gMin.Set(0.0,0.0,0.0); 
+	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
+	lxdim = sMax[0]-sMin[0]+1; 
+	lydim = sMax[1]-sMin[1]+1; 
+	lzdim = sMax[2]-sMin[2]+1; 
+	
+	totalNum = lxdim*lydim*lzdim; 
+	pData = new float[totalNum * 3];
+	float *p = pData; 
+	for (int z = sMin[2]; z<=sMax[2]; z++) {
+	  for (int y = sMin[1]; y<=sMax[1]; y++) {
+	    long offset = (z*dimension[0]*dimension[1]+y*dimension[0])*3*4; 
+	    fseek(fIn, offset, SEEK_SET); 
+	    int size = (sMax[0]-sMin[0]+1)*3; 
+	    fread(p, sizeof(float), size, fIn); 
+	    p+=size; 
+	  }
+	}
+	fclose(fIn);
+        InitStaticFlowField(pData, sMin, sMax); 
+}
+
+
+
+///////////////////////////////////////////////
+//
+//   Create a static flow field 
+//   Input: (float) vector data, minB, maxB
+//   note this flow field can be a subfield so 
+//   minB[0/1/2] may not be zero, and maxB[0/1/2]
+//   may not be the max of the entire field 
+//   
+//
+void OSUFlow::InitStaticFlowField(float* pData, VECTOR3 minB, 
+				  VECTOR3 maxB)
+{
+	int dimension[3], totalNum;
+
+	dimension[0] = maxB[0]-minB[0]+1; 
+	dimension[1] = maxB[1]-minB[1]+1; 
+	dimension[2] = maxB[2]-minB[2]+1; 
+
+	totalNum = dimension[0] * dimension[1] * dimension[2];
+
+	// create field object
+	Solution* pSolution;
+	RegularCartesianGrid* pRegularCGrid;
+	VECTOR3* pVector;
+	VECTOR3** ppVector;
+	pVector = new VECTOR3[totalNum];
+	for(int iFor = 0; iFor < totalNum; iFor++)
+		pVector[iFor].Set(pData[iFor*3], pData[iFor*3+1], pData[iFor*3+2]);
+	ppVector = new VECTOR3*[1];
+	ppVector[0] = pVector;
+	pSolution = new Solution(ppVector, totalNum, 1);
+	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
+	lMin = minB; lMax = maxB; //local data min/max range
+	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
 	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
 	if(!flowField->IsNormalized())

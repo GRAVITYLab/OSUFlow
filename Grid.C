@@ -23,14 +23,14 @@
 
 CartesianGrid::CartesianGrid(int xdim, int ydim, int zdim)
 {
-	m_nDimension[0] = xdim;
-	m_nDimension[1] = ydim;
-	m_nDimension[2] = zdim;
+  m_nDimension[0] = xdim;  //the grid dimensions in C space 
+  m_nDimension[1] = ydim;
+  m_nDimension[2] = zdim;
 }
 
 CartesianGrid::CartesianGrid()
 {
-	Reset();
+  Reset();
 }
 
 CartesianGrid::~CartesianGrid()
@@ -39,9 +39,9 @@ CartesianGrid::~CartesianGrid()
 
 void CartesianGrid::Reset()
 {
-	m_nDimension[0] = m_nDimension[1] = m_nDimension[2] = 0;
-	m_vMinBound.Zero();
-	m_vMaxBound.Zero();
+  m_nDimension[0] = m_nDimension[1] = m_nDimension[2] = 0;
+  m_vMinBound.Zero();
+  m_vMaxBound.Zero();
 }
 
 
@@ -50,17 +50,17 @@ void CartesianGrid::Reset()
 //////////////////////////////////////////////////////////////////////////
 void RegularCartesianGrid::SetBoundary(VECTOR3& minB, VECTOR3& maxB)
 {
-	m_vMinBound = minB;
-	m_vMaxBound = maxB;
-	mappingFactorX = (float)(xdim()-1)/(m_vMaxBound[0] - m_vMinBound[0]);
-	mappingFactorY = (float)(ydim()-1)/(m_vMaxBound[1] - m_vMinBound[1]);
-	mappingFactorZ = (float)(zdim()-1)/(m_vMaxBound[2] - m_vMinBound[2]);
-	oneOvermappingFactorX = (m_vMaxBound[0] - m_vMinBound[0])/(float)(xdim()-1);
-	oneOvermappingFactorY = (m_vMaxBound[1] - m_vMinBound[1])/(float)(ydim()-1);
-	oneOvermappingFactorZ = (m_vMaxBound[2] - m_vMinBound[2])/(float)(zdim()-1);
-	// grid spacing
-	gridSpacing = min(min(oneOvermappingFactorX, oneOvermappingFactorY), 
-			  oneOvermappingFactorZ);
+  m_vMinBound = minB;
+  m_vMaxBound = maxB;
+  mappingFactorX = (float)(xdim()-1)/(m_vMaxBound[0] - m_vMinBound[0]);
+  mappingFactorY = (float)(ydim()-1)/(m_vMaxBound[1] - m_vMinBound[1]);
+  mappingFactorZ = (float)(zdim()-1)/(m_vMaxBound[2] - m_vMinBound[2]);
+  oneOvermappingFactorX = (m_vMaxBound[0] - m_vMinBound[0])/(float)(xdim()-1);
+  oneOvermappingFactorY = (m_vMaxBound[1] - m_vMinBound[1])/(float)(ydim()-1);
+  oneOvermappingFactorZ = (m_vMaxBound[2] - m_vMinBound[2])/(float)(zdim()-1);
+  // grid spacing
+  gridSpacing = min(min(oneOvermappingFactorX, oneOvermappingFactorY), 
+		    oneOvermappingFactorZ);
 }
 
 
@@ -74,15 +74,15 @@ void RegularCartesianGrid::SetBoundary(VECTOR3& minB, VECTOR3& maxB)
 // constructor and deconstructor
 RegularCartesianGrid::RegularCartesianGrid():CartesianGrid()
 {
-	Reset();
+  Reset();
 }
 
 RegularCartesianGrid::RegularCartesianGrid(int xdim, int ydim, int zdim):CartesianGrid(xdim, ydim, zdim)
 {
-	Reset();
-	VECTOR3 a = VECTOR3(0,0,0); 
-	VECTOR3 b = VECTOR3(xdim-1, ydim-1, zdim-1); 
-	SetBoundary(a, b); 
+  Reset();
+  VECTOR3 a = VECTOR3(0,0,0);   // the default is from 0 to xdim-1, etc. 
+  VECTOR3 b = VECTOR3(xdim-1, ydim-1, zdim-1); 
+  SetBoundary(a, b); 
 }
 
 RegularCartesianGrid::~RegularCartesianGrid()
@@ -91,15 +91,15 @@ RegularCartesianGrid::~RegularCartesianGrid()
 
 void RegularCartesianGrid::Reset(void)
 {
-	mappingFactorX = mappingFactorY = mappingFactorZ = 0.0;
-	oneOvermappingFactorX = oneOvermappingFactorY = oneOvermappingFactorZ = 0.0;
-	gridSpacing = 1.0;
+  mappingFactorX = mappingFactorY = mappingFactorZ = 0.0;
+  oneOvermappingFactorX = oneOvermappingFactorY = oneOvermappingFactorZ = 0.0;
+  gridSpacing = 1.0;
 }
 
 void RegularCartesianGrid::Boundary(VECTOR3& minB, VECTOR3& maxB)
 {
-	minB = m_vMinBound;
-	maxB = m_vMaxBound;
+  minB = m_vMinBound;
+  maxB = m_vMaxBound;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -107,22 +107,23 @@ void RegularCartesianGrid::Boundary(VECTOR3& minB, VECTOR3& maxB)
 //////////////////////////////////////////////////////////////////////////
 bool RegularCartesianGrid::isInBBox(VECTOR3& pos)
 {
-	if( (pos[0] >= m_vMinBound[0]) && (pos[0] <= m_vMaxBound[0]) &&
-		(pos[1] >= m_vMinBound[1]) && (pos[1] <= m_vMaxBound[1]) &&
-		(pos[2] >= m_vMinBound[2]) && (pos[2] <= m_vMaxBound[2]))
-		return true;
-	else
-		return false;
+  if( (pos[0] >= m_vMinBound[0]) && (pos[0] <= m_vMaxBound[0]) &&
+      (pos[1] >= m_vMinBound[1]) && (pos[1] <= m_vMaxBound[1]) &&
+      (pos[2] >= m_vMinBound[2]) && (pos[2] <= m_vMaxBound[2]))
+    return true;
+  else
+    return false;
 }
 
+// compute a default boundary 
 void RegularCartesianGrid::ComputeBBox(void)
 {
-	VECTOR3 minB, maxB;
+  VECTOR3 minB, maxB;
+  
+  minB.Set(0, 0, 0);  // default is from zero to xdim-1, etc. 
+  maxB.Set((float)(xdim()-1), (float)(ydim()-1), (float)(zdim()-1));
 
-	minB.Set(0, 0, 0);
-	maxB.Set((float)(xdim()-1), (float)(ydim()-1), (float)(zdim()-1));
-
-	SetBoundary(minB, maxB);
+  SetBoundary(minB, maxB);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -132,10 +133,10 @@ void RegularCartesianGrid::ComputeBBox(void)
 bool RegularCartesianGrid::at_phys(VECTOR3& pos)
 {
 	// whether in the bounding box
-	if(!isInBBox(pos))
-		return false;
-
-	return true;
+  if(!isInBBox(pos))
+    return false;
+  
+  return true;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -147,30 +148,29 @@ bool RegularCartesianGrid::at_phys(VECTOR3& pos)
 //		vVertices: the vertex lis of the cell
 //////////////////////////////////////////////////////////////////////////
 int RegularCartesianGrid::getCellVertices(int cellId, 
-								   CellTopoType cellType, 
-								   vector<int>& vVertices)
+					  CellTopoType cellType, 
+					  vector<int>& vVertices)
 {
-	int totalCell = xcelldim() * ycelldim() * zcelldim();
-	int xidx, yidx, zidx, index;
+  int totalCell = xcelldim() * ycelldim() * zcelldim();
+  int xidx, yidx, zidx, index;
 
-	if((cellId < 0) || (cellId >= totalCell))
-		return 0;
+  if((cellId < 0) || (cellId >= totalCell))
+    return 0;
 
-	vVertices.clear();
-	zidx = cellId / (xcelldim() * ycelldim());
-	yidx = cellId % (xcelldim() * ycelldim());
-	yidx = yidx / xcelldim();
-	xidx = cellId - zidx * xcelldim() * ycelldim() - yidx * xcelldim();
+  vVertices.clear();
+  zidx = cellId / (xcelldim() * ycelldim());
+  yidx = cellId % (xcelldim() * ycelldim());
+  yidx = yidx / xcelldim();
+  xidx = cellId - zidx * xcelldim() * ycelldim() - yidx * xcelldim();
 
-	for(int kFor = 0; kFor < 2; kFor++)
-		for(int jFor = 0; jFor < 2; jFor++)
-            for(int iFor = 0; iFor < 2; iFor++)
-			{
-				index = (zidx+kFor) * ydim() * xdim() + (yidx + jFor) * xdim() + (xidx + iFor);
-				vVertices.push_back(index);
-			}
-
-	return 1;
+  for(int kFor = 0; kFor < 2; kFor++)
+    for(int jFor = 0; jFor < 2; jFor++)
+      for(int iFor = 0; iFor < 2; iFor++)
+	{
+	  index = (zidx+kFor) * ydim() * xdim() + (yidx + jFor) * xdim() + (xidx + iFor);
+	  vVertices.push_back(index);
+	}
+  return 1;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -183,18 +183,22 @@ int RegularCartesianGrid::getCellVertices(int cellId,
 //////////////////////////////////////////////////////////////////////////
 bool RegularCartesianGrid::at_vertex(int verIdx, VECTOR3& pos)
 {
-	int xidx, yidx, zidx;
-    int totalVer = xdim() * ydim() * zdim();
-	if((verIdx < 0) || (verIdx >= totalVer))
-		return false;
+  int xidx, yidx, zidx;
+  int totalVer = xdim() * ydim() * zdim();
+  if((verIdx < 0) || (verIdx >= totalVer))
+    return false;
 
-	zidx = verIdx / (xdim() * ydim());
-	yidx = verIdx % (xdim() * ydim());
-	yidx = verIdx / xdim();
-	xidx = verIdx - zidx * xdim() * ydim() - yidx * xdim();
+  zidx = verIdx / (xdim() * ydim());
+  yidx = verIdx % (xdim() * ydim());
+  yidx = verIdx / xdim();
+  xidx = verIdx - zidx * xdim() * ydim() - yidx * xdim();
 
-	pos.Set((float)xidx, (float)yidx, (float)zidx);
-	return true;
+  float xpos = m_vMinBound[0] + xidx*oneOvermappingFactorX; 
+  float ypos = m_vMinBound[1] + xidx*oneOvermappingFactorY; 
+  float zpos = m_vMinBound[2] + xidx*oneOvermappingFactorZ; 
+
+  // pos.Set((float)xidx, (float)yidx, (float)zidx);
+  return true;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -209,21 +213,27 @@ bool RegularCartesianGrid::at_vertex(int verIdx, VECTOR3& pos)
 //////////////////////////////////////////////////////////////////////////
 bool RegularCartesianGrid::isInCell(PointInfo& pInfo, const int cellId)
 {
-	if(!isInBBox(pInfo.phyCoord))
-		return false;
+  if(!isInBBox(pInfo.phyCoord))
+    return false;
 
-	int xidx, yidx, zidx;
-	xidx = (int)floor(pInfo.phyCoord[0]);
-	yidx = (int)floor(pInfo.phyCoord[1]);
-	zidx = (int)floor(pInfo.phyCoord[2]);
-	int inCell = zidx * ycelldim() * xcelldim() + yidx * xcelldim() + xidx;
-	if(cellId == inCell)
-	{
-		pInfo.interpolant.Set(pInfo.phyCoord[0] - (float)xidx, pInfo.phyCoord[1] - (float)yidx, pInfo.phyCoord[2] - (float)zidx);
-		return true;
-	}
-	else
-		return true;
+  float cx, cy, cz; // computatnoial space x, y, and z 
+  cx = (pInfo.phyCoord[0]-m_vMinBound[0])/oneOvermappingFactorX; 
+  cy = (pInfo.phyCoord[1]-m_vMinBound[1])/oneOvermappingFactorY; 
+  cz = (pInfo.phyCoord[2]-m_vMinBound[2])/oneOvermappingFactorZ; 
+
+  int xidx, yidx, zidx;
+  xidx = (int)floor(cx); 
+  yidx = (int)floor(cy); 
+  zidx = (int)floor(cz); 
+
+  int inCell = zidx * ycelldim() * xcelldim() + yidx * xcelldim() + xidx;
+  if(cellId == inCell)
+    {
+      pInfo.interpolant.Set(cx - (float)xidx, cy - (float)yidx, cz - (float)zidx);
+      return true;
+    }
+  else
+    return true;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -241,56 +251,50 @@ bool RegularCartesianGrid::isInCell(PointInfo& pInfo, const int cellId)
 //////////////////////////////////////////////////////////////////////////
 int RegularCartesianGrid::phys_to_cell(PointInfo& pInfo)
 {
-	int xidx, yidx, zidx;
 
-	if(!isInBBox(pInfo.phyCoord))
-		return -1;
+  if(!isInBBox(pInfo.phyCoord))
+    return -1;
 
-	if(pInfo.phyCoord[0] == floor(pInfo.phyCoord[0]))
-		xidx = ((pInfo.phyCoord[0]-1) < 0) ? 0 : (int)(pInfo.phyCoord[0]-1);
-	else
-		xidx = (int)floor(pInfo.phyCoord[0]);
+  float cx, cy, cz; // computatnoial space x, y, and z 
+  cx = (pInfo.phyCoord[0]-m_vMinBound[0])/oneOvermappingFactorX; 
+  cy = (pInfo.phyCoord[1]-m_vMinBound[1])/oneOvermappingFactorY; 
+  cz = (pInfo.phyCoord[2]-m_vMinBound[2])/oneOvermappingFactorZ; 
 
-	if(pInfo.phyCoord[1] == floor(pInfo.phyCoord[1]))
-		yidx = ((pInfo.phyCoord[1]-1) < 0) ? 0 : (int)(pInfo.phyCoord[1]-1);
-	else
-		yidx = (int)floor(pInfo.phyCoord[1]);
+  int xidx, yidx, zidx;
+  xidx = (int)floor(cx); 
+  yidx = (int)floor(cy); 
+  zidx = (int)floor(cz); 
 
-	if(pInfo.phyCoord[2] == floor(pInfo.phyCoord[2]))
-		zidx = ((pInfo.phyCoord[2]-1) < 0) ? 0 : (int)(pInfo.phyCoord[2]-1);
-	else
-		zidx = (int)floor(pInfo.phyCoord[2]);
-	
-	int inCell = zidx * ycelldim() * xcelldim() + yidx * xcelldim() + xidx;
+  int inCell = zidx * ycelldim() * xcelldim() + yidx * xcelldim() + xidx;
 
-	pInfo.inCell = inCell;
-	pInfo.interpolant.Set(pInfo.phyCoord[0] - (float)xidx, pInfo.phyCoord[1] - (float)yidx, pInfo.phyCoord[2] - (float)zidx);
-	return 1;
+  pInfo.inCell = inCell;
+  pInfo.interpolant.Set(cx - (float)xidx, cy - (float)yidx, cz - (float)zidx);
+  return 1;
 }
 
 //////////////////////////////////////////////////////////////////////////
-// barycentric interpolation
+// trilinear interpolation
 // input
 // nodeData:	8 corners of cube cell
-// coeff:		bilinear interpolation coefficents
+// coeff:	bilinear interpolation coefficents
 // output
-// vData:		output
+// vData:	output
 //////////////////////////////////////////////////////////////////////////
 void RegularCartesianGrid::interpolate(VECTOR3& nodeData, 
-								vector<VECTOR3>& vData,
-								VECTOR3 coeff)
+				       vector<VECTOR3>& vData,
+				       VECTOR3 coeff)
 {
-	float fCoeff[3];
-	fCoeff[0] = coeff[0];
-	fCoeff[1] = coeff[1];
-	fCoeff[2] = coeff[2];
+  float fCoeff[3];
+  fCoeff[0] = coeff[0];
+  fCoeff[1] = coeff[1];
+  fCoeff[2] = coeff[2];
 
-	for(int iFor = 0; iFor < 3; iFor++)
-	{
-		nodeData[iFor] = TriLerp(vData[0][iFor], vData[1][iFor], vData[2][iFor], vData[3][iFor],
-								 vData[4][iFor], vData[5][iFor], vData[6][iFor], vData[7][iFor],
-								 fCoeff);
-	}
+  for(int iFor = 0; iFor < 3; iFor++)
+    {
+      nodeData[iFor] = TriLerp(vData[0][iFor], vData[1][iFor], vData[2][iFor], vData[3][iFor],
+			       vData[4][iFor], vData[5][iFor], vData[6][iFor], vData[7][iFor],
+			       fCoeff);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -301,18 +305,15 @@ void RegularCartesianGrid::interpolate(VECTOR3& nodeData,
 //////////////////////////////////////////////////////////////////////////
 float RegularCartesianGrid::cellVolume(int cellId)
 {
-	float volume;
-	
-	volume = 1.0;
-	
-	return volume;
+  float volume = 1.0;
+  return volume;
 }
 
 void RegularCartesianGrid::BoundaryIntersection(VECTOR3& intersectP,
-												VECTOR3& startP,
-												VECTOR3& endP,
-												float* stepSize, 
-												float oldStepSize)
+						VECTOR3& startP,
+						VECTOR3& endP,
+						float* stepSize, 
+						float oldStepSize)
 {
 	VECTOR3 hitPoint;
 	float thit;
@@ -327,7 +328,7 @@ void RegularCartesianGrid::BoundaryIntersection(VECTOR3& intersectP,
 
 	VECTOR3 planeN[6];
 	planeN[0].Set(1, 0, 0);			//right
-	planeN[1].Set(-1, 0, 0);			//left
+	planeN[1].Set(-1, 0, 0);		//left
 	planeN[2].Set(0, 1, 0);			//top
 	planeN[3].Set(0,-1, 0);			//bottom	
 	planeN[4].Set(0, 0, 1);			//front
@@ -338,14 +339,14 @@ void RegularCartesianGrid::BoundaryIntersection(VECTOR3& intersectP,
 	rayNormal.Normalize();
 
 	float vertex[8][3] = {	{xMin, yMin, zMin},		// rear, left, bottom
-							{xMin, yMax, zMin},		// rear, left, top
-							{xMax, yMin, zMin},		// rear, right, bottom
-							{xMax, yMax, zMin},		// rear, right, top
-							{xMin, yMin, zMax},		// front, left, bottom
-							{xMin, yMax, zMax},		// front, left, top
-							{xMax, yMin, zMax},		// front, right, bottom
-							{xMax, yMax, zMax}};	// front, right, toop
-
+				{xMin, yMax, zMin},		// rear, left, top
+				{xMax, yMin, zMin},		// rear, right, bottom
+				{xMax, yMax, zMin},		// rear, right, top
+				{xMin, yMin, zMax},		// front, left, bottom
+				{xMin, yMax, zMax},		// front, left, top
+				{xMax, yMin, zMax},		// front, right, bottom
+				{xMax, yMax, zMax}};	// front, right, toop
+	
 	VECTOR3 A;
 	A = startP;
 

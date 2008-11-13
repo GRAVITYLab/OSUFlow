@@ -26,8 +26,13 @@ public:
 	void SetRegularSeedPoints(const float min[3], const float max[3], const size_t numSeeds[3]);
 	void SetIntegrationParams(float initStepSize, float maxStepSize);
 	void LoadData(const char* fname, bool bStatic);
+	void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
+		      VECTOR3 pMax); 
 	void Boundary(VECTOR3& minB, VECTOR3& maxB) { flowField->Boundary(minB, maxB); };
+	void SetBoundary(VECTOR3 minB, VECTOR3 maxB) {flowField->SetBoundary(minB, maxB);}; 
 	void InitStaticFlowField(void);
+	void InitStaticFlowField(VECTOR3 minb, VECTOR3 maxB); 
+	void InitStaticFlowField(float*, VECTOR3 minb, VECTOR3 maxB); 
 	void InitTimeVaryingFlowField(void);
 	CVectorField* GetFlowField(void) { return flowField; }
 	bool GenStreamLines(list<vtListSeedTrace*>&, TRACE_DIR, int, unsigned int);
@@ -50,6 +55,8 @@ private:
 	char* flowName; 					// name of file including information about field
 	float initialStepSize;					// for integration
 	float maxStepSize;
+	VECTOR3 gMin, gMax; // global min/max range 
+	VECTOR3 lMin, lMax; // local min/max range
 	bool bStaticFlow;					// static flow
 };
 
