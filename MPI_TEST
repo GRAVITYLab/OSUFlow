@@ -1,0 +1,42 @@
+#!/bin/bash
+
+#------------------------------------------------------------------------------
+#
+# mpi run script
+#
+# Copyright (c) 2008 Han-Wei Shen and Tom Peterka
+#
+# Contact:
+#
+# Han-Wei Shen
+# The Ohio State University
+# Columbus, OH
+#
+# Tom Peterka
+# MCS Radix Lab
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#------------------------------------------------------------------------------
+cd ~/osuflow
+
+# number of procs
+num_procs=16
+
+# executable
+exe=./mpitest
+
+# dataset
+data=./15plume3d421.vec
+
+#data size
+datasize="126 126 512"
+
+mpiexec -n $num_procs $exe $data $datasize
+
+
