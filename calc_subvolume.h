@@ -30,4 +30,6 @@ typedef
  * and send a message to each processing node informing it what part of
  * the volume it will be dealing with.
  */ 
-volume_bounds_type* calc_subvolume(int vxdim, int vydim, int vzdim, int nproc);
+volume_bounds_type* calc_subvolume(int vxdim, int vydim, int vzdim, 
+				   int ghost, int nproc, int** lattice, 
+				   int& l_xdim, int& l_ydim, int& l_zdim);

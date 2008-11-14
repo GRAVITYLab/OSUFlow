@@ -40,7 +40,7 @@ bool toggle_animate_streamlines = false;
 float center[3], len[3]; 
 int first_frame = 1; 
 
-int nproc = 64; 
+int nproc = 32; 
 
 ////////////////////////////////////////////////////////
 
@@ -56,10 +56,10 @@ void compute_streamlines() {
     from[0] = minLen[0];   from[1] = minLen[1];   from[2] = minLen[2]; 
     to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
 
-    printf("---------------------  %d   -------------------------\n", i); 
+    //    printf("---------------------  %d   -------------------------\n", i); 
 
-    printf(" seeds range [%f %f %f]:[%f %f %f]\n", from[0], from[1], from[2], 
-	   to[0], to[1], to[2]); 
+    //    printf(" seeds range [%f %f %f]:[%f %f %f]\n", from[0], from[1], from[2], 
+    //	   to[0], to[1], to[2]); 
 
     osuflow_list[i]->SetRandomSeedPoints(from, to, 20); // set range for seed locations
 
@@ -314,7 +314,18 @@ int main(int argc, char** argv)
                                 minLen[0], maxLen[0], minLen[1], maxLen[1], 
                                 minLen[2], maxLen[2]); 
 
-  vb_list = calc_subvolume(maxLen[0]-minLen[0], maxLen[1]-minLen[1], maxLen[2]-minLen[2], nproc); 
+  int* lattice; 
+  int lattice_xdim, lattice_ydim, lattice_zdim; 
+  vb_list = calc_subvolume(maxLen[0]-minLen[0], maxLen[1]-minLen[1], maxLen[2]-minLen[2], 2, nproc, &lattice, lattice_xdim, lattice_ydim, lattice_zdim); 
+
+  printf(" lattice dims = %d %d %d\n", lattice_zdim, lattice_ydim, 
+	 lattice_xdim); 
+  for (int k=0; k<lattice_zdim; k++)
+    for (int j=0; j<lattice_ydim; j++)
+      for (int i=0; i<lattice_xdim; i++) {
+	int idx = k*lattice_xdim*lattice_ydim + j*lattice_xdim+i; 
+	printf(" lattice[%d][%d][%d] = %d\n", k, j, i, lattice[idx]); 
+      }
 
   osuflow_list = new OSUFlow*[nproc];  // create a list of subdomains 
   sl_list = new list<vtListSeedTrace*>[nproc]; //one streamlines list for each subdomain 

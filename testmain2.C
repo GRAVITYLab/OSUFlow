@@ -31,7 +31,11 @@ main(int argc, void *argv[]) {
                                 minLen[2], maxLen[2]); 
 
   // subdivide the entire domain into nproc subdomains
-  vb_list = calc_subvolume(maxLen[0]-minLen[0], maxLen[1]-minLen[1], maxLen[2]-minLen[2], nproc); 
+
+  int* lattice;
+  int lattice_xdim, lattice_ydim, lattice_zdim; 
+  vb_list = calc_subvolume(maxLen[0]-minLen[0], maxLen[1]-minLen[1], maxLen[2]-minLen[2], 2, nproc, &lattice, lattice_xdim, lattice_ydim, 
+			   lattice_zdim); 
 
   // create a list of flow field for the subdomains 
   OSUFlow **osuflow_list = new OSUFlow*[nproc];  

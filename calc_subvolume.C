@@ -22,6 +22,35 @@
 
 volume_bounds_type* vb_list; 
 
+int x_list[1000], y_list[1000], z_list[1000]; 
+int x_cnt =0, y_cnt=0, z_cnt =0; 
+
+// a stupid list sort. not the fastest algorithm. but get the job done.
+void sort_list(int* list, int& cnt) 
+{
+  int* tmp_list = new int[cnt]; 
+  for (int i=0; i<cnt; i++) tmp_list[i] = list[i]; 
+  for (int i=0; i<cnt; i++) {
+    int largest = -1; 
+    int idx = i; 
+    for (int j = i; j<cnt; j++) {
+      if (tmp_list[j]>largest) {idx = j; largest = tmp_list[j]; }
+    }
+    int tmp = tmp_list[i]; 
+    tmp_list[i] = tmp_list[idx]; 
+    tmp_list[idx] =tmp; 
+  }
+  list[0] = tmp_list[cnt-1]; 
+  int count = 1; 
+  for (int i=cnt-2; i>=0; i--) {
+    if (tmp_list[i]>list[count-1]) {
+      list[count] = tmp_list[i]; 
+      count++; 
+    }
+  }
+  cnt = count; 
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 int split_volume
@@ -42,6 +71,7 @@ int split_volume
       if (vb->xmin != vb->xmax-1)
 	{
 	  vb2->xmin = vb1->xmax = (vb->xmin+vb->xmax+(level%2)) / 2;
+	  x_list[x_cnt++] = vb2->xmin; 
 	  split = 'X';
 	  break;
 	}
@@ -50,6 +80,7 @@ int split_volume
       if (vb->ymin != vb->ymax-1)
 	{
 	  vb2->ymin = vb1->ymax = (vb->ymin+vb->ymax+(level%2)) / 2;
+	  y_list[y_cnt++] = vb2->ymin; 
 	  split = 'Y';
 	  break;
 	}
@@ -58,6 +89,7 @@ int split_volume
       if (vb->zmin != vb->zmax-1)
 	{
 	  vb2->zmin = vb1->zmax = (vb->zmin+vb->zmax+(level%2)) / 2;
+	  z_list[z_cnt++] = vb2->zmin; 
 	  split = 'Z';
 	  break;
 	}
@@ -146,7 +178,9 @@ static void calc_subvolume_h
 
 //////////////////////////////////////////////////
 volume_bounds_type*
-calc_subvolume(int vxdim,int vydim,int vzdim, int nproc)
+calc_subvolume(int vxdim,int vydim,int vzdim, int ghost, int nproc, 
+	       int** lattice, int &lattice_xdim,
+	       int& lattice_ydim, int& lattice_zdim)
 {
   volume_bounds_type vb;
   vb_list = new volume_bounds_type[nproc]; 
@@ -156,7 +190,54 @@ calc_subvolume(int vxdim,int vydim,int vzdim, int nproc)
   vb.xmax = vxdim-1;
   vb.ymax = vydim-1;
   vb.zmax = vzdim-1;
+  x_list[x_cnt++] =0; y_list[y_cnt++] = 0; z_list[z_cnt++] = 0; 
   calc_subvolume_h(vb, 0, nproc-1, 0);
+
+  for (int i=0; i<x_cnt; i++) printf("x[%d] = %d ", i, x_list[i]); 
+  printf("\n"); 
+  for (int i=0; i<y_cnt; i++) printf("y[%d] = %d ", i, y_list[i]); 
+  printf("\n"); 
+  for (int i=0; i<z_cnt; i++) printf("z[%d] = %d ", i, z_list[i]); 
+  printf("\n"); 
+
+  sort_list(x_list, x_cnt); 
+  sort_list(y_list, y_cnt); 
+  sort_list(z_list, z_cnt); 
+  for (int i=0; i<x_cnt; i++) printf("x[%d] = %d ", i, x_list[i]); 
+  printf("\n"); 
+  for (int i=0; i<y_cnt; i++) printf("y[%d] = %d ", i, y_list[i]); 
+  printf("\n"); 
+  for (int i=0; i<z_cnt; i++) printf("z[%d] = %d ", i, z_list[i]); 
+  printf("\n"); 
+
+  *lattice = new int[x_cnt*y_cnt*z_cnt]; 
+  int xidx, yidx, zidx; 
+  for (int i=0; i<nproc; i++) {
+
+    // create a lattice for the subdomains
+
+    for (int j=0; j<x_cnt; j++) 
+      if (vb_list[i].xmin == x_list[j]) xidx = j; 
+    for (int j=0; j<y_cnt; j++) 
+      if (vb_list[i].ymin == y_list[j]) yidx = j; 
+    for (int j=0; j<z_cnt; j++) 
+      if (vb_list[i].zmin == z_list[j]) zidx = j; 
+    printf("vblist %d [%d %d %d] at lattice [%d %d %d]\n", i, vb_list[i].xmin, 
+	   vb_list[i].ymin, vb_list[i].zmin, zidx, yidx, xidx); 
+
+    (*lattice)[zidx*x_cnt*y_cnt+yidx*x_cnt+xidx] = i; 
+    lattice_xdim = x_cnt; 
+    lattice_ydim = y_cnt; 
+    lattice_zdim = z_cnt; 
+
+    // add ghost dimensions
+    if (vb_list[i].xmin-ghost >=0) vb_list[i].xmin-=ghost; 
+    if (vb_list[i].xmax+ghost <vxdim) vb_list[i].xmax+=ghost; 
+    if (vb_list[i].ymin-ghost >=0) vb_list[i].ymin-=ghost; 
+    if (vb_list[i].ymax+ghost <vydim) vb_list[i].ymax+=ghost; 
+    if (vb_list[i].zmin-ghost >=0) vb_list[i].zmin-=ghost; 
+    if (vb_list[i].zmax+ghost <vzdim) vb_list[i].zmax+=ghost; 
+  }
   return (vb_list); 
 }
 
