@@ -5,10 +5,11 @@ RM = rm
 AR = ar cq
 
 TOP = ..
-C++ = g++
-CC  = gcc
-
-CCFLAGS = 
+#C++ = g++
+#CC  = gcc
+CC = /soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpicc
+C++ = /soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpicxx
+CCFLAGS = -g -c -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 
 INCLUDE = -I.
 
@@ -53,6 +54,9 @@ testmain: testmain.o lib$(LIBNAME).a
 
 testmain2: testmain2.o lib$(LIBNAME).a
 	$(C++) -o testmain2 testmain2.o -L. -l$(LIBNAME) -lm
+
+mpitest: MpiMain.o lib$(LIBNAME).a
+	$(C++) -o mpitest MpiMain.o -L. -l$(LIBNAME) -lm
 
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) -lm -lglut -lGL
