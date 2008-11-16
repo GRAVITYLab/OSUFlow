@@ -19,7 +19,7 @@
 #include <time.h>
 #include <iostream>
 #include <stdio.h>
-#include <malloc.h>
+//#include <malloc.h>
 #include <vector>
 #include <string>
 #include <list>

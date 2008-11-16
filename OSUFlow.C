@@ -311,9 +311,9 @@ void OSUFlow::SetIntegrationParams(float initStepSize, float maxStepSize)
 // randomSeed: seed for random number generator
 //////////////////////////////////////////////////////////////////////////
 bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces, 
-							 TRACE_DIR traceDir,
-							 int maxPoints,
-							 unsigned int randomSeed)
+			     TRACE_DIR traceDir,
+			     int maxPoints,
+			     unsigned int randomSeed)
 {
 	// first generate seeds
 
@@ -356,12 +356,13 @@ bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces,
 	return true;
 }
 
-// only generate one streamline from the given seed
-bool OSUFlow::GenStreamLines(VECTOR3* seed, 
-							 TRACE_DIR traceDir,
-							 const int seedNum,
-							 const int maxPoints, 
-							 list<vtListSeedTrace*>& listSeedTraces)
+/////////////////////////////////////////////////////////
+// Generate streamlines from the given seeds
+bool OSUFlow::GenStreamLines(VECTOR3* seeds, 
+			     TRACE_DIR traceDir,
+			     const int seedNum,
+			     const int maxPoints, 
+			     list<vtListSeedTrace*>& listSeedTraces)
 {
 	// execute streamline
 	vtCStreamLine* pStreamLine;
@@ -380,12 +381,11 @@ bool OSUFlow::GenStreamLines(VECTOR3* seed,
 	}
 	pStreamLine->SetLowerUpperAngle(3.0, 15.0);
 	pStreamLine->setMaxPoints(maxPoints);
-	pStreamLine->setSeedPoints(seed, seedNum, currentT);
+	pStreamLine->setSeedPoints(seeds, seedNum, currentT);
 	pStreamLine->SetInitStepSize(initialStepSize);
 	pStreamLine->SetMaxStepSize(maxStepSize);
 	pStreamLine->setIntegrationOrder(FOURTH);
 	pStreamLine->execute((void *)&currentT, listSeedTraces);
-
 	// release resource
 	delete pStreamLine;
 	return true;

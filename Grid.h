@@ -142,7 +142,7 @@ protected:
 	inline int zcelldim(void) {return (m_nDimension[2] - 1);}
 
 	int m_nDimension[3];				// dimension
-	VECTOR3 m_vMinBound, m_vMaxBound;	// min and maximal boundary - in physical space 
+	VECTOR3 m_vMinBound, m_vMaxBound;	// min and maximal boundary
 };
 
 //////////////////////////////////////////////////////////////////////////

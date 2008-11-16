@@ -14,6 +14,9 @@
  *                  All rights for commercial use reserved.
  */
 
+#ifndef _CALC_SUBVOLUME_H
+#define _CALC_SUBVOLUME_H 
+
 /* Data Types */
 typedef
   struct volume_bounds_tag	/* Bounds within a volume */
@@ -33,3 +36,5 @@ typedef
 volume_bounds_type* calc_subvolume(int vxdim, int vydim, int vzdim, 
 				   int ghost, int nproc, int** lattice, 
 				   int& l_xdim, int& l_ydim, int& l_zdim);
+
+#endif

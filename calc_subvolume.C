@@ -20,7 +20,7 @@
 
 #include "calc_subvolume.h"
 
-volume_bounds_type* vb_list; 
+static volume_bounds_type* vb_list; 
 
 int x_list[1000], y_list[1000], z_list[1000]; 
 int x_cnt =0, y_cnt=0, z_cnt =0; 
