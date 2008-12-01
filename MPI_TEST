@@ -26,10 +26,10 @@
 cd ~/osuflow
 
 # number of procs
-num_procs=16
+num_procs=2
 
 # executable
-exe=./mpitest
+exe=./mpitest1
 
 # dataset
 data=./15plume3d421.vec

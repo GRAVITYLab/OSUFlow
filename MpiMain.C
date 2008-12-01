@@ -32,12 +32,8 @@
 
 #include "calc_subvolume.h"
 
-// defines
-#define ERROR 0
-
 // function prototypes
 void Config(int argc, char *argv[]);
-void Error(const char *fmt, ...);
 
 // globals
 static char filename[256]; // datset file name
@@ -163,18 +159,3 @@ void Config(int argc, char *argv[]) {
 
 }
 //--------------------------------------------------------------------------------
-//
-// Error()
-// mpi error handler
-//
-void Error(const char *fmt, ...){
-
-  va_list argp;
-  va_start(argp, fmt);
-  vfprintf(stderr, fmt, argp);
-  va_end(argp);
-  sleep(5);
-  MPI_Abort(MPI_COMM_WORLD,ERROR);
-
-}
-//--------------------------------------------------------------------------
