@@ -34,7 +34,7 @@ main(int argc, void *argv[]) {
 
   int* lattice;
   int lattice_xdim, lattice_ydim, lattice_zdim; 
-  vb_list = calc_subvolume(maxLen[0]-minLen[0], maxLen[1]-minLen[1], maxLen[2]-minLen[2], 2, nproc, &lattice, lattice_xdim, lattice_ydim, 
+  vb_list = calc_subvolume(maxLen[0]-minLen[0], maxLen[1]-minLen[1], maxLen[2]-minLen[2], 2, nproc, lattice_xdim, lattice_ydim, 
 			   lattice_zdim); 
 
   // create a list of flow field for the subdomains 

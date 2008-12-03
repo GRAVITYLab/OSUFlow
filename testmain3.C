@@ -19,7 +19,8 @@
 
 main(int argc, void *argv[]) {
 
-  int nproc = 2;   // number of subdomains we will create 
+
+  int nproc = 32;   // number of subdomains we will create 
   OSUFlow **osuflow_list = new OSUFlow*[nproc];  
   VECTOR3 *osuflow_seeds[nproc]; 
   int osuflow_num_seeds[nproc]; 
@@ -43,8 +44,8 @@ main(int argc, void *argv[]) {
 
   int lattice_xdim, lattice_ydim, lattice_zdim; 
   // partition the domain and create a lattice 
-  Lattice* lat = new Lattice(maxLen[0]-minLen[0], maxLen[1]-minLen[1], 
-			     maxLen[2]-minLen[2], 1, nproc);  //1 is ghost layer
+  Lattice* lat = new Lattice(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
+			     maxLen[2]-minLen[2]+1, 1, nproc);  //1 is ghost layer
   vb_list = lat->GetBoundsList(); 
   // lat->GetLatticeDims(lattice_xdim, lattice_ydim, lattice_zdim); 
   lat->InitSeedLists(); 
@@ -81,9 +82,9 @@ main(int argc, void *argv[]) {
   // Now begin to perform particle tracing in all subdomains
   bool has_seeds = true;      // initially we always have seeds
 
-  for (int j = 0; j < MAX_ITERATIONS; j++) {
-
-    while(has_seeds == true) {  // loop until all particles stop 
+  int counter = 0; 
+  while(has_seeds == true && counter <MAX_ITERATIONS) {  // loop until all particles stop 
+    //     while(has_seeds == true) {  // loop until all particles stop 
       lat->ResetSeedLists();    // clear up the lattice seed lists
       for (int i=0; i<nproc; i++) {
 	if (osuflow_num_seeds[i]==0) {  // nproc is already done. 
@@ -94,8 +95,13 @@ main(int argc, void *argv[]) {
 	osuflow_list[i]->SetIntegrationParams(1, 5); 
 	osuflow_list[i]->GenStreamLines(osuflow_seeds[i], FORWARD_DIR, 
 					osuflow_num_seeds[i], 50, list); 
+
+	for (int s=0; s<osuflow_num_seeds[i]; s++) 
+	  fprintf(stderr, "Rank %d Seed %d:  %f %f %f \n", i, s, osuflow_seeds[i][s][0], 
+		  osuflow_seeds[i][s][1], osuflow_seeds[i][s][2]); 
 	printf("domain %d done integrations", i); 
-	printf(" %d streamlines. \n", list.size()); 
+	//	printf(" %d streamlines. \n", list.size()); 
+	printf(" %d streamlines. \n", osuflow_num_seeds[i]); 
 
 	std::list<vtListSeedTrace*>::iterator pIter; 
 	//------------------------------------------------
@@ -130,15 +136,11 @@ main(int argc, void *argv[]) {
 	  else if (neighbor ==3) {ei=si; ej = sj+1; ek = sk;}
 	  else if (neighbor ==4) {ei=si; ej = sj; ek = sk-1;}
 	  else if (neighbor ==5) {ei=si; ej = sj; ek = sk+1;}
-// 	  if (neighbor!=-1) lat->InsertSeed(ei, ej, ek, p); 
+ 	  if (neighbor!=-1) lat->InsertSeed(ei, ej, ek, p); 
 // 	  printf(" insert a seed to rank %d \n", lat->GetRank(ei,ej, ek)); 
-
-	  // debug: print current seeds
-// 	  if (j == MAX_ITERATIONS - 1)
-	    fprintf(stderr,"rank %d inserting point: %.3f\t%.3f\t%.3f\n",i,p[0],p[1],p[2]);
+//	  fprintf(stderr,"rank %d inserting point: %.3f\t%.3f\t%.3f\n",i,p[0],p[1],p[2]);
 
 	}
-
       }
 
       //-------------
@@ -160,8 +162,9 @@ main(int argc, void *argv[]) {
 	  osuflow_seeds[i][cnt++] = p; 
 	}
       }
+      counter++; 
+      printf(" *** Iteration %d done. \n", counter); 
     }
 
-  } // for i = 0...
 
 }

@@ -103,6 +103,10 @@ main(int argc, char *argv[]) {
   minB.Set(vb_list[rank].xmin, vb_list[rank].ymin, vb_list[rank].zmin);
   maxB.Set(vb_list[rank].xmax, vb_list[rank].ymax, vb_list[rank].zmax);
 
+  printf("Domain(%d):  %d %d %d : %d %d %d\n", rank, vb_list[rank].xmin,  
+	   vb_list[rank].ymin,  vb_list[rank].zmin, vb_list[rank].xmax,  
+	   vb_list[rank].ymax,  vb_list[rank].zmax); 
+
   // read data
   osuflow->ReadData(filename, true, minB, maxB, size); 
   if (rank == 0)
@@ -118,6 +122,7 @@ main(int argc, char *argv[]) {
   // trace particles until they remain constant for some period of time
 
   for (i = 0; i < MAX_ITERATIONS; i++) {
+
 
     if (NumSeeds) {
 

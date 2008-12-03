@@ -72,7 +72,7 @@ main(int argc, char *argv[]) {
   int* lattice;
   int lattice_xdim, lattice_ydim, lattice_zdim; 
   vb_list = calc_subvolume(maxLen[0] - minLen[0], maxLen[1] - minLen[1], 
-     maxLen[2] - minLen[2], 2, nproc, &lattice, lattice_xdim, lattice_ydim, 
+     maxLen[2] - minLen[2], 2, nproc, lattice_xdim, lattice_ydim, 
      lattice_zdim); 
 
 //     printf("PE %d:  %d %d %d : %d %d %d\n", i, vb_list[i].xmin,  vb_list[i].ymin,  vb_list[i].zmin, 

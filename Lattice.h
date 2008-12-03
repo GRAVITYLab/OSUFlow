@@ -27,16 +27,20 @@ class  Lattice {
   bool isIn(float, float, float, int, int, int); 
   int CheckNeighbor(int myrank, float x, float y, float z); 
   int GetNeighbor(int myrank, float x, float y, float z, int &i, int &j, int &k);
+  int GetProc(int, int, int); 
+  int GetProc(int); 
   void InitSeedLists(); 
   void ResetSeedLists(); 
   void InsertSeed(int, int, int, VECTOR3); 
+  void RoundRobin_proc(int n); 
+  void GetPartitions(int, int**, int&); 
   list<VECTOR3> *seedlists; 
  private: 
   int idim, jdim, kdim; //the lattice range
   int xdim, ydim, zdim; //the data range
-  int* lattice; 
   int npart; 
   volume_bounds_type *vb_list; 
+  int *proc_list; //proc_list[i] stores the rank of prock for the i-th  vb
 }; 
 
 #endif 

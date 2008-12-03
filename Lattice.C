@@ -8,10 +8,56 @@ Lattice::Lattice(int xlen, int ylen, int zlen, int ghost, int np) {
   zdim = zlen; 
   vb_list = calc_subvolume(xlen, ylen, zlen, 
 			   ghost, np, 
-			   &lattice, 
 			   idim, jdim, kdim); 
   npart = np; 
+  proc_list = new int[np]; 
+  for (int i=0; i<np; i++) 
+    proc_list[i] = i; // this is a default assignment. the processor which is responsible for 
+                      // the i-th vb is just i 
+                      // remember proc_list[i] stores the rank of proc that is responsible for i-th vb 
 }
+
+// assign the partitions to the processors in a round-robin manner 
+void Lattice::RoundRobin_proc(int nproc) {
+
+  for (int i=0; i<npart; i++) 
+    proc_list[i] = i % nproc; 
+
+
+
+}
+
+// look up the lattice[i,j,k] element to get the processor for the subdomain number (rank)
+int Lattice::GetProc(int i, int j, int k) {
+
+  if (i<0 || i >=idim) return(-1); 
+  else if (j<0 || j >=jdim) return(-1); 
+  else if (k<0 || k >=kdim) return(-1); 
+
+  int idx = k*idim*jdim+j*idim+i; 
+  return (proc_list[idx]); 
+}
+
+int Lattice::GetProc(int rank) {
+
+  return(proc_list[rank]); 
+}
+
+// query the paritions that are assigned to processor 'proc' 
+void Lattice::GetPartitions(int proc, int**p_list, int& num) {
+
+  int cnt = 0; 
+  for (int i=0; i<npart; i++) 
+    if (proc_list[i] == proc) cnt ++; 
+  num = cnt; 
+  (*p_list) = new int[cnt]; 
+  cnt = 0; 
+  for (int i=0; i<npart; i++) 
+    if (proc_list[i] == proc)  {
+      (*p_list)[cnt++] = i; 
+    }
+}
+
 
 // look up the lattice[i,j,k] element to get the subdomain number (rank)
 int Lattice::GetRank(int i, int j, int k) {
@@ -21,7 +67,7 @@ int Lattice::GetRank(int i, int j, int k) {
   else if (k<0 || k >=kdim) return(-1); 
 
   int idx = k*idim*jdim+j*idim+i; 
-  return (lattice[idx]); 
+  return (idx); 
 }
 
 // gets ranks of 6 neighbors
@@ -65,13 +111,11 @@ int Lattice::GetRank(float x, float y, float z) {
 int Lattice::GetIndices(int rank, int &iidx, int &jidx, int &kidx) {
   
   if (rank <0 || rank >= npart) return(-1); 
-  for (int i=0; i<npart; i++) {
-    if (lattice[i] ==rank) {
-      kidx = i/(idim*jdim) ; 
-      jidx = (i % (idim*jdim))/idim; 
-      iidx = i % idim; 
-    } 
-  }
+
+  kidx = rank/(idim*jdim) ; 
+  jidx = (rank % (idim*jdim))/idim; 
+  iidx = rank % idim; 
+
   return(1); 
 }
 // find the indices of the lattice element that contanis (x,y,z) 
@@ -94,7 +138,7 @@ int Lattice::GetBounds(int i, int j, int k, volume_bounds_type& vb)  {
   else if (k<0 || k >=kdim) return(-1); 
   
   int idx = k*idim*jdim+j*idim+i; 
-  vb = vb_list[lattice[idx]]; 
+  vb = vb_list[idx]; 
   return(1); 
 }
 
@@ -111,8 +155,8 @@ int Lattice::GetBounds(int rank, volume_bounds_type &vb) {
 bool Lattice::isIn(float x, float y, float z, int i, int j, int k) 
 {
   if (i<0 || i>idim-1 || j<0 || j>jdim-1 || k<0 || k>kdim-1) return(false); 
-  int idx = k *idim*jdim + j*idim + k; 
-  volume_bounds_type vb = vb_list[lattice[idx]]; 
+  int idx = k *idim*jdim + j*idim + i; 
+  volume_bounds_type vb = vb_list[idx]; 
   if (vb.xmin>x || vb.xmax<x) return (false); 
   else if (vb.ymin>y || vb.ymax<y) return (false); 
   else if (vb.zmin>z || vb.zmax<z) return (false); 

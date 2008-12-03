@@ -23,7 +23,8 @@
 # without permission
 #
 #------------------------------------------------------------------------------
-cd ~/osuflow
+
+#cd ~/osuflow
 
 # number of procs
 num_procs=2
@@ -32,11 +33,12 @@ num_procs=2
 exe=./mpitest1
 
 # dataset
-data=./15plume3d421.vec
+#data=./15plume3d421.vec
+data=./plume.vec
 
 #data size
 datasize="126 126 512"
 
-mpiexec -n $num_procs $exe $data $datasize
+ /soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpiexec -n $num_procs $exe $data $datasize
 
 
