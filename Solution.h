@@ -48,6 +48,7 @@ public:
 	bool isTimeVarying(void);
 	int GetValue(int id, const float t, VECTOR3& nodeData);
 	void Normalize(bool bLocal);
+	void Scale(float scaleF); 
 };
 
 #endif

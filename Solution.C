@@ -201,6 +201,28 @@ void Solution::Normalize(bool bLocal)
 	}
 }
 
+
+
+
+void Solution::Scale(float scaleF)
+{
+	int iFor, jFor;
+	float u, v, w;
+
+	for(iFor = 0; iFor < m_nTimeSteps; iFor++)
+	  {
+	    for(jFor = 0; jFor < m_nNodeNum; jFor++)
+	      {
+		u = m_pDataArray[iFor][jFor][0]*scaleF; 
+		v = m_pDataArray[iFor][jFor][1]*scaleF; 
+		w = m_pDataArray[iFor][jFor][2]*scaleF; 
+		m_pDataArray[iFor][jFor].Set(u, v, w);
+	      }
+	  }
+}
+
+
+
 // compute the min and max value with minimal and maximal magnitude
 void Solution::ComputeMinMaxValue(void)
 {

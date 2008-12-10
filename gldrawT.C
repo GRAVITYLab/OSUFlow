@@ -40,7 +40,7 @@ int first_frame = 1;
 
 ////////////////////////////////////////////////////////
 
-void compute_streamlines() {
+void compute_pathlines() {
 
   float from[3], to[3]; 
 
@@ -48,7 +48,7 @@ void compute_streamlines() {
   to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
 
   printf("generating seeds...\n"); 
-  osuflow->SetRandomSeedPoints(from, to, 300); 
+  osuflow->SetRandomSeedPoints(from, to, 1000); 
   int nSeeds; 
   VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
   for (int i=0; i<nSeeds; i++) 
@@ -59,19 +59,19 @@ void compute_streamlines() {
 
   printf("compute streamlines..\n"); 
   osuflow->SetIntegrationParams(1, 5); 
-  osuflow->GenStreamLines(sl_list , FORWARD_DIR, 500, 0); 
+  osuflow->GenPathLines(sl_list , FORWARD, 5000, 0); 
   printf(" done integrations\n"); 
   printf("list size = %d\n", sl_list.size()); 
 }
 
-void draw_streamlines() {
+void draw_pathlines() {
   
   glPushMatrix(); 
 
   glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
   glTranslatef(-len[0]/2.0, -len[1]/2.0, -len[2]/2.0); 
 
-  printf("draw streamlines.\n"); 
+  printf("draw pathlines.\n"); 
   glColor3f(1,1,0); 
   std::list<vtListSeedTrace*>::iterator pIter; 
 
@@ -91,7 +91,7 @@ void draw_streamlines() {
   glPopMatrix(); 
 }
 
-void animate_streamlines() {
+void animate_pathlines() {
 
   std::list<vtListSeedTrace*>::iterator pIter; 
   vtListSeedTrace *trace; 
@@ -107,7 +107,7 @@ void animate_streamlines() {
 
   pIter = sl_list.begin(); 
   int num_lines = sl_list.size(); 
-  printf(" animate %d streamlines\n", num_lines); 
+  printf(" animate %d pathlines\n", num_lines); 
   if (first_frame==1) {
     pnIter = new std::list<VECTOR3*>::iterator[num_lines]; 
   }
@@ -182,9 +182,9 @@ void display()
   glScalef(scale_size, scale_size, scale_size); 
 
   if (toggle_draw_streamlines == true)
-    draw_streamlines(); 
+    draw_pathlines(); 
   else if (toggle_animate_streamlines == true)
-    animate_streamlines(); 
+    animate_pathlines(); 
 
   printf(" len %f %f %f\n", len[0], len[1], len[2]); 
   glPushMatrix(); 
@@ -207,7 +207,6 @@ void display()
 }
 
 void timer(int val) {
-  printf("call idle....\n"); 
   if (toggle_animate_streamlines == true) {
     //    animate_streamlines(); 
     glutPostRedisplay(); 
@@ -262,7 +261,7 @@ void mykey(unsigned char key, int x, int y)
         switch(key) {
 	case 'q': exit(1);
 	  break; 
-	case 's': compute_streamlines(); 
+	case 's': compute_pathlines(); 
 	  glutPostRedisplay(); 
 	  break; 
 	case 'd': 
@@ -285,11 +284,11 @@ int main(int argc, char** argv)
 
   osuflow = new OSUFlow(); 
   printf("read file %s\n", argv[1]); 
-  //  minB[0] = 0; minB[1] = 0; minB[2] = 0; 
-  //  maxB[0] = 100; maxB[1] = 100; maxB[2] = 300;  
-  //  osuflow->LoadData((const char*)argv[1], true, minB, maxB); //true: a steady flow field 
+  minB[0] = 0; minB[1] = 0; minB[2] = 0; 
+  maxB[0] = 100; maxB[1] = 100; maxB[2] = 300;  
+  osuflow->LoadData((const char*)argv[1], false); //false : a time-varying flow field 
 
-  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
+  //  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
   osuflow->Boundary(minLen, maxLen); // get the boundary 
   minB[0] = minLen[0]; minB[1] = minLen[1];  minB[2] = minLen[2];
   maxB[0] = maxLen[0]; maxB[1] = maxLen[1];  maxB[2] = maxLen[2];
@@ -298,6 +297,9 @@ int main(int argc, char** argv)
   printf(" volume boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n", 
                                 minLen[0], maxLen[0], minLen[1], maxLen[1], 
                                 minLen[2], maxLen[2]); 
+
+  //  osuflow->NormalizeField(true); 
+  osuflow->ScaleField(3.0); 
 
   center[0] = (minLen[0]+maxLen[0])/2.0; 
   center[1] = (minLen[1]+maxLen[1])/2.0; 

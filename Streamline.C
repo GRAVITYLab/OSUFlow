@@ -106,14 +106,14 @@ int vtCStreamLine::getBackwardTracing(void)
 //					advects
 //////////////////////////////////////////////////////////////////////////
 void vtCStreamLine::execute(const void* userData, 
-							list<vtListSeedTrace*>& listSeedTraces)
+			    list<vtListSeedTrace*>& listSeedTraces)
 {
 	m_fCurrentTime = *(float *)userData;
 	computeStreamLine(userData, listSeedTraces);
 }
 
 void vtCStreamLine::computeStreamLine(const void* userData,
-									  list<vtListSeedTrace*>& listSeedTraces)
+				      list<vtListSeedTrace*>& listSeedTraces)
 {
 	vtListParticleIter sIter;
 

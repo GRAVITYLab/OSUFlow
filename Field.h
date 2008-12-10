@@ -47,6 +47,9 @@ public:
 	int at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
 	float volume_of_cell(int cellId);
 	void NormalizeField(bool bLocal);
+	void ScaleField(float scale); 
+
+
 	bool IsNormalized(void);
 	void getDimension(int& xdim, int& ydim, int& zdim);
 	CellType GetCellType(void) { return m_pGrid->GetCellType(); }

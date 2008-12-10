@@ -213,6 +213,7 @@ typedef struct vtStreakParticle
 typedef vector<vtStreakParticle*> vtListStreakParticle;	    // one pathline trace from a particle
 typedef vector<vtListStreakParticle*> vtStreakTraces;	    // all pathline traces from all particles released
 typedef vector<vtStreakParticle*>::iterator vtStreakParticleIter;
+typedef vector<vtListStreakParticle*>::iterator vtStreakTracesIter; 
 
 class vtCStreakLine : public vtCTimeVaryingFieldLine
 {

@@ -34,21 +34,27 @@ vtCStreakLine::~vtCStreakLine(void)
 //					step
 //////////////////////////////////////////////////////////////////////////
 void vtCStreakLine::execute(const void* userData,
-							vtStreakTraces& listSeedTraces)
+			    vtStreakTraces& listSeedTraces)
 {
 	listSeedTraces.clear();
 
 	// we advect streaklines step by step
 	float currentT = *(float*)userData;
+	computeStreakLine((void *)&currentT, listSeedTraces);
+	/*
 	while(currentT < (m_pField->GetTimeSteps()-1))
 	{
 		computeStreakLine((void *)&currentT, listSeedTraces);
+		printf(" back time = %f \n", currentT); 
 		currentT += m_timeDir * m_itsTimeInc;
+		printf(" back time 2 = %f \n", currentT); 
+		printf(" num time steps = %d\n", m_pField->GetTimeSteps()); 
 	}
+	*/
 }
 
 void vtCStreakLine::computeStreakLine(const void* userData,
-									  vtStreakTraces& listSeedTraces)
+				      vtStreakTraces& listSeedTraces)
 {
 	float currentT = *(float*)userData;
 	float finalT = currentT + m_timeDir * m_itsTimeInc;
@@ -80,6 +86,7 @@ void vtCStreakLine::computeStreakLine(const void* userData,
 	deadList.clear();
 	advectOldParticles(m_itsParticles.begin(), m_itsParticles.end(), listSeedTraces, currentT, finalT, deadList);
 
+	printf(" break here...\n"); 
 	// advect the new generated particles from this time step
 	vtListParticleIter pIter = m_lSeeds.begin();
 	for(; pIter != m_lSeeds.end(); pIter++)
@@ -117,7 +124,7 @@ void vtCStreakLine::computeStreakLine(const void* userData,
 			}
 		}
 	}
-
+	printf(" break there...\n"); 
 	// process those dead particles
 	vector<vtListParticleIter>::iterator deadIter = deadList.begin();
 	for(; deadIter != deadList.end(); deadIter++)
@@ -127,6 +134,7 @@ void vtCStreakLine::computeStreakLine(const void* userData,
 		delete pi;
 		m_itsParticles.erase(v);
 	}
+	printf(" break dead particles...\n"); 
 }
 
 //////////////////////////////////////////////////////////////////////////

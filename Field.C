@@ -308,6 +308,11 @@ void CVectorField::NormalizeField(bool bLocal)
 	}
 }
 
+void CVectorField::ScaleField(float scale) 
+{
+  m_pSolution->Scale(scale); 
+} 
+
 //////////////////////////////////////////////////////////////////////////
 // to get physical coordinate by interpolation
 // input

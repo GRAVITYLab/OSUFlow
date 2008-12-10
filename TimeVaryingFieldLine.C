@@ -66,10 +66,10 @@ void vtCTimeVaryingFieldLine::releaseParticleMemory(void)
 // advect the particle from initialTime to finalTime
 //////////////////////////////////////////////////////////////////////////
 int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order, 
-											vtParticleInfo& initialPoint,
-											float initialTime,
-											vtParticleInfo& finalPoint,
-											float finalTime)
+					    vtParticleInfo& initialPoint,
+					    float initialTime,
+					    vtParticleInfo& finalPoint,
+					    float finalTime)
 {
 	int istat;
 	float curTime, dt;
@@ -104,10 +104,10 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 // return back the track of advection
 //////////////////////////////////////////////////////////////////////////
 int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order, 
-											vtParticleInfo& initialPoint,
-											float initialTime,
-											float finalTime,
-											vtListSeedTrace& seedTrace)
+					    vtParticleInfo& initialPoint,
+					    float initialTime,
+					    float finalTime,
+					    vtListSeedTrace& seedTrace)
 {  
 	int count = 0, istat, res;
 	PointInfo seedInfo;
