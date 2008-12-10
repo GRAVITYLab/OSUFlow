@@ -16,10 +16,13 @@
 #include "Rake.h"
 #include "FieldLine.h"
 
+#ifdef MPI
+#include <mpi.h>
+#endif
+
 //
 // a few utilities that are not part of the OSUFlow class
 //
-#define ERROR 0
 void Error(const char *fmt, ...);
 void swap4(char *n);
 
@@ -35,14 +38,11 @@ public:
 	void LoadData(const char* fname, bool bStatic);
 	void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
 		      VECTOR3 pMax);
-        void ReadData(const char* fname, bool bStatic, 
-		      VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim);
 	void Boundary(VECTOR3& minB, VECTOR3& maxB) { flowField->Boundary(minB, maxB); };
 	void SetBoundary(VECTOR3 minB, VECTOR3 maxB) {flowField->SetBoundary(minB, maxB);}; 
 	void InitStaticFlowField(void);
 	void InitStaticFlowField(VECTOR3 minb, VECTOR3 maxB); 
 	void InitStaticFlowField(float*, VECTOR3 minb, VECTOR3 maxB); 
-        void ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim);
 	void InitTimeVaryingFlowField(void);
 	CVectorField* GetFlowField(void) { return flowField; }
 	bool GenStreamLines(list<vtListSeedTrace*>&, TRACE_DIR, int, unsigned int);
@@ -68,6 +68,19 @@ private:
 	VECTOR3 gMin, gMax; // global min/max range 
 	VECTOR3 lMin, lMax; // local min/max range
 	bool bStaticFlow;					// static flow
+
+
+	// MPI functions
+
+#ifdef MPI
+
+ public:
+        void ReadData(const char* fname, bool bStatic, 
+		      VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim);
+        void ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim);
+
+#endif
+
 };
 
 #endif

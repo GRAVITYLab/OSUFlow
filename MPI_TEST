@@ -30,15 +30,18 @@
 num_procs=2
 
 # executable
-exe=./mpitest1
+#exe=./mpitest
+exe=./drawtest
 
 # dataset
-#data=./15plume3d421.vec
 data=./plume.vec
 
-#data size
-datasize="126 126 512"
+# data size
+dsize="126 126 512"
 
- /soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpiexec -n $num_procs $exe $data $datasize
+# blocking factor
+bf=2
+
+/soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpiexec -n $num_procs $exe $data $dsize $bf
 
 

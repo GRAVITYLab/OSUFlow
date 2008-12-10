@@ -9,7 +9,7 @@ TOP = ..
 #CC  = gcc
 CC = /soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpicc
 C++ = /soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpicxx
-CCFLAGS = -g -c -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS = -g -c -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 
 INCLUDE = -I.
 
@@ -40,7 +40,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 
 default: all
 
-all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 mpitest mpitest1 gldraw4
+all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 mpitest drawtest gldraw4
 
 #all: lib$(LIBNAME).a 
 
@@ -65,8 +65,8 @@ testmain4: testmain4.o lib$(LIBNAME).a
 mpitest: MpiMain.o lib$(LIBNAME).a
 	$(C++) -o mpitest MpiMain.o -L. -l$(LIBNAME) -lm
 
-mpitest1: MpiMain1.o lib$(LIBNAME).a
-	$(C++) -o mpitest1 MpiMain1.o -L. -l$(LIBNAME) -lm
+drawtest: MpiDraw.o lib$(LIBNAME).a
+	$(C++) -o drawtest MpiDraw.o -L. -l$(LIBNAME) -lm -lglut -lGL
 
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) -lm -lglut -lGL

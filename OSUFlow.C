@@ -1,5 +1,4 @@
 #include "OSUFlow.h"
-#include <mpi.h>
 
 #pragma warning(disable : 4251 4100 4244 4101)
 
@@ -55,33 +54,6 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
 	else
 	  InitTimeVaryingFlowField(); // to be implemented 
 }
-//--------------------------------------------------------------------------
-//
-// ReadData()
-//
-// collectively reads the dataset
-//
-// sMin, sMax are local subdomain min and max
-// dim is the total size of the domain
-// pad is the number of ghost cells (per side)
-//
-// Tom Peterka, 11/24/08
-//
-void OSUFlow::ReadData(const char* fname, bool bStatic, 
-		       VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
-
-  flowName = new char[255];
-  strcpy(flowName, fname);
-
-  bStaticFlow = bStatic;
-
-  if(bStaticFlow)
-    ReadStaticFlowField(sMin, sMax, dim);
-//   else
-//     InitTimeVaryingFlowField(); // to be implemented 
-}
-//---------------------------------------------------------------------------
-//
 /////////////////////////////////////////////////////////////////
 //
 //Read the whole datafile and create a vectorfield object based on that 
@@ -160,89 +132,6 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax)
 	fclose(fIn);
         InitStaticFlowField(pData, sMin, sMax); 
 }
-
-//--------------------------------------------------------------------------
-//
-// ReadStaticFlowField
-//
-// Read data collectively and create a vectorfield object based on my subdomain
-// used MPI-IO collectives to perform the I/O
-// reads a single subdomain
-//
-// sMin, sMax: corners of subdomain
-// dim: size of total domain
-//
-// Tom Peterka, 11/24/08
-//
-void OSUFlow::ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
-
-  float* pData = NULL; // the data
-  MPI_File fd;
-  MPI_Datatype filetype;
-  int size[3]; // sizes of entire dataset
-  int subsize[3]; // sizes of my subdomain
-  int start[3]; // starting indices of my subdomain
-  MPI_Status status;
-  int err; // error status
-  int rank;
-  int i;
-
-  // init	
-  gMin.Set(0.0,0.0,0.0); 
-  gMax.Set((float)(dim[0] - 1), (float)(dim[1] - 1), (float)(dim[2] - 1));
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-  // open the file
-  if (MPI_File_open(MPI_COMM_WORLD,flowName,MPI_MODE_RDONLY,MPI_INFO_NULL,&fd) != MPI_SUCCESS)
-    Error("Error: ReadRawData() cannot open %s\n",flowName);
-
-  // set subarray params
-  // reversed orders are intentional: starts and subsizes are [z][y][x]
-  // sMin and sMax are [x][y][z]
-  for (i = 0; i < 3; i++) {
-    size[2 - i] = dim[i];
-    start[2 - i] = sMin[i];
-    subsize[2 - i] = sMax[i] - sMin[i] + 1;
-  }
-
-  // allocate data space
-  pData = new float[3 * subsize[0] * subsize[1] * subsize[2]];
-  if (!pData)
-    Error("Error: ReadStaticFlowField() unable to allocate data space\n");
-
-  // debug
-//   fprintf(stderr,"rank = %d dim = %.0f %.0f %.0f sMin = %.0f %.0f %.0f sMax = %.0f %.0f %.0f size = %d %d %d start = %d %d %d subsize = %d %d %d\n",rank,dim[0],dim[1],dim[2],sMin[0],sMin[1],sMin[2],sMax[0],sMax[1],sMax[2],size[2],size[1],size[0],start[2],start[1],start[0],subsize[2],subsize[1],subsize[0]);
-
-  // do the actual collective io
-  MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
-			   MPI_FLOAT, &filetype);
-  MPI_Type_commit(&filetype);
-  MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
-		    MPI_INFO_NULL);
-  err = MPI_File_read_all(fd, pData,
-			  subsize[0] * subsize[1] * subsize[2], MPI_FLOAT, &status);
-  if (err != MPI_SUCCESS)
-    Error("Error: ReadStaticFlowField() rank %d error reading file\n", rank);
-
-  // check the count
-  if (status.count != sizeof(float) * subsize[0] * subsize[1] * subsize[2])
-    Error("Error: ReadStaticFlowField() error rank %d read %d bytes instead of %d bytes from file\n",
-	  rank, status.count, sizeof(float) * subsize[0] * subsize[1] * subsize[2]);
-
-  //swap bytes
-#ifdef BYTE_SWAP
-  for (i = 0; i < subsize[0] * subsize[1] * subsize[2]; i++)
-    swap4((char *)&(pData[i]));
-#endif
-
-  MPI_File_close(&fd);
-
-  // create the field
-  InitStaticFlowField(pData, sMin, sMax); 
-
-}
-//---------------------------------------------------------------------------
-
 
 ///////////////////////////////////////////////
 //
@@ -499,6 +388,7 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 	delete pStreamLine;
 	return true;
 }
+
 //------------------------------------------------------------------------
 //
 // Error()
@@ -511,10 +401,131 @@ void Error(const char *fmt, ...){
   vfprintf(stderr, fmt, argp);
   va_end(argp);
   sleep(5);
-  MPI_Abort(MPI_COMM_WORLD,ERROR);
+#ifdef MPI
+  MPI_Abort(MPI_COMM_WORLD, 0);
+#else
+  exit(0);
+#endif
 
 }
 //-----------------------------------------------------------------------
+
+// MPI functions
+
+#ifdef MPI
+
+//-----------------------------------------------------------------------
+//
+// ReadData()
+//
+// collectively reads the dataset
+//
+// sMin, sMax are local subdomain min and max
+// dim is the total size of the domain
+// pad is the number of ghost cells (per side)
+//
+// Tom Peterka, 11/24/08
+//
+void OSUFlow::ReadData(const char* fname, bool bStatic, 
+		       VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
+
+  flowName = new char[255];
+  strcpy(flowName, fname);
+
+  bStaticFlow = bStatic;
+
+  if(bStaticFlow)
+    ReadStaticFlowField(sMin, sMax, dim);
+//   else
+//     InitTimeVaryingFlowField(); // to be implemented 
+}
+//---------------------------------------------------------------------------
+//
+// ReadStaticFlowField
+//
+// Read data collectively and create a vectorfield object based on my subdomain
+// used MPI-IO collectives to perform the I/O
+// reads a single subdomain
+//
+// sMin, sMax: corners of subdomain
+// dim: size of total domain
+//
+// Tom Peterka, 11/24/08
+//
+void OSUFlow::ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
+
+  float* pData = NULL; // the data
+  MPI_File fd;
+  MPI_Datatype filetype;
+  int size[3]; // sizes of entire dataset
+  int subsize[3]; // sizes of my subdomain
+  int start[3]; // starting indices of my subdomain
+  MPI_Status status;
+  int err; // error status
+  int rank;
+  int i;
+
+  // init	
+  gMin.Set(0.0,0.0,0.0); 
+  gMax.Set((float)(dim[0] - 1), (float)(dim[1] - 1), (float)(dim[2] - 1));
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  // open the file
+  if (MPI_File_open(MPI_COMM_WORLD,flowName,MPI_MODE_RDONLY,MPI_INFO_NULL,&fd) != MPI_SUCCESS)
+    Error("Error: ReadRawData() cannot open %s\n",flowName);
+
+  // set subarray params
+  // reversed orders are intentional: starts and subsizes are [z][y][x]
+  // sMin and sMax are [x][y][z]
+  for (i = 0; i < 3; i++) {
+    size[2 - i] = dim[i];
+    start[2 - i] = sMin[i];
+    subsize[2 - i] = sMax[i] - sMin[i] + 1;
+  }
+
+  // allocate data space
+  pData = new float[3 * subsize[0] * subsize[1] * subsize[2]];
+  if (!pData)
+    Error("Error: ReadStaticFlowField() unable to allocate data space\n");
+
+  // debug
+//   fprintf(stderr,"rank = %d dim = %.0f %.0f %.0f sMin = %.0f %.0f %.0f sMax = %.0f %.0f %.0f size = %d %d %d start = %d %d %d subsize = %d %d %d\n",rank,dim[0],dim[1],dim[2],sMin[0],sMin[1],sMin[2],sMax[0],sMax[1],sMax[2],size[2],size[1],size[0],start[2],start[1],start[0],subsize[2],subsize[1],subsize[0]);
+
+  // do the actual collective io
+  MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
+			   MPI_FLOAT, &filetype);
+  MPI_Type_commit(&filetype);
+  MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
+		    MPI_INFO_NULL);
+  err = MPI_File_read_all(fd, pData,
+			  subsize[0] * subsize[1] * subsize[2], MPI_FLOAT, &status);
+  if (err != MPI_SUCCESS)
+    Error("Error: ReadStaticFlowField() rank %d error reading file\n", rank);
+
+  // check the count
+  if (status.count != sizeof(float) * subsize[0] * subsize[1] * subsize[2])
+    Error("Error: ReadStaticFlowField() error rank %d read %d bytes instead of %d bytes from file\n",
+	  rank, status.count, sizeof(float) * subsize[0] * subsize[1] * subsize[2]);
+
+  //swap bytes
+#ifdef BYTE_SWAP
+  for (i = 0; i < subsize[0] * subsize[1] * subsize[2]; i++)
+    swap4((char *)&(pData[i]));
+#endif
+
+  MPI_File_close(&fd);
+
+  // create the field
+  InitStaticFlowField(pData, sMin, sMax); 
+
+}
+//---------------------------------------------------------------------------
+
+#endif
+
+// utility functions
+
+//---------------------------------------------------------------------------
 //
 // swap4(n)
 //
