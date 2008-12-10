@@ -1,4 +1,7 @@
+
+
 #include "OSUFlow.h"
+#include <mpi.h>
 
 #pragma warning(disable : 4251 4100 4244 4101)
 
@@ -10,6 +13,7 @@ OSUFlow::OSUFlow()
 	bStaticFlow = true;
 	seedPtr = NULL; 
 	nSeeds = 0; 
+	pStreakLine = NULL; 
 }
 
 OSUFlow::~OSUFlow()
@@ -54,6 +58,9 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
 	else
 	  InitTimeVaryingFlowField(); // to be implemented 
 }
+
+//---------------------------------------------------------------------------
+//
 /////////////////////////////////////////////////////////////////
 //
 //Read the whole datafile and create a vectorfield object based on that 
@@ -133,6 +140,7 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax)
         InitStaticFlowField(pData, sMin, sMax); 
 }
 
+
 ///////////////////////////////////////////////
 //
 //   Create a static flow field 
@@ -198,7 +206,12 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 		VECTOR3* pVector;
 
 		fscanf(fIn, "%s", filename);
+		printf(" to read %s ...\n", filename); 
 		fVecIn = fopen(filename, "rb");
+		if (fVecIn==NULL) {
+		  printf(" problem opening %s. skip\n", filename); 
+		  continue; 
+		}
 		fread(dimension, sizeof(int), 3, fVecIn);
 		fread(&tStep, sizeof(int), 1, fVecIn);
 		totalNum = dimension[0] * dimension[1] * dimension[2];
@@ -354,6 +367,9 @@ bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces,
 	return true;
 }
 
+
+
+
 /////////////////////////////////////////////////////////
 // Generate streamlines from the given seeds
 bool OSUFlow::GenStreamLines(VECTOR3* seeds, 
@@ -388,6 +404,81 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 	delete pStreamLine;
 	return true;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+
+bool OSUFlow::GenPathLines(list<vtListSeedTrace*>& listSeedTraces, 
+			   TIME_DIR  dir, 
+			     int maxPoints,
+			     unsigned int randomSeed)
+{
+	// first generate seeds
+
+        if (seedPtr==NULL)  {
+	  nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
+	  seedPtr = new VECTOR3[nSeeds];
+	  SeedGenerator* pSeedGenerator = new SeedGenerator((const float*)minRakeExt, 
+							    (const float*)maxRakeExt, 
+							    (const size_t*)numSeeds);
+	  pSeedGenerator->GetSeeds(seedPtr, bUseRandomSeeds);
+	  delete pSeedGenerator;
+	}
+
+	listSeedTraces.clear();
+
+	// execute streamline
+	vtCPathLine* pPathLine;
+	float currentT = 0.0;
+	pPathLine = new vtCPathLine(flowField);
+
+	pPathLine->SetTimeDir(dir); 
+
+	pPathLine->SetLowerUpperAngle(3.0, 15.0);
+	pPathLine->setMaxPoints(maxPoints);
+	pPathLine->setSeedPoints(seedPtr, nSeeds, currentT);
+	pPathLine->SetInitStepSize(initialStepSize);
+	pPathLine->SetMaxStepSize(maxStepSize);
+	pPathLine->setIntegrationOrder(FOURTH);
+	pPathLine->execute((void *)&currentT, listSeedTraces);
+	// release resource
+	delete pPathLine;
+	return true;
+}
+
+
+bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir, 
+			     float current_time, bool is_existing)
+{
+
+  if (seedPtr==NULL)  {
+    nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
+    seedPtr = new VECTOR3[nSeeds];
+    SeedGenerator* pSeedGenerator = new SeedGenerator((const float*)minRakeExt, 
+						      (const float*)maxRakeExt, 
+						      (const size_t*)numSeeds);
+    pSeedGenerator->GetSeeds(seedPtr, bUseRandomSeeds);
+    delete pSeedGenerator;
+  }
+  if (is_existing == false) {
+    if (pStreakLine!=NULL) delete pStreakLine; 
+    pStreakLine = new vtCStreakLine(flowField); 
+  }
+  //otherwise one sterakline has already been created before 
+  float currentT = current_time; 
+  
+  pStreakLine->SetTimeDir(dir); 
+  pStreakLine->SetLowerUpperAngle(3.0, 15.0);
+  pStreakLine->setSeedPoints(seedPtr, nSeeds, currentT);
+  pStreakLine->SetInitStepSize(initialStepSize);
+  pStreakLine->SetMaxStepSize(maxStepSize);
+  pStreakLine->setIntegrationOrder(FOURTH);
+
+  pStreakLine->execute((void*) &currentT, streakTraces); 
+
+  printf(" back from streakline exec\n"); 
+
+} 
+
 
 //------------------------------------------------------------------------
 //

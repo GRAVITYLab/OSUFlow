@@ -47,9 +47,17 @@ public:
 	CVectorField* GetFlowField(void) { return flowField; }
 	bool GenStreamLines(list<vtListSeedTrace*>&, TRACE_DIR, int, unsigned int);
 	bool GenStreamLines(VECTOR3*, TRACE_DIR,const int, const int, list<vtListSeedTrace*>&);
-	bool GenPathLines(list<vtListSeedTrace*>& listSeedTraces, int maxPoints,unsigned int randomSeed);
 	VECTOR3 *GetSeeds(int& num) {num = numSeeds[0]*numSeeds[1]*numSeeds[2]; 
 	                             return seedPtr;}
+
+	bool GenPathLines(list<vtListSeedTrace*>& listSeedTraces, TIME_DIR, 
+			  int maxPoints,unsigned int randomSeed);
+
+	bool GenStreakLines(vtStreakTraces& StreakTraces, TIME_DIR, float current_time, 
+			    bool is_existing); 
+
+	void NormalizeField(bool bLocal) {flowField->NormalizeField(bLocal);}
+	void ScaleField(float scaleF) {flowField->ScaleField(scaleF); }
 
 protected:
 	void Reset(void);
@@ -68,6 +76,8 @@ private:
 	VECTOR3 gMin, gMax; // global min/max range 
 	VECTOR3 lMin, lMax; // local min/max range
 	bool bStaticFlow;					// static flow
+
+	vtCStreakLine *pStreakLine; 
 
 
 	// MPI functions
