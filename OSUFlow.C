@@ -1,7 +1,9 @@
 
 
 #include "OSUFlow.h"
+#ifdef MPI
 #include <mpi.h>
+#endif
 
 #pragma warning(disable : 4251 4100 4244 4101)
 
@@ -37,8 +39,11 @@ void OSUFlow::LoadData(const char* fname, bool bStatic)
 
 	bStaticFlow = bStatic;
 
-	if(bStaticFlow)
+	if(bStaticFlow) {
+		numTimesteps = 1; 
+		MinT = MaxT = 0; 
 		InitStaticFlowField();
+	}
 	else
 		InitTimeVaryingFlowField();
 }
@@ -53,10 +58,37 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
 
 	bStaticFlow = bStatic;
 
-	if(bStaticFlow)
+	if(bStaticFlow) {
+	  numTimesteps = 1; 
+	  MinT = MaxT = 0; 
 	  InitStaticFlowField(sMin, sMax);
+	}
 	else
-	  InitTimeVaryingFlowField(); // to be implemented 
+	  InitTimeVaryingFlowField(sMin, sMax); // to be implemented 
+}
+
+//sMin/sMax are local min and max range of the data that are held within 
+// t_min/t_max are the time range (for time-varying field) 
+void OSUFlow::LoadData(const char* fname, bool bStatic, 
+		       VECTOR3 sMin, VECTOR3 sMax, int min_t, int max_t)  
+{
+	flowName = new char[255];
+	strcpy(flowName, fname);
+
+	bStaticFlow = bStatic;
+
+	if (max_t >= min_t) {
+	  numTimesteps = max_t-min_t; 
+	  MinT = min_t; MaxT = max_t; 
+	}
+	  
+	if(bStaticFlow) {
+	  numTimesteps = 1; 
+	  MinT = MaxT = 0; 
+	  InitStaticFlowField(sMin, sMax);
+	}
+	else
+	  InitTimeVaryingFlowField(sMin, sMax, min_t, max_t); 
 }
 
 //---------------------------------------------------------------------------
@@ -78,6 +110,12 @@ void OSUFlow::InitStaticFlowField(void)
 	pData = new float[totalNum * 3];
 	fread(pData, sizeof(float), totalNum*3, fIn);
 	fclose(fIn);
+
+	// update the domain bounds 
+	gMin.Set(0.0, 0.0, 0.0);
+	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
+	lMin.Set(0.0, 0.0, 0.0);
+	lMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
 	
 	// create field object
 	Solution* pSolution;
@@ -92,12 +130,7 @@ void OSUFlow::InitStaticFlowField(void)
 	ppVector[0] = pVector;
 	pSolution = new Solution(ppVector, totalNum, 1);
 	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
-	// set the boundary of physical grid
-	gMin.Set(0.0, 0.0, 0.0);
-	lMin.Set(0.0, 0.0, 0.0);
-	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
-	lMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
-	pRegularCGrid->SetBoundary(gMin, gMax);
+	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
 	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
 	if(!flowField->IsNormalized())
@@ -120,6 +153,8 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax)
 	fread(dimension, sizeof(int), 3, fIn);
 	gMin.Set(0.0,0.0,0.0); 
 	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
+	lMin = sMin; lMax = sMax; //local data min/max range
+
 	lxdim = sMax[0]-sMin[0]+1; 
 	lydim = sMax[1]-sMin[1]+1; 
 	lzdim = sMax[2]-sMin[2]+1; 
@@ -137,7 +172,7 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax)
 	  }
 	}
 	fclose(fIn);
-        InitStaticFlowField(pData, sMin, sMax); 
+        CreateStaticFlowField(pData, sMin, sMax); 
 }
 
 
@@ -150,7 +185,7 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax)
 //   may not be the max of the entire field 
 //   
 //
-void OSUFlow::InitStaticFlowField(float* pData, VECTOR3 minB, 
+void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB, 
 				  VECTOR3 maxB)
 {
 	int dimension[3], totalNum;
@@ -174,7 +209,6 @@ void OSUFlow::InitStaticFlowField(float* pData, VECTOR3 minB,
 	ppVector[0] = pVector;
 	pSolution = new Solution(ppVector, totalNum, 1);
 	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
-	lMin = minB; lMax = maxB; //local data min/max range
 	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
 	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
@@ -182,6 +216,7 @@ void OSUFlow::InitStaticFlowField(float* pData, VECTOR3 minB,
 		flowField->NormalizeField(true);
 }
 
+// read the whole time sequence and create a time-varying vector field 
 void OSUFlow:: InitTimeVaryingFlowField(void)
 {
 	FILE *fIn;
@@ -189,7 +224,7 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 	int timesteps;
 	char* filename = new char[100];
 	int dimension[3], totalNum, tStep;
-	float** ppData = NULL;
+	//	float** ppData = NULL;
 	float* pData = NULL;
 	VECTOR3** ppVector;
 	Solution* pSolution;
@@ -199,8 +234,76 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 	fIn = fopen(flowName, "r");
 	assert(fIn != NULL);
 	fscanf(fIn, "%d", &timesteps);
-	ppData = new float*[timesteps];
+	//	ppData = new float*[timesteps];
 	ppVector = new VECTOR3*[timesteps];
+	numTimesteps = timesteps; 
+	int first = 1; 
+	for(int iFor = 0; iFor < timesteps; iFor++)
+	{
+		VECTOR3* pVector;
+		fscanf(fIn, "%s", filename);
+		printf(" to read %s ...\n", filename); 
+		fVecIn = fopen(filename, "rb");
+		if (fVecIn==NULL) {
+		  printf(" problem opening %s. skip\n", filename); 
+		  continue; 
+		}
+		fread(dimension, sizeof(int), 3, fVecIn);
+		//fread(&tStep, sizeof(int), 1, fVecIn);
+		totalNum = dimension[0] * dimension[1] * dimension[2];
+		if (first == 1) {
+		  pData = new float[totalNum * 3];
+		  first = 0; 
+		}
+		fread(pData, sizeof(float), totalNum*3, fVecIn);
+		pVector = new VECTOR3[totalNum];
+		for(int jFor = 0; jFor < totalNum; jFor++)
+		  pVector[jFor].Set(pData[jFor*3], pData[jFor*3+1], pData[jFor*3+2]);
+		ppVector[iFor] = pVector;
+		fclose(fVecIn);
+	}
+	delete[] pData;
+	fclose(fIn);
+
+	// update the global bounds of the field. Assuming the same for all time steps 
+	gMin.Set(0.0,0.0,0.0);   // assume all time steps have the same dimensions 
+	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
+        lMin = gMin; lMax = gMax; 
+	pSolution = new Solution(ppVector, totalNum, timesteps);
+	//	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
+	pRegularCGrid = new RegularCartesianGrid(lMax[0]-lMin[0]+1, 
+						 lMax[1]-lMin[1]+1, 
+						 lMax[2]-lMin[2]+1); 
+	pRegularCGrid->SetBoundary(lMin, lMax);
+	assert(pSolution != NULL && pRegularCGrid != NULL);
+	flowField = new CVectorField(pRegularCGrid, pSolution, timesteps);
+}
+
+// read the whole time sequence within the subdomain 
+void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB)
+{
+	FILE *fIn;
+	FILE *fVecIn;
+	int timesteps;
+	char* filename = new char[100];
+	int dimension[3], totalNum, tStep;
+	float* pData = NULL;
+	VECTOR3** ppVector;
+	Solution* pSolution;
+	RegularCartesianGrid* pRegularCGrid;
+	int lxdim, lydim, lzdim; 
+	
+	// load in data
+	fIn = fopen(flowName, "r");
+	assert(fIn != NULL);
+	fscanf(fIn, "%d", &timesteps);
+	ppVector = new VECTOR3*[timesteps];
+	numTimesteps = timesteps;
+
+	lxdim = maxB[0]-minB[0]+1; 
+	lydim = maxB[1]-minB[1]+1; 
+	lzdim = maxB[2]-minB[2]+1; 
+	int first = 1; 
 	for(int iFor = 0; iFor < timesteps; iFor++)
 	{
 		VECTOR3* pVector;
@@ -213,29 +316,123 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 		  continue; 
 		}
 		fread(dimension, sizeof(int), 3, fVecIn);
-		fread(&tStep, sizeof(int), 1, fVecIn);
-		totalNum = dimension[0] * dimension[1] * dimension[2];
-		pData = new float[totalNum * 3];
-		fread(pData, sizeof(float), totalNum*3, fVecIn);
+		totalNum = lxdim*lydim*lzdim; 
+		if (first == 1) {
+		  pData = new float[totalNum * 3];
+		  first = 0; 
+		}
+		float *p = pData; 
+		for (int z = minB[2]; z<=maxB[2]; z++) {
+		  for (int y = minB[1]; y<=maxB[1]; y++) {
+		    long offset = (z*dimension[0]*dimension[1]+y*dimension[0]+minB[0])*3*4;
+		    fseek(fVecIn, offset, SEEK_SET);
+		    int size = (maxB[0]-minB[0]+1)*3;
+		    fread(p, sizeof(float), size, fVecIn);
+		    p+=size;
+		  }
+		}
 		fclose(fVecIn);
-
 		pVector = new VECTOR3[totalNum];
 		for(int jFor = 0; jFor < totalNum; jFor++)
 			pVector[jFor].Set(pData[jFor*3], pData[jFor*3+1], pData[jFor*3+2]);
-		delete[] pData;
 		ppVector[iFor] = pVector;
 	}
+	delete[] pData;
 	fclose(fIn);
+
+	gMin.Set(0.0,0.0,0.0);   // assume all time steps have the same dimensions 
+	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
+	lMin = minB; lMax = maxB; //local data min/max range
 	
 	pSolution = new Solution(ppVector, totalNum, timesteps);
-	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
+	pRegularCGrid = new RegularCartesianGrid(lMax[0]-lMin[0]+1, 
+						 lMax[1]-lMin[1]+1, 
+						 lMax[2]-lMin[2]+1); 
 	// set the boundary of physical grid
-	VECTOR3 minB, maxB;
-	minB.Set(0.0, 0.0, 0.0);
-	maxB.Set((float)dimension[0], (float)dimension[1], (float)dimension[2]);
-	pRegularCGrid->SetBoundary(minB, maxB);
+	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
 	flowField = new CVectorField(pRegularCGrid, pSolution, timesteps);
+}
+
+
+void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, int max_t)
+{
+	FILE *fIn;
+	FILE *fVecIn;
+	int timesteps;
+	char* filename = new char[100];
+	int dimension[3], totalNum, tStep;
+	float* pData = NULL;
+	VECTOR3** ppVector;
+	Solution* pSolution;
+	RegularCartesianGrid* pRegularCGrid;
+	int lxdim, lydim, lzdim; 
+	
+	// load in data
+	fIn = fopen(flowName, "r");
+	assert(fIn != NULL);
+	fscanf(fIn, "%d", &timesteps);
+
+	numTimesteps = max_t-min_t+1; 
+
+	ppVector = new VECTOR3*[numTimesteps];
+
+	lxdim = maxB[0]-minB[0]+1; 
+	lydim = maxB[1]-minB[1]+1; 
+	lzdim = maxB[2]-minB[2]+1; 
+	int first = 1; 
+	for(int iFor = 0; iFor < timesteps; iFor++)
+	{
+		VECTOR3* pVector;
+
+		fscanf(fIn, "%s", filename);
+		if (iFor <min_t || iFor >max_t) 
+		  continue; 
+		printf(" to read %s ...\n", filename); 
+		fVecIn = fopen(filename, "rb");
+		if (fVecIn==NULL) {
+		  printf(" problem opening %s. skip\n", filename); 
+		  continue; 
+		}
+		fread(dimension, sizeof(int), 3, fVecIn);
+		//fread(&tStep, sizeof(int), 1, fVecIn);
+		totalNum = lxdim*lydim*lzdim; 
+		if (first == 1) {
+		  pData = new float[totalNum * 3];
+		  first = 0; 
+		}
+		float *p = pData; 
+		for (int z = minB[2]; z<=maxB[2]; z++) {
+		  for (int y = minB[1]; y<=maxB[1]; y++) {
+		    long offset = (z*dimension[0]*dimension[1]+y*dimension[0]+minB[0])*3*4;
+		    fseek(fVecIn, offset, SEEK_SET);
+		    int size = (maxB[0]-minB[0]+1)*3;
+		    fread(p, sizeof(float), size, fVecIn);
+		    p+=size;
+		  }
+		}
+		fclose(fVecIn);
+		pVector = new VECTOR3[totalNum];
+		for(int jFor = 0; jFor < totalNum; jFor++)
+			pVector[jFor].Set(pData[jFor*3], pData[jFor*3+1], pData[jFor*3+2]);
+
+		ppVector[iFor-min_t] = pVector;
+	}
+	fclose(fIn);
+	delete[] pData;
+
+	gMin.Set(0.0,0.0,0.0);   // assume all time steps have the same dimensions 
+	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
+	lMin = minB; lMax = maxB; //local data min/max range
+	MinT = min_t; MaxT = max_t; 
+
+	pSolution = new Solution(ppVector, totalNum, numTimesteps, min_t, max_t);
+	pRegularCGrid = new RegularCartesianGrid(lMax[0]-lMin[0]+1,   
+						 lMax[1]-lMin[1]+1, 
+						 lMax[2]-lMin[2]+1); 
+	pRegularCGrid->SetBoundary(lMin, lMax);
+	assert(pSolution != NULL && pRegularCGrid != NULL);
+	flowField = new CVectorField(pRegularCGrid, pSolution, numTimesteps);
 }
 //////////////////////////////////////////////////////////////////////////
 // specify a set of seed points randomly generated over the specified

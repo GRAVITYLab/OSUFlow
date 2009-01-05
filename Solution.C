@@ -36,7 +36,8 @@ Solution::Solution(VECTOR3** pData, int nodeNum, int timeSteps)
 	assert((pData != NULL) && (nodeNum > 0) && (timeSteps > 0));
 
 	m_nNodeNum = nodeNum;
-	m_nTimeSteps = timeSteps;			
+	m_nTimeSteps = timeSteps;	
+	m_MinT = 0; m_MaxT = timeSteps-1; 
 	m_pDataArray = new VECTOR3*[timeSteps];
 
 	for(int iFor = 0; iFor < timeSteps; iFor++)
@@ -48,10 +49,31 @@ Solution::Solution(VECTOR3** pData, int nodeNum, int timeSteps)
 	}	
 }
 
+Solution::Solution(VECTOR3** pData, int nodeNum, int timeSteps, int min_t, 
+		   int max_t)
+{
+	assert((pData != NULL) && (nodeNum > 0) && (timeSteps > 0));
+
+	m_nNodeNum = nodeNum;
+	m_nTimeSteps = timeSteps;	
+	m_MinT = min_t; m_MaxT = max_t; 
+	m_pDataArray = new VECTOR3*[timeSteps];
+
+	for(int iFor = 0; iFor < timeSteps; iFor++)
+	{
+		m_pDataArray[iFor] = new VECTOR3[nodeNum];
+		assert(m_pDataArray[iFor] != NULL);
+		for(int jFor = 0; jFor < nodeNum; jFor++)
+			m_pDataArray[iFor][jFor] = pData[iFor][jFor];
+	}	
+}
+
+
 Solution::Solution(int nodeNum, int timeSteps)
 {
 	m_nNodeNum = nodeNum;
-	m_nTimeSteps = timeSteps;			
+	m_nTimeSteps = timeSteps;		
+	m_MinT = 0; m_MaxT = timeSteps-1; 	
 	m_pDataArray = new VECTOR3*[timeSteps];
 
 	for(int iFor = 0; iFor < timeSteps; iFor++)
@@ -75,6 +97,7 @@ void Solution::Reset()
 	m_pDataArray = NULL;
 	m_nNodeNum = 0;
 	m_nTimeSteps = 1;			
+	m_MinT = 0; m_MaxT = 0; 
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -82,12 +105,14 @@ void Solution::Reset()
 //////////////////////////////////////////////////////////////////////////
 void Solution::SetValue(int t, VECTOR3* pData, int nodeNum)
 {
-	if((t >= 0) && (t < m_nTimeSteps))
+  //	if((t >= 0) && (t < m_nTimeSteps))
+  	if((t >= m_MinT) && (t <= m_MaxT))
 	{
-		m_pDataArray[t] = new VECTOR3[nodeNum];
-		assert(m_pDataArray[t] != NULL);
-		for(int jFor = 0; jFor < nodeNum; jFor++)
-			m_pDataArray[t][jFor] = pData[jFor];
+	  t = t-m_MinT; 
+	  m_pDataArray[t] = new VECTOR3[nodeNum];
+	  assert(m_pDataArray[t] != NULL);
+	  for(int jFor = 0; jFor < nodeNum; jFor++)
+	    m_pDataArray[t][jFor] = pData[jFor];
 	}
 }
 
@@ -112,17 +137,18 @@ bool Solution::isTimeVarying(void)
 //////////////////////////////////////////////////////////////////////////
 int Solution::GetValue(int id, float t, VECTOR3& nodeData)
 {
-	if((id < 0) || (id >= m_nNodeNum) || (t < 0.0) || (t > (float)(m_nTimeSteps-1)))
+  float adjusted_t = t - m_MinT; 
+	if((id < 0) || (id >= m_nNodeNum) || (adjusted_t < 0.0) || (adjusted_t > (float)(m_nTimeSteps-1)))
 		return -1;
 
 	if(!isTimeVarying())
-		nodeData = m_pDataArray[(int)t][id];
+		nodeData = m_pDataArray[(int)adjusted_t][id];
 	else
 	{
 		int lowT, highT;
 		float ratio;
-		lowT = (int)floor(t);
-		ratio = t - (float)floor(t);
+		lowT = (int)floor(adjusted_t);
+		ratio = adjusted_t - (float)floor(adjusted_t);
 		highT = lowT + 1;
 		if(lowT >= (m_nTimeSteps-1))
 		{
@@ -277,6 +303,7 @@ int Solution::GetMinMaxValueAll(VECTOR3& minVal, VECTOR3& maxVal)
 // get the min and max value for timestep t
 int Solution::GetMinMaxValue(int t, VECTOR3& minVal, VECTOR3& maxVal)
 {
+        t = t - m_MinT; 
 	if((t >= 0) && (t < m_nTimeSteps))
 	{
 		minVal = m_pMinValue[t];

@@ -9,8 +9,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef MAC_OSX
+#include <GLUT/glut.h> 
+#include <OpenGL/gl.h>
+#else
 #include <GL/glut.h> 
 #include <GL/gl.h>
+#endif
 
 #include "OSUFlow.h"
 
@@ -37,6 +42,12 @@ bool toggle_draw_streamlines = false;
 bool toggle_animate_streamlines = false; 
 float center[3], len[3]; 
 int first_frame = 1; 
+
+int num_timesteps; 
+int num_frames = 50; 
+int current_frame = 0; 
+float time_incr; 
+
 
 ////////////////////////////////////////////////////////
 
@@ -298,8 +309,14 @@ int main(int argc, char** argv)
                                 minLen[0], maxLen[0], minLen[1], maxLen[1], 
                                 minLen[2], maxLen[2]); 
 
+
+  num_timesteps = osuflow->NumTimeSteps(); 
+  printf(" reading in %d time steps.\n", num_timesteps); 
+
+  time_incr = num_timesteps/(float) num_frames; 
+
   //  osuflow->NormalizeField(true); 
-  osuflow->ScaleField(3.0); 
+  osuflow->ScaleField(50.0); 
 
   center[0] = (minLen[0]+maxLen[0])/2.0; 
   center[1] = (minLen[1]+maxLen[1])/2.0; 

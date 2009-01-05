@@ -36,7 +36,29 @@ main(int argc, void *argv[]) {
 
   float ctime = 0.0; 
   float max_time = 49.0; 
+  bool is_existing = false; 
 
+  osuflow->GenStreakLines(list , FORWARD, ctime, is_existing); 
+  printf(" done integrations\n"); 
+  printf("list size = %d\n", list.size()); 
+
+  vtStreakTracesIter pIter; 
+  pIter = list.begin(); 
+  for (; pIter!=list.end(); pIter++) {
+    vtListStreakParticle *trace = *pIter; 
+    vtStreakParticleIter  pnIter; 
+    pnIter = trace->begin(); 
+    for (; pnIter!=trace->end(); pnIter++) {
+      vtStreakParticle p = **pnIter; 
+      float x = p.itsPoint.phyCoord[0]; 
+      float y = p.itsPoint.phyCoord[1]; 
+      float z = p.itsPoint.phyCoord[2]; 
+      printf(" %f %f %f ", x, y, z); 
+    }
+  }
+
+
+  /*
   bool is_existing = false; 
 
   while (ctime < max_time)  {
@@ -63,4 +85,5 @@ main(int argc, void *argv[]) {
     ctime += 1.0; 
     is_existing = true; 
   }
+  */
 }

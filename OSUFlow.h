@@ -38,12 +38,17 @@ public:
 	void LoadData(const char* fname, bool bStatic);
 	void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
 		      VECTOR3 pMax);
+	void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
+		      VECTOR3 pMax, int min_t, int max_t);
 	void Boundary(VECTOR3& minB, VECTOR3& maxB) { flowField->Boundary(minB, maxB); };
 	void SetBoundary(VECTOR3 minB, VECTOR3 maxB) {flowField->SetBoundary(minB, maxB);}; 
 	void InitStaticFlowField(void);
 	void InitStaticFlowField(VECTOR3 minb, VECTOR3 maxB); 
-	void InitStaticFlowField(float*, VECTOR3 minb, VECTOR3 maxB); 
-	void InitTimeVaryingFlowField(void);
+	void CreateStaticFlowField(float*, VECTOR3 minb, VECTOR3 maxB); 
+	void InitTimeVaryingFlowField(void); 
+	void InitTimeVaryingFlowField(int min_t, int max_t);
+	void InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB); 
+	void InitTimeVaryingFlowField(VECTOR3 minb, VECTOR3 maxB, int min_t, int max_t);
 	CVectorField* GetFlowField(void) { return flowField; }
 	bool GenStreamLines(list<vtListSeedTrace*>&, TRACE_DIR, int, unsigned int);
 	bool GenStreamLines(VECTOR3*, TRACE_DIR,const int, const int, list<vtListSeedTrace*>&);
@@ -58,6 +63,9 @@ public:
 
 	void NormalizeField(bool bLocal) {flowField->NormalizeField(bLocal);}
 	void ScaleField(float scaleF) {flowField->ScaleField(scaleF); }
+	int NumTimeSteps() {return numTimesteps; } 
+	void GetMinMaxTime(int& min_t, int& max_t) {min_t = MinT; max_t = MaxT; }
+	void GetGlobalBounds(VECTOR3 &minB, VECTOR3 &maxB) {minB = gMin; maxB = gMax;}
 
 protected:
 	void Reset(void);
@@ -75,8 +83,10 @@ private:
 	float maxStepSize;
 	VECTOR3 gMin, gMax; // global min/max range 
 	VECTOR3 lMin, lMax; // local min/max range
+	int MinT, MaxT;  //local time range 
 	bool bStaticFlow;					// static flow
 
+	int numTimesteps; 
 	vtCStreakLine *pStreakLine; 
 
 

@@ -9,8 +9,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef MAC_OSX
+#include <GLUT/glut.h> 
+#include <OpenGL/gl.h>
+#else
 #include <GL/glut.h> 
 #include <GL/gl.h>
+#endif
 #include <list>
 #include <iterator>
 

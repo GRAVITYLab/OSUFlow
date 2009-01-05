@@ -30,17 +30,20 @@ private:
 	int m_nTimeSteps;					// how many time steps
 	float m_fMinMag;					// minimal magnitude
 	float m_fMaxMag;					// maximum magnitude
+	int m_MinT, m_MaxT; 
 
 public:
 	// constructor
 	Solution();
 	Solution(VECTOR3** pData, int nodeNum, int timeSteps);
+	Solution(VECTOR3** pData, int nodeNum, int timeSteps, int min_t, int max_t);
 	Solution(int nodeNum, int timeSteps);
 	~Solution();
 
 	void Reset();
 
 	// solution functions
+	void SetMinMaxTime(int min_t, int max_t) {m_MinT = min_t; m_MaxT = max_t;}
 	void SetValue(int t, VECTOR3* pData, int nodeNum);
 	int GetMinMaxValueAll(VECTOR3& minVal, VECTOR3& maxVal);
 	int GetMinMaxValue(int t, VECTOR3& minVal, VECTOR3& maxVal); 

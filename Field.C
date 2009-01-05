@@ -141,9 +141,9 @@ int CVectorField::at_phys(VECTOR3 pos, float t, VECTOR3& vecData)
 }
 
 int CVectorField::at_phys(const int fromCell, 
-						  VECTOR3& pos, 
-						  PointInfo& pInfo,
-						  const float t, VECTOR3& nodeData)
+			  VECTOR3& pos, 
+			  PointInfo& pInfo,
+			  const float t, VECTOR3& nodeData)
 {
 	vector<VECTOR3> vNodeData;
 		

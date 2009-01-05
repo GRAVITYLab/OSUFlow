@@ -18,6 +18,8 @@
 #endif
 
 #include "OSUFlow.h"
+#include "calc_subvolume.h"
+#include "Lattice.h"
 
 #include <list>
 #include <iterator>
@@ -34,14 +36,13 @@ int xform_mode = 0;
 #define XFORM_ROTATE  1
 #define XFORM_SCALE 2 
 
+vtStreakTraces *sl_list; 
+
 bool toggle_draw_streaklines = false; 
 bool toggle_animate_streaklines = false; 
 float center[3], len[3]; 
-
-OSUFlow *osuflow; 
-vtStreakTraces sl_list; 
-
 int first_frame = 1; 
+
 int num_timesteps; 
 int num_frames; 
 int start_time, end_time; 
@@ -51,31 +52,48 @@ float time_incr;
 VECTOR3 lMin, lMax; 
 VECTOR3 gMin, gMax; 
 
+int npart = 8; 
+int nproc = 4; 
+int total_seeds = 500; 
+volume_bounds_type *vb_list; 
+
+OSUFlow **osuflow_list; 
+Lattice *lat; 
+
+int **plist; 
+int *num_partitions; 
+
 ////////////////////////////////////////////////////////
 
 void compute_streaklines() {
 
   float from[3], to[3]; 
 
-   from[0] = lMin[0];   from[1] = lMin[1];   from[2] = lMin[2]; 
-   to[0] = lMax[0];   to[1] = lMax[1];   to[2] = lMax[2]; 
-
-  printf("generating seeds...\n"); 
-  osuflow->SetRandomSeedPoints(from, to, 500); 
-  int nSeeds; 
-  VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
-  for (int i=0; i<nSeeds; i++) 
-    printf(" seed no. %d : [%f %f %f]\n", i, seeds[i][0], 
-	   seeds[i][1], seeds[i][2]); 
-
+  for (int i=0; i<npart; i++) {
+    from[0] = vb_list[i].xmin;  
+    from[1] = vb_list[i].ymin;     
+    from[2] = vb_list[i].zmin; 
+    to[0] = vb_list[i].xmax;  
+    to[1] = vb_list[i].ymax;     
+    to[2] = vb_list[i].zmax; 
+    osuflow_list[i]->SetRandomSeedPoints(from, to, total_seeds/npart); 
+    int nSeeds; 
+    VECTOR3* seeds = osuflow_list[i]->GetSeeds(nSeeds); 
+    for (int j=0; j<nSeeds; j++) 
+      printf(" seed no. %d : [%f %f %f]\n", i, seeds[j][0], 
+	     seeds[j][1], seeds[j][2]); 
+  }
   float ctime = start_time; 
-  sl_list.clear(); 
-  printf("compute streaklines..\n"); 
-  osuflow->SetIntegrationParams(1, 5); 
-  osuflow->GenStreakLines(sl_list , FORWARD, ctime, false); 
-  printf(" done integrations\n"); 
-  printf("list size = %d\n", sl_list.size()); 
+  for (int proc = 0; proc<nproc; proc++) 
+     for (int np=0; np<num_partitions[proc]; np++) {
 
+       int i = plist[proc][np]; 
+       sl_list[i].clear(); 
+       osuflow_list[i]->SetIntegrationParams(1, 5); 
+       osuflow_list[i]->GenStreakLines(sl_list[i], FORWARD, ctime, false); 
+       printf("domain %d done integrations", i); 
+       printf(" %d streaklines. \n", sl_list[i].size()); 
+     }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -87,31 +105,32 @@ void draw_streaklines() {
   //  glTranslatef(-len[0]/2.0, -len[1]/2.0, -len[2]/2.0); 
   glTranslatef(-center[0], -center[1], -center[2]); 
 
-  int nSeeds; 
-  VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
-  glColor3f(1,1,1); 
-  glBegin(GL_POINTS); 
-  for (int i=0; i<nSeeds; i++) 
-    glVertex3f(seeds[i][0], seeds[i][1], seeds[i][2]); 
-  glEnd(); 
-
-
-  glColor3f(1,1,0); 
-  vtStreakTracesIter pIter; 
-  pIter = sl_list.begin(); 
-  for (; pIter!=sl_list.end(); pIter++) {
-    vtListStreakParticle *trace = *pIter; 
-    vtStreakParticleIter pnIter; 
-    pnIter = trace->begin(); 
-    glBegin(GL_LINE_STRIP); 
-    for (; pnIter!= trace->end(); pnIter++) {
-      vtStreakParticle p = **pnIter; 
-      float x = p.itsPoint.phyCoord[0]; 
-      float y = p.itsPoint.phyCoord[1]; 
-      float z = p.itsPoint.phyCoord[2]; 
-      glVertex3f(x,y,z); 
-    }
+  for (int i=0; i<npart; i++) {
+    int nSeeds; 
+    VECTOR3* seeds = osuflow_list[i]->GetSeeds(nSeeds); 
+    glColor3f(1,1,1); 
+    glBegin(GL_POINTS); 
+    for (int j=0; j<nSeeds; j++) 
+      glVertex3f(seeds[j][0], seeds[j][1], seeds[j][2]); 
     glEnd(); 
+
+    glColor3f(1,1,0); 
+    vtStreakTracesIter pIter; 
+    pIter = sl_list[i].begin(); 
+    for (; pIter!=sl_list[i].end(); pIter++) {
+      vtListStreakParticle *trace = *pIter; 
+      vtStreakParticleIter pnIter; 
+      pnIter = trace->begin(); 
+      glBegin(GL_LINE_STRIP); 
+      for (; pnIter!= trace->end(); pnIter++) {
+	vtStreakParticle p = **pnIter; 
+	float x = p.itsPoint.phyCoord[0]; 
+	float y = p.itsPoint.phyCoord[1]; 
+	float z = p.itsPoint.phyCoord[2]; 
+	glVertex3f(x,y,z); 
+      }
+      glEnd(); 
+    }
   }
   glPopMatrix(); 
 }
@@ -133,28 +152,27 @@ void animate_streaklines() {
   float max_time = (current_frame+1) * time_incr; 
 
   glColor3f(1,1,0); 
-  pIter = sl_list.begin(); 
-
-  glBegin(GL_POINTS); 
-  for (; pIter!=sl_list.end(); pIter++) {
-    vtListStreakParticle *trace = *pIter; 
-    vtStreakParticleIter pnIter; 
-    pnIter = trace->begin(); 
-    for (; pnIter!= trace->end(); pnIter++) {
-      vtStreakParticle p = **pnIter; 
-      if (p.itsTime >= min_time && p.itsTime < max_time) {
-	float x = p.itsPoint.phyCoord[0]; 
-	float y = p.itsPoint.phyCoord[1]; 
-	float z = p.itsPoint.phyCoord[2]; 
-	glVertex3f(x,y,z); 
+  for (int i=0; i<npart; i++) {
+    pIter = sl_list[i].begin(); 
+    glBegin(GL_POINTS); 
+    for (; pIter!=sl_list[i].end(); pIter++) {
+      vtListStreakParticle *trace = *pIter; 
+      vtStreakParticleIter pnIter; 
+      pnIter = trace->begin(); 
+      for (; pnIter!= trace->end(); pnIter++) {
+	vtStreakParticle p = **pnIter; 
+	if (p.itsTime >= min_time && p.itsTime < max_time) {
+	  float x = p.itsPoint.phyCoord[0]; 
+	  float y = p.itsPoint.phyCoord[1]; 
+	  float z = p.itsPoint.phyCoord[2]; 
+	  glVertex3f(x,y,z); 
+	}
       }
     }
+    glEnd(); 
   }
-  glEnd(); 
-
   glPopMatrix(); 
   current_frame = (current_frame+1) % num_frames; 
-
 }
 
 ////////////////////////////////////////////// 
@@ -284,50 +302,66 @@ void mykey(unsigned char key, int x, int y)
 
 int main(int argc, char** argv) 
 {
-  // create the osuflow object for reading data and computing 
-  // streaklines 
-  osuflow = new OSUFlow(); 
-  printf("read file %s\n", argv[1]); 
+  VECTOR3 minLen, maxLen; 
 
-  // hack the subdomain where the data will be read and 
-  // streaklines will be computed 
-  // 
-  // the spatial subdomain 
-  lMin[0] = 0; lMin[1] = 0; lMin[2] = 0; 
-  lMax[0] = 127; lMax[1] = 127; lMax[2] = 127; 
+  osuflow_list = new OSUFlow*[npart]; 
 
-  // the temporal subdomain 
+  // hardcoded dimeisons. the tornado dat is 128^3 
+
+  minLen[0] = minLen[1] = minLen[2] = 0; 
+  maxLen[0] = maxLen[1] = maxLen[2] = 127; 
+
+  // partition the domain and create a lattice
+  lat = new Lattice(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
+			     maxLen[2]-minLen[2]+1, 1, npart);  //1 is ghost layer
+  vb_list = lat->GetBoundsList(); 
+  lat->InitSeedLists();  //not used in this program 
+  // assign partitions to processors (npart partitions -> nproc processors) 
+  lat->RoundRobin_proc(nproc); 
+
+  plist = new int*[nproc]; 
+  num_partitions = new int[nproc]; 
+  // get each processor's partitions 
+  for (int i=0; i<nproc; i++)
+    lat->GetPartitions(i, &(plist[i]), num_partitions[i]);
+
+  sl_list = new vtStreakTraces[npart]; //streakline lists, one per subdomain 
+
+  // this is a quick hack. The tornado data set has 50 time steps 
   start_time = 0; 
   end_time = 49; 
 
   // 
-  // Now read the data 
-  // 
-  // osuflow->LoadData((const char*)argv[1], false); //read the whole data 
-  osuflow->LoadData((const char*)argv[1], false, lMin, lMax, start_time, 
-		    end_time); //read the spatio-temporal subdomain
+  // now create a list of flow field for the subdomains 
+  for (int i=0; i<npart; i++) {
+    osuflow_list[i] = new OSUFlow(); 
+    printf("Domain(%d):  %d %d %d : %d %d %d\n", i, vb_list[i].xmin,  
+	   vb_list[i].ymin,  vb_list[i].zmin, vb_list[i].xmax,  
+	   vb_list[i].ymax,  vb_list[i].zmax); 
 
-  //  Set up the animation frame time
-  //  num_timesteps = osuflow->NumTimeSteps(); 
-  num_timesteps = 50; 
-  num_frames = 50; 
-  printf(" Animate %d time steps in %d frames.\n", num_timesteps, 
-	 num_frames); 
+    // load subdomain data into OSUFlow
+    VECTOR3 minB, maxB; 
+    minB[0] = vb_list[i].xmin;  maxB[0] = vb_list[i].xmax;  
+    minB[1] = vb_list[i].ymin;  maxB[1] = vb_list[i].ymax;     
+    minB[2] = vb_list[i].zmin;  maxB[2] = vb_list[i].zmax; 
+
+    // load the time-varying subdomain data between start_time and end_time 
+    osuflow_list[i]->LoadData((const char*)argv[1], false, minB, maxB, 
+			      start_time, end_time); 
+    //    osuflow_list[i]->NormalizeField(true); 
+    osuflow_list[i]->ScaleField(10.0); 
+  }
+
+  // set up the animation frame time 
+  num_timesteps = 50;  // number of time steps in the data 
+  num_frames = 50;     // number of frames to loop through the data time 
   time_incr = num_timesteps/(float) num_frames; 
 
-  // a hack here. scale the flow field so that particles will run farther 
-  osuflow->ScaleField(10.0); 
-
-  // get the global domain bound 
-  // osuflow->GetGlobalBounds(gMin, gMax); 
-  // hack the global bounds for now 
+  //  osuflow->GetGlobalBounds(gMin, gMax); 
   gMin[0] = gMin[1] = gMin[2] = 0; 
   gMax[0] = gMax[1] = gMax[2] = 127; 
-  printf(" global boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n", 
-                                gMin[0], gMax[0], gMin[1], gMax[1], 
-                                gMin[2], gMax[2]); 
 
-  // Parameters for setting up OpenGL transformations
+  // Parameters for setting up some OpenGL transformations 
   center[0] = (gMin[0]+gMax[0])/2.0; 
   center[1] = (gMin[1]+gMax[1])/2.0; 
   center[2] = (gMin[2]+gMax[2])/2.0; 
@@ -335,7 +369,7 @@ int main(int argc, char** argv)
   len[1] = gMax[1]-gMin[1]+1; 
   len[2] = gMax[2]-gMin[2]+1; 
 
-  // glut initialization 
+  // glut functions 
   glutInit(&argc, argv); 
   glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH); 
   glutInitWindowSize(600,600); 

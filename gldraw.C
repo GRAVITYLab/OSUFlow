@@ -9,8 +9,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef MAC_OSX
+#include <GLUT/glut.h> 
+#include <OpenGL/gl.h>
+#else
 #include <GL/glut.h> 
 #include <GL/gl.h>
+#endif 
 
 #include "OSUFlow.h"
 
@@ -285,11 +290,11 @@ int main(int argc, char** argv)
 
   osuflow = new OSUFlow(); 
   printf("read file %s\n", argv[1]); 
-  //  minB[0] = 0; minB[1] = 0; minB[2] = 0; 
-  //  maxB[0] = 100; maxB[1] = 100; maxB[2] = 300;  
-  //  osuflow->LoadData((const char*)argv[1], true, minB, maxB); //true: a steady flow field 
+  minB[0] = 0; minB[1] = 0; minB[2] = 0; 
+  maxB[0] = 64; maxB[1] = 127; maxB[2] = 64; 
+  osuflow->LoadData((const char*)argv[1], true, minB, maxB); //true: a steady flow field 
 
-  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
+  //  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
   osuflow->Boundary(minLen, maxLen); // get the boundary 
   minB[0] = minLen[0]; minB[1] = minLen[1];  minB[2] = minLen[2];
   maxB[0] = maxLen[0]; maxB[1] = maxLen[1];  maxB[2] = maxLen[2];
