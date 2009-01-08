@@ -66,6 +66,7 @@ class  Lattice {
   int npart; 
   volume_bounds_type *vb_list; 
   Partition *parts; // list of partition information
+  int *tags; // message tags for each process
 
   void Error(const char *fmt, ...);
 

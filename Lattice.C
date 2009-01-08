@@ -1,5 +1,10 @@
 
 #include "Lattice.h"
+
+// maximum number of points messages waiting to be read
+// after this, message tag resets
+#define MAX_MSG_TAG 255
+
 //---------------------------------------------------------------------------
 //
 // Lattice
@@ -42,6 +47,18 @@ Lattice::Lattice(int xlen, int ylen, int zlen, int ghost, int np) {
     }
 
   }
+
+#ifdef MPI
+
+    // allocate and init tags
+    int nproc;
+    MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+    if ((tags = (int*)malloc(nproc * sizeof(int))) == NULL)
+      Error("Error: Lattice() cannot allocate memory for tags\n");
+    for (i = 0; i < nproc; i++)
+      tags[i] = 1;
+
+#endif
 
 }
 //---------------------------------------------------------------------------
@@ -563,6 +580,7 @@ void Lattice::Error(const char *fmt, ...){
 //
 void Lattice::SendNeighbors(int myrank, MPI_Comm comm) {
 
+  MPI_Request req;
   int ranks[6];
   int proc, myproc;
   int i;
@@ -570,8 +588,10 @@ void Lattice::SendNeighbors(int myrank, MPI_Comm comm) {
   MPI_Comm_rank(comm, &myproc);
   GetNeighborRanks(myrank, ranks);
 
+  // for all neighbors
   for (i = 0; i < 6; i++) {
 
+    // if neighbor exists (not edge)
     if (ranks[i] >= 0) {
 
       proc = GetProc(ranks[i]);
@@ -579,20 +599,21 @@ void Lattice::SendNeighbors(int myrank, MPI_Comm comm) {
       // send only to remote locations
       if (proc != myproc) {
 
-	MPI_Send(&(parts[myrank].NumSendPoints[i]), 1, MPI_INT, 
-             GetProc(ranks[i]), 0, comm);
+	// if there are points to send
 	if (parts[myrank].NumSendPoints[i]) {
-	  MPI_Send(parts[myrank].SendPoints[i], 
-             parts[myrank].NumSendPoints[i] * 3, MPI_FLOAT, 
-             GetProc(ranks[i]), 0 , comm);
+
+	  MPI_Isend(parts[myrank].SendPoints[i], 
+	    parts[myrank].NumSendPoints[i] * 3, MPI_FLOAT, proc, 0, comm, &req);
+
 	  parts[myrank].NumSendPoints[i] = 0;
-	}
 
-      }
+	} // if there are points to send
 
-    }
+      } // if location is remote
 
-  }
+    } // if neighbor exists
+
+  } // for all neighbors
 
 }
 //--------------------------------------------------------------------------
@@ -610,11 +631,13 @@ int Lattice::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 
   MPI_Status status;
   MPI_Request req;
+  int flag;
   int ready;
   int ranks[6]; // ranks of my neighbors
   int num = 0;
   int proc, myproc;  
   int i, j, k;
+  int n;
 
   MPI_Comm_rank(comm, &myproc);
   GetNeighborRanks(myrank, ranks);
@@ -632,10 +655,12 @@ int Lattice::ReceiveNeighbors(int myrank, MPI_Comm comm) {
       // remote
       if (proc != myproc) {
 
-	MPI_Irecv(&(parts[myrank].NumRecvPoints[i]), 1, MPI_INT, 
-            GetProc(ranks[i]), 0, comm, &req);
-	MPI_Test(&req, &ready, &status);
-	if (!ready)
+	MPI_Iprobe(proc, 0, comm, &flag, &status);
+	if (flag) {
+	  MPI_Get_count(&status, MPI_FLOAT, &n);
+	  parts[myrank].NumRecvPoints[i] = (float)n / 3.0f;
+	}
+	else
 	  parts[myrank].NumRecvPoints[i] = 0;
 
       } // remote
@@ -647,10 +672,8 @@ int Lattice::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 	  k = i + 1;
 	else
 	  k = i - 1;
-
 	if (!parts[ranks[i]].NumSendPoints[k])
 	  k = -1;
-
 	if (k >= 0)
 	  parts[myrank].NumRecvPoints[i] = parts[ranks[i]].NumSendPoints[k];
 	else
@@ -660,26 +683,25 @@ int Lattice::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 
       // get the points
 
+      // if something to receive
       if (parts[myrank].NumRecvPoints[i]) {
 
 	while (parts[myrank].SizeRecvPoints[i] < 
             parts[myrank].NumRecvPoints[i] * 3 * sizeof(float)) {
-
 	  parts[myrank].RecvPoints[i] = (float *)realloc(
             parts[myrank].RecvPoints[i], parts[myrank].SizeRecvPoints[i] * 2);
-
 	  if (parts[myrank].RecvPoints[i] == NULL)
 	    Error("Error: ReceivePoints() cannot reallocate memory\n");
-
 	  parts[myrank].SizeRecvPoints[i] *= 2;
 
 	}
 
 	// remote
-	if (proc != myproc)
+	if (proc != myproc) {
 	  MPI_Recv(parts[myrank].RecvPoints[i], 
-              parts[myrank].NumRecvPoints[i] * 3, 
-              MPI_FLOAT, GetProc(ranks[i]), 0, comm, &status);
+             parts[myrank].NumRecvPoints[i] * 3, 
+             MPI_FLOAT, proc, 0, comm, &status);
+	} // remote
 
 	// local
 	if (proc == myproc) {

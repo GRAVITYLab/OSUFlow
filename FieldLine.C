@@ -214,7 +214,8 @@ void vtCFieldLine::setSeedPoints(VECTOR3* points, int numPoints, float t)
 			// which was passed to us without any prior information
 
 			res = m_pField->at_phys(-1, points[i], newParticle->m_pointInfo, t, nodeData);
-			newParticle->itsValidFlag =  (res == 1) ? 1 : 0 ;
+// 			newParticle->itsValidFlag =  (res == 1) ? 1 : 0 ;
+			newParticle->itsValidFlag =  1;
 			m_lSeeds.push_back( newParticle );
 		}
 	} 

@@ -35,14 +35,13 @@
 #include "Lattice.h"
 
 #define MAX_RECV_ATTEMPTS 10
-#define MAX_ITERATIONS 3
 
 // defines related to drawing
 #define XFORM_NONE    0 
 #define XFORM_ROTATE  1
 #define XFORM_SCALE 2 
 
-// globals related to drawing
+// drawing state
 int press_x, press_y; 
 int release_x, release_y; 
 float x_angle = 0.0; 
@@ -52,6 +51,14 @@ int xform_mode = 0;
 bool toggle_draw_streamlines = false; 
 bool toggle_animate_streamlines = false; 
 
+// drawing data: only usable at the root process
+VECTOR3 *pt; // points in everyone's traces, this iteration
+int *npt; // everyone's number of points in their traces, this iteration
+int tot_ntrace; // total number of everyone's traces, this iteration
+VECTOR3 *Pt; // points in everyone's traces, all iterations
+int *Npt; // everyone's number of points in their traces, all iterations
+int Tot_ntrace; // total number of everyone's traces, all iterations
+
 // function prototypes
 void Config(int argc, char *argv[]);
 void PrintSeeds(int nblocks);
@@ -59,16 +66,18 @@ void RecvToSeeds(int local_block, int global_block);
 int EndTrace(list<vtListSeedTrace*> &list, VECTOR3 &p, int index);
 void ComputeStreamlines();
 void GatherStreamlines();
+int GatherNumPts(int* &ntrace);
+void GatherPts(int *ntrace, int mynpt);
+void DrawStreamlines();
 void draw_bounds(float xmin, float xmax, float ymin, float ymax, 
 		 float zmin, float zmax);
-void draw_streamlines();
-void animate_streamlines();
 void draw_cube(float r, float g, float b);
 void display();
 void timer(int val);
 void mymouse(int button, int state, int x, int y);
 void mymotion(int x, int y);
 void mykey(unsigned char key, int x, int y);
+void idle();
 
 // globals
 static char filename[256]; // dataset file name
@@ -85,7 +94,9 @@ volume_bounds_type *vb_list; // global subdomain volume bounds list
 int *blocks; // local list of blocks
 int nblocks; // local number of blocks
 Lattice* lat; // lattice
-
+int tf; // max number of traces per block
+int pf; // max number of points per trace
+int max_iterations; // max number of iterations
 //----------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
@@ -94,9 +105,8 @@ int main(int argc, char *argv[]) {
   int nproc;  // mpi groupsize
   int rank; // mpi rank
   float from[3], to[3]; // seed points limits
-  int i;
+  int i, j;
   int ghost; // number of ghost cells per side
-  int init_seed_num = 10; // initial number of seeds
   char buf[256];
 
   // initialize mpi and the app
@@ -125,27 +135,27 @@ int main(int argc, char *argv[]) {
     minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, vb_list[blocks[i]].zmin);
     maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, vb_list[blocks[i]].zmax);
 
-    fprintf(stderr,"Subdomain boundary: rank = %d i = %d global block = %d min = %.3lf %.3lf %.3lf max = %.3lf %.3lf %.3lf\n",rank,i,blocks[i],minB[0],minB[1],minB[2],maxB[0],maxB[1],maxB[2]);
+//     fprintf(stderr,"Subdomain boundary: rank = %d i = %d global block = %d min = %.3lf %.3lf %.3lf max = %.3lf %.3lf %.3lf\n",rank,i,blocks[i],minB[0],minB[1],minB[2],maxB[0],maxB[1],maxB[2]);
 
     // read data
     osuflow[i]->ReadData(filename, true, minB, maxB, size); 
     if (rank == 0 && i == 0)
-      fprintf(stderr,"read file %s\n", filename); 
+      fprintf(stderr,"Reading %s\n", filename); 
 
     // init seeds
     from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
     to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
-    osuflow[i]->SetRandomSeedPoints(from, to, init_seed_num); 
+    osuflow[i]->SetRandomSeedPoints(from, to, tf); 
     Seeds[i] = osuflow[i]->GetSeeds(NumSeeds[i]); 
     SizeSeeds[i] = NumSeeds[i] * sizeof(VECTOR3);
-
-    sl_list[i].clear();
 
   }
 
   // main loop for nondrawing procs
   if (rank > 0) {
-    for (i = 0; i < MAX_ITERATIONS; i++) {
+    for (i = 0; i < max_iterations; i++) {
+      for (j = 0; j < nblocks; j++)
+	sl_list[j].clear();
       ComputeStreamlines();
       GatherStreamlines();
     }
@@ -160,7 +170,7 @@ int main(int argc, char *argv[]) {
     sprintf(buf, "Streamlines");
     glutCreateWindow(buf); 
     glutDisplayFunc(display); 
-    glutIdleFunc(ComputeStreamlines); 
+    glutIdleFunc(idle); 
     glutTimerFunc(10, timer, 0); 
     glutMouseFunc(mymouse); 
     glutMotionFunc(mymotion);
@@ -190,7 +200,9 @@ void ComputeStreamlines() {
   // for all blocks, integrate points and send messages
   for(i = 0; i < nblocks; i++) {
 
-//     // debug: print current seeds
+//     sl_list[i].clear();
+
+    // debug: print current seeds
 //     fprintf(stderr, "Current seeds\n");
 //     PrintSeeds(nblocks);
 
@@ -203,7 +215,7 @@ void ComputeStreamlines() {
       // perform the integration
       // todo: integrate in both directions
       osuflow[i]->SetIntegrationParams(1, 5); 
-      osuflow[i]->GenStreamLines(Seeds[i], FORWARD_DIR, NumSeeds[i], 50, list); 
+      osuflow[i]->GenStreamLines(Seeds[i], FORWARD_DIR, NumSeeds[i], pf, list); 
 
       // copy each trace to the streamline list for later rendering
       trace_iter = list.begin(); 
@@ -231,7 +243,7 @@ void ComputeStreamlines() {
 
       } // for all boundary points
 
-//       // debug
+      // debug
 //       lat->PrintPost(blocks[i]);
 
       // send boundary list to neighbors
@@ -254,7 +266,7 @@ void ComputeStreamlines() {
       continue;
 
     // debug
-    lat->PrintRecv(blocks[i]);
+//     lat->PrintRecv(blocks[i]);
 
     // prepare for next iteration
     RecvToSeeds(i, blocks[i]);
@@ -262,8 +274,8 @@ void ComputeStreamlines() {
   } // for all blocks
 
   // debug: print current seeds
-  //   fprintf(stderr, "Final seeds\n");
-  //   PrintSeeds(nblocks);
+//     fprintf(stderr, "Final seeds\n");
+//     PrintSeeds(nblocks);
 
 }
 //-----------------------------------------------------------------------
@@ -272,19 +284,189 @@ void ComputeStreamlines() {
 //
 // gathers all streamlines at the root for rendering
 //
-void GatherStreamLines() {
+void GatherStreamlines() {
 
-  MPI_rank rank;
+  static int *ntrace = NULL; // number of traces for each proc
+  int n; // total number of my points
+  int rank, nproc; // usual MPI
+  int i;
 
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
+  // gather number of points in each trace at the root
+  n = GatherNumPts(ntrace);
+  
+  // gather the actual points in each trace at the root
+  GatherPts(ntrace, n);
+
+
+  // debug
+//   if (rank == 0) {
+
+//     fprintf(stderr,"\nNumber of traces in each proc:\n");
+//     for (i = 0; i < nproc; i++)
+//       fprintf(stderr, "Proc %d has %d traces\n",i,ntrace[i]);
+
+//     fprintf(stderr,"\nNumber of points in each of %d total traces:\n",tot_ntrace);
+//     for (i = 0; i < tot_ntrace; i++)
+// 	fprintf(stderr, "trace %d has %d points\n",i,npt[i]);
+
+//   }
+
+}
+//-----------------------------------------------------------------------
+//
+// GatherNumPts
+//
+// gathers number of points in each trace to the root
+//
+// ntrace: number of traces in each process (passed by reference)
+// returns: total number of points in my process
+//
+int GatherNumPts(int* &ntrace) {
+
+  int myntrace = 0; // my number of traces
+  static int *ofst = NULL; // offsets into npt
+  int *mynpt; // number of points in each of my traces
+  int tot_mynpt = 0; // total number of my points
+  int rank, nproc; // MPI usual
+  std::list<vtListSeedTrace *>::iterator trace_iter; // iterator over traces
+  int i, j;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+
+  if (ntrace == NULL && (ntrace = new int[nproc]) == NULL)
+    Error("Error: GatherNumPts cannot allocate ntrace\n");
+
+  if (ofst == NULL && (ofst = new int[nproc]) == NULL)
+    Error("Error: GatherNumPts cannot allocate ofst\n");
+
+  // compute number of my traces
+  for (i = 0; i < nblocks; i++)
+    myntrace += sl_list[i].size();
+
+  // gather number of traces at the root
+  MPI_Gather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  // compute number of points in each of my traces
+  if ((mynpt = new int[myntrace]) == NULL)
+    Error("Error: GatherNumPts cannot allocate mynpt\n");
+
+  j = 0;
+  for (i = 0; i < nblocks; i++) {
+    for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
+         trace_iter++) {
+      mynpt[j] = (*trace_iter)->size();
+      tot_mynpt += mynpt[j++];
+    }
+  }
+
+  // gather number of points in each trace at the root
   if (rank == 0) {
 
+    tot_ntrace = 0;
+    for (i = 0; i < nproc; i++) {
+      ofst[i] = (i == 0) ? 0 : ofst[i - 1] + ntrace[i - 1];
+      tot_ntrace += ntrace[i];
+    }
+
+    if (ofst[nproc - 1] + ntrace[nproc - 1] > nproc * bf * tf)
+      Error("Error: GatherNumPts attempted to write beyond the end of npt\n");
+
   }
 
-  if (rank > 0) {
+  MPI_Gatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT, 0, 
+	      MPI_COMM_WORLD);
+
+  delete[] mynpt;
+
+  return tot_mynpt;
+
+}
+//-----------------------------------------------------------------------
+//
+// GatherPts
+//
+// gathers the points in each trace at the root
+//
+// ntrace: number of traces in each process
+// mynpt: total number of points in my process
+//
+void GatherPts(int *ntrace, int mynpt) {
+
+  static int *nflt = NULL; // number of floats in points from each proc
+  static int *ofst = NULL; // offsets into pt
+  VECTOR3 *mypt; // points in my traces
+  std::list<vtListSeedTrace *>::iterator trace_iter; // iterator over traces
+  std::list<VECTOR3 *>::iterator pt_iter; // iterator over points in one trace
+  int rank, nproc; // MPI usual
+  int i, j, k;
+  static int next_pt = 0; // current next open slot in Pt (all points)
+  static int next_trace = 0; // current next open slot in Npt (all traces)
+
+  // init
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+
+  if (nflt == NULL && (nflt = new int[nproc]) == NULL)
+    Error("Error: GatherPts cannot allocate nflt\n");
+
+  if (ofst == NULL && (ofst = new int[nproc]) == NULL)
+    Error("Error: GatherPts cannot allocate ofst\n");
+
+  if ((mypt = new VECTOR3[mynpt]) == NULL)
+    Error("Error: GatherPts cannot allocate mypt\n");
+
+  // collect my own points
+  j = 0;
+  for (i = 0; i < nblocks; i++) {
+    for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
+         trace_iter++) {
+      for (pt_iter = (*trace_iter)->begin(); pt_iter != (*trace_iter)->end(); 
+         pt_iter++)
+	mypt[j++] = **pt_iter;
+    }
+  }
+
+  // gather the points at the root
+  if (rank == 0) {
+
+    k = 0;
+    for (i = 0; i < nproc; i++) {
+      nflt[i] = 0;
+      for (j = 0; j < ntrace[i]; j++)
+	nflt[i] += (npt[k++] * 3);
+      ofst[i] = (i == 0) ? 0 : ofst[i - 1] + nflt[i - 1];
+    }
+
+    if (ofst[nproc - 1] + nflt[nproc - 1] > 3 * nproc * bf * tf * pf)
+      Error("Error: GatherPts attempted to write beyond the end of pt\n");
 
   }
+
+  MPI_Gatherv(mypt, mynpt * 3, MPI_FLOAT, pt, nflt, ofst,
+	      MPI_FLOAT, 0, MPI_COMM_WORLD);
+
+  // concatenate points from current iteration with previous iterations
+  k = 0;
+  for (int i = 0; i < tot_ntrace; i++) {
+
+    Npt[next_trace] = npt[i];
+    next_trace++;
+    for (j = 0; j < npt[i]; j++) {
+      Pt[next_pt][0] = pt[k][0];
+      Pt[next_pt][1] = pt[k][1];
+      Pt[next_pt][2] = pt[k][2];
+      next_pt++;
+      k++;
+    }
+
+  }
+  Tot_ntrace += tot_ntrace;
+
+  delete[] mypt;
 
 }
 //-----------------------------------------------------------------------
@@ -295,14 +477,15 @@ void GatherStreamLines() {
 //
 void Config(int argc, char *argv[]) {
 
-  int rank;
-  int nproc;
+  int rank, nproc; // usual MPI
+  int nt; // max total number of traces
+  int np; // max total number of points
   int i;
 
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
-  if (argc < 6)
+  if (argc < 9)
     Error("Error: Insufficient number of command line args\n");
 
   strncpy(filename,argv[1],sizeof(filename));
@@ -322,6 +505,10 @@ void Config(int argc, char *argv[]) {
   bf = atoi(argv[5]);
   npart = bf * nproc;
 
+  tf = atoi(argv[6]);
+  pf = atoi(argv[7]);
+  max_iterations = atoi(argv[8]);
+
   if (rank == 0)
     fprintf(stderr,"Volume boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n", 
 	   minLen[0], maxLen[0], minLen[1], maxLen[1], minLen[2], maxLen[2]); 
@@ -340,6 +527,22 @@ void Config(int argc, char *argv[]) {
 
   // allocate streamline list for each block
   sl_list = new list<vtListSeedTrace*>[npart];
+
+  // allocate pts list and number of points list for rendering
+  if (rank == 0) {
+
+    nt = nproc * bf * tf;
+    np = nt * pf;
+    if ((npt = new int[nt]) == NULL)
+      Error("Error: Config() cannot allocate memory for npt\n");
+    if ((pt = new VECTOR3[np]) == NULL)
+      Error("Error: Config() cannot allocate memory for pt\n");
+    if ((Npt = new int[nt * max_iterations]) == NULL)
+      Error("Error: Config() cannot allocate memory for npt\n");
+    if ((Pt = new VECTOR3[np * max_iterations]) == NULL)
+      Error("Error: Config() cannot allocate memory for pt\n");
+
+  }
 
 }
 //-----------------------------------------------------------------------
@@ -427,38 +630,30 @@ void draw_bounds(float xmin, float xmax, float ymin, float ymax,
 }
 //--------------------------------------------------------------------------
 //
-void draw_streamlines() {
+void DrawStreamlines() {
   
+  int i, j, k;
+
   glPushMatrix(); 
-
-  glScalef(1.0f / (float)size[0], 1.0f / (float)size[0], 1.0f / (float)size[0]); 
+  glScalef(1.0f / (float)size[0], 1.0f / (float)size[0], 1.0f / (float)size[0]);
   glTranslatef(-size[0] / 2.0f, -size[1] / 2.0f, -size[2] / 2.0f); 
+  glColor3f(0.3,0.3,0.3); 
 
-  std::list<vtListSeedTrace*>::iterator pIter; 
+  k = 0;
+  for (int i = 0; i < Tot_ntrace; i++) {
 
-  for (int i = 0; i < npart; i++) {   // looping through all subdomains 
-
-    pIter = sl_list[i].begin(); 
-
-    for (; pIter != sl_list[i].end(); pIter++) {
-
-      vtListSeedTrace *trace = *pIter; 
-      std::list<VECTOR3*>::iterator pnIter; 
-      pnIter = trace->begin(); 
-      glColor3f(0.3,0.3,0.3); 
-      glBegin(GL_LINE_STRIP); 
-      for (; pnIter != trace->end(); pnIter++) {
-	VECTOR3 p = **pnIter; 
-	//printf(" %f %f %f ", p[0], p[1], p[2]); 
-	glVertex3f(p[0], p[1], p[2]); 
-      }
-      glEnd(); 
-
+    glBegin(GL_LINE_STRIP); 
+    for (j = 0; j < Npt[i]; j++) {
+      glVertex3f(Pt[k][0], Pt[k][1], Pt[k][2]);
+      k++;
     }
+    glEnd(); 
 
+  }
+
+  for (i = 0; i < npart; i++) {
     volume_bounds_type vb = vb_list[i];     
     draw_bounds(vb.xmin, vb.xmax, vb.ymin, vb.ymax, vb.zmin, vb.zmax); 
-
   }
 
   glPopMatrix(); 
@@ -466,15 +661,10 @@ void draw_streamlines() {
 }
 //--------------------------------------------------------------------------
 //
-void animate_streamlines() {
-
-}
-//--------------------------------------------------------------------------
-//
 void draw_cube(float r, float g, float b) {
 
   glColor3f(r, g, b); 
-  glutWireCube(1.0);   // draw a solid cube 
+  glutWireCube(1.0);   // draw a solid cube
 
 }
 //--------------------------------------------------------------------------
@@ -494,15 +684,10 @@ void display() {
   gluLookAt(0,0,5,0,0,0,0,1,0); 
 
   glRotatef(x_angle, 0, 1,0); 
-  glRotatef(y_angle, 1,0,0); 
+  glRotatef(y_angle, 1,0,0);
   glScalef(scale_size, scale_size, scale_size); 
 
-//   ComputeStreamlines();
-
-//   if (toggle_draw_streamlines == true)
-    draw_streamlines(); 
-//   else if (toggle_animate_streamlines == true)
-//     animate_streamlines(); 
+  DrawStreamlines(); 
 
   glPushMatrix(); 
   glScalef(1.0, size[1] / size[0], size[2] / size[0]); 
@@ -521,7 +706,6 @@ void display() {
   glVertex3f(0,0,1); 
   glEnd(); 
 
-
   glutSwapBuffers(); 
 
 }
@@ -529,11 +713,29 @@ void display() {
 //
 void timer(int val) {
 
-  if (toggle_animate_streamlines == true) {
-    //    animate_streamlines(); 
-    glutPostRedisplay(); 
-  }
   glutTimerFunc(10, timer, 0); 
+
+}
+//--------------------------------------------------------------------------
+//
+void idle() {
+
+  static int iterations = 0;
+  int i;
+
+  if (iterations >= 0 && iterations < max_iterations) {
+    for (i = 0; i < nblocks; i++)
+      sl_list[i].clear();
+    ComputeStreamlines();
+    GatherStreamlines();
+    iterations++;
+    glutPostRedisplay();
+  }
+
+  if (iterations == max_iterations) {
+    fprintf(stderr,"Completed %d iterations\n",max_iterations);
+    iterations = -1;
+  }
 
 }
 //--------------------------------------------------------------------------
@@ -541,38 +743,52 @@ void timer(int val) {
 void mymouse(int button, int state, int x, int y) {
 
   if (state == GLUT_DOWN) {
+
     press_x = x; press_y = y; 
     if (button == GLUT_LEFT_BUTTON)
-      xform_mode = XFORM_ROTATE; 
-	 else if (button == GLUT_RIGHT_BUTTON) 
+      xform_mode = XFORM_ROTATE;
+    else if (button == GLUT_RIGHT_BUTTON)
       xform_mode = XFORM_SCALE; 
+
   }
-  else if (state == GLUT_UP) {
-	  xform_mode = XFORM_NONE; 
-  }
+
+  else if (state == GLUT_UP)
+    xform_mode = XFORM_NONE;
+
 }
 //--------------------------------------------------------------------------
 //
 void mymotion(int x, int y) {
 
-    if (xform_mode==XFORM_ROTATE) {
-      x_angle += (x - press_x)/5.0; 
-      if (x_angle > 180) x_angle -= 360; 
-      else if (x_angle <-180) x_angle += 360; 
-      press_x = x; 
+  if (xform_mode==XFORM_ROTATE) {
+
+    x_angle += (x - press_x)/5.0; 
+    if (x_angle > 180)
+      x_angle -= 360; 
+    else if (x_angle <-180)
+      x_angle += 360; 
+    press_x = x; 
 	   
-      y_angle += (y - press_y)/5.0; 
-      if (y_angle > 180) y_angle -= 360; 
-      else if (y_angle <-180) y_angle += 360; 
-      press_y = y; 
-    }
-	else if (xform_mode == XFORM_SCALE){
-      float old_size = scale_size;
-      scale_size *= (1+ (y - press_y)/60.0); 
-      if (scale_size <0) scale_size = old_size; 
-      press_y = y; 
-    }
-	glutPostRedisplay(); 
+    y_angle += (y - press_y)/5.0; 
+    if (y_angle > 180)
+      y_angle -= 360; 
+    else if (y_angle <-180)
+      y_angle += 360; 
+    press_y = y; 
+
+  }
+
+  else if (xform_mode == XFORM_SCALE){
+
+    float old_size = scale_size;
+    scale_size *= (1+ (y - press_y)/60.0); 
+    if (scale_size <0)
+      scale_size = old_size; 
+    press_y = y; 
+
+  }
+
+  glutPostRedisplay(); 
 
 }
 //--------------------------------------------------------------------------

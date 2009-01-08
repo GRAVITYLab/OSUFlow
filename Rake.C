@@ -272,7 +272,7 @@ void SolidRake::GenSeedRandom(const size_t numSeeds[3],
 	//	srand((unsigned)time(NULL));
 
 	totalNum = numSeeds[0] * numSeeds[1] * numSeeds[2];
-	printf(" solid numseed = %d\n", totalNum); 
+
 	for(iFor = 0; iFor < totalNum; iFor++)
 	{
 		float coeff[3];

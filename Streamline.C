@@ -115,14 +115,17 @@ void vtCStreamLine::execute(const void* userData,
 void vtCStreamLine::computeStreamLine(const void* userData,
 				      list<vtListSeedTrace*>& listSeedTraces)
 {
+
 	vtListParticleIter sIter;
 
 	for(sIter = m_lSeeds.begin(); sIter != m_lSeeds.end(); ++sIter)
 	{
+
 		vtParticleInfo* thisSeed = *sIter;
 
 		if(thisSeed->itsValidFlag == 1)			// valid seed
 		{
+
 			if(m_itsTraceDir & BACKWARD_DIR)
 			{
 				vtListSeedTrace* backTrace;

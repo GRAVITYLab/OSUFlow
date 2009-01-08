@@ -251,7 +251,6 @@ bool RegularCartesianGrid::isInCell(PointInfo& pInfo, const int cellId)
 //////////////////////////////////////////////////////////////////////////
 int RegularCartesianGrid::phys_to_cell(PointInfo& pInfo)
 {
-
   if(!isInBBox(pInfo.phyCoord))
     return -1;
 
@@ -633,12 +632,14 @@ void IrregularGrid::Boundary(VECTOR3& minB, VECTOR3& maxB)
 //////////////////////////////////////////////////////////////////////////
 bool IrregularGrid::isInBBox(VECTOR3& pos)
 {
+
 	if( (pos[0] >= m_vMinBound[0]) && (pos[0] <= m_vMaxBound[0]) &&
 		(pos[1] >= m_vMinBound[1]) && (pos[1] <= m_vMaxBound[1]) &&
 		(pos[2] >= m_vMinBound[2]) && (pos[2] <= m_vMaxBound[2]))
 		return true;
-	else
+	else{
 		return false;
+	}
 }
 
 void IrregularGrid::ComputeBBox(void)

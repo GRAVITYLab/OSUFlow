@@ -1,6 +1,7 @@
 
 
 #include "OSUFlow.h"
+
 #ifdef MPI
 #include <mpi.h>
 #endif
@@ -209,6 +210,7 @@ void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB,
 	ppVector[0] = pVector;
 	pSolution = new Solution(ppVector, totalNum, 1);
 	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
+	lMin = minB; lMax = maxB; //local data min/max range
 	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
 	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
@@ -469,8 +471,6 @@ void OSUFlow::SetRandomSeedPoints(const float min[3],
 							  (const size_t*)SeedSize); 
 	pSeedGenerator->GetSeeds(seedPtr, bUseRandomSeeds);
 	delete pSeedGenerator;
-	printf(" done\n"); 
-
 
 }
 
@@ -722,8 +722,11 @@ void OSUFlow::ReadData(const char* fname, bool bStatic,
 
   bStaticFlow = bStatic;
 
-  if(bStaticFlow)
+  if(bStaticFlow) {
+    MinT = MaxT = 0;
     ReadStaticFlowField(sMin, sMax, dim);
+  }
+
 //   else
 //     InitTimeVaryingFlowField(); // to be implemented 
 }
@@ -804,7 +807,7 @@ void OSUFlow::ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
   MPI_File_close(&fd);
 
   // create the field
-  InitStaticFlowField(pData, sMin, sMax); 
+  CreateStaticFlowField(pData, sMin, sMax); 
 
 }
 //---------------------------------------------------------------------------

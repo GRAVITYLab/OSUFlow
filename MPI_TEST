@@ -27,7 +27,7 @@
 #cd ~/osuflow
 
 # number of procs
-num_procs=2
+num_procs=8
 
 # executable
 #exe=./mpitest
@@ -39,9 +39,20 @@ data=./plume.vec
 # data size
 dsize="126 126 512"
 
-# blocking factor
-bf=2
+# number of blocks per process
+b=4
 
-/soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpiexec -n $num_procs $exe $data $dsize $bf
+# number of traces per block
+t=10
+
+# number of points per trace
+p=10
+
+# number of iterations
+n=2
+
+/soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpiexec -n $num_procs $exe $data $dsize $b $t $p $n
+
+#/soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpiexec  -n $num_procs xterm -e gdb --args $exe $data $dsize $b $t $p $n
 
 

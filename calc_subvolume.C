@@ -195,22 +195,23 @@ calc_subvolume(int vxdim,int vydim,int vzdim, int ghost, int npart,
   x_list[x_cnt++] =0; y_list[y_cnt++] = 0; z_list[z_cnt++] = 0; 
   calc_subvolume_h(vb, 0, npart-1, 0);
 
-  for (int i=0; i<x_cnt; i++) printf("x[%d] = %d ", i, x_list[i]); 
-  printf("\n"); 
-  for (int i=0; i<y_cnt; i++) printf("y[%d] = %d ", i, y_list[i]); 
-  printf("\n"); 
-  for (int i=0; i<z_cnt; i++) printf("z[%d] = %d ", i, z_list[i]); 
-  printf("\n"); 
+//   for (int i=0; i<x_cnt; i++) printf("x[%d] = %d ", i, x_list[i]); 
+//   printf("\n"); 
+//   for (int i=0; i<y_cnt; i++) printf("y[%d] = %d ", i, y_list[i]); 
+//   printf("\n"); 
+//   for (int i=0; i<z_cnt; i++) printf("z[%d] = %d ", i, z_list[i]); 
+//   printf("\n"); 
 
   sort_list(x_list, x_cnt); 
   sort_list(y_list, y_cnt); 
   sort_list(z_list, z_cnt); 
-  for (int i=0; i<x_cnt; i++) printf("x[%d] = %d ", i, x_list[i]); 
-  printf("\n"); 
-  for (int i=0; i<y_cnt; i++) printf("y[%d] = %d ", i, y_list[i]); 
-  printf("\n"); 
-  for (int i=0; i<z_cnt; i++) printf("z[%d] = %d ", i, z_list[i]); 
-  printf("\n"); 
+
+//   for (int i=0; i<x_cnt; i++) printf("x[%d] = %d ", i, x_list[i]); 
+//   printf("\n"); 
+//   for (int i=0; i<y_cnt; i++) printf("y[%d] = %d ", i, y_list[i]); 
+//   printf("\n"); 
+//   for (int i=0; i<z_cnt; i++) printf("z[%d] = %d ", i, z_list[i]); 
+//   printf("\n"); 
 
   lattice = new int[x_cnt*y_cnt*z_cnt]; 
   int xidx, yidx, zidx; 
@@ -224,8 +225,8 @@ calc_subvolume(int vxdim,int vydim,int vzdim, int ghost, int npart,
       if (vb_list[i].ymin == y_list[j]) yidx = j; 
     for (int j=0; j<z_cnt; j++) 
       if (vb_list[i].zmin == z_list[j]) zidx = j; 
-    printf("vblist %d [%d %d %d] at lattice [%d %d %d]\n", i, vb_list[i].xmin, 
-	   vb_list[i].ymin, vb_list[i].zmin, zidx, yidx, xidx); 
+//     printf("vblist %d [%d %d %d] at lattice [%d %d %d]\n", i, vb_list[i].xmin, 
+// 	   vb_list[i].ymin, vb_list[i].zmin, zidx, yidx, xidx); 
 
     lattice[zidx*x_cnt*y_cnt+yidx*x_cnt+xidx] = i; 
 
