@@ -15,6 +15,7 @@ OSUFlow::OSUFlow()
 	flowField = NULL;
 	bStaticFlow = true;
 	seedPtr = NULL; 
+	seedTimeArray = NULL; 
 	nSeeds = 0; 
 	pStreakLine = NULL; 
 }
@@ -582,7 +583,7 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 
 	// execute streamline
 	vtCStreamLine* pStreamLine;
-	float currentT = 0.0;
+	float currentT = 0.0;  // always starts from the default time 0 
 	pStreamLine = new vtCStreamLine(flowField);
 	switch(traceDir)
 	{
@@ -608,15 +609,13 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 }
 
 //////////////////////////////////////////////////////////////////////////////
-
+//   all particles start at the same time: currentT 
 bool OSUFlow::GenPathLines(list<vtListTimeSeedTrace*>& listSeedTraces, 
 			   TIME_DIR  dir, 
 			   int maxPoints,
-			   unsigned int randomSeed,
 			   float currentT)
 {
-	// first generate seeds
-
+	// first generate seeds if not exist before 
         if (seedPtr==NULL)  {
 	  nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
 	  seedPtr = new VECTOR3[nSeeds];
@@ -642,17 +641,86 @@ bool OSUFlow::GenPathLines(list<vtListTimeSeedTrace*>& listSeedTraces,
 	pPathLine->SetInitStepSize(initialStepSize);
 	pPathLine->SetMaxStepSize(maxStepSize);
 	pPathLine->setIntegrationOrder(FOURTH);
-	pPathLine->execute((void *)&currentT, listSeedTraces);
+	pPathLine->execute(listSeedTraces);
 	// release resource
 	delete pPathLine;
 	return true;
 }
 
+////////////////////////////////////////////////////////////////////////////
+//
+// Take an input list of seeds, which all start at the same time currentT 
+bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedTraces, 
+			   TIME_DIR  dir, 
+			   int num_seeds, 
+			   int maxPoints,
+			   float currentT)
+{
+        seedPtr = seeds; 
+	nSeeds = num_seeds; 
+
+	listSeedTraces.clear();
+
+	// execute streamline
+	vtCPathLine* pPathLine;
+
+	pPathLine = new vtCPathLine(flowField);
+
+	pPathLine->SetTimeDir(dir); 
+
+	pPathLine->SetLowerUpperAngle(3.0, 15.0);
+	pPathLine->setMaxPoints(maxPoints);
+	pPathLine->setSeedPoints(seedPtr, nSeeds, currentT);
+	pPathLine->SetInitStepSize(initialStepSize);
+	pPathLine->SetMaxStepSize(maxStepSize);
+	pPathLine->setIntegrationOrder(FOURTH);
+	pPathLine->execute(listSeedTraces);
+	// release resource
+	delete pPathLine;
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////
+//
+//    Take an input list of seeds, which 
+//    can start from different times (tarray) 
+//
+bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedTraces, 
+			   TIME_DIR  dir, 
+			   int num_seeds, 
+			   int maxPoints,
+			   float* tarray)
+{
+
+        nSeeds = num_seeds; 
+	seedPtr = seeds; 
+
+	listSeedTraces.clear();
+
+	// execute streamline
+	vtCPathLine* pPathLine;
+
+	pPathLine = new vtCPathLine(flowField);
+
+	pPathLine->SetTimeDir(dir); 
+	pPathLine->SetLowerUpperAngle(3.0, 15.0);
+	pPathLine->setMaxPoints(maxPoints);
+	pPathLine->setSeedPoints(seedPtr, nSeeds, tarray);
+	pPathLine->SetInitStepSize(initialStepSize);
+	pPathLine->SetMaxStepSize(maxStepSize);
+	pPathLine->setIntegrationOrder(FOURTH);
+	pPathLine->execute(listSeedTraces);
+	// release resource
+	delete pPathLine;
+	return true;
+}
 
 ///////////////////////////////////////////////////////////////
-
+//
+// Use preset streakline seeds, all starting from current_time 
+//
 bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir, 
-			     float current_time, bool is_existing)
+			     float current_time)
 {
 
   if (seedPtr==NULL)  {
@@ -664,11 +732,9 @@ bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir,
     pSeedGenerator->GetSeeds(seedPtr, bUseRandomSeeds);
     delete pSeedGenerator;
   }
-  if (is_existing == false) {
-    if (pStreakLine!=NULL) delete pStreakLine; 
-    pStreakLine = new vtCStreakLine(flowField); 
-  }
-  //otherwise one sterakline has already been created before 
+
+  pStreakLine = new vtCStreakLine(flowField); 
+
   float currentT = current_time; 
   
   pStreakLine->SetTimeDir(dir); 
@@ -679,23 +745,20 @@ bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir,
   pStreakLine->setIntegrationOrder(FOURTH);
 
   pStreakLine->execute((void*) &currentT, streakTraces); 
-
-  printf(" back from streakline exec\n"); 
-
+  delete pStreakLine; 
+  return true; 
 } 
 
 
 bool OSUFlow::GenStreakLines(VECTOR3* seeds, vtStreakTraces& streakTraces, TIME_DIR dir,
-			     int num_seeds, float current_time, bool is_existing)
+			     int num_seeds, float current_time)
 {
 
   nSeeds = num_seeds; 
   seedPtr = seeds; 
 
-  if (is_existing == false) {
-    if (pStreakLine!=NULL) delete pStreakLine; 
-    pStreakLine = new vtCStreakLine(flowField); 
-  }
+  pStreakLine = new vtCStreakLine(flowField); 
+
   //otherwise one sterakline has already been created before 
   float currentT = current_time; 
   
@@ -707,8 +770,8 @@ bool OSUFlow::GenStreakLines(VECTOR3* seeds, vtStreakTraces& streakTraces, TIME_
   pStreakLine->setIntegrationOrder(FOURTH);
 
   pStreakLine->execute((void*) &currentT, streakTraces); 
-
-  printf(" back from streakline exec\n"); 
+  delete pStreakLine; 
+  return true; 
 } 
 
 

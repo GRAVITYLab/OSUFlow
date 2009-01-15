@@ -68,9 +68,14 @@ void compute_pathlines() {
 
   sl_list.clear(); 
 
+  float* tarray = new float[nSeeds]; 
+  for (int i=0;i<nSeeds; i++) 
+    tarray[i] = (float)(i % num_timesteps); 
+
   printf("compute streamlines..\n"); 
   osuflow->SetIntegrationParams(1, 5); 
-  osuflow->GenPathLines(sl_list , FORWARD, 5000, 0); 
+  //  osuflow->GenPathLines(seeds, sl_list , FORWARD, nSeeds, 5000); 
+  osuflow->GenPathLines(seeds, sl_list , FORWARD, nSeeds, 5000, tarray); 
   printf(" done integrations\n"); 
   printf("list size = %d\n", sl_list.size()); 
 }

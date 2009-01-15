@@ -36,9 +36,8 @@ main(int argc, void *argv[]) {
 
   float ctime = 0.0; 
   float max_time = 49.0; 
-  bool is_existing = false; 
 
-  osuflow->GenStreakLines(list , FORWARD, ctime, is_existing); 
+  osuflow->GenStreakLines(list , FORWARD, ctime); 
   printf(" done integrations\n"); 
   printf("list size = %d\n", list.size()); 
 
@@ -59,11 +58,9 @@ main(int argc, void *argv[]) {
 
 
   /*
-  bool is_existing = false; 
-
   while (ctime < max_time)  {
     printf(" --------------- Time =  %f ----------------\n", ctime); 
-    osuflow->GenStreakLines(list , FORWARD, ctime, is_existing); 
+    osuflow->GenStreakLines(list , FORWARD, ctime); 
     printf(" done integrations\n"); 
     printf("list size = %d\n", list.size()); 
 
@@ -83,7 +80,6 @@ main(int argc, void *argv[]) {
     }
 
     ctime += 1.0; 
-    is_existing = true; 
   }
   */
 }

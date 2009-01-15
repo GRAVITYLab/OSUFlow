@@ -35,7 +35,7 @@ main(int argc, void *argv[]) {
   osuflow->SetIntegrationParams(1, 5); 
 
   
-  osuflow->GenPathLines(list , FORWARD, 50, 0); 
+  osuflow->GenPathLines(list , FORWARD, 50); 
   printf(" done integrations\n"); 
   printf("list size = %d\n", list.size()); 
 

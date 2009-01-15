@@ -27,21 +27,22 @@ vtCPathLine::~vtCPathLine(void)
 // of boundary (both spacial and time)
 //
 // output
-//	listSeedTraces: for each seed, there is a list keeping all particles
-//					it advects					
+//
+//      vtListTimeSeedTrace will contain the time information for the particle traces
+// 
 //////////////////////////////////////////////////////////////////////////
-void vtCPathLine::execute(const void* userData,
-			  list<vtListTimeSeedTrace*>& listSeedTraces)
+void vtCPathLine::execute(list<vtListTimeSeedTrace*>& listSeedTraces)
 {
 	listSeedTraces.clear();
-	computePathLine(userData, listSeedTraces);
+	computePathLine(listSeedTraces);
 }
 
-void vtCPathLine::computePathLine(const void* userData,
-			  list<vtListTimeSeedTrace*>& listSeedTraces)
+
+
+void vtCPathLine::computePathLine(list<vtListTimeSeedTrace*>& listSeedTraces)
 {
 	int res;
-	float currentT = *(float *)userData;
+	float currentT; 
 	vtListParticleIter pIter = m_lSeeds.begin();
 	for(; pIter != m_lSeeds.end(); pIter++)
 	{
@@ -55,6 +56,7 @@ void vtCPathLine::computePathLine(const void* userData,
 	{
 		vtListTimeSeedTrace *trace =  new vtListTimeSeedTrace;
 		vtParticleInfo* thisParticle = *pIter;
+		currentT = thisParticle->m_fStartTime; 
 		
 		if(thisParticle->itsValidFlag == 1)
 		{
@@ -69,8 +71,7 @@ void vtCPathLine::computePathLine(const void* userData,
 // Get particle advecting one step, none-adaptive stepsize. For each seed,
 // it only advects one step.
 //////////////////////////////////////////////////////////////////////////
-void vtCPathLine::execute(const void* userData, 
-		  list<vtPathlineParticle*>& listSeedTraces)
+void vtCPathLine::execute(list<vtPathlineParticle*>& listSeedTraces)
 {
 	listSeedTraces.clear();
 
@@ -84,14 +85,13 @@ void vtCPathLine::execute(const void* userData,
 		}
 	}
 		
-	computePathLine(userData, listSeedTraces);
+	computePathLine(listSeedTraces);
 }
 
-void vtCPathLine::computePathLine(const void* userData,
-		  list<vtPathlineParticle*>& listSeedTraces)
+void vtCPathLine::computePathLine(list<vtPathlineParticle*>& listSeedTraces)
 {
-	float currentT = *(float*)userData;
-	float finalT = currentT + m_timeDir * m_itsTimeInc;
+        float currentT; 
+	float finalT; 
 
 	// advect the particles from this time step
 	vtListParticleIter pIter = m_itsParticles.begin();
@@ -104,16 +104,18 @@ void vtCPathLine::computePathLine(const void* userData,
 
 		if(thisParticle->itsValidFlag == 1)
 		{
-			int res = advectParticle(m_integrationOrder, *thisParticle, currentT, *thisParticle, finalT);
-			if(res == 1)
-			{
-				// for output
-				vtPathlineParticle* newParticle = new vtPathlineParticle;
-				newParticle->pos = thisParticle->m_pointInfo.phyCoord;
-				newParticle->ptId = thisParticle->ptId;
-				newParticle->time = finalT; 
-				listSeedTraces.push_back(newParticle);
-			}
+		  currentT = thisParticle->m_fStartTime; 
+		  finalT = currentT + m_timeDir * m_itsTimeInc;
+		  int res = advectParticle(m_integrationOrder, *thisParticle, currentT, *thisParticle, finalT);
+		  if(res == 1)
+		    {
+		      // for output
+		      vtPathlineParticle* newParticle = new vtPathlineParticle;
+		      newParticle->pos = thisParticle->m_pointInfo.phyCoord;
+		      newParticle->ptId = thisParticle->ptId;
+		      newParticle->time = finalT; 
+		      listSeedTraces.push_back(newParticle);
+		    }
 		}
 	}
 }

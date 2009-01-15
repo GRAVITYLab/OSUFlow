@@ -197,13 +197,13 @@ public:
 	vtCPathLine(CVectorField* pField);
 	~vtCPathLine(void);
 
-	void execute(const void* userData, list<vtListTimeSeedTrace*>& listSeedTraces);
-	void execute(const void* userData, list<vtPathlineParticle*>& listSeedTraces);
+	void execute(list<vtListTimeSeedTrace*>& listSeedTraces);
+	void execute(list<vtPathlineParticle*>& listSeedTraces);
 		
 protected:
 	// code specific to pathline
-	void computePathLine(const void*, list<vtListTimeSeedTrace*>&);
-	void computePathLine(const void*, list<vtPathlineParticle*>&);
+	void computePathLine(list<vtListTimeSeedTrace*>&);
+	void computePathLine(list<vtPathlineParticle*>&);
 };
 
 //////////////////////////////////////////////////////////////////////////

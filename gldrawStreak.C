@@ -72,7 +72,7 @@ void compute_streaklines() {
   sl_list.clear(); 
   printf("compute streaklines..\n"); 
   osuflow->SetIntegrationParams(1, 5); 
-  osuflow->GenStreakLines(sl_list , FORWARD, ctime, false); 
+  osuflow->GenStreakLines(sl_list , FORWARD, ctime); 
   printf(" done integrations\n"); 
   printf("list size = %d\n", sl_list.size()); 
 

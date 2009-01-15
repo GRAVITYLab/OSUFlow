@@ -90,7 +90,7 @@ void compute_streaklines() {
        int i = plist[proc][np]; 
        sl_list[i].clear(); 
        osuflow_list[i]->SetIntegrationParams(1, 5); 
-       osuflow_list[i]->GenStreakLines(sl_list[i], FORWARD, ctime, false); 
+       osuflow_list[i]->GenStreakLines(sl_list[i], FORWARD, ctime); 
        printf("domain %d done integrations", i); 
        printf(" %d streaklines. \n", sl_list[i].size()); 
      }
