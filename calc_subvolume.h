@@ -24,6 +24,7 @@ typedef
   int xmin, xmax; 
   int ymin, ymax;
   int zmin, zmax;
+  int tmin, tmax;   // computational time steps
 } volume_bounds_type;
 
 /* Function Prototypes */

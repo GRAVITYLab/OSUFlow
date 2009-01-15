@@ -55,11 +55,18 @@ public:
 	VECTOR3 *GetSeeds(int& num) {num = numSeeds[0]*numSeeds[1]*numSeeds[2]; 
 	                             return seedPtr;}
 
-	bool GenPathLines(list<vtListSeedTrace*>& listSeedTraces, TIME_DIR, 
-			  int maxPoints,unsigned int randomSeed);
+	bool GenPathLines(list<vtListTimeSeedTrace*>& listSeedTraces, TIME_DIR, 
+			  int maxPoints,unsigned int randomSeed, 
+			  float currentT = 0.0);
 
-	bool GenStreakLines(vtStreakTraces& StreakTraces, TIME_DIR, float current_time, 
-			    bool is_existing); 
+	bool GenStreakLines(vtStreakTraces& StreakTraces, TIME_DIR, 
+			    float current_time, bool is_existing); 
+	//	bool GenStreakLines(vtStreakTraces& StreakTraces, TIME_DIR, 
+	//			    float* tarray, bool is_existing); 
+	bool GenStreakLines(VECTOR3* seeds, vtStreakTraces& StreakTraces, TIME_DIR, 
+			    int num_seeds, float current_time, bool is_existing);  
+	//	bool GenStreakLines(VECTOR3* seeds, vtStreakTraces& StreakTraces, TIME_DIR, 
+	//			    int num_seeds, float * tarray, bool is_existing);  
 
 	void NormalizeField(bool bLocal) {flowField->NormalizeField(bLocal);}
 	void ScaleField(float scaleF) {flowField->ScaleField(scaleF); }

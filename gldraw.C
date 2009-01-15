@@ -290,8 +290,12 @@ int main(int argc, char** argv)
 
   osuflow = new OSUFlow(); 
   printf("read file %s\n", argv[1]); 
+  //  minB[0] = 0; minB[1] = 0; minB[2] = 0; 
+  //  maxB[0] = 64; maxB[1] = 127; maxB[2] = 64; 
+
   minB[0] = 0; minB[1] = 0; minB[2] = 0; 
-  maxB[0] = 64; maxB[1] = 127; maxB[2] = 64; 
+  maxB[0] = 120; maxB[1] = 120; maxB[2] = 400; 
+
   osuflow->LoadData((const char*)argv[1], true, minB, maxB); //true: a steady flow field 
 
   //  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 

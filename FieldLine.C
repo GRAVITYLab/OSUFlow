@@ -24,6 +24,7 @@ m_fStepTime((float)0.0),
 m_fDurationTime((float)0.0),
 m_fLowerAngleAccuracy((float)0.99),
 m_fUpperAngleAccuracy((float)0.999),
+m_fStationaryCutoff((float)0.00001), 
 m_nMaxsize(MAX_LENGTH),
 m_fInitStepSize(1.0),
 m_pField(pField)
@@ -231,6 +232,64 @@ void vtCFieldLine::setSeedPoints(VECTOR3* points, int numPoints, float t)
 			thisSeed->m_pointInfo.phyCoord = points[i];
 			thisSeed->m_fStartTime = t;
 			res = m_pField->at_phys(-1, points[i], thisSeed->m_pointInfo, t, nodeData);
+			thisSeed->itsValidFlag =  (res == 1) ? 1 : 0 ;
+		}    
+	}
+
+	m_nNumSeeds = numPoints;
+}
+
+
+
+
+//////////////////////////////////////////////////////////////////////////
+// initialize seeds with possibly different start times in t array 
+//////////////////////////////////////////////////////////////////////////
+void vtCFieldLine::setSeedPoints(VECTOR3* points, int numPoints, 
+				 float* t)
+{
+	int i, res;
+	VECTOR3 nodeData;
+
+	if(points == NULL)
+		return;
+
+	// if the rake size has changed, forget the previous seed points
+	if( m_nNumSeeds != numPoints )
+		releaseSeedMemory();
+
+	if( m_nNumSeeds == 0 )
+	{
+		for(i = 0 ; i < numPoints ; i++ )
+		{
+			vtParticleInfo* newParticle = new vtParticleInfo;
+
+			newParticle->m_pointInfo.phyCoord = points[i];
+			newParticle->m_fStartTime = t[i];
+			newParticle->ptId = i;
+
+			// query the field in order to get the starting
+			// cell interpolant for the seed point
+			// which was passed to us without any prior information
+
+			res = m_pField->at_phys(-1, points[i], newParticle->m_pointInfo, t[i], nodeData);
+// 			newParticle->itsValidFlag =  (res == 1) ? 1 : 0 ;
+			newParticle->itsValidFlag =  1;
+			m_lSeeds.push_back( newParticle );
+		}
+	} 
+	else
+	{
+		vtListParticleIter sIter = m_lSeeds.begin();
+
+		for(i = 0 ; sIter != m_lSeeds.end() ; ++sIter, ++i )
+		{
+			vtParticleInfo* thisSeed = *sIter;
+
+			// set the new location for this seed point
+			thisSeed->m_pointInfo.phyCoord = points[i];
+			thisSeed->m_fStartTime = t[i];
+			res = m_pField->at_phys(-1, points[i], thisSeed->m_pointInfo, t[i], nodeData);
 			thisSeed->itsValidFlag =  (res == 1) ? 1 : 0 ;
 		}    
 	}

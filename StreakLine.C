@@ -42,7 +42,8 @@ void vtCStreakLine::execute(const void* userData,
 	float currentT = *(float*)userData;
 	//	computeStreakLine((void *)&currentT, listSeedTraces);
 
-	while(currentT < (m_pField->GetTimeSteps()-1))
+	while((currentT >= m_pField->GetMinTimeStep()) &&  
+	      (currentT <= m_pField->GetMaxTimeStep()))
 	{
 		computeStreakLine((void *)&currentT, listSeedTraces);
 		currentT += m_timeDir * m_itsTimeInc;

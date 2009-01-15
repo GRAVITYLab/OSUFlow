@@ -37,7 +37,6 @@ void OSUFlow::LoadData(const char* fname, bool bStatic)
 {
 	flowName = new char[255];
 	strcpy(flowName, fname);
-
 	bStaticFlow = bStatic;
 
 	if(bStaticFlow) {
@@ -251,7 +250,6 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 		  continue; 
 		}
 		fread(dimension, sizeof(int), 3, fVecIn);
-		//fread(&tStep, sizeof(int), 1, fVecIn);
 		totalNum = dimension[0] * dimension[1] * dimension[2];
 		if (first == 1) {
 		  pData = new float[totalNum * 3];
@@ -272,7 +270,6 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
         lMin = gMin; lMax = gMax; 
 	pSolution = new Solution(ppVector, totalNum, timesteps);
-	//	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
 	pRegularCGrid = new RegularCartesianGrid(lMax[0]-lMin[0]+1, 
 						 lMax[1]-lMin[1]+1, 
 						 lMax[2]-lMin[2]+1); 
@@ -281,7 +278,10 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 	flowField = new CVectorField(pRegularCGrid, pSolution, timesteps);
 }
 
+/////////////////////////////////////////////////////////////////
+//
 // read the whole time sequence within the subdomain 
+//
 void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB)
 {
 	FILE *fIn;
@@ -386,7 +386,6 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, i
 	for(int iFor = 0; iFor < timesteps; iFor++)
 	{
 		VECTOR3* pVector;
-
 		fscanf(fIn, "%s", filename);
 		if (iFor <min_t || iFor >max_t) 
 		  continue; 
@@ -397,7 +396,6 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, i
 		  continue; 
 		}
 		fread(dimension, sizeof(int), 3, fVecIn);
-		//fread(&tStep, sizeof(int), 1, fVecIn);
 		totalNum = lxdim*lydim*lzdim; 
 		if (first == 1) {
 		  pData = new float[totalNum * 3];
@@ -434,7 +432,7 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, i
 						 lMax[2]-lMin[2]+1); 
 	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
-	flowField = new CVectorField(pRegularCGrid, pSolution, numTimesteps);
+	flowField = new CVectorField(pRegularCGrid, pSolution, numTimesteps, MinT);
 }
 //////////////////////////////////////////////////////////////////////////
 // specify a set of seed points randomly generated over the specified
@@ -532,8 +530,10 @@ bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces,
 							    (const float*)maxRakeExt, 
 							    (const size_t*)numSeeds);
 	  pSeedGenerator->GetSeeds(seedPtr, bUseRandomSeeds);
+
 	  delete pSeedGenerator;
 	}
+	// or, seeds have already been generated previously, do nothing. 
 
 	listSeedTraces.clear();
 
@@ -575,6 +575,11 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 			     const int maxPoints, 
 			     list<vtListSeedTrace*>& listSeedTraces)
 {
+        nSeeds = seedNum; 
+	seedPtr = seeds; 
+
+	listSeedTraces.clear();
+
 	// execute streamline
 	vtCStreamLine* pStreamLine;
 	float currentT = 0.0;
@@ -592,7 +597,7 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 	}
 	pStreamLine->SetLowerUpperAngle(3.0, 15.0);
 	pStreamLine->setMaxPoints(maxPoints);
-	pStreamLine->setSeedPoints(seeds, seedNum, currentT);
+	pStreamLine->setSeedPoints(seedPtr, nSeeds, currentT);
 	pStreamLine->SetInitStepSize(initialStepSize);
 	pStreamLine->SetMaxStepSize(maxStepSize);
 	pStreamLine->setIntegrationOrder(FOURTH);
@@ -604,10 +609,11 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 
 //////////////////////////////////////////////////////////////////////////////
 
-bool OSUFlow::GenPathLines(list<vtListSeedTrace*>& listSeedTraces, 
+bool OSUFlow::GenPathLines(list<vtListTimeSeedTrace*>& listSeedTraces, 
 			   TIME_DIR  dir, 
-			     int maxPoints,
-			     unsigned int randomSeed)
+			   int maxPoints,
+			   unsigned int randomSeed,
+			   float currentT)
 {
 	// first generate seeds
 
@@ -625,7 +631,7 @@ bool OSUFlow::GenPathLines(list<vtListSeedTrace*>& listSeedTraces,
 
 	// execute streamline
 	vtCPathLine* pPathLine;
-	float currentT = 0.0;
+
 	pPathLine = new vtCPathLine(flowField);
 
 	pPathLine->SetTimeDir(dir); 
@@ -642,6 +648,8 @@ bool OSUFlow::GenPathLines(list<vtListSeedTrace*>& listSeedTraces,
 	return true;
 }
 
+
+///////////////////////////////////////////////////////////////
 
 bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir, 
 			     float current_time, bool is_existing)
@@ -674,6 +682,33 @@ bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir,
 
   printf(" back from streakline exec\n"); 
 
+} 
+
+
+bool OSUFlow::GenStreakLines(VECTOR3* seeds, vtStreakTraces& streakTraces, TIME_DIR dir,
+			     int num_seeds, float current_time, bool is_existing)
+{
+
+  nSeeds = num_seeds; 
+  seedPtr = seeds; 
+
+  if (is_existing == false) {
+    if (pStreakLine!=NULL) delete pStreakLine; 
+    pStreakLine = new vtCStreakLine(flowField); 
+  }
+  //otherwise one sterakline has already been created before 
+  float currentT = current_time; 
+  
+  pStreakLine->SetTimeDir(dir); 
+  pStreakLine->SetLowerUpperAngle(3.0, 15.0);
+  pStreakLine->setSeedPoints(seedPtr, nSeeds, currentT);
+  pStreakLine->SetInitStepSize(initialStepSize);
+  pStreakLine->SetMaxStepSize(maxStepSize);
+  pStreakLine->setIntegrationOrder(FOURTH);
+
+  pStreakLine->execute((void*) &currentT, streakTraces); 
+
+  printf(" back from streakline exec\n"); 
 } 
 
 

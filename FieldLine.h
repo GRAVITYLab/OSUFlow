@@ -68,40 +68,42 @@ public:
 
 typedef list<vtParticleInfo*> vtListParticle;
 typedef list<vtParticleInfo*>::iterator vtListParticleIter;
-typedef list<VECTOR3*> vtListSeedTrace;
+typedef list<VECTOR3*> vtListSeedTrace;      // positions
+typedef list<VECTOR4*> vtListTimeSeedTrace;  // positions and times 
 
 //////////////////////////////////////////////////////////////////////////
 // base class for all field lines, and the structure is like:
 //                                    vtCFieldLine
 //	                                  /  \
 //			      vtCStreamLine   vtCTimeVaryingFieldLine
-//               		|                       /   \
-//                           vtCPathline        vtCTimeLine   vtCStreakLine
+//               	                 	|     /   \
+//                                    vtCPathline  vtCTimeLine   vtCStreakLine
 //////////////////////////////////////////////////////////////////////////
 class vtCFieldLine
 {
 protected:
-	int m_nNumSeeds;				// number of seeds
+	int m_nNumSeeds;		// number of seeds
 	INTEG_ORD m_integrationOrder;	// integration order
-	TIME_DIR m_timeDir;				// advection direction
+	TIME_DIR m_timeDir;	        // advection direction
 	TIME_DEP m_itsTimeDep;
 	float m_fInitTime;
 	float m_fStepTime;
-	float m_fInitStepSize;			// initial advection step size of particle
+	float m_fInitStepSize;	 // initial advection step size of particle
 	float m_fDurationTime;
 	float m_fLowerAngleAccuracy;	// for adaptive stepsize 
 	float m_fUpperAngleAccuracy;
-	float m_fMaxStepSize;			// maximal advection stepsize
-	int m_nMaxsize;					// maximal number of particles this line advects
-	vtListParticle m_lSeeds;		// list of seeds
-	CVectorField* m_pField;			// vector field
-	float m_fStationaryCutoff;		// cutoff value for critical points
+	float m_fMaxStepSize;	        // maximal advection stepsize
+	int m_nMaxsize;		// maximal number of particles this line advects
+	vtListParticle m_lSeeds;	// list of seeds
+	CVectorField* m_pField;	        // vector field
+	float m_fStationaryCutoff;	// cutoff value for critical points
 
 public:
 	vtCFieldLine(CVectorField* pField);
 	virtual ~vtCFieldLine(void);
 
 	void setSeedPoints(VECTOR3* points, int numPoints, float t);
+	void setSeedPoints(VECTOR3* points, int numPoints, float* tarray);
 	void setMaxPoints(int val) { m_nMaxsize = val; }
 	void setIntegrationOrder(INTEG_ORD ord) { m_integrationOrder = ord; }
 	int  getMaxPoints(void){ return m_nMaxsize; }
@@ -128,13 +130,12 @@ class vtCTimeVaryingFieldLine : public vtCFieldLine
 {
 protected:
 	int m_itsTimeAdaptionFlag;
-	int m_itsMaxParticleLife;             // how long the particles be alive
+	int m_itsMaxParticleLife;   // how long the particles be alive
 	int m_itsMapWithTimeFlag;
 	int m_itsNeedResetFlag;
 	int m_itsWrapTimeFlag;
 	float m_itsTimeInc;
 	list<vtParticleInfo*> m_itsParticles;
-
 public:
 	vtCTimeVaryingFieldLine(CVectorField* pField);
 	~vtCTimeVaryingFieldLine(void);
@@ -164,15 +165,20 @@ protected:
 	// code shared by all time varying field lines here
 	void releaseParticleMemory(void);
 	int advectParticle( INTEG_ORD int_order, 
-						vtParticleInfo& initialPoint,
-						float initialTime,
-						vtParticleInfo& finalPoint,
-						float finalTime);
+			    vtParticleInfo& initialPoint,
+			    float initialTime,
+			    vtParticleInfo& finalPoint,
+			    float finalTime);
 	int advectParticle( INTEG_ORD int_order, 
-						vtParticleInfo& initialPoint,
-						float initialTime,
-						float finalTime,
-						vtListSeedTrace& seedTrace);
+			    vtParticleInfo& initialPoint,
+			    float initialTime,
+			    float finalTime,
+			    vtListSeedTrace& seedTrace);
+	int advectParticle( INTEG_ORD int_order, 
+			    vtParticleInfo& initialPoint,
+			    float initialTime,
+			    float finalTime,
+			    vtListTimeSeedTrace& seedTrace);
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -182,6 +188,7 @@ typedef struct vtPathlineParticle
 {
 	VECTOR3 pos;
 	int ptId;
+        float time; 
 }vtPathlineParticle;
 
 class vtCPathLine : public vtCTimeVaryingFieldLine
@@ -190,12 +197,12 @@ public:
 	vtCPathLine(CVectorField* pField);
 	~vtCPathLine(void);
 
-	void execute(const void* userData, list<vtListSeedTrace*>& listSeedTraces);
+	void execute(const void* userData, list<vtListTimeSeedTrace*>& listSeedTraces);
 	void execute(const void* userData, list<vtPathlineParticle*>& listSeedTraces);
 		
 protected:
 	// code specific to pathline
-	void computePathLine(const void*, list<vtListSeedTrace*>&);
+	void computePathLine(const void*, list<vtListTimeSeedTrace*>&);
 	void computePathLine(const void*, list<vtPathlineParticle*>&);
 };
 

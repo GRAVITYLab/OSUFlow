@@ -31,11 +31,12 @@ private:
 	Solution* m_pSolution;				// vector data
 	int m_nTimeSteps;
 	bool m_bIsNormalized;				// whether the solution is normalized or not
+	int m_MinT, m_MaxT; // the min and max time step of the data field 
 
 public:
 	// constructor and destructor
 	CVectorField();
-	CVectorField(Grid* pGrid, Solution* pSolution, int timesteps);
+	CVectorField(Grid* pGrid, Solution* pSolution, int timesteps, int min_t=0);
 	~CVectorField();
 
 	int lerp_phys_coord(int cellId, CellTopoType eCellTopoType, float* coeff, VECTOR3& pos);
@@ -54,6 +55,8 @@ public:
 	void getDimension(int& xdim, int& ydim, int& zdim);
 	CellType GetCellType(void) { return m_pGrid->GetCellType(); }
 	int GetTimeSteps(void) {return m_nTimeSteps;}
+	int GetMinTimeStep(void) {return m_MinT;}
+	int GetMaxTimeStep(void) {return m_MaxT;}
 	void GetInflowRegion(vector<VECTOR3>& inflowVerts, const float t);
 	void GetOutflowRegion(vector<VECTOR3>& outflowVerts, const float t);
 	void GetTangentialflowRegion(vector<VECTOR3>& tanflowVerts, const float t);

@@ -31,14 +31,14 @@ vtCPathLine::~vtCPathLine(void)
 //					it advects					
 //////////////////////////////////////////////////////////////////////////
 void vtCPathLine::execute(const void* userData,
-						  list<vtListSeedTrace*>& listSeedTraces)
+			  list<vtListTimeSeedTrace*>& listSeedTraces)
 {
 	listSeedTraces.clear();
 	computePathLine(userData, listSeedTraces);
 }
 
 void vtCPathLine::computePathLine(const void* userData,
-								  list<vtListSeedTrace*>& listSeedTraces)
+			  list<vtListTimeSeedTrace*>& listSeedTraces)
 {
 	int res;
 	float currentT = *(float *)userData;
@@ -53,7 +53,7 @@ void vtCPathLine::computePathLine(const void* userData,
 	pIter = m_itsParticles.begin();
 	for(; pIter != m_itsParticles.end(); pIter++)
 	{
-		vtListSeedTrace *trace =  new vtListSeedTrace;
+		vtListTimeSeedTrace *trace =  new vtListTimeSeedTrace;
 		vtParticleInfo* thisParticle = *pIter;
 		
 		if(thisParticle->itsValidFlag == 1)
@@ -70,7 +70,7 @@ void vtCPathLine::computePathLine(const void* userData,
 // it only advects one step.
 //////////////////////////////////////////////////////////////////////////
 void vtCPathLine::execute(const void* userData, 
-						  list<vtPathlineParticle*>& listSeedTraces)
+		  list<vtPathlineParticle*>& listSeedTraces)
 {
 	listSeedTraces.clear();
 
@@ -88,7 +88,7 @@ void vtCPathLine::execute(const void* userData,
 }
 
 void vtCPathLine::computePathLine(const void* userData,
-								  list<vtPathlineParticle*>& listSeedTraces)
+		  list<vtPathlineParticle*>& listSeedTraces)
 {
 	float currentT = *(float*)userData;
 	float finalT = currentT + m_timeDir * m_itsTimeInc;
@@ -111,6 +111,7 @@ void vtCPathLine::computePathLine(const void* userData,
 				vtPathlineParticle* newParticle = new vtPathlineParticle;
 				newParticle->pos = thisParticle->m_pointInfo.phyCoord;
 				newParticle->ptId = thisParticle->ptId;
+				newParticle->time = finalT; 
 				listSeedTraces.push_back(newParticle);
 			}
 		}

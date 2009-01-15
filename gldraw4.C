@@ -50,8 +50,8 @@ int first_frame = 1;
 
 volume_bounds_type *vb_list; 
 
-int npart = 32; 
-int nproc = 4;   // number of subdomains we will create 
+int npart = 1; 
+int nproc = 1;   // number of subdomains we will create 
 int total_seeds = 500; 
 
 int **plist; 

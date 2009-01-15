@@ -172,8 +172,7 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 			count++;
 		}
 
-		//if((curTime < 0) || (curTime >= (float)(m_pField->GetTimeSteps()-1)))
-		if((curTime < 0) || (curTime >= (float)(m_pField->GetTimeSteps()-1)))
+		if((curTime < m_pField->GetMinTimeStep()) || (curTime > (float)(m_pField->GetMaxTimeStep())))
 			return -1;
 
 		//---> temporary turn off function of adaptive stepsize
@@ -183,4 +182,98 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 
 	return OKAY;
 }
+
+
+
+
+int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order, 
+					    vtParticleInfo& initialPoint,
+					    float initialTime,
+					    float finalTime,
+					    vtListTimeSeedTrace& seedTrace)
+{  
+	int count = 0, istat, res;
+	PointInfo seedInfo;
+	PointInfo thisParticle, prevParticle, second_prevParticle;
+	float dt, dt_estimate, cell_volume, mag, curTime;
+	VECTOR3 vel;
+
+	// the first particle
+	seedInfo = initialPoint.m_pointInfo;
+	res = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, initialTime, vel);
+	if(res == OUT_OF_BOUND)
+		return OUT_OF_BOUND;
+	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+		return CRITICAL_POINT;
+
+	thisParticle = seedInfo;
+	VECTOR4 *p = new VECTOR4; 
+	(*p)[0] = seedInfo.phyCoord[0]; 
+	(*p)[1] = seedInfo.phyCoord[1]; 
+	(*p)[2] = seedInfo.phyCoord[2]; 
+	(*p)[3] = initialTime; 
+	seedTrace.push_back(p); 
+	curTime = initialTime;
+	count++;
+
+	// get the initial stepsize
+	switch(m_pField->GetCellType())
+	{
+	case CUBE:
+		dt = dt_estimate = m_fInitStepSize;
+		break;
+
+	case TETRAHEDRON:
+		cell_volume = m_pField->volume_of_cell(seedInfo.inCell);
+		mag = vel.GetMag();
+		if(fabs(mag) < 1.0e-6f)
+			dt_estimate = 1.0e-5f;
+		else
+			dt_estimate = pow(cell_volume, (float)0.3333333f) / mag;
+		dt = dt_estimate;
+		break;
+
+	default:
+		break;
+	}
+
+	// start to advect
+	while(count < m_nMaxsize)
+	{
+		second_prevParticle = prevParticle;
+		prevParticle = thisParticle;
+
+		if(int_order == SECOND)
+			istat = runge_kutta2(m_timeDir, UNSTEADY, thisParticle, &curTime, dt);
+		else
+			istat = runge_kutta4(m_timeDir, UNSTEADY, thisParticle, &curTime, dt);
+
+		if(istat == OUT_OF_BOUND)			// out of boundary
+			return OUT_OF_BOUND;
+
+		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, curTime, vel);
+		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+			return CRITICAL_POINT;			// arrives at a critical point
+		else
+		{
+		  VECTOR4 *p = new VECTOR4; 
+		  (*p)[0] = thisParticle.phyCoord[0]; 
+		  (*p)[1] = thisParticle.phyCoord[1]; 
+		  (*p)[2] = thisParticle.phyCoord[2]; 
+		  (*p)[3] = curTime; 
+		  seedTrace.push_back(p); 
+		  count++;
+		}
+
+		if((curTime < m_pField->GetMinTimeStep()) || (curTime > (float)(m_pField->GetMaxTimeStep())))
+			return -1;
+
+		//---> temporary turn off function of adaptive stepsize
+		//if(count > 2)
+		//	adapt_step(second_prevParticle.phyCoord, prevParticle.phyCoord, thisParticle.phyCoord, dt_estimate, &dt);
+	}
+
+	return OKAY;
+}
+
 

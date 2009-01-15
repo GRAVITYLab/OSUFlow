@@ -23,13 +23,15 @@ CVectorField::CVectorField()
 	Reset();
 }
 
-CVectorField::CVectorField(Grid* pGrid, Solution* pSolution, int timesteps)
+CVectorField::CVectorField(Grid* pGrid, Solution* pSolution, int timesteps, 
+			   int min_t)
 {
 	assert((pGrid != NULL) && (pSolution != NULL));
 	m_pGrid = pGrid;
 	m_pSolution = pSolution;
 	m_nTimeSteps = timesteps;
 	m_bIsNormalized = false;
+	m_MinT = min_t;  m_MaxT = min_t + timesteps -1; 
 }
 
 CVectorField::~CVectorField()
@@ -44,6 +46,7 @@ void CVectorField::Reset(void)
 	m_pGrid = NULL;
 	m_pSolution = NULL;
 	m_bIsNormalized = false;
+	m_MinT = m_MaxT = -1; 
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -175,10 +178,10 @@ int CVectorField::at_phys(const int fromCell,
 //		-1:			operation fail
 //////////////////////////////////////////////////////////////////////////
 int CVectorField::at_vert(const int i, 
-						  const int j, 
-						  const int k, 
-						  const float t, 
-						  VECTOR3& dataValue)
+			  const int j, 
+			  const int k, 
+			  const float t, 
+			  VECTOR3& dataValue)
 {
 	int xdim, ydim, zdim;
 	getDimension(xdim, ydim, zdim);
@@ -199,9 +202,9 @@ int CVectorField::at_vert(const int i,
 //		-1:			operation fail
 //////////////////////////////////////////////////////////////////////////
 int CVectorField::at_slice(int slice,
-						   SliceType eSliceType,
-						   const float t,
-						   vector<VECTOR3>& vSliceData)
+			   SliceType eSliceType,
+			   const float t,
+			   vector<VECTOR3>& vSliceData)
 {
 	int xdim, ydim, zdim;
 	int iFor, jFor, kFor;
@@ -271,10 +274,10 @@ int CVectorField::at_slice(int slice,
 //		-1:			operation fail
 //////////////////////////////////////////////////////////////////////////
 int CVectorField::at_comp(const int i, 
-						  const int j, 
-						  const int k, 
-						  const float t, 
-						  VECTOR3& dataValue)
+			  const int j, 
+			  const int k, 
+			  const float t, 
+			  VECTOR3& dataValue)
 {
 	return 1;
 }
@@ -323,9 +326,9 @@ void CVectorField::ScaleField(float scale)
 // pos: the output physical coordinates
 //////////////////////////////////////////////////////////////////////////
 int CVectorField::lerp_phys_coord(int cellId, 
-								  CellTopoType eCellTopoType, 
-								  float* coeff, 
-								  VECTOR3& pos)
+				  CellTopoType eCellTopoType, 
+				  float* coeff, 
+				  VECTOR3& pos)
 {
 	vector<int> vVertices;
 	int iFor;

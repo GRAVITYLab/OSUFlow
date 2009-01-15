@@ -328,7 +328,7 @@ int main(int argc, char** argv)
   sl_list = new vtStreakTraces[npart]; //streakline lists, one per subdomain 
 
   // this is a quick hack. The tornado data set has 50 time steps 
-  start_time = 0; 
+  start_time = 30; 
   end_time = 49; 
 
   // 

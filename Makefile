@@ -1,7 +1,7 @@
 #SHELL = /bin/sh
 
-#ARCH = MAC_OSX
-ARCH = LINUX
+ARCH = MAC_OSX
+#ARCH = LINUX
 
 LIBNAME = OSUFlow
 RM = rm 
@@ -31,7 +31,7 @@ OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	Element.o    StreakLine.o    VectorMatrix.o Lattice.o \
 	Field.o      PathLine.o      Streamline.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
-	OSUFlow.o calc_subvolume.o 
+	OSUFlow.o calc_subvolume.o Lattice4D.o 
 
 SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -39,7 +39,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	Element.C    StreakLine.C    VectorMatrix.C Lattice.C \
 	Field.C      PathLine.C      Streamline.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
-	OSUFlow.C calc_subvoulme.C
+	OSUFlow.C calc_subvoulme.C Lattice4D.C 
 
 .SUFFIXES: .c .C
 
@@ -52,7 +52,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 default: all
 
 all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainT testmainStreak gldrawT gldrawStreak  gldrawStk2 drawtest  mpitest
+	testmainT testmainStreak gldrawT gldrawStreak  gldrawStk2  gldrawStk3 drawtest  mpitest
 
 #all: lib$(LIBNAME).a 
 
@@ -107,6 +107,9 @@ gldrawStreak: gldrawStreak.o  lib$(LIBNAME).a
 
 gldrawStk2: gldrawStk2.o  lib$(LIBNAME).a
 	$(C++) -o gldrawStk2 gldrawStk2.o -L. -l$(LIBNAME) $(LIBS)
+
+gldrawStk3: gldrawStk3.o  lib$(LIBNAME).a
+	$(C++) -o gldrawStk3 gldrawStk3.o -L. -l$(LIBNAME) $(LIBS)
 
 clean:
 	rm -f *.o *.a

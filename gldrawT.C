@@ -36,7 +36,7 @@ int xform_mode = 0;
 
 OSUFlow *osuflow; 
 VECTOR3 minLen, maxLen; 
-list<vtListSeedTrace*> sl_list; 
+list<vtListTimeSeedTrace*> sl_list; 
 
 bool toggle_draw_streamlines = false; 
 bool toggle_animate_streamlines = false; 
@@ -84,16 +84,16 @@ void draw_pathlines() {
 
   printf("draw pathlines.\n"); 
   glColor3f(1,1,0); 
-  std::list<vtListSeedTrace*>::iterator pIter; 
+  std::list<vtListTimeSeedTrace*>::iterator pIter; 
 
   pIter = sl_list.begin(); 
   for (; pIter!=sl_list.end(); pIter++) {
-    vtListSeedTrace *trace = *pIter; 
-    std::list<VECTOR3*>::iterator pnIter; 
+    vtListTimeSeedTrace *trace = *pIter; 
+    std::list<VECTOR4*>::iterator pnIter; 
     pnIter = trace->begin(); 
     glBegin(GL_LINE_STRIP); 
     for (; pnIter!= trace->end(); pnIter++) {
-      VECTOR3 p = **pnIter; 
+      VECTOR4 p = **pnIter; 
       //printf(" %f %f %f ", p[0], p[1], p[2]); 
       glVertex3f(p[0], p[1], p[2]); 
     }
@@ -104,9 +104,9 @@ void draw_pathlines() {
 
 void animate_pathlines() {
 
-  std::list<vtListSeedTrace*>::iterator pIter; 
-  vtListSeedTrace *trace; 
-  static std::list<VECTOR3*>::iterator *pnIter; 
+  std::list<vtListTimeSeedTrace*>::iterator pIter; 
+  vtListTimeSeedTrace *trace; 
+  static std::list<VECTOR4*>::iterator pnIter; 
   static int frame = 0; 
 
   glPushMatrix(); 
@@ -114,54 +114,32 @@ void animate_pathlines() {
   glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
   glTranslatef(-len[0]/2.0, -len[1]/2.0, -len[2]/2.0); 
 
+  float min_time = current_frame * time_incr; 
+  float max_time = (current_frame+1) * time_incr; 
+
   glColor3f(1,1,0); 
-
-  pIter = sl_list.begin(); 
-  int num_lines = sl_list.size(); 
-  printf(" animate %d pathlines\n", num_lines); 
-  if (first_frame==1) {
-    pnIter = new std::list<VECTOR3*>::iterator[num_lines]; 
-  }
-  int count = 0; 
-  int max_len = 0; 
-  for (; pIter!=sl_list.end(); pIter++) {
-    trace = *pIter; 
-    int sz = trace->size(); 
-    if (sz> max_len) {
-      max_len = sz;
-    }
-    pnIter[count] = trace->begin(); 
-    count++; 
-  }
-  if (first_frame ==1) {
-    frame = 0; 
-  }
-  else frame = (frame+1)%max_len; 
-  printf(" *** max len = %d frame time = %d \n", max_len, frame); 
-
   pIter = sl_list.begin(); 
 
-  count = 0; 
+
   for (; pIter!=sl_list.end(); pIter++) {
     trace = *pIter; 
-    int sz = trace->size(); 
-    //    if (frame >sz) {count++; continue; }
-    int frame_count = 0; 
+    pnIter = trace->begin(); 
     glBegin(GL_LINE_STRIP); 
-    for (; pnIter[count]!= trace->end(); pnIter[count]++) {
-      VECTOR3 p = **pnIter[count]; 
-      //printf(" %f %f %f ", p[0], p[1], p[2]); 
+    for (; pnIter!= trace->end(); pnIter++) {
+      VECTOR4 p = **pnIter; 
+      if (p[3] >= min_time && p[3] < max_time) {
+	glColor3f(0,0,1); 
+      }
+      else glColor3f(0,0,0); 
       glVertex3f(p[0], p[1], p[2]); 
-      frame_count++; 
-      if (frame_count > frame) break; 
     }
     glEnd(); 
-    count++; 
   }
+
+
   glPopMatrix(); 
-  frame++; 
-  if (first_frame == 1) first_frame = 0; 
-  sleep(.5); 
+  current_frame = (current_frame+1) % num_frames; 
+
 }
 
 ////////////////////////////////////////////// 
@@ -222,7 +200,7 @@ void timer(int val) {
     //    animate_streamlines(); 
     glutPostRedisplay(); 
   }
-  glutTimerFunc(10, timer, 0); 
+  glutTimerFunc(50, timer, 0); 
 }
 
 ///////////////////////////////////////////////////////////
@@ -295,11 +273,9 @@ int main(int argc, char** argv)
 
   osuflow = new OSUFlow(); 
   printf("read file %s\n", argv[1]); 
-  minB[0] = 0; minB[1] = 0; minB[2] = 0; 
-  maxB[0] = 100; maxB[1] = 100; maxB[2] = 300;  
+
   osuflow->LoadData((const char*)argv[1], false); //false : a time-varying flow field 
 
-  //  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
   osuflow->Boundary(minLen, maxLen); // get the boundary 
   minB[0] = minLen[0]; minB[1] = minLen[1];  minB[2] = minLen[2];
   maxB[0] = maxLen[0]; maxB[1] = maxLen[1];  maxB[2] = maxLen[2];

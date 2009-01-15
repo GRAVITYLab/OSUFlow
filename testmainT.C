@@ -31,7 +31,7 @@ main(int argc, void *argv[]) {
     printf(" seed no. %d : [%f %f %f]\n", i, seeds[i][0], 
 	   seeds[i][1], seeds[i][2]); 
 
-  list<vtListSeedTrace*> list; 
+  list<vtListTimeSeedTrace*> list; 
   osuflow->SetIntegrationParams(1, 5); 
 
   
@@ -40,18 +40,18 @@ main(int argc, void *argv[]) {
   printf("list size = %d\n", list.size()); 
 
 
-  std::list<vtListSeedTrace*>::iterator pIter; 
+  std::list<vtListTimeSeedTrace*>::iterator pIter; 
 
 
   pIter = list.begin(); 
   for (; pIter!=list.end(); pIter++) {
-    vtListSeedTrace *trace = *pIter; 
-    std::list<VECTOR3*>::iterator pnIter; 
+    vtListTimeSeedTrace *trace = *pIter; 
+    std::list<VECTOR4*>::iterator pnIter; 
     pnIter = trace->begin(); 
     for (; pnIter!=trace->end(); pnIter++) {
 
-      VECTOR3 p = **pnIter; 
-      printf(" %f %f %f ", p[0], p[1], p[2]); 
+      VECTOR4 p = **pnIter; 
+      printf(" %f %f %f %f", p[0], p[1], p[2], p[3]); 
 
 
     }
