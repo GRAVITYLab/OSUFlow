@@ -52,7 +52,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 default: all
 
 all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainT testmainStreak gldrawT gldrawStreak  gldrawStk2  gldrawStk3 drawtest  mpitest
+	testmainPathline testmainStreak gldrawPathline gldrawStreak  gldrawStk2  gldrawStk3 drawtest  mpitest
 
 #all: lib$(LIBNAME).a 
 
@@ -93,14 +93,14 @@ gldraw3: gldraw3.o  lib$(LIBNAME).a
 gldraw4: gldraw4.o  lib$(LIBNAME).a
 	$(C++) -o gldraw4 gldraw4.o -L. -l$(LIBNAME) $(LIBS)
 
-testmainT: testmainT.o  lib$(LIBNAME).a
-	$(C++) -o testmainT testmainT.o -L. -l$(LIBNAME) -lm 
+testmainPathline: testmainPathline.o  lib$(LIBNAME).a
+	$(C++) -o testmainPathline testmainPathline.o -L. -l$(LIBNAME) -lm 
 
 testmainStreak: testmainStreak.o  lib$(LIBNAME).a
 	$(C++) -o testmainStreak testmainStreak.o -L. -l$(LIBNAME) -lm
 
-gldrawT: gldrawT.o  lib$(LIBNAME).a
-	$(C++) -o gldrawT gldrawT.o -L. -l$(LIBNAME) $(LIBS)
+gldrawPathline: gldrawPathline.o  lib$(LIBNAME).a
+	$(C++) -o gldrawPathline gldrawPathline.o -L. -l$(LIBNAME) $(LIBS)
 
 gldrawStreak: gldrawStreak.o  lib$(LIBNAME).a
 	$(C++) -o gldrawStreak gldrawStreak.o -L. -l$(LIBNAME) $(LIBS)
