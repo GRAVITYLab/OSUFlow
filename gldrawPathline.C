@@ -112,7 +112,6 @@ void animate_pathlines() {
   std::list<vtListTimeSeedTrace*>::iterator pIter; 
   vtListTimeSeedTrace *trace; 
   static std::list<VECTOR4*>::iterator pnIter; 
-  static int frame = 0; 
 
   glPushMatrix(); 
 

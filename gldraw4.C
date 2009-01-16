@@ -50,8 +50,8 @@ int first_frame = 1;
 
 volume_bounds_type *vb_list; 
 
-int npart = 1; 
-int nproc = 1;   // number of subdomains we will create 
+int npart = 16; 
+int nproc = 2;   // number of subdomains we will create 
 int total_seeds = 500; 
 
 int **plist; 
@@ -90,7 +90,7 @@ void compute_streamlines() {
   // Now begin to perform particle tracing in all subdomains
   bool has_seeds = true;      // initially we always have seeds
   int num_seeds_left = 20*npart; 
-  while(has_seeds == true && num_seeds_left >10) {  // loop until all particles stop 
+  while(has_seeds == true && num_seeds_left >50) {  // loop until all particles stop 
     lat->ResetSeedLists();    // clear up the lattice seed lists
 
 
