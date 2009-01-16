@@ -1,7 +1,29 @@
-#SHELL = /bin/sh
+#----------------------------------------------------------------------------
+#
+# makefile
+#
+# Copyright (c) 2009 Han-Wei Shen and Tom Peterka
+#
+# Contact:
+#
+# Han-Wei Shen
+# The Ohio State University
+# Columbus, OH
+#
+# Tom Peterka
+# MCS Radix Lab
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
 
-ARCH = MAC_OSX
-#ARCH = LINUX
+#ARCH = MAC_OSX
+ARCH = LINUX
 
 LIBNAME = OSUFlow
 RM = rm 
@@ -17,8 +39,8 @@ LIBS  = -framework GLUT -framework OpenGL
 endif
 
 ifeq ($(ARCH),LINUX)
-CC = /soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpicc
-C++ = /soft/apps/packages/mpich2-1.0.7rc1-gcc/bin/mpicxx
+CC = mpicc
+C++ = mpicxx
 CCFLAGS = -g -c -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 LIBS = -lm -lglut -lGL
 endif
@@ -31,7 +53,7 @@ OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	Element.o    StreakLine.o    VectorMatrix.o Lattice.o \
 	Field.o      PathLine.o      Streamline.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
-	OSUFlow.o calc_subvolume.o Lattice4D.o 
+	OSUFlow.o    calc_subvolume.o #Lattice4D.o 
 
 SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -39,7 +61,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	Element.C    StreakLine.C    VectorMatrix.C Lattice.C \
 	Field.C      PathLine.C      Streamline.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
-	OSUFlow.C calc_subvoulme.C Lattice4D.C 
+	OSUFlow.C    calc_subvolume.C Lattice4D.C 
 
 .SUFFIXES: .c .C
 
@@ -52,7 +74,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 default: all
 
 all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainPathline testmainStreak gldrawPathline gldrawPathline2 gldrawStreak  gldrawStreak2  gldrawStreak3 drawtest  mpitest
+	testmainPathline testmainStreak gldrawPathline gldrawPathline2 gldrawStreak  gldrawStreak2  gldrawStreak3 mpitest
 
 #all: lib$(LIBNAME).a 
 
@@ -74,12 +96,8 @@ testmain3: testmain3.o lib$(LIBNAME).a
 testmain4: testmain4.o lib$(LIBNAME).a
 	$(C++) -o testmain4 testmain4.o -L. -l$(LIBNAME) -lm
 
-mpitest: MpiMain.o lib$(LIBNAME).a
-	$(C++) -o mpitest MpiMain.o -L. -l$(LIBNAME) -lm
-
-
-drawtest: MpiDraw.o lib$(LIBNAME).a
-	$(C++) -o drawtest MpiDraw.o -L. -l$(LIBNAME) $(LIBS) 
+mpitest: MpiDraw.o lib$(LIBNAME).a
+	$(C++) -o mpitest MpiDraw.o -L. -l$(LIBNAME) $(LIBS) 
 
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) $(LIBS) 

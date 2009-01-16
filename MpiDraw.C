@@ -2,7 +2,7 @@
 //
 // mpi test draw
 //
-// Copyright (c) 2008 Han-Wei Shen and Tom Peterka
+// Copyright (c) 2009 Han-Wei Shen and Tom Peterka
 //
 // Contact:
 //
@@ -62,7 +62,7 @@ int Tot_ntrace; // total number of everyone's traces, all iterations
 // function prototypes
 void Config(int argc, char *argv[]);
 void PrintSeeds(int nblocks);
-void RecvToSeeds(int local_block, int global_block);
+void RecvToSeeds(int lb, int gb);
 int EndTrace(list<vtListSeedTrace*> &list, VECTOR3 &p, int index);
 void ComputeStreamlines();
 void GatherStreamlines();
@@ -86,7 +86,8 @@ VECTOR3 size; // domain size
 static int bf; // number of blocks per rank
 int *NumSeeds; // number of seeds
 int *SizeSeeds; // size of seeds list (bytes)
-VECTOR3 **Seeds; // seeds lists
+VECTOR3 **Seeds; // list of seeds lists
+VECTOR3 *seeds; // one list of seeds
 OSUFlow **osuflow; // one flow object for each block
 list<vtListSeedTrace*> *sl_list; // streamlines list
 int npart; // global total number of blocks
@@ -97,6 +98,14 @@ Lattice* lat; // lattice
 int tf; // max number of traces per block
 int pf; // max number of points per trace
 int max_iterations; // max number of iterations
+
+// debug
+#define MAX_RENDER_SEEDS 1000
+VECTOR3 render_seeds[MAX_RENDER_SEEDS]; // seeds for rendering
+int num_render_seeds = 0; // number of seeds for rendering
+#define MAX_RENDER_PTS 20000
+VECTOR3 render_pts[MAX_RENDER_PTS]; // seeds for rendering
+int num_render_pts = 0; // number of seeds for rendering
 //----------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
@@ -128,6 +137,7 @@ int main(int argc, char *argv[]) {
     Error("Error: unable to allocate blocks\n");
   lat->GetPartitions(rank, blocks, nblocks);
 
+  // for all blocks
   for (i = 0; i < nblocks; i++) {
 
     osuflow[i] = new OSUFlow();
@@ -135,10 +145,9 @@ int main(int argc, char *argv[]) {
     minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, vb_list[blocks[i]].zmin);
     maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, vb_list[blocks[i]].zmax);
 
-//     fprintf(stderr,"Subdomain boundary: rank = %d i = %d global block = %d min = %.3lf %.3lf %.3lf max = %.3lf %.3lf %.3lf\n",rank,i,blocks[i],minB[0],minB[1],minB[2],maxB[0],maxB[1],maxB[2]);
-
     // read data
     osuflow[i]->ReadData(filename, true, minB, maxB, size); 
+
     if (rank == 0 && i == 0)
       fprintf(stderr,"Reading %s\n", filename); 
 
@@ -146,10 +155,17 @@ int main(int argc, char *argv[]) {
     from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
     to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
     osuflow[i]->SetRandomSeedPoints(from, to, tf); 
-    Seeds[i] = osuflow[i]->GetSeeds(NumSeeds[i]); 
-    SizeSeeds[i] = NumSeeds[i] * sizeof(VECTOR3);
+    seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
+    while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR3)) {
+      Seeds[i] = (VECTOR3 *)realloc(Seeds[i], SizeSeeds[i] * 2);
+      if (Seeds[i] == NULL)
+	Error("Error: RecvToSeeds() cannot reallocate memory\n");
+      SizeSeeds[i] *= 2;
+    }
+    for (j = 0; j < NumSeeds[i]; j++)
+      Seeds[i][j] = seeds[j];
 
-  }
+  } // for all blocks
 
   // main loop for nondrawing procs
   if (rank > 0) {
@@ -163,7 +179,6 @@ int main(int argc, char *argv[]) {
 
   // main loop for drawing proc
   if (rank == 0) {
-
     glutInit(&argc, argv); 
     glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH); 
     glutInitWindowSize(600,600); 
@@ -176,7 +191,6 @@ int main(int argc, char *argv[]) {
     glutMotionFunc(mymotion);
     glutKeyboardFunc(mykey); 
     glutMainLoop(); 
-
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -189,9 +203,9 @@ int main(int argc, char *argv[]) {
 //
 void ComputeStreamlines() {
 
-  std::list<vtListSeedTrace*>::iterator trace_iter; // iterator over seed traces
-  vtListSeedTrace *trace; // single seed trace
-  std::list<VECTOR3*>::iterator pt_iter; // iterator over points in one seed trace
+  list<vtListSeedTrace*> list; // trace of seed points
+  std::list<VECTOR3*>::iterator pt_iter; // iterator over pts in one trace
+  std::list<vtListSeedTrace*>::iterator trace_iter; // iterator over traces
   VECTOR3 p; // current point
   int neighbor; // neighbor's number (0-5)
   int ei, ej, ek; // neighbor's lattice position
@@ -200,38 +214,25 @@ void ComputeStreamlines() {
   // for all blocks, integrate points and send messages
   for(i = 0; i < nblocks; i++) {
 
-//     sl_list[i].clear();
-
-    // debug: print current seeds
-//     fprintf(stderr, "Current seeds\n");
-//     PrintSeeds(nblocks);
-
     if (NumSeeds[i]) {
-
-      // declaration needs to be here to start with an empty list each time
-      // need to learn how to clear a list w/o redeclaring it
-      list<vtListSeedTrace*> list; // trace of seed points
 
       // perform the integration
       // todo: integrate in both directions
+      list.clear();
       osuflow[i]->SetIntegrationParams(1, 5); 
       osuflow[i]->GenStreamLines(Seeds[i], FORWARD_DIR, NumSeeds[i], pf, list); 
 
       // copy each trace to the streamline list for later rendering
-      trace_iter = list.begin(); 
-      for (; trace_iter != list.end(); trace_iter++) {
-	trace = *trace_iter; 
-	sl_list[i].push_back(trace); 
-      }
+      for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++)
+	sl_list[i].push_back(*trace_iter); 
 
       // redistribute boundary points to neighbors
 
       // for all boundary points
       for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++) {
-	trace = *trace_iter;
-	if (!trace->size())
+	if (!(*trace_iter)->size())
 	  continue;
-	pt_iter = trace->end();
+	pt_iter = (*trace_iter)->end();
 	pt_iter--;
 	p = **pt_iter;
 
@@ -243,9 +244,6 @@ void ComputeStreamlines() {
 
       } // for all boundary points
 
-      // debug
-//       lat->PrintPost(blocks[i]);
-
       // send boundary list to neighbors
       lat->SendNeighbors(blocks[i], MPI_COMM_WORLD);
 
@@ -253,7 +251,7 @@ void ComputeStreamlines() {
       
   } // for all blocks
 
-    // for all blocks, receive messages
+  // for all blocks, receive messages
   for (i = 0; i < nblocks; i++) {
 
     for (j = 0; j < MAX_RECV_ATTEMPTS; j++) {
@@ -265,17 +263,10 @@ void ComputeStreamlines() {
     if (j == MAX_RECV_ATTEMPTS)
       continue;
 
-    // debug
-//     lat->PrintRecv(blocks[i]);
-
     // prepare for next iteration
     RecvToSeeds(i, blocks[i]);
 
   } // for all blocks
-
-  // debug: print current seeds
-//     fprintf(stderr, "Final seeds\n");
-//     PrintSeeds(nblocks);
 
 }
 //-----------------------------------------------------------------------
@@ -299,20 +290,6 @@ void GatherStreamlines() {
   
   // gather the actual points in each trace at the root
   GatherPts(ntrace, n);
-
-
-  // debug
-//   if (rank == 0) {
-
-//     fprintf(stderr,"\nNumber of traces in each proc:\n");
-//     for (i = 0; i < nproc; i++)
-//       fprintf(stderr, "Proc %d has %d traces\n",i,ntrace[i]);
-
-//     fprintf(stderr,"\nNumber of points in each of %d total traces:\n",tot_ntrace);
-//     for (i = 0; i < tot_ntrace; i++)
-// 	fprintf(stderr, "trace %d has %d points\n",i,npt[i]);
-
-//   }
 
 }
 //-----------------------------------------------------------------------
@@ -358,6 +335,10 @@ int GatherNumPts(int* &ntrace) {
   for (i = 0; i < nblocks; i++) {
     for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
          trace_iter++) {
+      if (j >= myntrace) {
+	fprintf(stderr,"Warning: GatherNumPts() j should be < myntrace but j = %d myntrace = %d. This should not happen\n",j,myntrace);
+	break;
+      }
       mynpt[j] = (*trace_iter)->size();
       tot_mynpt += mynpt[j++];
     }
@@ -514,12 +495,19 @@ void Config(int argc, char *argv[]) {
 	   minLen[0], maxLen[0], minLen[1], maxLen[1], minLen[2], maxLen[2]); 
 
   // init seeds
+  if ((seeds = (VECTOR3 *)malloc(sizeof(VECTOR3))) == NULL)
+    Error("Error: Config() cannot allocate memory for seeds\n");
   if ((Seeds = (VECTOR3 **)malloc(bf * sizeof(VECTOR3 *))) == NULL)
     Error("Error: Config() cannot allocate memory for Seeds\n");
   if ((NumSeeds = (int *)malloc(bf * sizeof(int))) == NULL)
     Error("Error: Config() cannot allocate memory for NumSeeds\n");
   if ((SizeSeeds = (int *)malloc(bf * sizeof(int))) == NULL)
     Error("Error: Config() cannot allocate memory for SizeSeeds\n");
+  for (i = 0; i < bf; i++) {
+    if ((Seeds[i] = (VECTOR3 *)malloc(sizeof(VECTOR3))) == NULL)
+      Error("Error: Config() cannot allocate memory for Seeds[i]\n");
+    SizeSeeds[i] = sizeof(VECTOR3);
+  }
 
   // init osuflow
   if ((osuflow = new OSUFlow*[bf]) == NULL)
@@ -560,8 +548,14 @@ void PrintSeeds(int nblocks) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   for (i = 0; i < nblocks; i++) {
-    for (j = 0; j < NumSeeds[i]; j++)
+    for (j = 0; j < NumSeeds[i]; j++) {
       fprintf(stderr,"Rank %d Block %d Seed %d: %.3f\t%.3f\t%.3f\n", rank, i, j, Seeds[i][j][0], Seeds[i][j][1], Seeds[i][j][2]);
+      render_seeds[num_render_seeds][0] = Seeds[i][j][0];
+      render_seeds[num_render_seeds][1] = Seeds[i][j][1];
+      render_seeds[num_render_seeds][2] = Seeds[i][j][2];
+      if (num_render_seeds < MAX_RENDER_SEEDS - 2)
+	num_render_seeds++;
+    }
   }
 
   fprintf(stderr,"\n");
@@ -573,28 +567,20 @@ void PrintSeeds(int nblocks) {
 // RecvToSeeds
 //
 // copies received points to seeds
-// local_block: block number within this process
-// global_block: block number in entire domain
+// lb: local block number within this process
+// gb: global block number in entire domain
 //
-void RecvToSeeds(int local_block, int global_block) {
+void RecvToSeeds(int lb, int gb) {
 
-  int num;
-  int i, j;
+  NumSeeds[lb] = lat->GetNumRecv(gb);
 
-  num = lat->GetNumRecv(global_block);
-
-  while (SizeSeeds[local_block] < num * sizeof(VECTOR3)) {
-
-    Seeds[local_block] = (VECTOR3 *)realloc(Seeds[local_block], 
-        SizeSeeds[local_block] * 2);
-    if (Seeds[local_block] == NULL)
-      Error("Error: RecvToSeeds() cannot reallocate memory\n");
-    SizeSeeds[local_block] *= 2;
-
+  while (SizeSeeds[lb] < NumSeeds[lb] * sizeof(VECTOR3)) {
+    Seeds[lb] = (VECTOR3 *)realloc(Seeds[lb], SizeSeeds[lb] * 2);
+    assert(Seeds[lb] != NULL);
+    SizeSeeds[lb] *= 2;
   }
 
-  NumSeeds[local_block] = lat->CopyRecvToSeeds(global_block, 
-       Seeds[local_block]);
+  lat->GetRecvPts(gb, Seeds[lb]);
 
 }
 //--------------------------------------------------------------------------
@@ -655,6 +641,24 @@ void DrawStreamlines() {
     volume_bounds_type vb = vb_list[i];     
     draw_bounds(vb.xmin, vb.xmax, vb.ymin, vb.ymax, vb.zmin, vb.zmax); 
   }
+
+  // debug: draw seeds
+  glColor3f(0.0, 1.0, 0.0);
+  glPointSize(5);
+  glBegin(GL_POINTS);
+  for (int i = 0; i < num_render_seeds; i++)
+    glVertex3f(render_seeds[i][0], render_seeds[i][1], render_seeds[i][2]);
+  glEnd();
+
+  glPopMatrix(); 
+
+  // debug: draw points
+  glColor3f(0.0, 0.0, 1.0);
+  glPointSize(2);
+  glBegin(GL_POINTS);
+  for (int i = 0; i < num_render_pts; i++)
+    glVertex3f(render_pts[i][0], render_pts[i][1], render_pts[i][2]);
+  glEnd();
 
   glPopMatrix(); 
 

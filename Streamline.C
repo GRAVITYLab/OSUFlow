@@ -120,11 +120,12 @@ void vtCStreamLine::computeStreamLine(const void* userData,
 
 	for(sIter = m_lSeeds.begin(); sIter != m_lSeeds.end(); ++sIter)
 	{
-
 		vtParticleInfo* thisSeed = *sIter;
+
 
 		if(thisSeed->itsValidFlag == 1)			// valid seed
 		{
+
 
 			if(m_itsTraceDir & BACKWARD_DIR)
 			{
@@ -159,6 +160,7 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 	istat = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, m_fCurrentTime, vel);
 	if(istat == OUT_OF_BOUND)
 		return OUT_OF_BOUND;
+
 	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
 		return CRITICAL_POINT;
 
@@ -195,9 +197,12 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 
 		if(istat == OUT_OF_BOUND)			// out of boundary
 			return OUT_OF_BOUND;
+
 		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, m_fCurrentTime, vel);
 		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+
 			return CRITICAL_POINT;
+
 		else
 		{
 #ifdef DEBUG_MODE
@@ -214,7 +219,6 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 			adapt_step(second_prevParticle.phyCoord, prevParticle.phyCoord, thisParticle.phyCoord, dt_estimate, &dt);
 		}
 	}
-
 	return OKAY;
 }
 

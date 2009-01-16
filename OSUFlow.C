@@ -808,7 +808,6 @@ void Error(const char *fmt, ...){
 //
 // sMin, sMax are local subdomain min and max
 // dim is the total size of the domain
-// pad is the number of ghost cells (per side)
 //
 // Tom Peterka, 11/24/08
 //
@@ -820,10 +819,8 @@ void OSUFlow::ReadData(const char* fname, bool bStatic,
 
   bStaticFlow = bStatic;
 
-  if(bStaticFlow) {
-    MinT = MaxT = 0;
+  if(bStaticFlow)
     ReadStaticFlowField(sMin, sMax, dim);
-  }
 
 //   else
 //     InitTimeVaryingFlowField(); // to be implemented 
@@ -871,29 +868,32 @@ void OSUFlow::ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
     start[2 - i] = sMin[i];
     subsize[2 - i] = sMax[i] - sMin[i] + 1;
   }
+  size[2] *= 3;
+  start[2] *= 3;
+  subsize[2] *= 3;
 
   // allocate data space
-  pData = new float[3 * subsize[0] * subsize[1] * subsize[2]];
+  pData = new float[subsize[0] * subsize[1] * subsize[2]];
   if (!pData)
     Error("Error: ReadStaticFlowField() unable to allocate data space\n");
 
   // debug
-//   fprintf(stderr,"rank = %d dim = %.0f %.0f %.0f sMin = %.0f %.0f %.0f sMax = %.0f %.0f %.0f size = %d %d %d start = %d %d %d subsize = %d %d %d\n",rank,dim[0],dim[1],dim[2],sMin[0],sMin[1],sMin[2],sMax[0],sMax[1],sMax[2],size[2],size[1],size[0],start[2],start[1],start[0],subsize[2],subsize[1],subsize[0]);
+//   fprintf(stderr,"dim = %.0f %.0f %.0f sMin = %.0f %.0f %.0f sMax = %.0f %.0f %.0f size = %d %d %d start = %d %d %d subsize = %d %d %d\n",dim[0],dim[1],dim[2],sMin[0],sMin[1],sMin[2],sMax[0],sMax[1],sMax[2],size[2],size[1],size[0],start[2],start[1],start[0],subsize[2],subsize[1],subsize[0]);
 
   // do the actual collective io
   MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
-			   MPI_FLOAT, &filetype);
+       MPI_FLOAT, &filetype);
   MPI_Type_commit(&filetype);
   MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
-		    MPI_INFO_NULL);
+       MPI_INFO_NULL);
   err = MPI_File_read_all(fd, pData,
-			  subsize[0] * subsize[1] * subsize[2], MPI_FLOAT, &status);
+       subsize[0] * subsize[1] * subsize[2], MPI_FLOAT, &status);
   if (err != MPI_SUCCESS)
     Error("Error: ReadStaticFlowField() rank %d error reading file\n", rank);
 
   // check the count
   if (status.count != sizeof(float) * subsize[0] * subsize[1] * subsize[2])
-    Error("Error: ReadStaticFlowField() error rank %d read %d bytes instead of %d bytes from file\n",
+    Error("Error: ReadStaticFlowField() error rank %d read %d bytes instead of %d floats from file\n",
 	  rank, status.count, sizeof(float) * subsize[0] * subsize[1] * subsize[2]);
 
   //swap bytes
@@ -906,6 +906,12 @@ void OSUFlow::ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
 
   // create the field
   CreateStaticFlowField(pData, sMin, sMax); 
+
+  // debug
+//   if (rank == 0) {
+//     for (i = 0; i < subsize[0] / 3.0f * subsize[1] * subsize[2]; i += 100)
+//       fprintf(stderr,"%.3f %.3f %.3f\n",pData[3 * i + 0],pData[3 * i + 1],pData[3 * i + 2]);
+//   }
 
 }
 //---------------------------------------------------------------------------

@@ -15,13 +15,13 @@
 #include "calc_subvolume.h"
 #include "Lattice.h" 
 
-#define MAX_ITERATIONS 10
+#define MAX_ITERATIONS 2
 
 main(int argc, void *argv[]) {
 
 
-  int npart = 32;   // number of subdomains we will create 
-  int nproc = 4;   // number of subdomains we will create 
+  int npart = 2;   // number of subdomains we will create 
+  int nproc = 2;   // number of subdomains we will create 
   OSUFlow **osuflow_list = new OSUFlow*[npart];  
   VECTOR3 *osuflow_seeds[npart]; 
   int osuflow_num_seeds[npart]; 
