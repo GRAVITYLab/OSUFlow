@@ -49,6 +49,8 @@ public:
 			    list<vtListSeedTrace*>&);
 	// ---  pathline methods 
 	// use preset seedPtr, all seeds start at currentT 
+	bool GenPathLines(VECTOR4* seeds, list<vtListTimeSeedTrace*>& listSeedTraces, TIME_DIR, 
+			  int num_seeds, int maxPoints); 
 	bool GenPathLines(list<vtListTimeSeedTrace*>& listSeedTraces, TIME_DIR, 
 			  int maxPoints, float currentT = 0.0);
 	// use the input seed list, all seeds start at currentT 

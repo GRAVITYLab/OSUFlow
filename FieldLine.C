@@ -296,3 +296,61 @@ void vtCFieldLine::setSeedPoints(VECTOR3* points, int numPoints,
 
 	m_nNumSeeds = numPoints;
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////
+// initialize seeds with possibly different start times 
+//////////////////////////////////////////////////////////////////////////
+void vtCFieldLine::setSeedPoints(VECTOR4* points, int numPoints)
+{
+	int i, res;
+	VECTOR3 nodeData;
+
+	if(points == NULL)
+		return;
+
+	// if the rake size has changed, forget the previous seed points
+	if( m_nNumSeeds != numPoints )
+		releaseSeedMemory();
+
+	if( m_nNumSeeds == 0 )
+	{
+		for(i = 0 ; i < numPoints ; i++ )
+		{
+			vtParticleInfo* newParticle = new vtParticleInfo;
+
+			VECTOR3 pos(points[i][0], points[i][1], points[i][2]); 
+			newParticle->m_pointInfo.phyCoord = pos;
+			newParticle->m_fStartTime = points[i][3]; 
+			newParticle->ptId = i;
+
+			// query the field in order to get the starting
+			// cell interpolant for the seed point
+			// which was passed to us without any prior information
+
+			res = m_pField->at_phys(-1, pos, newParticle->m_pointInfo, points[i][3], nodeData);
+// 			newParticle->itsValidFlag =  (res == 1) ? 1 : 0 ;
+			newParticle->itsValidFlag =  1;
+			m_lSeeds.push_back( newParticle );
+		}
+	} 
+	else
+	{
+		vtListParticleIter sIter = m_lSeeds.begin();
+
+		for(i = 0 ; sIter != m_lSeeds.end() ; ++sIter, ++i )
+		{
+			vtParticleInfo* thisSeed = *sIter;
+
+			VECTOR3 pos(points[i][0], points[i][1], points[i][2]); 
+			// set the new location for this seed point
+			thisSeed->m_pointInfo.phyCoord = pos;
+			thisSeed->m_fStartTime = points[i][3];
+			res = m_pField->at_phys(-1, pos, thisSeed->m_pointInfo, points[i][3], nodeData);
+			thisSeed->itsValidFlag =  (res == 1) ? 1 : 0 ;
+		}    
+	}
+
+	m_nNumSeeds = numPoints;
+}

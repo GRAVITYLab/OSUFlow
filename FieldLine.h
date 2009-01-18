@@ -104,6 +104,7 @@ public:
 
 	void setSeedPoints(VECTOR3* points, int numPoints, float t);
 	void setSeedPoints(VECTOR3* points, int numPoints, float* tarray);
+	void setSeedPoints(VECTOR4* points, int numPoints); 
 	void setMaxPoints(int val) { m_nMaxsize = val; }
 	void setIntegrationOrder(INTEG_ORD ord) { m_integrationOrder = ord; }
 	int  getMaxPoints(void){ return m_nMaxsize; }

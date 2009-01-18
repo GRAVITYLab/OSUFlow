@@ -54,7 +54,7 @@ class  Lattice {
   void PrintRecv(int myrank);
   void PostPoint(int myrank, VECTOR3 p, int neighbor);
   int GetNumRecv(int myrank);
-  void GetRecvPts(int myrank, VECTOR3 *ls);
+  int CopyRecvToSeeds(int myrank, VECTOR3 *seeds);
 /*   void InitMessage(int myrank); */
 
   list<VECTOR3> *seedlists; 
@@ -66,6 +66,7 @@ class  Lattice {
   int npart; 
   volume_bounds_type *vb_list; 
   Partition *parts; // list of partition information
+  int *tags; // message tags for each process
 
   void Error(const char *fmt, ...);
 

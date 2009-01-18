@@ -50,15 +50,15 @@ float time_incr;
 VECTOR3 lMin, lMax; 
 VECTOR3 gMin, gMax; 
 
-int nsp = 2, ntp = 2; 
+int nsp = 4, ntp = 2; 
 int npart; 
 int nproc = 4; 
-int total_seeds = 5000; 
+int total_seeds = 1000; 
 volume_bounds_type *vb_list; 
 
 OSUFlow **osuflow_list; 
 list<vtListTimeSeedTrace*> *sl_list; 
-VECTOR4 ** osuflow_seeds;  // space time seeds
+VECTOR4 ** osuflow_seeds;  // locations of seeds
 int *osuflow_num_seeds; 
 Lattice4D *lat; 
 
@@ -71,33 +71,110 @@ void compute_pathlines() {
 
   float from[3], to[3]; 
 
+
   for (int i=0; i<npart; i++) {
-    from[0] = vb_list[i].xmin;  
-    from[1] = vb_list[i].ymin;     
-    from[2] = vb_list[i].zmin; 
-    to[0] = vb_list[i].xmax;  
-    to[1] = vb_list[i].ymax;     
-    to[2] = vb_list[i].zmax; 
+
+    VECTOR3 minB, maxB; 
+    VECTOR3 * seeds; 
+    int num; 
+
+    minB[0] = vb_list[i].xmin;  
+    minB[1] = vb_list[i].ymin;     
+    minB[2] = vb_list[i].zmin; 
+    maxB[0] = vb_list[i].xmax;  
+    maxB[1] = vb_list[i].ymax;     
+    maxB[2] = vb_list[i].zmax; 
+
+    from[0] = minB[0]; to[0] = maxB[0];
+    from[1] = minB[1]; to[1] = maxB[1];
+    from[2] = minB[2]; to[2] = maxB[2]; 
+
     osuflow_list[i]->SetRandomSeedPoints(from, to, total_seeds/npart); 
-    int nSeeds; 
-    VECTOR3* seeds = osuflow_list[i]->GetSeeds(nSeeds); 
-       for (int j=0; j<nSeeds; j++) 
-	 printf(" domain[%d] seed no. %d : [%f %f %f]\n", i, j, seeds[j][0], 
-    	     seeds[j][1], seeds[j][2]); 
+    seeds = osuflow_list[i]->GetSeeds(num); // only VECTOR3s are generated 
+    osuflow_num_seeds[i] = num; 
+    osuflow_seeds[i] = new VECTOR4[num];    // now copy and augment to 4D seeds 
+    for (int j=0; j<num; j++)  {
+      osuflow_seeds[i][j][0] = seeds[j][0]; 
+      osuflow_seeds[i][j][1] = seeds[j][1]; 
+      osuflow_seeds[i][j][2] = seeds[j][2]; 
+      // osuflow_seeds[i][j][3] = vb_list[i].tmin; 
+      osuflow_seeds[i][j][3] = 0; 
+    }
+    sl_list[i].clear();   // clear the trace 
   }
-  float ctime;
-  for (int proc = 0; proc<nproc; proc++) 
+
+  // Now begin to perform pathline tracing in all subdomains if seeds are in 
+  bool has_seeds = true;      // initially we always have seeds
+  int num_seeds_left = total_seeds; 
+
+  while(has_seeds == true && num_seeds_left >50) {  // loop until all particles stop 
+
+    lat->ResetSeedLists();    // clear up the lattice seed lists
+
+    for (int proc = 0; proc<nproc; proc++) 
      for (int np=0; np<num_partitions[proc]; np++) {
-       int i = plist[proc][np]; 
-       int nSeeds; 
-       VECTOR3* seeds = osuflow_list[i]->GetSeeds(nSeeds); 
-       sl_list[i].clear(); 
-       osuflow_list[i]->SetIntegrationParams(1, 5); 
-       ctime = vb_list[i].tmin; 
-       osuflow_list[i]->GenPathLines(seeds, sl_list[i], FORWARD, nSeeds, 5000, ctime); 
-       printf("domain %d done integrations", i); 
-       printf(" %d pathlines. \n", sl_list[i].size()); 
-     }
+      int i = plist[proc][np]; 
+      if (osuflow_num_seeds[i]==0) {  // domain i is already done. 
+	printf("skip domain %d \n", i); 
+	continue; 
+      }
+      list<vtListTimeSeedTrace*> list; 
+      osuflow_list[i]->SetIntegrationParams(1, 5); 
+      osuflow_list[i]->GenPathLines(osuflow_seeds[i],list, FORWARD, 
+      				    osuflow_num_seeds[i], 5000); 
+
+      printf("domain %d done integrations", i); 
+      printf(" %d pathlines. \n", list.size()); 
+
+      std::list<vtListTimeSeedTrace*>::iterator pIter; 
+      //------------------------------------------------
+      // looping through the trace points
+      pIter = list.begin(); 
+      for (; pIter!=list.end(); pIter++) {
+        vtListTimeSeedTrace *trace = *pIter; 
+	sl_list[i].push_back(trace); 
+      }
+      //---------------
+      // now redistributing the boundary pathline points to its neighbors. 
+      pIter = list.begin(); 
+      for (; pIter!=list.end(); pIter++) {
+	vtListTimeSeedTrace *trace = *pIter; 
+	if (trace->size() ==0) continue; 
+	std::list<VECTOR4*>::iterator pnIter; 
+	pnIter = trace->end(); 
+	pnIter--; 
+	VECTOR4 p = **pnIter; 
+	//check p is in which neighbor's domain 
+	int ei, ej, ek, et; 
+	int neighbor = lat->GetNeighbor(i, p[0], p[1], p[2], p[3], ei, ej, ek, et); 
+
+	if (neighbor!=-1) lat->InsertSeed(ei, ej, ek, et, p); 
+	printf(" insert a seed %f %f %f %f to rank %d \n",
+	       p[0], p[1], p[2], p[3], neighbor); 
+      }
+    }
+    //------------------
+    // now create the seed arrays for the next run
+    has_seeds = false;  
+    num_seeds_left = 0; 
+    for (int i=0; i<npart; i++) {
+      if (osuflow_seeds[i]!=NULL) delete [] osuflow_seeds[i]; 
+      osuflow_num_seeds[i] = lat->seedlists[i].size(); 
+      num_seeds_left += osuflow_num_seeds[i]; 
+      printf("seedlists[%d].size() = %d\n", i, osuflow_num_seeds[i]); 
+      if (osuflow_num_seeds[i]!=0) has_seeds = true; 
+      else continue; 
+      osuflow_seeds[i] = new VECTOR4[osuflow_num_seeds[i]]; 
+      std::list<VECTOR4>::iterator seedIter; 
+      seedIter = lat->seedlists[i].begin(); 
+      int cnt = 0; 
+      for (; seedIter!=lat->seedlists[i].end(); seedIter++){
+	VECTOR4 p = *seedIter; 
+	osuflow_seeds[i][cnt++] = p; 
+      }
+    }
+  }
+
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -308,6 +385,8 @@ int main(int argc, char** argv)
   npart = nsp * ntp; 
 
   osuflow_list = new OSUFlow*[npart]; 
+  osuflow_seeds = new VECTOR4*[npart];  //note: 4D seeds here 
+  osuflow_num_seeds = new int[npart]; 
 
   // hardcoded dimeisons. the tornado dat is 128^3 
 
