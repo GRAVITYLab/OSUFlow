@@ -28,7 +28,7 @@ int press_x, press_y;
 int release_x, release_y; 
 float x_angle = 0.0; 
 float y_angle = 0.0; 
-float scale_size = 1; 
+float scale_size = 1;
 
 int xform_mode = 0; 
 
@@ -50,7 +50,7 @@ float time_incr;
 VECTOR3 lMin, lMax; 
 VECTOR3 gMin, gMax; 
 
-int nsp = 4, ntp = 2; 
+int nsp = 8, ntp = 4; 
 int npart; 
 int nproc = 4; 
 int total_seeds = 1000; 
@@ -97,8 +97,8 @@ void compute_pathlines() {
       osuflow_seeds[i][j][0] = seeds[j][0]; 
       osuflow_seeds[i][j][1] = seeds[j][1]; 
       osuflow_seeds[i][j][2] = seeds[j][2]; 
-      // osuflow_seeds[i][j][3] = vb_list[i].tmin; 
-      osuflow_seeds[i][j][3] = 0; 
+      osuflow_seeds[i][j][3] = vb_list[i].tmin; 
+      //osuflow_seeds[i][j][3] = 0; 
     }
     sl_list[i].clear();   // clear the trace 
   }
@@ -158,7 +158,7 @@ void compute_pathlines() {
     has_seeds = false;  
     num_seeds_left = 0; 
     for (int i=0; i<npart; i++) {
-      if (osuflow_seeds[i]!=NULL) delete [] osuflow_seeds[i]; 
+      //      if (osuflow_seeds[i]!=NULL) delete [] osuflow_seeds[i]; 
       osuflow_num_seeds[i] = lat->seedlists[i].size(); 
       num_seeds_left += osuflow_num_seeds[i]; 
       printf("seedlists[%d].size() = %d\n", i, osuflow_num_seeds[i]); 
@@ -233,10 +233,11 @@ void animate_pathlines() {
   glColor3f(1,1,0); 
   for (int i=0; i<npart; i++) {
     pIter = sl_list[i].begin(); 
-    glBegin(GL_POINTS); 
+
     for (; pIter!=sl_list[i].end(); pIter++) {
       trace = *pIter; 
       pnIter = trace->begin(); 
+      glBegin(GL_LINE_STRIP); 
       for (; pnIter!= trace->end(); pnIter++) {
 	VECTOR4 p = **pnIter; 
 	if (p[3]>= min_time && p[3] < max_time) {
@@ -246,8 +247,8 @@ void animate_pathlines() {
 	  glVertex3f(x,y,z); 
 	}
       }
-    }
     glEnd(); 
+    }
   }
   glPopMatrix(); 
   current_frame = (current_frame+1) % num_frames; 
