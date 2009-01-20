@@ -28,7 +28,7 @@ int press_x, press_y;
 int release_x, release_y; 
 float x_angle = 0.0; 
 float y_angle = 0.0; 
-float scale_size = 1;
+float scale_size = 1; 
 
 int xform_mode = 0; 
 
@@ -50,7 +50,7 @@ float time_incr;
 VECTOR3 lMin, lMax; 
 VECTOR3 gMin, gMax; 
 
-int nsp = 8, ntp = 4; 
+int nsp = 16, ntp = 2; 
 int npart; 
 int nproc = 4; 
 int total_seeds = 1000; 
@@ -97,8 +97,8 @@ void compute_pathlines() {
       osuflow_seeds[i][j][0] = seeds[j][0]; 
       osuflow_seeds[i][j][1] = seeds[j][1]; 
       osuflow_seeds[i][j][2] = seeds[j][2]; 
-      osuflow_seeds[i][j][3] = vb_list[i].tmin; 
-      //osuflow_seeds[i][j][3] = 0; 
+      // osuflow_seeds[i][j][3] = vb_list[i].tmin; 
+       osuflow_seeds[i][j][3] = 0; 
     }
     sl_list[i].clear();   // clear the trace 
   }
@@ -233,11 +233,10 @@ void animate_pathlines() {
   glColor3f(1,1,0); 
   for (int i=0; i<npart; i++) {
     pIter = sl_list[i].begin(); 
-
+    glBegin(GL_POINTS); 
     for (; pIter!=sl_list[i].end(); pIter++) {
       trace = *pIter; 
       pnIter = trace->begin(); 
-      glBegin(GL_LINE_STRIP); 
       for (; pnIter!= trace->end(); pnIter++) {
 	VECTOR4 p = **pnIter; 
 	if (p[3]>= min_time && p[3] < max_time) {
@@ -247,8 +246,8 @@ void animate_pathlines() {
 	  glVertex3f(x,y,z); 
 	}
       }
-    glEnd(); 
     }
+    glEnd(); 
   }
   glPopMatrix(); 
   current_frame = (current_frame+1) % num_frames; 
@@ -429,11 +428,12 @@ int main(int argc, char** argv)
     minB[2] = vb_list[i].zmin;  maxB[2] = vb_list[i].zmax; 
 
     // load the time-varying subdomain data between start_time and end_time 
+    bool deferred = true; 
     osuflow_list[i]->LoadData((const char*)argv[1], false, minB, maxB, 
-			      vb_list[i].tmin, vb_list[i].tmax); 
+			      vb_list[i].tmin, vb_list[i].tmax, deferred); 
 
     //    osuflow_list[i]->NormalizeField(true); 
-    osuflow_list[i]->ScaleField(10.0); 
+    if (!deferred) osuflow_list[i]->ScaleField(10.0); 
   }
 
   // set up the animation frame time 

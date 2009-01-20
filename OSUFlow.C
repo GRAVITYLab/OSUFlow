@@ -18,6 +18,8 @@ OSUFlow::OSUFlow()
 	seedTimeArray = NULL; 
 	nSeeds = 0; 
 	pStreakLine = NULL; 
+	has_data = false; 
+	deferred_load_case = -1; 
 }
 
 OSUFlow::~OSUFlow()
@@ -32,65 +34,153 @@ OSUFlow::~OSUFlow()
 void OSUFlow::Reset(void)
 {
 	bUseRandomSeeds = false;
+	deferred_load_case = -1; 
 }
 
-void OSUFlow::LoadData(const char* fname, bool bStatic)
+///////////////////////////////////////////////////////////
+// 
+// Load the whole static or time-varying data set
+//
+void OSUFlow::LoadData(const char* fname, bool bStatic, bool deferred)
 {
 	flowName = new char[255];
 	strcpy(flowName, fname);
 	bStaticFlow = bStatic;
+	
+	has_data = false; 
 
 	if(bStaticFlow) {
 		numTimesteps = 1; 
 		MinT = MaxT = 0; 
+		if (deferred == true) {
+		  deferred_load_case = 0; 
+		  return; 
+		}
 		InitStaticFlowField();
 	}
-	else
+	else {
+		if (deferred == true) {
+		  deferred_load_case = 0; 
+		  return; 
+		}
 		InitTimeVaryingFlowField();
+	}
+	has_data = true; 
 }
 
-
-//sMin/sMax are local min and max range of the data that are held within 
+/////////////////////////////////////////////////////////////
+//
+//   Read a partial data set 
+//   sMin/sMax are local min and max range of the data that are held 
+//
 void OSUFlow::LoadData(const char* fname, bool bStatic, 
-		       VECTOR3 sMin, VECTOR3 sMax)  
+		       VECTOR3 sMin, VECTOR3 sMax, bool deferred)  
 {
 	flowName = new char[255];
 	strcpy(flowName, fname);
-
 	bStaticFlow = bStatic;
+	lMin = sMin; lMax = sMax; 
+	has_data = false; 
 
 	if(bStaticFlow) {
 	  numTimesteps = 1; 
 	  MinT = MaxT = 0; 
+	  if (deferred == true) {
+	    deferred_load_case = 1; 
+	    return; 
+	  }
 	  InitStaticFlowField(sMin, sMax);
 	}
-	else
-	  InitTimeVaryingFlowField(sMin, sMax); // to be implemented 
+	else {
+	  if (deferred == true) {
+	    deferred_load_case = 1; 
+	    return; 
+	  }
+	  InitTimeVaryingFlowField(sMin, sMax); 
+	}
+	has_data = true; 
 }
 
-//sMin/sMax are local min and max range of the data that are held within 
-// t_min/t_max are the time range (for time-varying field) 
+/////////////////////////////////////////////////////////////
+//
+//  Load a partial time-varying data set 
+//  sMin/sMax are local min and max range of the data that are held
+//  t_min/t_max are the time range (for time-varying field) 
+//
 void OSUFlow::LoadData(const char* fname, bool bStatic, 
-		       VECTOR3 sMin, VECTOR3 sMax, int min_t, int max_t)  
+		       VECTOR3 sMin, VECTOR3 sMax, int min_t, int max_t, 
+		       bool deferred)  
 {
 	flowName = new char[255];
 	strcpy(flowName, fname);
 
 	bStaticFlow = bStatic;
+	lMin = sMin; lMax = sMax; 
+	has_data = false; 
 
 	if (max_t >= min_t) {
-	  numTimesteps = max_t-min_t; 
+	  numTimesteps = max_t-min_t+1; 
 	  MinT = min_t; MaxT = max_t; 
 	}
+	else {   //exception. goes back to default 
+	  numTimesteps = 1; 
+	  MinT = MaxT = min_t; 
+	}
 	  
-	if(bStaticFlow) {
+	if(bStaticFlow) {  // ignore the time range 
 	  numTimesteps = 1; 
 	  MinT = MaxT = 0; 
+	  if (deferred == true) {
+	    deferred_load_case = 2; 
+	    return; 
+	  }
 	  InitStaticFlowField(sMin, sMax);
 	}
-	else
+	else {
+	  if (deferred == true) {
+	    deferred_load_case = 2; 
+	    return; 
+	  }
 	  InitTimeVaryingFlowField(sMin, sMax, min_t, max_t); 
+	}
+	has_data = true; 
 }
+
+
+bool OSUFlow::DeferredLoadData() 
+{
+  if (deferred_load_case == -1) return(false); 
+
+  switch(deferred_load_case) {
+  case 0: 
+    if(bStaticFlow) {
+      InitStaticFlowField();
+    }
+    else
+      InitTimeVaryingFlowField();
+    has_data = true; 
+    break; 
+  case 1: 
+    if(bStaticFlow) {
+      InitStaticFlowField(lMin, lMax);
+    }
+    else
+      InitTimeVaryingFlowField(lMin, lMax); 
+    has_data = true; 
+    break; 
+  case 2: 
+    if(bStaticFlow) {  // ignore the time range 
+      InitStaticFlowField(lMin, lMax);
+    }
+    else
+      InitTimeVaryingFlowField(lMin, lMax, MinT, MaxT); 
+    has_data = true; 
+    break; 
+  }
+  ScaleField(10.0); 
+  return(true); 
+}
+
 
 //---------------------------------------------------------------------------
 //
@@ -522,6 +612,9 @@ bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces,
 			     int maxPoints,
 			     unsigned int randomSeed)
 {
+  
+  if (has_data == false) DeferredLoadData(); 
+
 	// first generate seeds
 
         if (seedPtr==NULL)  {
@@ -576,6 +669,9 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 			     const int maxPoints, 
 			     list<vtListSeedTrace*>& listSeedTraces)
 {
+
+  if (has_data == false) DeferredLoadData(); 
+
         nSeeds = seedNum; 
 	seedPtr = seeds; 
 
@@ -615,6 +711,9 @@ bool OSUFlow::GenPathLines(list<vtListTimeSeedTrace*>& listSeedTraces,
 			   int maxPoints,
 			   float currentT)
 {
+
+  if (has_data == false) DeferredLoadData(); 
+
 	// first generate seeds if not exist before 
         if (seedPtr==NULL)  {
 	  nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
@@ -656,6 +755,9 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 			   int maxPoints,
 			   float currentT)
 {
+
+  if (has_data == false) DeferredLoadData(); 
+
         seedPtr = seeds; 
 	nSeeds = num_seeds; 
 
@@ -692,6 +794,8 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 			   float* tarray)
 {
 
+  if (has_data == false) DeferredLoadData(); 
+
         nSeeds = num_seeds; 
 	seedPtr = seeds; 
 
@@ -726,6 +830,9 @@ bool OSUFlow::GenPathLines(VECTOR4* seeds,
 			   int num_seeds, 
 			   int maxPoints)
 {
+
+  if (has_data == false) DeferredLoadData(); 
+
         nSeeds = num_seeds; 
 	if (seedPtr!=NULL) delete [] seedPtr; 
 	seedPtr = new VECTOR3[nSeeds]; 
@@ -764,6 +871,8 @@ bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir,
 			     float current_time)
 {
 
+  if (has_data == false) DeferredLoadData(); 
+
   if (seedPtr==NULL)  {
     nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
     seedPtr = new VECTOR3[nSeeds];
@@ -784,7 +893,6 @@ bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir,
   pStreakLine->SetInitStepSize(initialStepSize);
   pStreakLine->SetMaxStepSize(maxStepSize);
   pStreakLine->setIntegrationOrder(FOURTH);
-
   pStreakLine->execute((void*) &currentT, streakTraces); 
   delete pStreakLine; 
   return true; 
@@ -794,6 +902,8 @@ bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir,
 bool OSUFlow::GenStreakLines(VECTOR3* seeds, vtStreakTraces& streakTraces, TIME_DIR dir,
 			     int num_seeds, float current_time)
 {
+
+  if (has_data == false) DeferredLoadData(); 
 
   nSeeds = num_seeds; 
   seedPtr = seeds; 

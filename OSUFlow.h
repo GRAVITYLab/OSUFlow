@@ -33,11 +33,11 @@ public:
 	OSUFlow();
 	~OSUFlow();
 
-	void LoadData(const char* fname, bool bStatic);
+	void LoadData(const char* fname, bool bStatic, bool deferred = false);
 	void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
-		      VECTOR3 pMax);
+		      VECTOR3 pMax, bool deferred = false);
 	void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
-		      VECTOR3 pMax, int min_t, int max_t);
+		      VECTOR3 pMax, int min_t, int max_t, bool deferred = false);
 
 	CVectorField* GetFlowField(void) { return flowField; }
 	VECTOR3 *GetSeeds(int& num) {num = numSeeds[0]*numSeeds[1]*numSeeds[2]; 
@@ -98,6 +98,8 @@ private:
 	void InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB); 
 	void InitTimeVaryingFlowField(VECTOR3 minb, VECTOR3 maxB, int min_t, int max_t);
 
+	bool DeferredLoadData(); 
+
 	float minRakeExt[3];		     // minimal rake range 
 	float maxRakeExt[3];		     // maximal rake range
 	unsigned int numSeeds[3];	     // number of seeds
@@ -114,6 +116,8 @@ private:
 	int MinT, MaxT;                      //local time range 
 	bool bStaticFlow;		     // static flow
 
+	bool has_data; 
+	int deferred_load_case; 
 	int numTimesteps; 
 	vtCStreakLine *pStreakLine; 
 
