@@ -1,10 +1,6 @@
 
 #include "Lattice.h"
 
-// maximum number of points messages waiting to be read
-// after this, message tag resets
-#define MAX_MSG_TAG 255
-
 //---------------------------------------------------------------------------
 //
 // Lattice
@@ -47,18 +43,6 @@ Lattice::Lattice(int xlen, int ylen, int zlen, int ghost, int np) {
     }
 
   }
-
-#ifdef MPI
-
-    // allocate and init tags
-    int nproc;
-    MPI_Comm_size(MPI_COMM_WORLD, &nproc);
-    if ((tags = (int*)malloc(nproc * sizeof(int))) == NULL)
-      Error("Error: Lattice() cannot allocate memory for tags\n");
-    for (i = 0; i < nproc; i++)
-      tags[i] = 1;
-
-#endif
 
 }
 //---------------------------------------------------------------------------
@@ -507,7 +491,7 @@ int Lattice::GetNumRecv(int myrank) {
 
   for (i = 0; i < 6; i++) {
     if (parts[myrank].NumRecvPoints[i] > 0)
-      num++;
+      num += parts[myrank].NumRecvPoints[i];
   }
 
   return num;
@@ -515,24 +499,25 @@ int Lattice::GetNumRecv(int myrank) {
 }
 //--------------------------------------------------------------------------
 //
-// CopyRecvToSeeds
+// GetRecvPts
 //
-// copies received points from partition to seeds
+// copies received points from partition to user supplied list
 // myrank: global partition number
 //
-// returns total number of seeds copied
+// caller must ensure that list has enough room
+//
 //
 // Tom Peterka, 12/4/08
 //
-int Lattice::CopyRecvToSeeds(int myrank, VECTOR3 *seeds) {
+void Lattice::GetRecvPts(int myrank, VECTOR3 *ls) {
 
   int num = 0;
   int i, j;
 
-  // copy seeds
+  // copy points
   for (i = 0; i < 6; i++) {
     for (j = 0; j < parts[myrank].NumRecvPoints[i]; j++)
-      (seeds[num++]).Set(parts[myrank].RecvPoints[i][3 * j + 0], 
+      (ls[num++]).Set(parts[myrank].RecvPoints[i][3 * j + 0], 
 	   parts[myrank].RecvPoints[i][3 * j + 1], 
            parts[myrank].RecvPoints[i][3 * j + 2]);
   }
@@ -540,8 +525,6 @@ int Lattice::CopyRecvToSeeds(int myrank, VECTOR3 *seeds) {
   // clear receive lists
   for (i = 0; i < 6; i++)
     parts[myrank].NumRecvPoints[i] = 0;
-
-  return num;
 
 }
 //---------------------------------------------------------------------------

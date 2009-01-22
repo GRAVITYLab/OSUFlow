@@ -22,8 +22,8 @@
 #
 #----------------------------------------------------------------------------
 
-ARCH = MAC_OSX
-#ARCH = LINUX
+#ARCH = MAC_OSX
+ARCH = LINUX
 
 LIBNAME = OSUFlow
 RM = rm 
@@ -74,8 +74,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 default: all
 
 all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 
-#drawtest  mpitest
+	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 mpitest
 
 #all: lib$(LIBNAME).a 
 
