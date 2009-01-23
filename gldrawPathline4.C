@@ -12,6 +12,7 @@
 #ifdef MAC_OSX
 #include <GLUT/glut.h> 
 #include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
 #include <GL/glut.h> 
 #include <GL/gl.h>
@@ -50,11 +51,11 @@ float time_incr;
 VECTOR3 lMin, lMax; 
 VECTOR3 gMin, gMax; 
 
-int nsp = 8, ntp = 5;
+int nsp = 64, ntp = 5;
 int lidim, ljdim, lkdim, ltdim; //lattice's i,j,kdims,where lidim*ljdim*lkdim = nsp; 
 int npart; 
 int nproc = 4; 
-int total_seeds = 1000; 
+int total_seeds = 10000; 
 volume_bounds_type *vb_list; 
 
 OSUFlow **osuflow_list; 
@@ -66,11 +67,15 @@ Lattice4D *lat;
 int **plist; 
 int *num_partitions; 
 
+bool draw_flowmatrix = false; 
+
 ////////////////////////////////////////////////////////
 
 void compute_pathlines() {
 
   float from[3], to[3]; 
+
+  lat->ResetFlowMatrix(); 
 
   for (int i=0; i<npart; i++) {
 
@@ -173,7 +178,8 @@ void compute_pathlines() {
 	      //check p is in which neighbor's domain 
 	      int ei, ej, ek, et; 
 	      int neighbor = lat->GetNeighbor(i, p[0], p[1], p[2], p[3], ei, ej, ek, et); 
-	      if (neighbor!=-1) lat->InsertSeed(ei, ej, ek, et, p); 
+	      //if (neighbor!=-1) lat->InsertSeed(ei, ej, ek, et, p); 
+	      if (neighbor!=-1) lat->InsertSeed(i, neighbor, p); 
 	      printf(" insert a seed %f %f %f %f to rank %d \n",
 		     p[0], p[1], p[2], p[3], neighbor); 
 	    }
@@ -187,6 +193,15 @@ void compute_pathlines() {
 	    delete [] (osuflow_seeds[i]); 
 	  }
   }  // tFor 
+
+
+  for (int i=0; i<npart; i++){
+    for (int j=0; j<npart; j++) {
+      int num = lat->GetFlowMatrix(i,j); 
+      printf(" %d ", num); 
+    }
+    printf("\n"); 
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -275,8 +290,55 @@ void draw_cube(float r, float g, float b)
 
 //////////////////////////////////////////////////////
 
+void display_flowmatrix()
+{
+  float x_incr, y_incr; 
+  float x_offset, y_offset; 
+
+  int max = -1; 
+
+  for (int i=0; i<npart; i++)
+    for (int j=0; j<npart; j++) {
+      int num = lat->GetFlowMatrix(i,j); 
+      if (num > max) max = num; 
+    }
+
+  x_incr = 2/(float)npart; 
+  y_incr = 2/(float)npart; 
+
+  glClearColor(0,0,0,1); 
+  glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); 
+  glMatrixMode(GL_PROJECTION); 
+  glLoadIdentity(); 
+  gluOrtho2D(-1,1,-1,1); 
+  glMatrixMode(GL_MODELVIEW); 
+  glLoadIdentity(); 
+
+  glBegin(GL_QUADS);
+  for (int j=0; j<npart; j++)
+    for (int i=0; i<npart; i++)  {
+      int val = lat->GetFlowMatrix(i,j); 
+      float ratio = val/(float) max; 
+      glColor3f (ratio, ratio, ratio); 
+      x_offset = -1+ i * x_incr; 
+      y_offset = -1+ j * y_incr; 
+      glVertex2f(x_offset, y_offset); 
+      glVertex2f(x_offset+x_incr, y_offset); 
+      glVertex2f(x_offset+x_incr, y_offset+y_incr); 
+      glVertex2f(x_offset, y_offset+y_incr); 
+    }
+  glEnd(); 
+  glutSwapBuffers(); 
+}
+//////////////////////////////////////////////////////
+
 void display()
 {
+  if (draw_flowmatrix == true) {
+    display_flowmatrix(); 
+    return; 
+  }
+
   glEnable(GL_DEPTH_TEST); 
   glClearColor(0,0,0,1); 
   glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); 
@@ -386,7 +448,12 @@ void mykey(unsigned char key, int x, int y)
 	  toggle_animate_pathlines = !toggle_animate_pathlines; 
 	  toggle_draw_pathlines = false; 
 	  first_frame = 1; 
+	  break; 
+        case 'f':
+	  draw_flowmatrix = !draw_flowmatrix; true;
+	  break; 
 	}
+	glutPostRedisplay(); 
 }
 ///////////////////////////////////////////////////////////////
 

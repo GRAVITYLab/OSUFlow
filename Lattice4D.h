@@ -47,11 +47,16 @@ class  Lattice4D {
   void InitSeedLists(); 
   void ResetSeedLists(); 
   void ResetSeedLists(int i); 
-  void InsertSeed(int, int, int, int, VECTOR4); 
-  void InsertSeed(int rank, VECTOR4); 
+  bool InsertSeed(int, int, int, int, VECTOR4); 
+  bool InsertSeed(int from_i, int from_j, int from_k, int from_t, 
+		  int to_i, int to_j, int to_k, int to_t, VECTOR4); 
+  bool InsertSeed(int to_rank, VECTOR4); 
+  bool InsertSeed(int from_rank, int to_rank, VECTOR4); 
   void RoundRobin_proc(int n); 
   void GetPartitions(int, int**, int&); 
   void GetPartitions(int, int*, int&); 
+  void ResetFlowMatrix(); // set all values to zero
+  int GetFlowMatrix(int i, int j) {return flowMatrix[i*npart+j];}
 
   list<VECTOR4> *seedlists; 
 
@@ -62,6 +67,7 @@ class  Lattice4D {
   int npart; 
   volume_bounds_type *vb_list; 
   Partition4D *parts; // list of partition information
+  int* flowMatrix; 
 
 }; 
 

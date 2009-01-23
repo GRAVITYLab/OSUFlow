@@ -28,6 +28,8 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
   tdim = ntp; 
   npart = nsp*ntp; 
   parts = new Partition4D[npart]; 
+  flowMatrix = new int[npart*npart]; 
+  memset(flowMatrix, '\0', npart*npart*sizeof(int)); 
   vb_list = new volume_bounds_type[npart]; 
 
   for (int t=0; t<tdim; t++)
@@ -57,6 +59,16 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
   }
 
 }
+
+Lattice4D::~Lattice4D()
+{
+
+  if (flowMatrix!=NULL) delete [] flowMatrix; 
+  if (parts!=NULL) delete [] parts; 
+  if (vb_list!=NULL) delete [] vb_list; 
+  if (seedlists!=NULL) delete [] seedlists; 
+}
+
 //---------------------------------------------------------------------------
 //
 // assign the partitions to the processors in a round-robin manner 
@@ -377,18 +389,54 @@ void Lattice4D::ResetSeedLists(int i) {
 }
 //--------------------------------------------------------------------------
 
-void Lattice4D::InsertSeed(int i, int j, int k, int t, VECTOR4 p) {
+bool Lattice4D::InsertSeed(int i, int j, int k, int t, VECTOR4 p) {
 
   int rank = GetRank(i,j,k, t); 
 
-  seedlists[rank].push_back(p); 
-
+  if (rank ==-1) return(false); 
+  else {
+    seedlists[rank].push_back(p); 
+    return(true); 
+  }
 }
 
-void Lattice4D::InsertSeed(int i, VECTOR4 p) {
+bool Lattice4D::InsertSeed(int from_i, int from_j, int from_k, int from_t, 
+			   int i, int j, int k, int t, VECTOR4 p) {
 
-  seedlists[i].push_back(p); 
+  int from_rank = GetRank(from_i, from_j, from_k, from_t); 
+  int to_rank = GetRank(i,j,k, t); 
 
+  if (to_rank ==-1 || from_rank==-1) return(false); 
+  else {
+    seedlists[to_rank].push_back(p); 
+    flowMatrix[from_rank*npart+to_rank]++; 
+    return(true); 
+  }
+}
+
+
+bool Lattice4D::InsertSeed(int i, VECTOR4 p) {
+
+  if (i>=npart) return(false); 
+  else {
+    seedlists[i].push_back(p); 
+    return(true); 
+  }
+}
+
+bool Lattice4D::InsertSeed(int from_rank, int to_rank, VECTOR4 p) {
+
+  if (from_rank >=npart || to_rank>=npart) return(false); 
+  else {
+    flowMatrix[from_rank*npart+to_rank]++; 
+    seedlists[to_rank].push_back(p); 
+  }    return(true); 
+}
+
+void Lattice4D::ResetFlowMatrix() 
+{
+  if (flowMatrix !=NULL) 
+    memset(flowMatrix, '\0', npart*npart*sizeof(int)); 
 }
 
 
