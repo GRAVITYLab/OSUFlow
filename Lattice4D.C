@@ -369,6 +369,12 @@ void Lattice4D::ResetSeedLists() {
     seedlists[i].clear(); 
 
 }
+
+void Lattice4D::ResetSeedLists(int i) {
+
+  seedlists[i].clear(); 
+
+}
 //--------------------------------------------------------------------------
 
 void Lattice4D::InsertSeed(int i, int j, int k, int t, VECTOR4 p) {
@@ -378,3 +384,11 @@ void Lattice4D::InsertSeed(int i, int j, int k, int t, VECTOR4 p) {
   seedlists[rank].push_back(p); 
 
 }
+
+void Lattice4D::InsertSeed(int i, VECTOR4 p) {
+
+  seedlists[i].push_back(p); 
+
+}
+
+

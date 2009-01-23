@@ -46,7 +46,9 @@ class  Lattice4D {
   int GetProc(int); 
   void InitSeedLists(); 
   void ResetSeedLists(); 
+  void ResetSeedLists(int i); 
   void InsertSeed(int, int, int, int, VECTOR4); 
+  void InsertSeed(int rank, VECTOR4); 
   void RoundRobin_proc(int n); 
   void GetPartitions(int, int**, int&); 
   void GetPartitions(int, int*, int&); 

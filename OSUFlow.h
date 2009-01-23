@@ -85,8 +85,9 @@ public:
 	void GetMinMaxTime(int& min_t, int& max_t) {min_t = MinT; max_t = MaxT; }
 	void GetGlobalBounds(VECTOR3 &minB, VECTOR3 &maxB) {minB = gMin; maxB = gMax;}
 
+	void DeleteData(void);
+
 protected:
-	void Reset(void);
 
 private:
 	void InitStaticFlowField(void);

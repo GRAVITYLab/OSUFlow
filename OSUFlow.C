@@ -31,10 +31,10 @@ OSUFlow::~OSUFlow()
 	flowField = NULL;
 }
 
-void OSUFlow::Reset(void)
+void OSUFlow::DeleteData(void)
 {
-	bUseRandomSeeds = false;
-	deferred_load_case = -1; 
+	delete flowField; 
+	has_data = false; 
 }
 
 ///////////////////////////////////////////////////////////
@@ -296,6 +296,7 @@ void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB,
 
 	for(int iFor = 0; iFor < totalNum; iFor++)
 		pVector[iFor].Set(pData[iFor*3], pData[iFor*3+1], pData[iFor*3+2]);
+	delete [] pData; 
 	ppVector = new VECTOR3*[1];
 	ppVector[0] = pVector;
 	pSolution = new Solution(ppVector, totalNum, 1);
@@ -306,6 +307,8 @@ void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB,
 	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
 	if(!flowField->IsNormalized())
 		flowField->NormalizeField(true);
+	delete []pVector; 
+	delete[] ppVector; 
 }
 
 // read the whole time sequence and create a time-varying vector field 
@@ -318,6 +321,7 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 	int dimension[3], totalNum, tStep;
 	//	float** ppData = NULL;
 	float* pData = NULL;
+
 	VECTOR3** ppVector;
 	Solution* pSolution;
 	RegularCartesianGrid* pRegularCGrid;
@@ -332,7 +336,7 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 	int first = 1; 
 	for(int iFor = 0; iFor < timesteps; iFor++)
 	{
-		VECTOR3* pVector;
+                VECTOR3* pVector;
 		fscanf(fIn, "%s", filename);
 		printf(" to read %s ...\n", filename); 
 		fVecIn = fopen(filename, "rb");
@@ -367,6 +371,10 @@ void OSUFlow:: InitTimeVaryingFlowField(void)
 	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
 	flowField = new CVectorField(pRegularCGrid, pSolution, timesteps);
+	for (int i=0; i<timesteps; i++) {
+	  delete [] ppVector[i]; 
+	}
+	delete[] ppVector; 
 }
 
 /////////////////////////////////////////////////////////////////
@@ -445,6 +453,10 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB)
 	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
 	flowField = new CVectorField(pRegularCGrid, pSolution, timesteps);
+	for (int i=0; i<timesteps; i++) {
+	  delete [] ppVector[i]; 
+	}
+	delete[] ppVector; 
 }
 
 
@@ -524,6 +536,10 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, i
 	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
 	flowField = new CVectorField(pRegularCGrid, pSolution, numTimesteps, MinT);
+	for (int i=0; i<numTimesteps; i++) {
+	  delete [] ppVector[i]; 
+	}
+	delete[] ppVector; 
 }
 //////////////////////////////////////////////////////////////////////////
 // specify a set of seed points randomly generated over the specified
@@ -672,6 +688,7 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 
   if (has_data == false) DeferredLoadData(); 
 
+  if (seedPtr!=NULL) delete [] seedPtr; 
         nSeeds = seedNum; 
 	seedPtr = seeds; 
 
@@ -757,6 +774,7 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 {
 
   if (has_data == false) DeferredLoadData(); 
+  if (seedPtr!=NULL) delete [] seedPtr; 
 
         seedPtr = seeds; 
 	nSeeds = num_seeds; 
@@ -796,8 +814,11 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 
   if (has_data == false) DeferredLoadData(); 
 
+  if (seedPtr!=NULL) delete[] seedPtr; 
+
         nSeeds = num_seeds; 
 	seedPtr = seeds; 
+	seedTimeArray = tarray; 
 
 	listSeedTraces.clear();
 
@@ -842,6 +863,7 @@ bool OSUFlow::GenPathLines(VECTOR4* seeds,
 	  seedPtr[i][0] = seeds[i][0]; 
 	  seedPtr[i][1] = seeds[i][1]; 
 	  seedPtr[i][2] = seeds[i][2]; 
+	  seedTimeArray[i] = seeds[i][3]; 
 	}
 
 	listSeedTraces.clear();
