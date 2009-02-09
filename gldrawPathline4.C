@@ -51,11 +51,11 @@ float time_incr;
 VECTOR3 lMin, lMax; 
 VECTOR3 gMin, gMax; 
 
-int nsp = 64, ntp = 5;
+int nsp = 8, ntp = 2;
 int lidim, ljdim, lkdim, ltdim; //lattice's i,j,kdims,where lidim*ljdim*lkdim = nsp; 
 int npart; 
 int nproc = 4; 
-int total_seeds = 10000; 
+int total_seeds = 1000; 
 volume_bounds_type *vb_list; 
 
 OSUFlow **osuflow_list; 
@@ -204,6 +204,36 @@ void compute_pathlines() {
   }
 }
 
+void draw_bounds(float xmin, float xmax, float ymin, float ymax, 
+		 float zmin, float zmax)
+{
+  glColor3f(1,0,0); 
+  glBegin(GL_LINES); 
+
+    glVertex3f(xmin, ymin, zmin); glVertex3f(xmax, ymin, zmin); 
+    glVertex3f(xmax, ymin, zmin); glVertex3f(xmax, ymax, zmin); 
+    glVertex3f(xmax, ymax, zmin); glVertex3f(xmin, ymax, zmin); 
+    glVertex3f(xmin, ymax, zmin); glVertex3f(xmin, xmin, zmin); 
+
+    glVertex3f(xmin, ymin, zmax); glVertex3f(xmax, ymin, zmax); 
+    glVertex3f(xmax, ymin, zmax); glVertex3f(xmax, ymax, zmax); 
+    glVertex3f(xmax, ymax, zmax); glVertex3f(xmin, ymax, zmax); 
+    glVertex3f(xmin, ymax, zmax); glVertex3f(xmin, xmin, zmax); 
+
+    glVertex3f(xmin, ymin, zmin); glVertex3f(xmin, ymin, zmax); 
+    glVertex3f(xmin, ymin, zmax); glVertex3f(xmin, ymax, zmax); 
+    glVertex3f(xmin, ymax, zmax); glVertex3f(xmin, ymax, zmin); 
+    glVertex3f(xmin, ymax, zmin); glVertex3f(xmin, ymin, zmin); 
+
+    glVertex3f(xmax, ymin, zmin); glVertex3f(xmax, ymin, zmax); 
+    glVertex3f(xmax, ymin, zmax); glVertex3f(xmax, ymax, zmax); 
+    glVertex3f(xmax, ymax, zmax); glVertex3f(xmax, ymax, zmin); 
+    glVertex3f(xmax, ymax, zmin); glVertex3f(xmax, ymin, zmin); 
+
+  glEnd(); 
+}
+
+
 /////////////////////////////////////////////////////////////////////////
 void draw_pathlines() {
   
@@ -239,6 +269,8 @@ void draw_pathlines() {
       }
       glEnd(); 
     }
+    volume_bounds_type vb = vb_list[i];     
+    draw_bounds(vb.xmin, vb.xmax, vb.ymin, vb.ymax, vb.zmin, vb.zmax); 
   }
   glPopMatrix(); 
 }
@@ -257,9 +289,10 @@ void animate_pathlines() {
   float min_time = current_frame * time_incr; 
   float max_time = (current_frame+1) * time_incr; 
 
-  glColor3f(1,1,0); 
+
   for (int i=0; i<npart; i++) {
     pIter = sl_list[i].begin(); 
+    glColor3f(1,1,0); 
     glBegin(GL_POINTS); 
     for (; pIter!=sl_list[i].end(); pIter++) {
       trace = *pIter; 
@@ -275,7 +308,10 @@ void animate_pathlines() {
       }
     }
     glEnd(); 
+    volume_bounds_type vb = vb_list[i];     
+    draw_bounds(vb.xmin, vb.xmax, vb.ymin, vb.ymax, vb.zmin, vb.zmax); 
   }
+
   glPopMatrix(); 
   current_frame = (current_frame+1) % num_frames; 
 }

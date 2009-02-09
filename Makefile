@@ -22,8 +22,8 @@
 #
 #----------------------------------------------------------------------------
 
-#ARCH = MAC_OSX
-ARCH = LINUX
+ARCH = MAC_OSX
+#ARCH = LINUX
 
 LIBNAME = OSUFlow
 RM = rm 
@@ -54,7 +54,8 @@ OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	Element.o    StreakLine.o    VectorMatrix.o Lattice.o \
 	Field.o      PathLine.o      Streamline.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
-	OSUFlow.o    calc_subvolume.o Lattice4D.o 
+	OSUFlow.o    calc_subvolume.o Lattice4D.o \
+	LatticeAMR.o
 
 SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -62,7 +63,8 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	Element.C    StreakLine.C    VectorMatrix.C Lattice.C \
 	Field.C      PathLine.C      Streamline.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
-	OSUFlow.C    calc_subvolume.C Lattice4D.C 
+	OSUFlow.C    calc_subvolume.C Lattice4D.C \
+	LatticeAMR.C
 
 .SUFFIXES: .c .C
 
@@ -75,7 +77,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 default: all
 
 all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 mpitest
+	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 mpitest
 
 #all: lib$(LIBNAME).a 
 
@@ -129,6 +131,12 @@ gldrawPathline3: gldrawPathline3.o  lib$(LIBNAME).a
 
 gldrawPathline4: gldrawPathline4.o  lib$(LIBNAME).a
 	$(C++) -o gldrawPathline4 gldrawPathline4.o -L. -l$(LIBNAME) $(LIBS)
+
+gldrawFlash: gldrawFlash.o  lib$(LIBNAME).a
+	$(C++) -o gldrawFlash gldrawFlash.o -L. -l$(LIBNAME) $(LIBS)
+
+gldrawFlash2: gldrawFlash2.o  lib$(LIBNAME).a
+	$(C++) -o gldrawFlash2 gldrawFlash2.o -L. -l$(LIBNAME) $(LIBS)
 
 gldrawStreak: gldrawStreak.o  lib$(LIBNAME).a
 	$(C++) -o gldrawStreak gldrawStreak.o -L. -l$(LIBNAME) $(LIBS)

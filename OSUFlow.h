@@ -87,6 +87,9 @@ public:
 
 	void DeleteData(void);
 
+	void CreateStaticFlowField(float*, int xsize, int ysize, int zsize, 
+				   VECTOR3 minb, VECTOR3 maxB); 
+
 protected:
 
 private:

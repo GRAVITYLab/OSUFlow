@@ -300,6 +300,26 @@ int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z, float t) {
 	}
   return(-1); 
 }
+
+//---------------------------------------------------------------------------
+//
+// GetNeighbor
+//
+//
+int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t, 
+                           int &ei, int &ej, int &ek, int &et) {
+
+  int neighbor;
+  int si, sj, sk;
+
+  neighbor = CheckNeighbor(myrank, x, y, z, t);
+  
+  GetIndices(neighbor, ei, ej, ek, et); 
+  
+  return (neighbor); 
+
+}
+
 //---------------------------------------------------------------------------
 
 void Lattice4D::InitSeedLists() {
@@ -567,42 +587,6 @@ void Lattice4D::NeighborIndices(int n, int i, int j, int k, int l, int &in,
       ln = l + 1;
     else
       ln = l;
-
-}
-//---------------------------------------------------------------------------
-//
-// GetNeighbor
-//
-// returns neighbor number (0-80) of x,y,z,t point and lattice indices
-// of that neighbor
-// otherwise returns -1 and lattice indices are undefined
-//
-// myrank: global partition number
-// x, y, z, t: coordinates of point
-//
-int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t, int &ei, int &ej, int &ek, int &el) {
-
-
-  int i, j, k, l; 
-  int in, jn, kn, ln;
-  int n;
-
-  GetIndices(myrank, i, j, k, l); 
-
-  for (n = 0; n < nbhd; n++) {
-
-    NeighborIndices(n, i, j, k, l, in, jn, kn, ln);
-    if (isIn(x, y, z, t, in, jn, kn, ln)) {
-      ei = in;
-      ej = jn;
-      ek = kn;
-      el = ln;
-      return n;
-    }
-
-  }
-
-  return -1;
 
 }
 //----------------------------------------------------------------------------

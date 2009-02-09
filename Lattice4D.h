@@ -80,8 +80,6 @@ class  Lattice4D {
   void GetNeighborRanks(int myrank, int *neighbor_ranks);
   void NeighborIndices(int n, int i, int j, int k, int l, int &in,
 		       int &jn, int &kn, int &ln);
-  int GetNeighbor(int myrank, float x, float y, float z, float t, int &ei, 
-		  int &ej, int &ek, int &et, int &el);
   void PostPoint(int myrank, VECTOR4 p, int neighbor);
   void PrintPost(int myrank);
   void PrintRecv(int myrank);
@@ -89,10 +87,11 @@ class  Lattice4D {
   void GetRecvPts(int myrank, VECTOR4 *ls);
   void Error(const char *fmt, ...);
   void SendNeighbors(int myrank, MPI_Comm comm);
-  int ReceiveNeighbors(int myrank, MPI_Comm comm);
+ int ReceiveNeighbors(int myrank, MPI_Comm comm);
 
 #endif
 
 }; 
 
 #endif 
+ 

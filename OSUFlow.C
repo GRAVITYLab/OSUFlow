@@ -312,6 +312,47 @@ void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB,
 	delete[] ppVector; 
 }
 
+///////////////////////////////////////////////////////////////
+//
+//  This function is used when the data dimensions are independent of 
+//  the physical range (minB, maxB) 
+//
+void OSUFlow::CreateStaticFlowField(float* pData, int xsize, int ysize, int zsize, 
+				    VECTOR3 minB, VECTOR3 maxB)
+{
+	int dimension[3], totalNum;
+
+	dimension[0] = xsize; 
+	dimension[1] = ysize; 
+	dimension[2] = zsize; 
+
+	totalNum = dimension[0] * dimension[1] * dimension[2];
+
+	// create field object
+	Solution* pSolution;
+	RegularCartesianGrid* pRegularCGrid;
+	VECTOR3* pVector;
+	VECTOR3** ppVector;
+	pVector = new VECTOR3[totalNum];
+
+	for(int iFor = 0; iFor < totalNum; iFor++)
+		pVector[iFor].Set(pData[iFor*3], pData[iFor*3+1], pData[iFor*3+2]);
+	delete [] pData; 
+	ppVector = new VECTOR3*[1];
+	ppVector[0] = pVector;
+	pSolution = new Solution(ppVector, totalNum, 1);
+	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
+	lMin = minB; lMax = maxB; //local data min/max range
+	pRegularCGrid->SetBoundary(lMin, lMax);
+	assert(pSolution != NULL && pRegularCGrid != NULL);
+	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
+	if(!flowField->IsNormalized())
+		flowField->NormalizeField(true);
+	delete []pVector; 
+	delete[] ppVector; 
+}
+
+
 // read the whole time sequence and create a time-varying vector field 
 void OSUFlow:: InitTimeVaryingFlowField(void)
 {
