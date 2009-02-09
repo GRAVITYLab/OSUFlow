@@ -50,6 +50,9 @@ void sort_list(int* list, int& cnt)
     }
   }
   cnt = count; 
+
+  delete[] tmp_list;
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -260,6 +263,7 @@ calc_subvolume(int vxdim,int vydim,int vzdim, int ghost, int npart,
   //    (*lattice)[i] = i; 
   
   delete [] vb_list; 
+  delete[] lattice;
   return (vb_list_adj); 
 }
 

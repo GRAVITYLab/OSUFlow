@@ -22,8 +22,8 @@
 #
 #----------------------------------------------------------------------------
 
-ARCH = MAC_OSX
-#ARCH = LINUX
+#ARCH = MAC_OSX
+ARCH = LINUX
 
 LIBNAME = OSUFlow
 RM = rm 
@@ -42,6 +42,7 @@ ifeq ($(ARCH),LINUX)
 CC = mpicc
 C++ = mpicxx
 CCFLAGS = -g -c -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+#CCFLAGS += -Wall -Wextra
 LIBS = -lm -lglut -lGL
 endif
 
@@ -96,8 +97,8 @@ testmain3: testmain3.o lib$(LIBNAME).a
 testmain4: testmain4.o lib$(LIBNAME).a
 	$(C++) -o testmain4 testmain4.o -L. -l$(LIBNAME) -lm
 
-mpitest: MpiDraw.o lib$(LIBNAME).a
-	$(C++) -o mpitest MpiDraw.o -L. -l$(LIBNAME) $(LIBS) 
+mpitest: MpiDraw1.o lib$(LIBNAME).a
+	$(C++) -o mpitest MpiDraw1.o -L. -l$(LIBNAME) $(LIBS) 
 
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) $(LIBS) 

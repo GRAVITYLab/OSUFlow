@@ -126,9 +126,14 @@ private:
 	// MPI functions
 
  public:
-        void ReadData(const char* fname, bool bStatic, 
-		      VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim);
-        void ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim);
+        void ReadData(const char* fname, bool bStatic, VECTOR3 sMin, 
+	     VECTOR3 sMax, VECTOR3 dim, int t_min, int t_max, MPI_Comm comm);
+
+ private:
+        void ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, 
+            MPI_Comm comm);
+        void ReadTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax, 
+	    VECTOR3 dim, int min_t, int max_t, MPI_Comm comm);
 
 #endif
 

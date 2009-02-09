@@ -14,13 +14,15 @@
 #include <mpi.h>
 #endif
 
+#define MAX_NEIGHBORS 81
+
 struct Partition4D {
-  int NumSendPoints[6]; // number of points ready to send
-  int SizeSendPoints[6]; // size of sending points list (bytes)
-  float *SendPoints[6]; // sending points list
-  int NumRecvPoints[6]; // number of points received
-  int SizeRecvPoints[6]; // size of receiving points list (bytes)
-  float *RecvPoints[6]; // receiving points list
+  int NumSendPoints[MAX_NEIGHBORS]; // number of points ready to send
+  int SizeSendPoints[MAX_NEIGHBORS]; // size of sending points list (bytes)
+  float *SendPoints[MAX_NEIGHBORS]; // sending points list
+  int NumRecvPoints[MAX_NEIGHBORS]; // number of points received
+  int SizeRecvPoints[MAX_NEIGHBORS]; // size of receiving points list (bytes)
+  float *RecvPoints[MAX_NEIGHBORS]; // receiving points list
   int Proc; // process(or) number (mpi rank, core number, node number, etc.)
 };
 
@@ -32,7 +34,6 @@ class  Lattice4D {
   ~Lattice4D(); 
   int GetRank(int i, int j, int k, int l);         // serach by lattice indices
   int GetRank(float x, float y, float z, float t);  //search by physical location
-  void GetNeighborRanks(int myrank, int *neighbor_ranks);   // 80 neighbors
   int GetIndices(int rank, int &i, int &j, int&k, int&t);  // search by rank 
   int GetIndices(float x, float y, float z, float t, int& iidx, int &jidx, int&kidx, int& lidx);  // search by physical locations
   int GetBounds(int i, int j, int k, int t, volume_bounds_type& vb);  //return bound 
@@ -54,7 +55,6 @@ class  Lattice4D {
   bool InsertSeed(int from_rank, int to_rank, VECTOR4); 
   void RoundRobin_proc(int n); 
   void GetPartitions(int, int**, int&); 
-  void GetPartitions(int, int*, int&); 
   void ResetFlowMatrix(); // set all values to zero
   int GetFlowMatrix(int i, int j) {return flowMatrix[i*npart+j];}
 
@@ -64,10 +64,34 @@ class  Lattice4D {
 
   int idim, jdim, kdim, tdim; //the lattice range
   int xdim, ydim, zdim, ldim; //the whole data range
+  int nbhd; // neighborhood size
   int npart; 
   volume_bounds_type *vb_list; 
   Partition4D *parts; // list of partition information
   int* flowMatrix; 
+
+#ifdef MPI
+
+ public:
+
+  Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int d);
+  int GetNumPartitions(int proc);
+  void GetPartitions(int proc, int*p_list);
+  void GetNeighborRanks(int myrank, int *neighbor_ranks);
+  void NeighborIndices(int n, int i, int j, int k, int l, int &in,
+		       int &jn, int &kn, int &ln);
+  int GetNeighbor(int myrank, float x, float y, float z, float t, int &ei, 
+		  int &ej, int &ek, int &et, int &el);
+  void PostPoint(int myrank, VECTOR4 p, int neighbor);
+  void PrintPost(int myrank);
+  void PrintRecv(int myrank);
+  int GetNumRecv(int myrank);
+  void GetRecvPts(int myrank, VECTOR4 *ls);
+  void Error(const char *fmt, ...);
+  void SendNeighbors(int myrank, MPI_Comm comm);
+  int ReceiveNeighbors(int myrank, MPI_Comm comm);
+
+#endif
 
 }; 
 

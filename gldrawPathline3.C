@@ -50,9 +50,11 @@ float time_incr;
 VECTOR3 lMin, lMax; 
 VECTOR3 gMin, gMax; 
 
-int nsp = 2, ntp = 2; 
+// int nsp = 2, ntp = 2;
+int nsp = 1, ntp = 2;
 int npart; 
-int nproc = 4; 
+// int nproc = 4; 
+int nproc = 2;
 int total_seeds = 1000; 
 volume_bounds_type *vb_list; 
 
@@ -393,10 +395,14 @@ int main(int argc, char** argv)
   minLen[0] = minLen[1] = minLen[2] = 0; 
   maxLen[0] = maxLen[1] = maxLen[2] = 127; 
 
-  int ntime = 50; 
+//   int ntime = 50;
+  int ntime = 2;
   // partition the domain and create a lattice
+//   lat = new Lattice4D(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
+// 		      maxLen[2]-minLen[2]+1, 50, 1, 
+// 		      nsp, ntp);  //1 is ghost layer
   lat = new Lattice4D(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
-		      maxLen[2]-minLen[2]+1, 50, 1, 
+		      maxLen[2]-minLen[2]+1, ntime, 1, 
 		      nsp, ntp);  //1 is ghost layer
 
   vb_list = lat->GetBoundsList(); 
@@ -407,8 +413,11 @@ int main(int argc, char** argv)
   plist = new int*[nproc]; 
   num_partitions = new int[nproc]; 
   // get each processor's partitions 
-  for (int i=0; i<nproc; i++)
+  for (int i=0; i<nproc; i++) {
     lat->GetPartitions(i, &(plist[i]), num_partitions[i]);
+
+    fprintf(stderr,"num_partitions[%d] = %d\n",i,num_partitions[i]);
+  }
 
   sl_list = new list<vtListTimeSeedTrace*>[npart]; // pathline lists, one per block
 
@@ -428,7 +437,8 @@ int main(int argc, char** argv)
     minB[2] = vb_list[i].zmin;  maxB[2] = vb_list[i].zmax; 
 
     // load the time-varying subdomain data between start_time and end_time 
-    bool deferred = true; 
+//     bool deferred = true; 
+    bool deferred = false;
     osuflow_list[i]->LoadData((const char*)argv[1], false, minB, maxB, 
 			      vb_list[i].tmin, vb_list[i].tmax, deferred); 
 
