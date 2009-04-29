@@ -55,7 +55,6 @@ class  Lattice {
   void PostPoint(int myrank, VECTOR3 p, int neighbor);
   int GetNumRecv(int myrank);
   void GetRecvPts(int myrank, VECTOR3 *ls);
-/*   void InitMessage(int myrank); */
 
   list<VECTOR3> *seedlists; 
 
@@ -66,7 +65,6 @@ class  Lattice {
   int npart; 
   volume_bounds_type *vb_list; 
   Partition *parts; // list of partition information
-
   void Error(const char *fmt, ...);
 
   // MPI functions

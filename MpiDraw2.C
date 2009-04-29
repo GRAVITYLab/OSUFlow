@@ -23,6 +23,7 @@
 //------------------------------------------------------------------------------
 
 #include <mpi.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h> 
 #include <list>
@@ -42,6 +43,7 @@
 #include "Lattice4D.h"
 
 #define MAX_RECV_ATTEMPTS 10
+#define AVAIL_SIZE 128 // max data size available per process (MB)
 
 // defines related to drawing
 #define XFORM_NONE    0 
@@ -71,14 +73,13 @@ void Config(int argc, char *argv[]);
 void PrintSeeds(int nblocks);
 void RecvToSeeds(int lb, int gb);
 int EndTrace(list<vtListSeedTrace*> &list, VECTOR3 &p, int index);
-void ComputeStreamlines();
-void ComputePathlines();
-void GatherStreamlines();
+void ComputePathlines(int block_num);
 void GatherPathlines();
 int GatherNumPts(int* &ntrace);
 void GatherPts(int *ntrace, int mynpt);
 void DrawStreamlines();
 void Cleanup();
+// OSUFlow *ManageMemory();
 void draw_bounds(float xmin, float xmax, float ymin, float ymax, 
 		 float zmin, float zmax);
 void draw_cube(float r, float g, float b);
@@ -88,6 +89,11 @@ void mymouse(int button, int state, int x, int y);
 void mymotion(int x, int y);
 void mykey(unsigned char key, int x, int y);
 void idle();
+void ComputeThread();
+void IOThread();
+void ReceiveMessages();
+int ComputeBlocksFit();
+void EvictBlock();
 
 // globals
 static char filename[256]; // dataset file name
@@ -120,10 +126,8 @@ int num_render_pts = 0; // number of seeds for rendering
 
 int main(int argc, char *argv[]) {
 
-  VECTOR3 minB, maxB; // subdomain bounds
   int nproc;  // mpi groupsize
   int rank; // mpi rank
-  float from[3], to[3]; // seed points limits
   char buf[256];
   int i, j;
 
@@ -134,51 +138,24 @@ int main(int argc, char *argv[]) {
   MPI_Barrier(MPI_COMM_WORLD);
   Config(argc, argv);
 
-  // for all blocks
-  for (i = 0; i < nblocks; i++) {
+  // --- begin 2 threads --- //
 
-    // create osuflow and populate with data
-    osuflow[i] = new OSUFlow();
-    minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
-         vb_list[blocks[i]].zmin);
-    maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
-         vb_list[blocks[i]].zmax);
-    if (rank == 0 && i == 0)
-      fprintf(stderr,"Reading %s\n", filename); 
-    osuflow[i]->ReadData(filename, false, minB, maxB, size, 
-	  vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, MPI_COMM_WORLD); 
+  #pragma omp parallel num_threads(2)
+  {
 
-    // hack to improve visibility of results
-    osuflow[i]->ScaleField(10.0);
+    // compute (master) thread
+    if (!omp_get_thread_num())
+      ComputeThread();
 
-    // init seeds
-    from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
-    to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
-    osuflow[i]->SetRandomSeedPoints(from, to, tf); 
-    seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
-    while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
-      Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
-      assert(Seeds[i] != NULL);
-      SizeSeeds[i] *= 2;
-    }
-    for (j = 0; j < NumSeeds[i]; j++)
-      Seeds[i][j].Set(seeds[j][0], seeds[j][1], seeds[j][2], 0.0f);
+    // I/O (slave) thread
+    if (omp_get_thread_num())
+      IOThread();
 
-    sl_list[i].clear();
-
-  } // for all blocks
-
-  // main loop for nondrawing procs
-  if (rank > 0) {
-    for (i = 0; i < max_iterations; i++) {
-      for (j = 0; j < nblocks; j++)
-	sl_list[j].clear();
-      ComputePathlines();
-      GatherPathlines();
-    }
   }
 
-  // main loop for drawing proc
+  // --- end 2 threads --- //
+
+  // event loop for drawing
   if (rank == 0) {
     glutInit(&argc, argv); 
     glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH); 
@@ -201,9 +178,247 @@ int main(int argc, char *argv[]) {
 }
 //-----------------------------------------------------------------------
 //
+// ComputeThead
+//
+void ComputeThread() {
+
+  int i, j;
+  int all_done;
+  int rank;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  // for all iterations
+  for (i = 0; i < max_iterations; i++) {
+
+    // clear streamlines
+    for (j = 0; j < nblocks; j++)
+      sl_list[j].clear();
+
+    all_done = 0;
+
+    // until all blocks are computed
+    while (!all_done) {
+
+      // for all blocks
+      for (j = 0; j < nblocks; j++) {
+
+	if (lat->GetComp(j))
+	  continue;
+	else if (lat->GetLoad(j)) {
+	  ComputePathlines(j);
+	  lat->SetComp(j);
+	  lat->SetTime(j);
+	  lat->ClearReq(j);
+	  fprintf(stderr, "Computed block %d\n", j);
+
+	  // debug
+// 	  fprintf(stderr, "block %d status: computed = %d loaded = %d reqd = %d\n", j, lat->GetComp(j), lat->GetLoad(j), lat->GetReq(j));
+
+	}
+	else if (!lat->GetReq(j)) {
+	  lat->SetReq(j);
+	}
+	else
+	  usleep(1000);
+
+      }
+
+      // check if all done
+      all_done = 1;
+      for (j = 0; j < nblocks; j++) {
+
+	if (!lat->GetComp(j)) {
+	  all_done = 0;
+	  break;
+	}
+      }
+ 
+    } // until all blocks are computed
+
+    ReceiveMessages();
+    GatherPathlines();
+
+  } // for all iterations
+
+  if (rank == 0)
+    fprintf(stderr, "Completed %d iterations\n", max_iterations);
+
+}
+//-----------------------------------------------------------------------
+//
+// IOThread
+//
+void IOThread() {
+
+  VECTOR3 minB, maxB; // subdomain bounds
+  float from[3], to[3]; // seed points limits
+  int blocks_fit; // number of blocks we want to maintain in memory
+  int num_loaded; // number of blocks loaded into memory so far
+  int all_done;
+  int rank;
+  int i,j;
+
+  // init
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  num_loaded = 0;
+  all_done = 0;
+
+  // compute how many blocks safely fit in memory
+  blocks_fit = ComputeBlocksFit();
+
+  // until all blocks are loaded
+  while (!all_done) {
+
+    // for all blocks
+    for (i = 0; i < nblocks; i++) {
+
+      if (lat->GetLoad(i))
+	continue;
+
+      // the block is requested
+      if (lat->GetReq(i) && !lat->GetLoad(i)) {
+	if (num_loaded >= blocks_fit) {
+	  EvictBlock();
+	  num_loaded--;
+	}
+
+	// load the block
+
+	// create osuflow and populate with data
+	osuflow[i] = new OSUFlow;
+	minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
+		 vb_list[blocks[i]].zmin);
+	maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
+		 vb_list[blocks[i]].zmax);
+	if (rank == 0 && i == 0)
+	  fprintf(stderr,"Reading %s\n", filename); 
+	osuflow[i]->ReadData(filename, false, minB, maxB, size, 
+			     vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, MPI_COMM_WORLD); 
+
+	// hack to improve visibility of results
+	osuflow[i]->ScaleField(10.0);
+
+	// init seeds
+	from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
+	to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
+	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+	seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
+	while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
+	  Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
+	  assert(Seeds[i] != NULL);
+	  SizeSeeds[i] *= 2;
+	}
+	for (j = 0; j < NumSeeds[i]; j++)
+	  Seeds[i][j].Set(seeds[j][0], seeds[j][1], seeds[j][2], 0.0f);
+
+	sl_list[i].clear();
+	lat->SetData(blocks[i], 1);
+
+	// update status
+	lat->SetLoad(i);
+	lat->ClearReq(i);
+
+	// debug
+// 	fprintf(stderr, "block %d status: computed = %d loaded = %d reqd = %d\n", i, lat->GetComp(i), lat->GetLoad(i), lat->GetReq(i));
+
+	num_loaded++;
+	lat->SetTime(i);
+	fprintf(stderr, "Loaded block %d\n", i);
+
+      } // the block is requested
+
+    } // for all blocks
+
+    // check if all done
+    all_done = 1;
+    for (i = 0; i < nblocks; i++) {
+      if (!lat->GetComp(i)) {
+	all_done = 0;
+	break;
+      }
+    }
+
+    usleep(1000);
+
+  } // until all blocks are loaded
+
+}
+//-----------------------------------------------------------------------
+//
+// ComputeBlocksFit
+//
+// computes how many blocks to keep in memory
+//
+int ComputeBlocksFit() {
+
+  int rank;
+  int b_size; // data size in a typical block (Mbytes)
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  b_size = size[0] * size[1] / 1048576.0f * size[2] / nspart * 
+           tsize / ntpart * 3 * sizeof (float);
+
+  if (rank == 0) {
+    fprintf(stderr, "Total data size allocated = %d MB, Block data size = %d MB, Max blocks resident in memory = %d\n", AVAIL_SIZE, b_size, AVAIL_SIZE / b_size);
+  }
+
+  return(AVAIL_SIZE / b_size);
+
+}
+//-----------------------------------------------------------------------
+//
+// EvictBlock
+//
+// evicts one block from memory (LRU)
+//
+void EvictBlock() {
+
+  int i;
+  int min_i = -1; // index where min time occurs
+  int first = 1; // first time
+  int usec = 1000; // initial wait time (microseconds)
+  time_t min_time = lat->GetTime(0);
+
+  // find the LRU block
+  for (i = 0; i < nblocks; i++) {
+
+    if (lat->GetLoad(i) && (first || lat->GetTime(i) < min_time)) {
+      min_time = lat->GetTime(i);
+      min_i = i;
+      first = 0;
+    }
+
+  }
+
+  // sanity check: there is something to evict
+  assert(min_i >= 0);
+
+  // wait for the block to be computed before evicting
+  first = 1;
+  while (lat->GetLoad(min_i) && !lat->GetComp(min_i)) {
+    if (first)
+      fprintf(stderr, "Need to evict block %d but it is still being used. Waiting...\n", min_i);
+    first = 0;
+    usleep(usec);
+    usec *= 2;
+  }
+
+  // evict it
+  delete osuflow[min_i];
+  osuflow[min_i] = NULL;
+  lat->SetData(blocks[min_i], 0);
+  lat->ClearLoad(min_i);
+
+  fprintf(stderr, "Evicted block %d\n", min_i);
+
+}
+//-----------------------------------------------------------------------
+//
 // ComputePathlines
 //
-void ComputePathlines() {
+void ComputePathlines(int block_num) {
 
   list<vtListTimeSeedTrace*> list; // trace of seed points
   std::list<VECTOR4*>::iterator pt_iter; // iterator over pts in one trace
@@ -213,46 +428,56 @@ void ComputePathlines() {
   int ei, ej, ek, et; // neighbor's lattice position
   int i, j;
 
-  // for all blocks, integrate points and send messages
-  for(i = 0; i < nblocks; i++) {
+  while (!lat->GetData(blocks[block_num]))
+    usleep(100000);
 
-    if (NumSeeds[i]) {
+  if (NumSeeds[block_num]) {
 
-      // perform the integration
-      // todo: integrate in both directions
-      list.clear();
-      osuflow[i]->SetIntegrationParams(1, 5); 
-      osuflow[i]->GenPathLines(Seeds[i], list, FORWARD, NumSeeds[i], pf); 
+    // perform the integration
+    // todo: integrate in both directions
+    list.clear();
+    osuflow[block_num]->SetIntegrationParams(1, 5); 
+    osuflow[block_num]->GenPathLines(Seeds[block_num], list, FORWARD, 
+         NumSeeds[block_num], pf); 
 
-      // copy each trace to the streamline list for later rendering
-      for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++)
-	sl_list[i].push_back(*trace_iter); 
+    // copy each trace to the streamline list for later rendering
+    for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++)
+      sl_list[block_num].push_back(*trace_iter); 
 
-      // redistribute boundary points to neighbors
+    // redistribute boundary points to neighbors
 
-      // for all boundary points
-      for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++) {
-	if (!(*trace_iter)->size())
-	  continue;
-	pt_iter = (*trace_iter)->end();
-	pt_iter--;
-	p = **pt_iter;
+    // for all boundary points
+    for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++) {
+      if (!(*trace_iter)->size())
+	continue;
+      pt_iter = (*trace_iter)->end();
+      pt_iter--;
+      p = **pt_iter;
 
-	// find which neighbor the point is in
-	neighbor = lat->GetNeighbor(blocks[i], p[0], p[1], p[2], p[3],
-           ei, ej, ek, et); 
-	// post the point to the send list
-	if (neighbor != -1)
-	  lat->PostPoint(blocks[i], p, neighbor);
+      // find which neighbor the point is in
+      neighbor = lat->GetNeighbor(blocks[block_num], p[0], p[1], p[2], p[3],
+				  ei, ej, ek, et); 
+      // post the point to the send list
+      if (neighbor != -1)
+	lat->PostPoint(blocks[block_num], p, neighbor);
 
-      } // for all boundary points
+    } // for all boundary points
 
       // send boundary list to neighbors
-      lat->SendNeighbors(blocks[i], MPI_COMM_WORLD);
+    lat->SendNeighbors(blocks[block_num], MPI_COMM_WORLD);
 
-    } // if (NumSeeds[i])
+  } // if (NumSeeds[block_num])
       
-  } // for all blocks
+}
+//-----------------------------------------------------------------------
+//
+// ReceiveMessages
+//
+// receives all pending messages
+//
+void ReceiveMessages() {
+
+  int i, j;
 
   // for all blocks, receive messages
   for (i = 0; i < nblocks; i++) {
@@ -276,7 +501,7 @@ void ComputePathlines() {
 //
 // GatherPathlines
 //
-// gathers all streamlines at the root for rendering
+// gathers all pathlines at the root for rendering
 //
 void GatherPathlines() {
 
@@ -511,6 +736,8 @@ void Config(int argc, char *argv[]) {
   lat->GetPartitions(rank, blocks);
   osuflow = new OSUFlow*[nblocks];
   assert(osuflow != NULL);
+  for (i = 0; i < nblocks; i++)
+    osuflow[i] = NULL;
 
   // init seeds
   Seeds = (VECTOR4 **)malloc(nblocks * sizeof(VECTOR4 *));
@@ -563,7 +790,8 @@ void Cleanup() {
 
   for (i = 0; i < nblocks; i++) {
     free(Seeds[i]);
-    delete osuflow[i];
+    if (osuflow[i] != NULL)
+      delete osuflow[i];
   }
   free(NumSeeds);
   free(Seeds);
@@ -574,6 +802,40 @@ void Cleanup() {
 
 }
 //-----------------------------------------------------------------------
+// //
+// // ManageMemory
+// //
+// // allocates osuflow objects and maintains their number
+// // so that memory does not run out
+// // deletes objects if necessary (in block number order)
+// //
+// OSUFlow* ManageMemory() {
+
+//   int n;
+//   int b_size; // data size in a typical block (Mbytes)
+//   static int d_size = 0; // current data size
+
+//   b_size = size[0] * size[1] / 1048576.0f * size[2] / nspart * tsize / ntpart * 3 * sizeof (float);
+
+//   n = 0;
+//   while (d_size + b_size > AVAIL_SIZE) {
+
+//     if (osuflow[n] != NULL) {
+//       delete osuflow[n];
+//       d_size -= b_size;
+//       lat->SetData(blocks[n], 0);
+//       fprintf(stderr, "deleting osuflow[%d]\n", n);
+//     }
+//     n++;
+
+//   }
+
+//   fprintf(stderr, "allocated osuflow: current data size in this process = %d MB out of an allowed %d MB available\n",d_size,AVAIL_SIZE);
+//   d_size += b_size;
+//   return new OSUFlow;
+
+// }
+// //-----------------------------------------------------------------------
 //
 // PrintSeeds
 //
@@ -706,55 +968,6 @@ void DrawPathlines() {
 }
 //-------------------------------------------------------------------------
 //
-// void DrawStreamlines() {
-  
-//   int i, j, k;
-
-//   glPushMatrix(); 
-//   glScalef(1.0f / (float)size[0], 1.0f / (float)size[0], 1.0f / (float)size[0]);
-//   glTranslatef(-size[0] / 2.0f, -size[1] / 2.0f, -size[2] / 2.0f); 
-//   glColor3f(0.3,0.3,0.3); 
-
-//   k = 0;
-//   for (int i = 0; i < Tot_ntrace; i++) {
-
-//     glBegin(GL_LINE_STRIP); 
-//     for (j = 0; j < Npt[i]; j++) {
-//       glVertex3f(Pt[k][0], Pt[k][1], Pt[k][2]);
-//       k++;
-//     }
-//     glEnd(); 
-
-//   }
-
-//   for (i = 0; i < npart; i++) {
-//     volume_bounds_type vb = vb_list[i];     
-//     draw_bounds(vb.xmin, vb.xmax, vb.ymin, vb.ymax, vb.zmin, vb.zmax); 
-//   }
-
-//   // debug: draw seeds
-//   glColor3f(0.0, 1.0, 0.0);
-//   glPointSize(5);
-//   glBegin(GL_POINTS);
-//   for (int i = 0; i < num_render_seeds; i++)
-//     glVertex3f(render_seeds[i][0], render_seeds[i][1], render_seeds[i][2]);
-//   glEnd();
-
-//   glPopMatrix(); 
-
-//   // debug: draw points
-//   glColor3f(0.0, 0.0, 1.0);
-//   glPointSize(2);
-//   glBegin(GL_POINTS);
-//   for (int i = 0; i < num_render_pts; i++)
-//     glVertex3f(render_pts[i][0], render_pts[i][1], render_pts[i][2]);
-//   glEnd();
-
-//   glPopMatrix(); 
-
-// }
-//--------------------------------------------------------------------------
-//
 void draw_cube(float r, float g, float b) {
 
   glColor3f(r, g, b); 
@@ -813,22 +1026,6 @@ void timer(int val) {
 //--------------------------------------------------------------------------
 //
 void idle() {
-
-  static int iterations = 0;
-  int i;
-
-  if (iterations >= 0 && iterations < max_iterations) {
-    for (i = 0; i < nblocks; i++)
-      sl_list[i].clear();
-    ComputePathlines();
-    GatherPathlines();
-    iterations++;
-  }
-
-  if (iterations == max_iterations) {
-    fprintf(stderr,"Completed %d iterations\n",max_iterations);
-    iterations = -1;
-  }
 
   glutPostRedisplay();
 
@@ -893,271 +1090,7 @@ void mykey(unsigned char key, int x, int y) {
         switch(key) {
 	case 'q': exit(1);
 	  break; 
-// 	case 's': compute_streamlines(); 
-// 	  glutPostRedisplay(); 
-// 	  break; 
-// 	case 'd': 
-// 	  toggle_draw_streamlines = !toggle_draw_streamlines; 
-// 	  toggle_animate_streamlines = false; 
-// 	  break; 
-// 	case'a': 
-// 	  toggle_animate_streamlines = !toggle_animate_streamlines; 
-// 	  toggle_draw_streamlines = false; 
-// 	  first_frame = 1; 
 	}
 
 }
 //--------------------------------------------------------------------------
-// //
-// // ComputeStreamLines
-// //
-// void ComputeStreamlines() {
-
-//   list<vtListSeedTrace*> list; // trace of seed points
-//   std::list<VECTOR3*>::iterator pt_iter; // iterator over pts in one trace
-//   std::list<vtListSeedTrace*>::iterator trace_iter; // iterator over traces
-//   VECTOR3 p; // current point
-//   int neighbor; // neighbor's number (0-5)
-//   int ei, ej, ek; // neighbor's lattice position
-//   int i, j;
-
-//   // for all blocks, integrate points and send messages
-//   for(i = 0; i < nblocks; i++) {
-
-//     if (NumSeeds[i]) {
-
-//       // perform the integration
-//       // todo: integrate in both directions
-//       list.clear();
-//       osuflow[i]->SetIntegrationParams(1, 5); 
-//       osuflow[i]->GenStreamLines(Seeds[i], FORWARD_DIR, NumSeeds[i], pf, list); 
-
-//       // copy each trace to the streamline list for later rendering
-//       for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++)
-// 	sl_list[i].push_back(*trace_iter); 
-
-//       // redistribute boundary points to neighbors
-
-//       // for all boundary points
-//       for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++) {
-// 	if (!(*trace_iter)->size())
-// 	  continue;
-// 	pt_iter = (*trace_iter)->end();
-// 	pt_iter--;
-// 	p = **pt_iter;
-
-// 	// find which neighbor the point is in
-// 	neighbor = lat->GetNeighbor(blocks[i], p[0], p[1], p[2], ei, ej, ek); 
-// 	// post the point to the send list
-// 	if (neighbor != -1)
-// 	  lat->PostPoint(blocks[i], p, neighbor);
-
-//       } // for all boundary points
-
-//       // send boundary list to neighbors
-//       lat->SendNeighbors(blocks[i], MPI_COMM_WORLD);
-
-//     } // if (NumSeeds[i])
-      
-//   } // for all blocks
-
-//   // for all blocks, receive messages
-//   for (i = 0; i < nblocks; i++) {
-
-//     for (j = 0; j < MAX_RECV_ATTEMPTS; j++) {
-//       if (lat->ReceiveNeighbors(blocks[i], MPI_COMM_WORLD))
-// 	break;
-//       usleep(100000);
-//     }
-
-//     if (j == MAX_RECV_ATTEMPTS)
-//       continue;
-
-//     // prepare for next iteration
-//     RecvToSeeds(i, blocks[i]);
-
-//   } // for all blocks
-
-// }
-// //-----------------------------------------------------------------------
-// //
-// // GatherStreamlines
-// //
-// // gathers all streamlines at the root for rendering
-// //
-// void GatherStreamlines() {
-
-//   static int *ntrace = NULL; // number of traces for each proc
-//   int n; // total number of my points
-//   int rank, nproc; // usual MPI
-//   int i;
-
-//   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-//   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
-
-//   // gather number of points in each trace at the root
-//   n = GatherNumPts(ntrace);
-  
-//   // gather the actual points in each trace at the root
-//   GatherPts(ntrace, n);
-
-// }
-// //-----------------------------------------------------------------------
-// //
-// // GatherNumPts
-// //
-// // gathers number of points in each trace to the root
-// //
-// // ntrace: number of traces in each process (passed by reference)
-// // returns: total number of points in my process
-// //
-// int GatherNumPts(int* &ntrace) {
-
-//   int myntrace = 0; // my number of traces
-//   static int *ofst = NULL; // offsets into npt
-//   int *mynpt; // number of points in each of my traces
-//   int tot_mynpt = 0; // total number of my points
-//   int rank, nproc; // MPI usual
-//   std::list<vtListSeedTrace *>::iterator trace_iter; // iterator over traces
-//   int i, j;
-
-//   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-//   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
-
-//   if (ntrace == NULL && (ntrace = new int[nproc]) == NULL)
-//     Error("Error: GatherNumPts cannot allocate ntrace\n");
-
-//   if (ofst == NULL && (ofst = new int[nproc]) == NULL)
-//     Error("Error: GatherNumPts cannot allocate ofst\n");
-
-//   // compute number of my traces
-//   for (i = 0; i < nblocks; i++)
-//     myntrace += sl_list[i].size();
-
-//   // gather number of traces at the root
-//   MPI_Gather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-//   // compute number of points in each of my traces
-//   if ((mynpt = new int[myntrace]) == NULL)
-//     Error("Error: GatherNumPts cannot allocate mynpt\n");
-
-//   j = 0;
-//   for (i = 0; i < nblocks; i++) {
-//     for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
-//          trace_iter++) {
-//       if (j >= myntrace) {
-// 	fprintf(stderr,"Warning: GatherNumPts() j should be < myntrace but j = %d myntrace = %d. This should not happen\n",j,myntrace);
-// 	break;
-//       }
-//       mynpt[j] = (*trace_iter)->size();
-//       tot_mynpt += mynpt[j++];
-//     }
-//   }
-
-//   // gather number of points in each trace at the root
-//   if (rank == 0) {
-
-//     tot_ntrace = 0;
-//     for (i = 0; i < nproc; i++) {
-//       ofst[i] = (i == 0) ? 0 : ofst[i - 1] + ntrace[i - 1];
-//       tot_ntrace += ntrace[i];
-//     }
-
-//     if (ofst[nproc - 1] + ntrace[nproc - 1] > nproc * bf * tf)
-//       Error("Error: GatherNumPts attempted to write beyond the end of npt\n");
-
-//   }
-
-//   MPI_Gatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT, 0, 
-// 	      MPI_COMM_WORLD);
-
-//   delete[] mynpt;
-
-//   return tot_mynpt;
-
-// }
-// //-----------------------------------------------------------------------
-// //
-// // GatherPts
-// //
-// // gathers the points in each trace at the root
-// //
-// // ntrace: number of traces in each process
-// // mynpt: total number of points in my process
-// //
-// void GatherPts(int *ntrace, int mynpt) {
-
-//   static int *nflt = NULL; // number of floats in points from each proc
-//   static int *ofst = NULL; // offsets into pt
-//   VECTOR3 *mypt; // points in my traces
-//   std::list<vtListSeedTrace *>::iterator trace_iter; // iterator over traces
-//   std::list<VECTOR3 *>::iterator pt_iter; // iterator over points in one trace
-//   int rank, nproc; // MPI usual
-//   int i, j, k;
-//   static int next_pt = 0; // current next open slot in Pt (all points)
-//   static int next_trace = 0; // current next open slot in Npt (all traces)
-
-//   // init
-//   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-//   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
-
-//   if (nflt == NULL && (nflt = new int[nproc]) == NULL)
-//     Error("Error: GatherPts cannot allocate nflt\n");
-
-//   if (ofst == NULL && (ofst = new int[nproc]) == NULL)
-//     Error("Error: GatherPts cannot allocate ofst\n");
-
-//   if ((mypt = new VECTOR3[mynpt]) == NULL)
-//     Error("Error: GatherPts cannot allocate mypt\n");
-
-//   // collect my own points
-//   j = 0;
-//   for (i = 0; i < nblocks; i++) {
-//     for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
-//          trace_iter++) {
-//       for (pt_iter = (*trace_iter)->begin(); pt_iter != (*trace_iter)->end(); 
-//          pt_iter++)
-// 	mypt[j++] = **pt_iter;
-//     }
-//   }
-
-//   // gather the points at the root
-//   if (rank == 0) {
-
-//     k = 0;
-//     for (i = 0; i < nproc; i++) {
-//       nflt[i] = 0;
-//       for (j = 0; j < ntrace[i]; j++)
-// 	nflt[i] += (npt[k++] * 3);
-//       ofst[i] = (i == 0) ? 0 : ofst[i - 1] + nflt[i - 1];
-//     }
-
-//     if (ofst[nproc - 1] + nflt[nproc - 1] > 3 * nproc * bf * tf * pf)
-//       Error("Error: GatherPts attempted to write beyond the end of pt\n");
-
-//   }
-
-//   MPI_Gatherv(mypt, mynpt * 3, MPI_FLOAT, pt, nflt, ofst,
-// 	      MPI_FLOAT, 0, MPI_COMM_WORLD);
-
-//   // concatenate points from current iteration with previous iterations
-//   k = 0;
-//   for (int i = 0; i < tot_ntrace; i++) {
-
-//     Npt[next_trace] = npt[i];
-//     next_trace++;
-//     for (j = 0; j < npt[i]; j++) {
-//       Pt[next_pt][0] = pt[k][0];
-//       Pt[next_pt][1] = pt[k][1];
-//       Pt[next_pt][2] = pt[k][2];
-//       next_pt++;
-//       k++;
-//     }
-
-//   }
-//   Tot_ntrace += tot_ntrace;
-
-//   delete[] mypt;
-
-// }
-// //-----------------------------------------------------------------------

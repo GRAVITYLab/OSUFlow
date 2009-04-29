@@ -4,6 +4,7 @@
     
 #include<stdio.h>
 #include<stdlib.h>
+#include <time.h>
 
 #include "header.h"
 #include "calc_subvolume.h"
@@ -14,8 +15,13 @@
 #include <mpi.h>
 #endif
 
+// maximum number of 4D neighbors, including myself
 #define MAX_NEIGHBORS 81
 
+// maximum number of blocks a process can have (todo: allocate dynamically)
+#define MAX_BLOCKS 256
+
+// a global (all processes) block or partition
 struct Partition4D {
   int NumSendPoints[MAX_NEIGHBORS]; // number of points ready to send
   int SizeSendPoints[MAX_NEIGHBORS]; // size of sending points list (bytes)
@@ -24,6 +30,15 @@ struct Partition4D {
   int SizeRecvPoints[MAX_NEIGHBORS]; // size of receiving points list (bytes)
   float *RecvPoints[MAX_NEIGHBORS]; // receiving points list
   int Proc; // process(or) number (mpi rank, core number, node number, etc.)
+  int HasData; // data are ready
+};
+
+// a local block (for one process)
+struct Block {
+  int id;               // block ID (number)
+  unsigned char status; // bitmap [msb                                  lsb]
+                        //        [unused, ..., requested, loaded, computed]
+  time_t time;           // last time accessed
 };
 
 class  Lattice4D {
@@ -58,7 +73,21 @@ class  Lattice4D {
   void ResetFlowMatrix(); // set all values to zero
   int GetFlowMatrix(int i, int j) {return flowMatrix[i*npart+j];}
 
+  // block status manipulation
+  void SetReq(int block_num) { my_blocks[block_num].status |= 0x04; }
+  void ClearReq(int block_num) { my_blocks[block_num].status &= 0xf3; }
+  int GetReq(int block_num) { return((my_blocks[block_num].status & 0x04) >> 2);}
+  void SetLoad(int block_num) { my_blocks[block_num].status |= 0x02; }
+  void ClearLoad(int block_num) { my_blocks[block_num].status &= 0xf5; }
+  int GetLoad(int block_num) { return((my_blocks[block_num].status & 0x02) >> 1);}
+  void SetComp(int block_num) { my_blocks[block_num].status |= 0x01; }
+  void ClearComp(int block_num) { my_blocks[block_num].status &= 0xf6; }
+  int GetComp(int block_num) { return(my_blocks[block_num].status & 0x01); }
+  void SetTime(int block_num) { my_blocks[block_num].time = time(NULL); }
+  time_t GetTime(int block_num) { return(my_blocks[block_num].time); }
+
   list<VECTOR4> *seedlists; 
+  Block my_blocks[MAX_BLOCKS]; // list of blocks owned by my process
 
  private: 
 
@@ -87,7 +116,9 @@ class  Lattice4D {
   void GetRecvPts(int myrank, VECTOR4 *ls);
   void Error(const char *fmt, ...);
   void SendNeighbors(int myrank, MPI_Comm comm);
- int ReceiveNeighbors(int myrank, MPI_Comm comm);
+  int ReceiveNeighbors(int myrank, MPI_Comm comm);
+  void SetData(int myrank, int has_data) {parts[myrank].HasData = has_data;}
+  int GetData(int myrank) {return parts[myrank].HasData;}
 
 #endif
 

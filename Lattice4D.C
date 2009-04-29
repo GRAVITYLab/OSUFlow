@@ -58,6 +58,13 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
     parts[j].Proc = j;
   }
 
+  // init the block status
+  for (i = 0; i < MAX_BLOCKS; i++) {
+    ClearReq(i);
+    ClearLoad(i);
+    ClearComp(i);
+  }
+
 }
 //--------------------------------------------------------------------------
 //
@@ -477,9 +484,18 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
       parts[j].RecvPoints[i] = (float *)malloc(4 * sizeof(float));
       assert(parts[j].RecvPoints[i] != NULL);
       parts[j].SizeSendPoints[i] = parts[j].SizeRecvPoints[i] = 4 * sizeof(float);
+      parts[j].HasData = 0;
 
     }
 
+  }
+
+  // init the block status
+  for (i = 0; i < MAX_BLOCKS; i++) {
+    ClearReq(i);
+    ClearLoad(i);
+    ClearComp(i);
+    SetTime(i);
   }
 
 }

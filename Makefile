@@ -22,8 +22,9 @@
 #
 #----------------------------------------------------------------------------
 
-ARCH = MAC_OSX
-#ARCH = LINUX
+#ARCH = MAC_OSX
+ARCH = LINUX
+#ARCH = BGP
 
 LIBNAME = OSUFlow
 RM = rm 
@@ -41,9 +42,21 @@ endif
 ifeq ($(ARCH),LINUX)
 CC = mpicc
 C++ = mpicxx
-CCFLAGS = -g -c -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS = -c -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
 LIBS = -lm -lglut -lGL
+endif
+
+ifeq ($(ARCH), BGP)
+INCL =	-I/usr/local/include \
+	-I/usr/X11R6/include \
+	-I/bgsys/drivers/ppcfloor/arch/include \
+
+LIB  = -lm
+CC   = mpicc.ibm
+CFLAGS += -O3 -qarch=450d -qtune=450
+CFLAGS += -DBGP
 endif
 
 INCLUDE = -I.
@@ -72,7 +85,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	$(CC) $(CCFLAGS) $(INCLUDE) -c $<
 
 .C.o:
-	$(C++) $(CCFLAGS) $(INCLUDE) -c $<
+	$(C++) $(CCFLAGS) $(INCLUDE) -c -fopenmp $<
 
 default: all
 
@@ -99,8 +112,8 @@ testmain3: testmain3.o lib$(LIBNAME).a
 testmain4: testmain4.o lib$(LIBNAME).a
 	$(C++) -o testmain4 testmain4.o -L. -l$(LIBNAME) -lm
 
-mpitest: MpiDraw1.o lib$(LIBNAME).a
-	$(C++) -o mpitest MpiDraw1.o -L. -l$(LIBNAME) $(LIBS) 
+mpitest: MpiDraw2.o lib$(LIBNAME).a
+	$(C++) -o mpitest MpiDraw2.o -fopenmp -L. -l$(LIBNAME) $(LIBS) 
 
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) $(LIBS) 
