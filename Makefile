@@ -23,8 +23,12 @@
 #----------------------------------------------------------------------------
 
 #ARCH = MAC_OSX
-ARCH = LINUX
-#ARCH = BGP
+#ARCH = LINUX
+ARCH = BGP
+#ARCH = FD
+#ARCH = EUREKA
+
+MPE = NO
 
 LIBNAME = OSUFlow
 RM = rm 
@@ -32,34 +36,90 @@ AR = ar cq
 
 TOP = ..
 
+### mac version ####
+
 ifeq ($(ARCH),MAC_OSX)
 C++ = g++
-CC  = gcc
 CCFLAGS = -g -c -DMAC_OSX 
 LIBS  = -framework GLUT -framework OpenGL 
 endif
 
+### linux version ###
+
 ifeq ($(ARCH),LINUX)
-CC = mpicc
 C++ = mpicxx
+THREADS = -fopenmp
 CCFLAGS = -c -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
 LIBS = -lm -lglut -lGL
 endif
 
+### BG/P version ###
+
 ifeq ($(ARCH), BGP)
-INCL =	-I/usr/local/include \
+INCLUDE = -I/usr/local/include \
 	-I/usr/X11R6/include \
 	-I/bgsys/drivers/ppcfloor/arch/include \
 
 LIB  = -lm
-CC   = mpicc.ibm
-CFLAGS += -O3 -qarch=450d -qtune=450
-CFLAGS += -DBGP
+C++ = mpixlcxx_r
+ifeq ($(MPE), YES)
+C++ = /home/chan/mpe_work/install_ibm/bin/mpecc -mpilog
+endif
+THREADS = -qsmp=omp:noauto
+#THREADS = 
+CCFLAGS += -O3 -qarch=450d -qtune=450
+CCFLAGS = -c -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS += -DBGP
+ifeq ($(MPE), YES)
+CCFLAGS += -DMPE
+endif
 endif
 
-INCLUDE = -I.
+### sicortex version ###
+
+ifeq ($(ARCH), FD)
+
+INCLUDE = -I/usr/include
+LIB  = -lm
+C++   = mpicc -std=c99
+ifeq ($(MPE), YES)
+C++   = mpecc -mpilog -std=c99
+endif
+#CCFLAGS += -g3
+CCFLAGS += -O3 -funroll-loops
+CCFLAGS += -Wall -Wextra
+ifeq ($(MPE), YES)
+CCFLAGS += -DMPE
+endif
+THREADS =
+
+endif
+
+### eureka version ###
+
+ifeq ($(ARCH), EUREKA)
+
+INCLUDE = -I/usr/include
+LIB  = -lm
+C++   = mpicc -std=c99
+ifeq ($(MPE), YES)
+C++   = mpecc -mpilog -std=c99
+endif
+#CCFLAGS += -g3
+CCFLAGS += -O3
+CCFLAGS += -Wall -Wextra
+ifeq ($(MPE), YES)
+CCFLAGS += -DMPE
+endif
+THREADS =
+
+endif
+
+##########
+
+INCLUDE += -I.
 
 OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	eigenvals.o  Interpolator.o  Rake.o	    Topology.o \
@@ -68,7 +128,7 @@ OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	Field.o      PathLine.o      Streamline.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
 	OSUFlow.o    calc_subvolume.o Lattice4D.o \
-	LatticeAMR.o
+#	LatticeAMR.o
 
 SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -79,13 +139,10 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	OSUFlow.C    calc_subvolume.C Lattice4D.C \
 	LatticeAMR.C
 
-.SUFFIXES: .c .C
-
-.c.o:
-	$(CC) $(CCFLAGS) $(INCLUDE) -c $<
+.SUFFIXES: .C
 
 .C.o:
-	$(C++) $(CCFLAGS) $(INCLUDE) -c -fopenmp $<
+	$(C++) $(CCFLAGS) $(INCLUDE) $(THREADS)  $<
 
 default: all
 
@@ -113,7 +170,7 @@ testmain4: testmain4.o lib$(LIBNAME).a
 	$(C++) -o testmain4 testmain4.o -L. -l$(LIBNAME) -lm
 
 mpitest: MpiDraw2.o lib$(LIBNAME).a
-	$(C++) -o mpitest MpiDraw2.o -fopenmp -L. -l$(LIBNAME) $(LIBS) 
+	$(C++) -o mpitest MpiDraw2.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
 
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) $(LIBS) 

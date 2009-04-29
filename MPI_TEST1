@@ -23,8 +23,8 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-ARCH=LINUX
-#ARCH=BGP
+#ARCH=LINUX
+ARCH=BGP
 
 # number of BG/P nodes
 nodes=64
@@ -36,7 +36,12 @@ num_procs=2
 exe=./mpitest
 
 # dataset
+if [ "$ARCH" = "LINUX" ]; then
 data=~hwshen/tornado/tornado.list
+fi
+if [ "$ARCH" = "BGP" ]; then
+data=~tpeterka/tornado/tornado.list
+fi
 
 # data size x y z t (for steady state flows use t = 1)
 dsize="128 128 128 16"
@@ -68,6 +73,18 @@ fi
 
 if [ "$ARCH" = "BGP" ]; then
 
-cqsub -e "BG_MAPPING=TXYZ" -n $nodes -c $num_procs -p UltraVis -t 10 -m vn $exe $data $dsize $sb $tb $t $p $n
+cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $t $p $n
+
+fi
+
+if [ "$ARCH" = "FD" ]; then
+
+srun -p scx-comp -N $num_procs $exe $data $dsize $sb $tb $t $p $n
+
+fi
+
+if [ "$ARCH" = "EUREKA" ]; then
+
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $t $p $n
 
 fi

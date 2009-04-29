@@ -528,25 +528,6 @@ void Lattice::GetRecvPts(int myrank, VECTOR3 *ls) {
 
 }
 //---------------------------------------------------------------------------
-//
-// Error()
-// error handler
-//
-void Lattice::Error(const char *fmt, ...){
-
-  va_list argp;
-  va_start(argp, fmt);
-  vfprintf(stderr, fmt, argp);
-  va_end(argp);
-  sleep(5);
-#ifdef MPI
-  MPI_Abort(MPI_COMM_WORLD,0);
-#else
-  exit(0);
-#endif
-
-}
-//-----------------------------------------------------------------------
 
 // MPI functions
 

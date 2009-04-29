@@ -997,9 +997,7 @@ bool OSUFlow::GenStreakLines(VECTOR3* seeds, vtStreakTraces& streakTraces, TIME_
 void Error(const char *fmt, ...){
 
   va_list argp;
-  va_start(argp, fmt);
   vfprintf(stderr, fmt, argp);
-  va_end(argp);
   sleep(5);
 #ifdef MPI
   MPI_Abort(MPI_COMM_WORLD, 0);

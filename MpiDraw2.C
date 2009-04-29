@@ -33,7 +33,9 @@
 #include <GLUT/glut.h> 
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
-#else
+#endif
+
+#ifdef LINUX
 #include <GL/glut.h> 
 #include <GL/gl.h>
 #endif
@@ -155,6 +157,8 @@ int main(int argc, char *argv[]) {
 
   // --- end 2 threads --- //
 
+#ifndef BGP
+
   // event loop for drawing
   if (rank == 0) {
     glutInit(&argc, argv); 
@@ -170,6 +174,8 @@ int main(int argc, char *argv[]) {
     glutKeyboardFunc(mykey); 
     glutMainLoop(); 
   }
+
+#endif
 
   Cleanup();
   MPI_Barrier(MPI_COMM_WORLD);
@@ -887,6 +893,9 @@ void RecvToSeeds(int lb, int gb) {
 
 }
 //--------------------------------------------------------------------------
+
+#ifndef BGP
+
 //
 void draw_bounds(float xmin, float xmax, float ymin, float ymax, 
 		 float zmin, float zmax) {
@@ -1094,3 +1103,5 @@ void mykey(unsigned char key, int x, int y) {
 
 }
 //--------------------------------------------------------------------------
+
+#endif
