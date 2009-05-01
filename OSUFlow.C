@@ -23,7 +23,8 @@ OSUFlow::OSUFlow()
 OSUFlow::~OSUFlow()
 {
   delete[] flowName;
-  delete flowField;
+  if (has_data)
+    delete flowField;
   if (seedPtr!=NULL) delete[] seedPtr; 
   if (seedTimeArray!=NULL) delete [] seedTimeArray; 
   flowName = NULL;
@@ -1029,7 +1030,9 @@ void OSUFlow::ReadData(const char* fname, bool bStatic,
       VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, int t_min, int t_max, 
       MPI_Comm comm) {
 
-  flowName = new char[255];
+  if (flowName == NULL)
+    flowName = new char[255];
+
   strcpy(flowName, fname);
 
   bStaticFlow = bStatic;

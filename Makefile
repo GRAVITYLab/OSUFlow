@@ -23,9 +23,9 @@
 #----------------------------------------------------------------------------
 
 #ARCH = MAC_OSX
-#ARCH = LINUX
+ARCH = LINUX
 #ARCH = BGP
-ARCH = FD
+#ARCH = FD
 #ARCH = EUREKA
 
 MPE = NO

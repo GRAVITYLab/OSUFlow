@@ -23,9 +23,9 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-#ARCH=LINUX
+ARCH=LINUX
 #ARCH=BGP
-ARCH=FD
+#ARCH=FD
 #ARCH=EUREKA
 
 # number of BG/P nodes

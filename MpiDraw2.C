@@ -198,6 +198,8 @@ void ComputeThread() {
   // for all iterations
   for (i = 0; i < max_iterations; i++) {
 
+    fprintf(stderr, "iteration = %d\n", i);
+
     // clear streamlines
     for (j = 0; j < nblocks; j++)
       sl_list[j].clear();
@@ -214,21 +216,10 @@ void ComputeThread() {
       // for all blocks
       for (j = 0; j < nblocks; j++) {
 
-	if (lat->GetComp(j))
-	  continue;
-	else if (lat->GetLoad(j)) {
+	if (!lat->GetComp(j) && lat->GetLoad(j)) {
 	  ComputePathlines(j);
 	  lat->SetComp(j);
-	  lat->SetTime(j);
-	  lat->ClearReq(j);
 	  fprintf(stderr, "Computed block %d\n", j);
-
-	  // debug
-// 	  fprintf(stderr, "block %d status: computed = %d loaded = %d reqd = %d\n", j, lat->GetComp(j), lat->GetLoad(j), lat->GetReq(j));
-
-	}
-	else if (!lat->GetReq(j)) {
-	  lat->SetReq(j);
 	}
 	else
 	  usleep(1000);
@@ -238,11 +229,8 @@ void ComputeThread() {
       // check if all done
       done = 1;
       for (j = 0; j < nblocks; j++) {
-
-	if (!lat->GetComp(j)) {
+	if (!lat->GetComp(j))
 	  done = 0;
-	  break;
-	}
       }
  
     } // until all blocks are computed
@@ -270,7 +258,7 @@ void IOThread() {
   int rank;
   int first = 1; // first time
   int usec; // wait time in microseconds
-  int i,j;
+  int i, j, k;
 
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -279,11 +267,14 @@ void IOThread() {
   // compute how many blocks safely fit in memory
   blocks_fit = ComputeBlocksFit();
 
-  // until compute thread says to stop
-  while (!all_done) {
+  // for all iterations
+  for (j = 0; j < max_iterations; j++) {
 
     // for all blocks
     for (i = 0; i < nblocks; i++) {
+
+      if (all_done)
+	break;
 
       if (lat->GetLoad(i))
 	continue;
@@ -296,55 +287,55 @@ void IOThread() {
 
       // load the block
 
-      // create osuflow and populate with data
-      osuflow[i] = new OSUFlow;
+      fprintf(stderr,"Reading block %d\n", i);
+
       minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
 	       vb_list[blocks[i]].zmin);
       maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
 	       vb_list[blocks[i]].zmax);
-      if (rank == 0 && first) {
-	fprintf(stderr,"Reading %s\n", filename); 
-	first = 0;
-      }      
-      fprintf(stderr,"* reading block %d\n", i);
+
+      // if osuflow does not exist, create it and initialize seeds
+      if (osuflow[i] == NULL) {
+
+	osuflow[i] = new OSUFlow;
+
+	if (rank == 0 && i == 0)
+	  fprintf(stderr,"Reading %s\n", filename); 
+
+	// init seeds
+	from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
+	to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
+	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+	seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
+	while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
+	  Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
+	  assert(Seeds[i] != NULL);
+	  SizeSeeds[i] *= 2;
+	}
+	for (k = 0; k < NumSeeds[i]; k++)
+	  Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], 0.0f);
+
+      } // if osuflow does not exist
+
+      // read the data
       osuflow[i]->ReadData(filename, false, minB, maxB, size, 
-			   vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, MPI_COMM_WORLD); 
-      fprintf(stderr,"* read block %d\n", i);
+			   vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, 
+			   MPI_COMM_WORLD); 
 
       // hack to improve visibility of results
       osuflow[i]->ScaleField(10.0);
 
-      // init seeds
-      from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
-      to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
-      osuflow[i]->SetRandomSeedPoints(from, to, tf); 
-      seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
-      while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
-	Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
-	assert(Seeds[i] != NULL);
-	SizeSeeds[i] *= 2;
-      }
-      for (j = 0; j < NumSeeds[i]; j++)
-	Seeds[i][j].Set(seeds[j][0], seeds[j][1], seeds[j][2], 0.0f);
-
-      sl_list[i].clear();
-      lat->SetData(blocks[i], 1);
-
       // update status
+      lat->SetData(blocks[i], 1);
       lat->SetLoad(i);
-      lat->ClearReq(i);
       num_loaded++;
-      lat->SetTime(i);
       fprintf(stderr, "Loaded block %d\n", i);
-
-      // debug
-      // 	fprintf(stderr, "block %d status: computed = %d loaded = %d reqd = %d\n", i, lat->GetComp(i), lat->GetLoad(i), lat->GetReq(i));
 
     } // for all blocks
 
     usleep(1000);
 
-  } // until compute thread says to stop
+  } // for all iterations
 
 }
 //-----------------------------------------------------------------------
@@ -392,8 +383,7 @@ void EvictBlock() {
   }
 
   // evict it
-  delete osuflow[target];
-  osuflow[target] = NULL;
+  osuflow[target]->DeleteData();
   lat->SetData(blocks[target], 0);
   lat->ClearLoad(target);
 
@@ -403,53 +393,6 @@ void EvictBlock() {
 
 }
 //-----------------------------------------------------------------------
-// //
-// // EvictBlock
-// //
-// // evicts one block from memory (LRU)
-// //
-// void EvictBlock() {
-
-//   int i;
-//   int min_i = -1; // index where min time occurs
-//   int first = 1; // first time
-//   int usec = 1000; // initial wait time (microseconds)
-//   time_t min_time = lat->GetTime(0);
-
-//   // find the LRU block
-//   for (i = 0; i < nblocks; i++) {
-
-//     if (lat->GetLoad(i) && (first || lat->GetTime(i) < min_time)) {
-//       min_time = lat->GetTime(i);
-//       min_i = i;
-//       first = 0;
-//     }
-
-//   }
-
-//   // sanity check: there is something to evict
-//   assert(min_i >= 0);
-
-//   // wait for the block to be computed before evicting
-//   first = 1;
-//   while (lat->GetLoad(min_i) && !lat->GetComp(min_i)) {
-//     if (first)
-//       fprintf(stderr, "Need to evict block %d but it is still being used. Waiting...\n", min_i);
-//     first = 0;
-//     usleep(usec);
-//     usec *= 2;
-//   }
-
-//   // evict it
-//   delete osuflow[min_i];
-//   osuflow[min_i] = NULL;
-//   lat->SetData(blocks[min_i], 0);
-//   lat->ClearLoad(min_i);
-
-//   fprintf(stderr, "Evicted block %d\n", min_i);
-
-// }
-// //-----------------------------------------------------------------------
 //
 // ComputePathlines
 //
@@ -837,40 +780,6 @@ void Cleanup() {
 
 }
 //-----------------------------------------------------------------------
-// //
-// // ManageMemory
-// //
-// // allocates osuflow objects and maintains their number
-// // so that memory does not run out
-// // deletes objects if necessary (in block number order)
-// //
-// OSUFlow* ManageMemory() {
-
-//   int n;
-//   int b_size; // data size in a typical block (Mbytes)
-//   static int d_size = 0; // current data size
-
-//   b_size = size[0] * size[1] / 1048576.0f * size[2] / nspart * tsize / ntpart * 3 * sizeof (float);
-
-//   n = 0;
-//   while (d_size + b_size > AVAIL_SIZE) {
-
-//     if (osuflow[n] != NULL) {
-//       delete osuflow[n];
-//       d_size -= b_size;
-//       lat->SetData(blocks[n], 0);
-//       fprintf(stderr, "deleting osuflow[%d]\n", n);
-//     }
-//     n++;
-
-//   }
-
-//   fprintf(stderr, "allocated osuflow: current data size in this process = %d MB out of an allowed %d MB available\n",d_size,AVAIL_SIZE);
-//   d_size += b_size;
-//   return new OSUFlow;
-
-// }
-// //-----------------------------------------------------------------------
 //
 // PrintSeeds
 //
