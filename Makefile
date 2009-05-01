@@ -24,8 +24,8 @@
 
 #ARCH = MAC_OSX
 #ARCH = LINUX
-ARCH = BGP
-#ARCH = FD
+#ARCH = BGP
+ARCH = FD
 #ARCH = EUREKA
 
 MPE = NO
@@ -40,7 +40,7 @@ TOP = ..
 
 ifeq ($(ARCH),MAC_OSX)
 C++ = g++
-CCFLAGS = -g -c -DMAC_OSX 
+CCFLAGS = -g -c -DMAC_OSX -DGRAPHICS
 LIBS  = -framework GLUT -framework OpenGL 
 endif
 
@@ -48,8 +48,11 @@ endif
 
 ifeq ($(ARCH),LINUX)
 C++ = mpicxx
+ifeq ($(MPE), YES)
+C++   = mpecxx -mpilog
+endif
 THREADS = -fopenmp
-CCFLAGS = -c -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS = -c -DLINUX -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
 LIBS = -lm -lglut -lGL
@@ -70,8 +73,7 @@ endif
 THREADS = -qsmp=omp:noauto
 #THREADS = 
 CCFLAGS += -O3 -qarch=450d -qtune=450
-CCFLAGS = -c -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
-CCFLAGS += -DBGP
+CCFLAGS = -c -DBGP -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 ifeq ($(MPE), YES)
 CCFLAGS += -DMPE
 endif
@@ -83,17 +85,18 @@ ifeq ($(ARCH), FD)
 
 INCLUDE = -I/usr/include
 LIB  = -lm
-C++   = mpicc -std=c99
+C++   = mpicxx
 ifeq ($(MPE), YES)
-C++   = mpecc -mpilog -std=c99
+C++   = mpecxx -mpilog
 endif
+CCFLAGS = -c -DFD -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 #CCFLAGS += -g3
-CCFLAGS += -O3 -funroll-loops
-CCFLAGS += -Wall -Wextra
+CCFLAGS += -O3
+#CCFLAGS += -Wall -Wextra
 ifeq ($(MPE), YES)
 CCFLAGS += -DMPE
 endif
-THREADS =
+THREADS = -fopenmp
 
 endif
 
@@ -103,17 +106,18 @@ ifeq ($(ARCH), EUREKA)
 
 INCLUDE = -I/usr/include
 LIB  = -lm
-C++   = mpicc -std=c99
+C++   = mpicxx
 ifeq ($(MPE), YES)
-C++   = mpecc -mpilog -std=c99
+C++   = mpecxx -mpilog
 endif
 #CCFLAGS += -g3
+CCFLAGS = -c -DEUREKA -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX -DGRAPHICS
 CCFLAGS += -O3
-CCFLAGS += -Wall -Wextra
+#CCFLAGS += -Wall -Wextra
 ifeq ($(MPE), YES)
 CCFLAGS += -DMPE
 endif
-THREADS =
+THREADS = -fopenmp
 
 endif
 

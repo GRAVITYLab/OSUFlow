@@ -24,7 +24,9 @@
 #
 #----------------------------------------------------------------------------
 #ARCH=LINUX
-ARCH=BGP
+#ARCH=BGP
+ARCH=FD
+#ARCH=EUREKA
 
 # number of BG/P nodes
 nodes=64
@@ -36,12 +38,7 @@ num_procs=2
 exe=./mpitest
 
 # dataset
-if [ "$ARCH" = "LINUX" ]; then
-data=~hwshen/tornado/tornado.list
-fi
-if [ "$ARCH" = "BGP" ]; then
 data=~tpeterka/tornado/tornado.list
-fi
 
 # data size x y z t (for steady state flows use t = 1)
 dsize="128 128 128 16"
@@ -79,7 +76,7 @@ fi
 
 if [ "$ARCH" = "FD" ]; then
 
-srun -p scx-comp -N $num_procs $exe $data $dsize $sb $tb $t $p $n
+srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $t $p $n
 
 fi
 
