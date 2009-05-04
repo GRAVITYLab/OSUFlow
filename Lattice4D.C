@@ -878,74 +878,74 @@ int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 
       // remote
       if (proc != myproc) {
-
-	MPI_Iprobe(proc, 0, comm, &flag, &status);
-	if (flag) {
-	  MPI_Get_count(&status, MPI_FLOAT, &n);
-	  parts[myrank].NumRecvPoints[i] = (float)n / 4.0f;
-	}
-	else
-	  parts[myrank].NumRecvPoints[i] = 0;
+// 	MPI_Iprobe(proc, 0, comm, &flag, &status);
+	MPI_Iprobe(0, 0, MPI_COMM_WORLD, &flag, &status);
+// 	if (flag) {
+// 	  MPI_Get_count(&status, MPI_FLOAT, &n);
+// 	  parts[myrank].NumRecvPoints[i] = (float)n / 4.0f;
+// 	}
+// 	else
+// 	  parts[myrank].NumRecvPoints[i] = 0;
 
       } // remote
 
-      // local
-      if (proc == myproc) {
+//       // local
+//       if (proc == myproc) {
 
-	// I am the k neighbor of my neighbor
-	k = nbhd - 1 - i;
+// 	// I am the k neighbor of my neighbor
+// 	k = nbhd - 1 - i;
 
-	if (!parts[ranks[i]].NumSendPoints[k])
-	  k = -1;
-	if (k >= 0)
-	  parts[myrank].NumRecvPoints[i] = parts[ranks[i]].NumSendPoints[k];
-	else
-	  parts[myrank].NumRecvPoints[i] = 0;
+// 	if (!parts[ranks[i]].NumSendPoints[k])
+// 	  k = -1;
+// 	if (k >= 0)
+// 	  parts[myrank].NumRecvPoints[i] = parts[ranks[i]].NumSendPoints[k];
+// 	else
+// 	  parts[myrank].NumRecvPoints[i] = 0;
 
-      } // local
+//       } // local
 
-      // get the points
+//       // get the points
 
-      // if something to receive
-      if (parts[myrank].NumRecvPoints[i]) {
+//       // if something to receive
+//       if (parts[myrank].NumRecvPoints[i]) {
 
-	while (parts[myrank].SizeRecvPoints[i] < 
-            parts[myrank].NumRecvPoints[i] * 4 * sizeof(float)) {
-	  parts[myrank].RecvPoints[i] = (float *)realloc(
-            parts[myrank].RecvPoints[i], parts[myrank].SizeRecvPoints[i] * 2);
-	  assert(parts[myrank].RecvPoints[i] != NULL);
-	  parts[myrank].SizeRecvPoints[i] *= 2;
+// 	while (parts[myrank].SizeRecvPoints[i] < 
+//             parts[myrank].NumRecvPoints[i] * 4 * sizeof(float)) {
+// 	  parts[myrank].RecvPoints[i] = (float *)realloc(
+//             parts[myrank].RecvPoints[i], parts[myrank].SizeRecvPoints[i] * 2);
+// 	  assert(parts[myrank].RecvPoints[i] != NULL);
+// 	  parts[myrank].SizeRecvPoints[i] *= 2;
 
-	}
+// 	}
 
-	// remote
-	if (proc != myproc) {
-	  MPI_Recv(parts[myrank].RecvPoints[i], 
-             parts[myrank].NumRecvPoints[i] * 4, 
-             MPI_FLOAT, proc, 0, comm, &status);
-	} // remote
+// 	// remote
+// 	if (proc != myproc) {
+// 	  MPI_Recv(parts[myrank].RecvPoints[i], 
+//              parts[myrank].NumRecvPoints[i] * 4, 
+//              MPI_FLOAT, proc, 0, comm, &status);
+// 	} // remote
 
-	// local
-	if (proc == myproc) {
+// 	// local
+// 	if (proc == myproc) {
 
-	  for (j = 0; j < parts[myrank].NumRecvPoints[i]; j++) {
-	    parts[myrank].RecvPoints[i][4 * j + 0] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 0];
-	    parts[myrank].RecvPoints[i][4 * j + 1] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 1];
-	    parts[myrank].RecvPoints[i][4 * j + 2] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 2];
-	    parts[myrank].RecvPoints[i][4 * j + 3] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 3];
-	  }
+// 	  for (j = 0; j < parts[myrank].NumRecvPoints[i]; j++) {
+// 	    parts[myrank].RecvPoints[i][4 * j + 0] = 
+//             parts[ranks[i]].SendPoints[k][4 * j + 0];
+// 	    parts[myrank].RecvPoints[i][4 * j + 1] = 
+//             parts[ranks[i]].SendPoints[k][4 * j + 1];
+// 	    parts[myrank].RecvPoints[i][4 * j + 2] = 
+//             parts[ranks[i]].SendPoints[k][4 * j + 2];
+// 	    parts[myrank].RecvPoints[i][4 * j + 3] = 
+//             parts[ranks[i]].SendPoints[k][4 * j + 3];
+// 	  }
 
-	  parts[ranks[i]].NumSendPoints[k]  = 0;
+// 	  parts[ranks[i]].NumSendPoints[k]  = 0;
 
-	} // local
+// 	} // local
 
-	num += parts[myrank].NumRecvPoints[i];
+// 	num += parts[myrank].NumRecvPoints[i];
 
-      } // something to receive
+//       } // something to receive
 
     } // if neighbor exists
 

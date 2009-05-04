@@ -23,9 +23,9 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-ARCH=LINUX
+#ARCH=LINUX
 #ARCH=BGP
-#ARCH=FD
+ARCH=FD
 #ARCH=EUREKA
 
 # number of BG/P nodes
@@ -41,13 +41,13 @@ exe=./mpitest
 data=~tpeterka/tornado/tornado.list
 
 # data size x y z t (for steady state flows use t = 1)
-dsize="128 128 128 16"
+dsize="128 128 128 4"
 
 # total number of partitions in the space domain
-sb=4
+sb=2
 
 # total number of partitions in the time domain
-tb=4
+tb=2
 
 # number of traces per block
 t=100

@@ -45,7 +45,7 @@
 #include "Lattice4D.h"
 
 #define MAX_RECV_ATTEMPTS 10
-#define AVAIL_SIZE 128 // max data size available per process (MB)
+#define AVAIL_SIZE 32 // max data size available per process (MB)
 
 // defines related to drawing
 #define XFORM_NONE    0 
@@ -116,7 +116,6 @@ Lattice4D* lat; // lattice
 int tf; // max number of traces per block
 int pf; // max number of points per trace
 int max_iterations; // max number of iterations
-int all_done = 0; // terminate program
 
 // debug
 #define MAX_RENDER_SEEDS 1000
@@ -132,10 +131,12 @@ int main(int argc, char *argv[]) {
   int nproc;  // mpi groupsize
   int rank; // mpi rank
   char buf[256];
+  int mpi_thread_avail; // thread support in mpi implementation
   int i, j;
 
   // initialize mpi and the app
-  MPI_Init(&argc, &argv);
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mpi_thread_avail);
+  fprintf(stderr, "MPI thread support level = %d\n",mpi_thread_avail);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
   MPI_Barrier(MPI_COMM_WORLD);
@@ -236,11 +237,15 @@ void ComputeThread() {
     } // until all blocks are computed
 
     ReceiveMessages();
+
+#ifdef GRAPHICS
+
     GatherPathlines();
+
+#endif
 
   } // for all iterations
 
-  all_done = 1;
   if (rank == 0)
     fprintf(stderr, "Completed %d iterations\n", max_iterations);
 
@@ -272,9 +277,6 @@ void IOThread() {
 
     // for all blocks
     for (i = 0; i < nblocks; i++) {
-
-      if (all_done)
-	break;
 
       if (lat->GetLoad(i))
 	continue;
