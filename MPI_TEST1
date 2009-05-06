@@ -23,9 +23,9 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-#ARCH=LINUX
+ARCH=LINUX
 #ARCH=BGP
-ARCH=FD
+#ARCH=FD
 #ARCH=EUREKA
 
 # number of BG/P nodes
@@ -58,30 +58,40 @@ p=100
 # number of iterations
 n=2
 
+# number of threads
+# 1 = each process a single thread
+# 2 = each process two threads: compute and I/O
+t=2
+
+# available memory space for dataset (MB)
+m=64
+
 if [ "$ARCH" = "LINUX" ]; then
 
-mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $t $p $n
+mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $t $p $n $t $m
 
-#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $t $p $n
+#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $t $p $n $t $m
 
-#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $t $p $n
+#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $t $p $n $t $m
+
+#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $t $p $n $t $m
 
 fi
 
 if [ "$ARCH" = "BGP" ]; then
 
-cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $t $p $n
+cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $t $p $n $t $m
 
 fi
 
 if [ "$ARCH" = "FD" ]; then
 
-srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $t $p $n
+srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $t $p $n $t $m
 
 fi
 
 if [ "$ARCH" = "EUREKA" ]; then
 
-mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $t $p $n
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $t $p $n $t $m
 
 fi

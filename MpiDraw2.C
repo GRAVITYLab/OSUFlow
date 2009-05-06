@@ -45,7 +45,6 @@
 #include "Lattice4D.h"
 
 #define MAX_RECV_ATTEMPTS 10
-#define AVAIL_SIZE 32 // max data size available per process (MB)
 
 // defines related to drawing
 #define XFORM_NONE    0 
@@ -93,9 +92,11 @@ void mykey(unsigned char key, int x, int y);
 void idle();
 void ComputeThread();
 void IOThread();
+void IOandCompute();
 void ReceiveMessages();
 int ComputeBlocksFit();
-void EvictBlock();
+void MultiThreadEvictBlock(int iter);
+void SingleThreadEvictBlock();
 
 // globals
 static char filename[256]; // dataset file name
@@ -116,6 +117,8 @@ Lattice4D* lat; // lattice
 int tf; // max number of traces per block
 int pf; // max number of points per trace
 int max_iterations; // max number of iterations
+int threads; // number of threads per process
+int avail_mem; // memory space for dataset (MB)
 
 // debug
 #define MAX_RENDER_SEEDS 1000
@@ -142,22 +145,27 @@ int main(int argc, char *argv[]) {
   MPI_Barrier(MPI_COMM_WORLD);
   Config(argc, argv);
 
-  // --- begin 2 threads --- //
+  // multithread version
 
-  #pragma omp parallel num_threads(2)
-  {
+  if (threads == 2) {
 
-    // compute (master) thread
-    if (!omp_get_thread_num())
-      ComputeThread();
+    #pragma omp parallel num_threads(2)
+    {
+      // compute (master) thread
+      if (!omp_get_thread_num())
+	ComputeThread();
 
-    // I/O (slave) thread
-    if (omp_get_thread_num())
-      IOThread();
+      // I/O (slave) thread
+      if (omp_get_thread_num())
+	IOThread();
+    }
 
   }
 
-  // --- end 2 threads --- //
+  // single thread version
+
+  if (threads == 1)
+    IOandCompute();
 
 #ifdef GRAPHICS
 
@@ -193,48 +201,91 @@ void ComputeThread() {
   int i, j;
   int done;
   int rank;
+  int first; // first time
+  int usec; // initial wait time (microseconds)
 
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+  // clear all blocks' compute status
+  for (j = 0; j < nblocks; j++)
+    lat->ClearComp(j);
+
   // for all iterations
   for (i = 0; i < max_iterations; i++) {
-
-    fprintf(stderr, "iteration = %d\n", i);
 
     // clear streamlines
     for (j = 0; j < nblocks; j++)
       sl_list[j].clear();
 
-    // clear all block's compute status
-    for (j = 0; j < nblocks; j++)
-      lat->ClearComp(j);
-
     done = 0;
 
     // until all blocks are computed
+    usec = 1000;
     while (!done) {
 
       // for all blocks
       for (j = 0; j < nblocks; j++) {
 
-	if (!lat->GetComp(j) && lat->GetLoad(j)) {
+	if (!lat->GetComp(j, i) && lat->GetLoad(j)) {
 	  ComputePathlines(j);
-	  lat->SetComp(j);
 	  fprintf(stderr, "Computed block %d\n", j);
+          #pragma omp flush
+	  lat->SetComp(j, i);
+          #pragma omp flush
 	}
-	else
-	  usleep(1000);
 
       } // for all blocks
 
       // check if all done
       done = 1;
       for (j = 0; j < nblocks; j++) {
-	if (!lat->GetComp(j))
+	if (!lat->GetComp(j, i))
 	  done = 0;
       }
- 
+
+      if (!done) {
+	usleep(usec);
+	usec *= 2;
+      }
+
     } // until all blocks are computed
+
+
+//     // while not done
+//     while (!done) {
+
+//       // for all blocks
+//       for (j = 0; j < nblocks; j++) {
+
+// 	// wait for the block to be loaded
+// 	first = 1;
+// 	usec = 1000;
+// 	while (!lat->GetLoad(j)) {
+// 	  if (first)
+// 	    fprintf(stderr, "Waiting to load block %d...\n", j);
+// 	  first = 0;
+// 	  usleep(usec);
+// 	  usec *= 2;
+// 	}
+
+// 	if (!lat->GetComp(j, i)) {
+// 	  ComputePathlines(j);
+// 	  fprintf(stderr, "Computed block %d\n", j);
+// #pragma omp flush
+// 	  lat->SetComp(j, i);
+// #pragma omp flush
+// 	}
+
+//       } // for all blocks
+
+// 	// check if all done
+//       done = 1;
+//       for (j = 0; j < nblocks; j++) {
+// 	if (!lat->GetComp(j, i))
+// 	  done = 0;
+//       }
+
+//     } // while not done
 
     ReceiveMessages();
 
@@ -272,6 +323,10 @@ void IOThread() {
   // compute how many blocks safely fit in memory
   blocks_fit = ComputeBlocksFit();
 
+  // clear all blocks' load status
+  for (i = 0; i < nblocks; i++)
+    lat->ClearLoad(i);
+
   // for all iterations
   for (j = 0; j < max_iterations; j++) {
 
@@ -283,28 +338,20 @@ void IOThread() {
 
       // make room for the next block
       if (num_loaded >= blocks_fit) {
-	EvictBlock();
+	MultiThreadEvictBlock(j);
 	num_loaded--;
       }
-
-      // load the block
-
-      fprintf(stderr,"Reading block %d\n", i);
-
-      minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
-	       vb_list[blocks[i]].zmin);
-      maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
-	       vb_list[blocks[i]].zmax);
 
       // if osuflow does not exist, create it and initialize seeds
       if (osuflow[i] == NULL) {
 
 	osuflow[i] = new OSUFlow;
 
-	if (rank == 0 && i == 0)
-	  fprintf(stderr,"Reading %s\n", filename); 
-
 	// init seeds
+	minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
+		 vb_list[blocks[i]].zmin);
+	maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
+		 vb_list[blocks[i]].zmax);
 	from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
 	to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
 	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
@@ -324,20 +371,170 @@ void IOThread() {
 			   vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, 
 			   MPI_COMM_WORLD); 
 
-      // hack to improve visibility of results
-      osuflow[i]->ScaleField(10.0);
-
       // update status
       lat->SetData(blocks[i], 1);
-      lat->SetLoad(i);
-      num_loaded++;
       fprintf(stderr, "Loaded block %d\n", i);
+      #pragma omp flush
+      lat->SetLoad(i);
+      #pragma omp flush
+      num_loaded++;
+      osuflow[i]->ScaleField(10.0); // improves visibility
 
     } // for all blocks
 
     usleep(1000);
 
   } // for all iterations
+
+}
+//-----------------------------------------------------------------------
+//
+// MultiThreadEvictBlock
+//
+// evicts next block from memory (in block number order)
+// multithread version
+//
+// iter: iteration number
+//
+void MultiThreadEvictBlock(int iter) {
+
+  static int target = 0; // block to evict
+  int first = 1; // first time
+  int usec = 1000; // initial wait time (microseconds)
+
+  // wait for the block to be computed before evicting
+  while (!lat->GetComp(target, iter)) {
+    if (first)
+      fprintf(stderr, "Waiting to evict block %d...\n", target);
+    first = 0;
+    usleep(usec);
+    usec *= 2;
+  }
+
+  // evict it
+  #pragma omp flush
+  lat->ClearLoad(target);
+  #pragma omp flush
+  osuflow[target]->DeleteData();
+  lat->SetData(blocks[target], 0);
+
+  fprintf(stderr, "Evicted block %d\n", target);
+
+  target = (target + 1) % nblocks;
+
+}
+//-----------------------------------------------------------------------
+//
+// IOandCompute
+//
+void IOandCompute() {
+
+  VECTOR3 minB, maxB; // subdomain bounds
+  float from[3], to[3]; // seed points limits
+  int blocks_fit; // number of blocks we want to maintain in memory
+  int num_loaded; // number of blocks loaded into memory so far
+  int rank;
+  int i, j, k;
+
+  // init
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  num_loaded = 0;
+
+  // compute how many blocks safely fit in memory
+  blocks_fit = ComputeBlocksFit();
+
+  // clear all blocks' load status
+  for (i = 0; i < nblocks; i++)
+    lat->ClearLoad(i);
+
+  // for all iterations
+  for (j = 0; j < max_iterations; j++) {
+
+    // for all blocks
+    for (i = 0; i < nblocks; i++) {
+
+      // if osuflow does not exist, create it and initialize seeds
+      if (osuflow[i] == NULL) {
+
+	osuflow[i] = new OSUFlow;
+
+	// init seeds
+	minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
+		 vb_list[blocks[i]].zmin);
+	maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
+		 vb_list[blocks[i]].zmax);
+	from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
+	to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
+	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+	seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
+	while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
+	  Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
+	  assert(Seeds[i] != NULL);
+	  SizeSeeds[i] *= 2;
+	}
+	for (k = 0; k < NumSeeds[i]; k++)
+	  Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], 0.0f);
+
+      } // if osuflow does not exist
+
+      // if the block needs to be loaded
+      if (!lat->GetLoad(i)) {
+
+	// make room for the next block
+	if (num_loaded >= blocks_fit) {
+	  SingleThreadEvictBlock();
+	  num_loaded--;
+	}
+
+	// read the data
+	osuflow[i]->ReadData(filename, false, minB, maxB, size, 
+			     vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, 
+			     MPI_COMM_WORLD); 
+	lat->SetData(blocks[i], 1);
+	lat->SetLoad(i);
+	num_loaded++;
+	fprintf(stderr, "Loaded block %d\n", i);
+	osuflow[i]->ScaleField(10.0); // improves visibility
+
+      } // if the block needs to be loaded
+
+      // compute pathlines
+      ComputePathlines(i);
+      fprintf(stderr, "Computed block %d\n", i);
+
+    } // for all blocks
+
+    ReceiveMessages();
+
+#ifdef GRAPHICS
+
+    GatherPathlines();
+
+#endif
+
+  } // for all iterations
+
+  if (rank == 0)
+    fprintf(stderr, "Completed %d iterations\n", max_iterations);
+
+}
+//-----------------------------------------------------------------------
+//
+// SingleTheadEvictBlock
+//
+// evicts next block from memory (in block number order)
+//
+// single thread version
+//
+void SingleThreadEvictBlock() {
+
+  static int target = 0; // block to evict
+
+  lat->ClearLoad(target);
+  osuflow[target]->DeleteData();
+  lat->SetData(blocks[target], 0);
+  fprintf(stderr, "Evicted block %d\n", target);
+  target = (target + 1) % nblocks;
 
 }
 //-----------------------------------------------------------------------
@@ -357,41 +554,10 @@ int ComputeBlocksFit() {
            tsize / ntpart * 3 * sizeof (float);
 
   if (rank == 0) {
-    fprintf(stderr, "Total data size allocated = %d MB, Block data size = %d MB, Max blocks resident in memory = %d\n", AVAIL_SIZE, b_size, AVAIL_SIZE / b_size);
+    fprintf(stderr, "Total data size allocated = %d MB, Block data size = %d MB, Max blocks resident in memory = %d\n", avail_mem, b_size, avail_mem / b_size);
   }
 
-  return(AVAIL_SIZE / b_size);
-
-}
-//-----------------------------------------------------------------------
-//
-// EvictBlock
-//
-// evicts next block from memory (in block number order)
-//
-void EvictBlock() {
-
-  static int target = 0; // block to evict
-  int first = 1; // first time
-  int usec = 1000; // initial wait time (microseconds)
-
-  // wait for the block to be computed before evicting
-  while (!lat->GetComp(target)) {
-    if (first)
-      fprintf(stderr, "Need to evict block %d but it is still being used. Waiting...\n", target);
-    first = 0;
-    usleep(usec);
-    usec *= 2;
-  }
-
-  // evict it
-  osuflow[target]->DeleteData();
-  lat->SetData(blocks[target], 0);
-  lat->ClearLoad(target);
-
-  fprintf(stderr, "Evicted block %d\n", target);
-
-  target = (target + 1) % nblocks;
+  return(avail_mem / b_size);
 
 }
 //-----------------------------------------------------------------------
@@ -407,9 +573,6 @@ void ComputePathlines(int block_num) {
   int neighbor; // neighbor's number (0-79)
   int ei, ej, ek, et; // neighbor's lattice position
   int i, j;
-
-  while (!lat->GetData(blocks[block_num]))
-    usleep(100000);
 
   if (NumSeeds[block_num]) {
 
@@ -443,7 +606,7 @@ void ComputePathlines(int block_num) {
 
     } // for all boundary points
 
-      // send boundary list to neighbors
+    // send boundary list to neighbors
     lat->SendNeighbors(blocks[block_num], MPI_COMM_WORLD);
 
   } // if (NumSeeds[block_num])
@@ -674,7 +837,7 @@ void Config(int argc, char *argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
-  assert(argc >= 11);
+  assert(argc >= 13);
 
   strncpy(filename,argv[1],sizeof(filename));
 
@@ -699,10 +862,14 @@ void Config(int argc, char *argv[]) {
   tf = atoi(argv[8]);
   pf = atoi(argv[9]);
   max_iterations = atoi(argv[10]);
+  threads = atoi(argv[11]) <= 1 ? 1 : 2;
+  avail_mem = atoi(argv[12]);
 
-  if (rank == 0)
+  if (rank == 0) {
     fprintf(stderr,"Volume boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n", 
 	   minLen[0], maxLen[0], minLen[1], maxLen[1], minLen[2], maxLen[2]); 
+    fprintf(stderr, "Number of threads per process: %d\n", threads);
+  }
 
   // init lattice and osuflow
   lat = new Lattice4D(size[0], size[1], size[2], tsize, ghost, nspart, 

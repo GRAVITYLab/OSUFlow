@@ -35,10 +35,10 @@ struct Partition4D {
 
 // a local block (for one process)
 struct Block {
-  int id;               // block ID (number)
-  unsigned char status; // bitmap [msb                                  lsb]
-                        //        [unused, ..., requested, loaded, computed]
-  time_t time;           // last time accessed
+  int loaded;
+  int computed;
+  unsigned char status; // bitmap [msb                       lsb]
+                        //        [unused, ..., loaded, computed]
 };
 
 class  Lattice4D {
@@ -74,17 +74,19 @@ class  Lattice4D {
   int GetFlowMatrix(int i, int j) {return flowMatrix[i*npart+j];}
 
   // block status manipulation
-  void SetReq(int block_num) { my_blocks[block_num].status |= 0x04; }
-  void ClearReq(int block_num) { my_blocks[block_num].status &= 0xf3; }
-  int GetReq(int block_num) { return((my_blocks[block_num].status & 0x04) >> 2);}
-  void SetLoad(int block_num) { my_blocks[block_num].status |= 0x02; }
-  void ClearLoad(int block_num) { my_blocks[block_num].status &= 0xf5; }
-  int GetLoad(int block_num) { return((my_blocks[block_num].status & 0x02) >> 1);}
-  void SetComp(int block_num) { my_blocks[block_num].status |= 0x01; }
-  void ClearComp(int block_num) { my_blocks[block_num].status &= 0xf6; }
-  int GetComp(int block_num) { return(my_blocks[block_num].status & 0x01); }
-  void SetTime(int block_num) { my_blocks[block_num].time = time(NULL); }
-  time_t GetTime(int block_num) { return(my_blocks[block_num].time); }
+  void SetLoad(int block_num) { my_blocks[block_num].loaded = 1; }
+  void ClearLoad(int block_num) { my_blocks[block_num].loaded = 0; }
+  int GetLoad(int block_num) { return my_blocks[block_num].loaded;}
+  void SetComp(int block_num, int iter_num) { my_blocks[block_num].computed = iter_num; }
+  void ClearComp(int block_num) { my_blocks[block_num].computed = -1; }
+  int GetComp(int block_num, int iter_num) { return(my_blocks[block_num].computed >= iter_num); }
+
+/*   void SetLoad(int block_num) { my_blocks[block_num].status |= 0x02; } */
+/*   void ClearLoad(int block_num) { my_blocks[block_num].status &= 0xfd; } */
+/*   int GetLoad(int block_num) { return((my_blocks[block_num].status & 0x02) >> 1);} */
+/*   void SetComp(int block_num) { my_blocks[block_num].status |= 0x01; } */
+/*   void ClearComp(int block_num) { my_blocks[block_num].status &= 0xfe; } */
+/*   int GetComp(int block_num) { return(my_blocks[block_num].status & 0x01); } */
 
   list<VECTOR4> *seedlists; 
   Block my_blocks[MAX_BLOCKS]; // list of blocks owned by my process

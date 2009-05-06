@@ -23,35 +23,75 @@
 # without permission
 #
 #----------------------------------------------------------------------------
+ARCH=LINUX
+#ARCH=BGP
+#ARCH=FD
+#ARCH=EUREKA
+
+# number of BG/P nodes
+nodes=64
 
 # number of procs
-num_procs=4
+num_procs=2
 
 # executable
 exe=./mpitest
 
 # dataset
-data=./plume1.vec
+data=~tpeterka/tornado/tornado.list
 
-# data size
-dsize="126 126 512"
+# data size x y z t (for steady state flows use t = 1)
+dsize="128 128 128 4"
 
-# number of blocks per process
-b=4
+# total number of partitions in the space domain
+sb=2
+
+# total number of partitions in the time domain
+tb=2
 
 # number of traces per block
-t=20
+t=100
 
 # number of points per trace
 p=100
 
 # number of iterations
-n=3
+n=2
 
-mpiexec -l -n $num_procs $exe $data $dsize $b $t $p $n
+# number of threads
+# 1 = each process a single thread
+# 2 = each process two threads: compute and I/O
+th=2
 
-#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $b $t $p $n
+# available memory space for dataset (MB)
+m=32
 
-#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $b $t $p $n
+if [ "$ARCH" = "LINUX" ]; then
 
+mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $t $p $n $th $m
 
+#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $t $p $n $th $m
+
+#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $t $p $n $th $m
+
+#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $t $p $n $th $m
+
+fi
+
+if [ "$ARCH" = "BGP" ]; then
+
+cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $t $p $n $th $m
+
+fi
+
+if [ "$ARCH" = "FD" ]; then
+
+srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $t $p $n $th $m
+
+fi
+
+if [ "$ARCH" = "EUREKA" ]; then
+
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $t $p $n $th $m
+
+fi
