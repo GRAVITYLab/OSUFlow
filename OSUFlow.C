@@ -1225,10 +1225,8 @@ void OSUFlow::ReadTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
     MPI_Type_commit(&filetype);
     MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
 		      MPI_INFO_NULL);
-//     fprintf(stderr,"1: size = %d %d %d subsize = %d %d %d Data = %x\n", size[0], size[1], size[2], subsize[0], subsize[1], subsize[2], Data);
     err = MPI_File_read_all(fd, Data,
 	 subsize[0] * subsize[1] * subsize[2], MPI_FLOAT, &status);
-//     fprintf(stderr,"2:\n");
     assert(err == MPI_SUCCESS);
     assert(status.count == sizeof(float) * 3 * npt);
 

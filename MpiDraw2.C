@@ -70,7 +70,8 @@ int *Npt; // everyone's number of points in their traces, all iterations
 int Tot_ntrace; // total number of everyone's traces, all iterations
 
 // function prototypes
-void Config(int argc, char *argv[]);
+void GetArgs(int argc, char *argv[]);
+void Init();
 void PrintSeeds(int nblocks);
 void RecvToSeeds(int lb, int gb);
 int EndTrace(list<vtListSeedTrace*> &list, VECTOR3 &p, int index);
@@ -119,6 +120,7 @@ int pf; // max number of points per trace
 int max_iterations; // max number of iterations
 int threads; // number of threads per process
 int avail_mem; // memory space for dataset (MB)
+int b_mem; // number of blocks to keep in memory
 
 // debug
 #define MAX_RENDER_SEEDS 1000
@@ -138,12 +140,18 @@ int main(int argc, char *argv[]) {
   int i, j;
 
   // initialize mpi and the app
-  MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mpi_thread_avail);
-  fprintf(stderr, "MPI thread support level = %d\n",mpi_thread_avail);
+  GetArgs(argc, argv);
+  if (threads == 1)
+    MPI_Init(&argc, &argv);
+  else {
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mpi_thread_avail);
+    if (mpi_thread_avail != MPI_THREAD_MULTIPLE)
+      fprintf(stderr, "MPI thread support level = %d but it should be %d. Program will attempt to run, but results are undefined. Recommend running in single thread mode instead.\n",mpi_thread_avail, MPI_THREAD_MULTIPLE);
+  }
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+  Init();
   MPI_Barrier(MPI_COMM_WORLD);
-  Config(argc, argv);
 
   // multithread version
 
@@ -213,6 +221,9 @@ void ComputeThread() {
   // for all iterations
   for (i = 0; i < max_iterations; i++) {
 
+    if (rank == 0)
+      fprintf(stderr, "begin iteration %d\n", i);
+
     // clear streamlines
     for (j = 0; j < nblocks; j++)
       sl_list[j].clear();
@@ -250,43 +261,6 @@ void ComputeThread() {
 
     } // until all blocks are computed
 
-
-//     // while not done
-//     while (!done) {
-
-//       // for all blocks
-//       for (j = 0; j < nblocks; j++) {
-
-// 	// wait for the block to be loaded
-// 	first = 1;
-// 	usec = 1000;
-// 	while (!lat->GetLoad(j)) {
-// 	  if (first)
-// 	    fprintf(stderr, "Waiting to load block %d...\n", j);
-// 	  first = 0;
-// 	  usleep(usec);
-// 	  usec *= 2;
-// 	}
-
-// 	if (!lat->GetComp(j, i)) {
-// 	  ComputePathlines(j);
-// 	  fprintf(stderr, "Computed block %d\n", j);
-// #pragma omp flush
-// 	  lat->SetComp(j, i);
-// #pragma omp flush
-// 	}
-
-//       } // for all blocks
-
-// 	// check if all done
-//       done = 1;
-//       for (j = 0; j < nblocks; j++) {
-// 	if (!lat->GetComp(j, i))
-// 	  done = 0;
-//       }
-
-//     } // while not done
-
     ReceiveMessages();
 
 #ifdef GRAPHICS
@@ -309,7 +283,6 @@ void IOThread() {
 
   VECTOR3 minB, maxB; // subdomain bounds
   float from[3], to[3]; // seed points limits
-  int blocks_fit; // number of blocks we want to maintain in memory
   int num_loaded; // number of blocks loaded into memory so far
   int rank;
   int first = 1; // first time
@@ -319,9 +292,6 @@ void IOThread() {
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   num_loaded = 0;
-
-  // compute how many blocks safely fit in memory
-  blocks_fit = ComputeBlocksFit();
 
   // clear all blocks' load status
   for (i = 0; i < nblocks; i++)
@@ -337,7 +307,7 @@ void IOThread() {
 	continue;
 
       // make room for the next block
-      if (num_loaded >= blocks_fit) {
+      if (num_loaded >= b_mem) {
 	MultiThreadEvictBlock(j);
 	num_loaded--;
       }
@@ -431,7 +401,6 @@ void IOandCompute() {
 
   VECTOR3 minB, maxB; // subdomain bounds
   float from[3], to[3]; // seed points limits
-  int blocks_fit; // number of blocks we want to maintain in memory
   int num_loaded; // number of blocks loaded into memory so far
   int rank;
   int i, j, k;
@@ -440,15 +409,15 @@ void IOandCompute() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   num_loaded = 0;
 
-  // compute how many blocks safely fit in memory
-  blocks_fit = ComputeBlocksFit();
-
   // clear all blocks' load status
   for (i = 0; i < nblocks; i++)
     lat->ClearLoad(i);
 
   // for all iterations
   for (j = 0; j < max_iterations; j++) {
+
+    if (rank == 0)
+      fprintf(stderr, "begin iteration %d\n", j);
 
     // for all blocks
     for (i = 0; i < nblocks; i++) {
@@ -481,7 +450,7 @@ void IOandCompute() {
       if (!lat->GetLoad(i)) {
 
 	// make room for the next block
-	if (num_loaded >= blocks_fit) {
+	if (num_loaded >= b_mem) {
 	  SingleThreadEvictBlock();
 	  num_loaded--;
 	}
@@ -535,29 +504,6 @@ void SingleThreadEvictBlock() {
   lat->SetData(blocks[target], 0);
   fprintf(stderr, "Evicted block %d\n", target);
   target = (target + 1) % nblocks;
-
-}
-//-----------------------------------------------------------------------
-//
-// ComputeBlocksFit
-//
-// computes how many blocks to keep in memory
-//
-int ComputeBlocksFit() {
-
-  int rank;
-  int b_size; // data size in a typical block (Mbytes)
-
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-  b_size = size[0] * size[1] / 1048576.0f * size[2] / nspart * 
-           tsize / ntpart * 3 * sizeof (float);
-
-  if (rank == 0) {
-    fprintf(stderr, "Total data size allocated = %d MB, Block data size = %d MB, Max blocks resident in memory = %d\n", avail_mem, b_size, avail_mem / b_size);
-  }
-
-  return(avail_mem / b_size);
 
 }
 //-----------------------------------------------------------------------
@@ -820,22 +766,14 @@ void GatherPts(int *ntrace, int mynpt) {
 }
 //-----------------------------------------------------------------------
 //
-// Config
+// GetArgs
 //
 // gets command line args
 //
-void Config(int argc, char *argv[]) {
+void GetArgs(int argc, char *argv[]) {
 
-  int rank, nproc; // usual MPI
-  int nt; // max total number of traces
-  int np; // max total number of points
   VECTOR3 minLen, maxLen; // spatial data bounds
   int minTime, maxTime; // time data bounds
-  int ghost = 1; // number of ghost cells per spatial edge
-  int i;
-
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
   assert(argc >= 13);
 
@@ -850,26 +788,40 @@ void Config(int argc, char *argv[]) {
   maxLen[2] = atof(argv[4]) - 1.0f;
   maxTime   = atof(argv[5]) - 1.0f;
 
-  size[0] = maxLen[0] - minLen[0] + 1.0f;
+  size[0] = maxLen[0] - minLen[0] + 1.0f; // data sizes, space and time
   size[1] = maxLen[1] - minLen[1] + 1.0f;
   size[2] = maxLen[2] - minLen[2] + 1.0f;
   tsize   = maxTime - minTime + 1.0f;
 
-  nspart = atoi(argv[6]);
-  ntpart = atoi(argv[7]);
+  nspart = atoi(argv[6]); // total space partitions
+  ntpart = atoi(argv[7]); // total time partitions
+
+  tf = atoi(argv[8]); // traces per block
+  pf = atoi(argv[9]); // points per trace
+  max_iterations = atoi(argv[10]); // iterations
+  threads = atoi(argv[11]) <= 1 ? 1 : 2; // threads per process
+  avail_mem = atoi(argv[12]); // memory data size (MB)
+
+}
+//-----------------------------------------------------------------------
+//
+// Init
+//
+// inits the app
+//
+void Init() {
+
+  int rank, nproc; // usual MPI
+  int nt; // max total number of traces
+  int np; // max total number of points
+  int ghost = 1; // number of ghost cells per spatial edge
+  int b_size; // data size in a typical block (Mbytes)
+  int i;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+
   assert(nspart * ntpart >= nproc);
-
-  tf = atoi(argv[8]);
-  pf = atoi(argv[9]);
-  max_iterations = atoi(argv[10]);
-  threads = atoi(argv[11]) <= 1 ? 1 : 2;
-  avail_mem = atoi(argv[12]);
-
-  if (rank == 0) {
-    fprintf(stderr,"Volume boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n", 
-	   minLen[0], maxLen[0], minLen[1], maxLen[1], minLen[2], maxLen[2]); 
-    fprintf(stderr, "Number of threads per process: %d\n", threads);
-  }
 
   // init lattice and osuflow
   lat = new Lattice4D(size[0], size[1], size[2], tsize, ghost, nspart, 
@@ -904,7 +856,6 @@ void Config(int argc, char *argv[]) {
 
   // allocate pts list and number of points list for rendering
   if (rank == 0) {
-
     nt = nspart * ntpart * tf;
     np = nt * pf;
     npt = new int[nt];
@@ -915,7 +866,21 @@ void Config(int argc, char *argv[]) {
     assert(Npt != NULL);
     Pt = new VECTOR4[np * max_iterations];
     assert(Pt != NULL);
+  }
 
+  // compute how many blocks to keep in memory
+  b_size = size[0] * size[1] / 1048576.0f * size[2] / nspart * 
+           tsize / ntpart * 3 * sizeof (float);
+  b_mem = avail_mem / b_size;
+
+  // print some of the args
+  if (rank == 0) {
+    fprintf(stderr,"Volume size: X %.3lf Y %.3lf Z %.3lf t %d\n",
+	    size[0], size[1], size[2], tsize);
+    fprintf(stderr, "Number of threads per process: %d\n", threads);
+    fprintf(stderr, "Number of compute iterations: %d\n", max_iterations);
+    fprintf(stderr, "Available dataset memory per process: %d MB\n", avail_mem);
+    fprintf(stderr, "Number of blocks per process in memory: %d\n", b_mem);
   }
 
 }
