@@ -22,11 +22,12 @@
 #
 #----------------------------------------------------------------------------
 
-ARCH = MAC_OSX
+#ARCH = MAC_OSX
 #ARCH = LINUX
 #ARCH = BGP
-ARCH = FD
+#ARCH = FD
 #ARCH = EUREKA
+ARCH = BB
 
 MPE = NO
 
@@ -91,6 +92,27 @@ ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
 endif
 CCFLAGS = -c -DFD -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+#CCFLAGS += -g3
+CCFLAGS += -O3
+#CCFLAGS += -Wall -Wextra
+ifeq ($(MPE), YES)
+CCFLAGS += -DMPE
+endif
+THREADS = -fopenmp
+
+endif
+
+### breadboard version ###
+
+ifeq ($(ARCH), BB)
+
+INCLUDE = -I/usr/include
+LIB  = -lm
+C++   = mpicxx
+ifeq ($(MPE), YES)
+C++   = mpecxx -mpilog
+endif
+CCFLAGS = -c -DBB -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 #CCFLAGS += -g3
 CCFLAGS += -O3
 #CCFLAGS += -Wall -Wextra

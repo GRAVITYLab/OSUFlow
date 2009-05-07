@@ -25,8 +25,9 @@
 #----------------------------------------------------------------------------
 #ARCH=LINUX
 #ARCH=BGP
-ARCH=FD
+#ARCH=FD
 #ARCH=EUREKA
+ARCH=BB
 
 # number of BG/P nodes
 nodes=64
@@ -61,7 +62,7 @@ n=2
 # number of threads
 # 1 = each process a single thread
 # 2 = each process two threads: compute and I/O
-th=1
+th=2
 
 # available memory space for dataset (MB)
 m=128
@@ -93,5 +94,11 @@ fi
 if [ "$ARCH" = "EUREKA" ]; then
 
 mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $t $p $n $th $m
+
+fi
+
+if [ "$ARCH" = "BB" ]; then
+
+mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $t $p $n $th $m
 
 fi
