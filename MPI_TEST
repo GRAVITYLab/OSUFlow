@@ -26,8 +26,8 @@
 #ARCH=LINUX
 #ARCH=BGP
 #ARCH=FD
-ARCH=EUREKA
-#ARCH=BB
+#ARCH=EUREKA
+ARCH=BB
 
 # number of BG/P nodes
 nodes=64
@@ -54,7 +54,7 @@ tb=4
 t=100
 
 # number of points per trace
-p=100
+p=100./
 
 # number of iterations
 n=2
@@ -99,6 +99,8 @@ fi
 
 if [ "$ARCH" = "BB" ]; then
 
-mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $t $p $n $th $m
+mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $t $p $n $th $m
+
+#mpiexec -machinefile ./nodes -l -n $num_procs hostname
 
 fi
