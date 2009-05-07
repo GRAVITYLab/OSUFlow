@@ -26,8 +26,8 @@
 #ARCH=LINUX
 #ARCH=BGP
 #ARCH=FD
-#ARCH=EUREKA
-ARCH=BB
+ARCH=EUREKA
+#ARCH=BB
 
 # number of BG/P nodes
 nodes=64
