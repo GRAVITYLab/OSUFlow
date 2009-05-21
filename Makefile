@@ -23,11 +23,11 @@
 #----------------------------------------------------------------------------
 
 #ARCH = MAC_OSX
-#ARCH = LINUX
+ARCH = LINUX
 #ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
-ARCH = BB
+#ARCH = BB
 
 MPE = NO
 

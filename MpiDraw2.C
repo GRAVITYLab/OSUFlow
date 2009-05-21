@@ -44,8 +44,6 @@
 #include "calc_subvolume.h"
 #include "Lattice4D.h"
 
-#define MAX_RECV_ATTEMPTS 10
-
 // defines related to drawing
 #define XFORM_NONE    0 
 #define XFORM_ROTATE  1
@@ -62,18 +60,17 @@ bool toggle_draw_streamlines = false;
 bool toggle_animate_streamlines = false; 
 
 // drawing data: only usable at the root process
-VECTOR4 *pt; // points in everyone's traces, this iteration
-int *npt; // everyone's number of points in their traces, this iteration
-int tot_ntrace; // total number of everyone's traces, this iteration
-VECTOR4 *Pt; // points in everyone's traces, all iterations
-int *Npt; // everyone's number of points in their traces, all iterations
-int Tot_ntrace; // total number of everyone's traces, all iterations
+VECTOR4 *pt; // points in everyone's traces, this round
+int *npt; // everyone's number of points in their traces, this round
+int tot_ntrace; // total number of everyone's traces, this round
+VECTOR4 *Pt; // points in everyone's traces, all rounds
+int *Npt; // everyone's number of points in their traces, all rounds
+int Tot_ntrace; // total number of everyone's traces, all rounds
 
 // function prototypes
 void GetArgs(int argc, char *argv[]);
 void Init();
 void PrintSeeds(int nblocks);
-void RecvToSeeds(int lb, int gb);
 int EndTrace(list<vtListSeedTrace*> &list, VECTOR3 &p, int index);
 void ComputePathlines(int block_num);
 void GatherPathlines();
@@ -81,7 +78,6 @@ int GatherNumPts(int* &ntrace);
 void GatherPts(int *ntrace, int mynpt);
 void DrawStreamlines();
 void Cleanup();
-// OSUFlow *ManageMemory();
 void draw_bounds(float xmin, float xmax, float ymin, float ymax, 
 		 float zmin, float zmax);
 void draw_cube(float r, float g, float b);
@@ -96,7 +92,7 @@ void IOThread();
 void IOandCompute();
 void ReceiveMessages();
 int ComputeBlocksFit();
-void MultiThreadEvictBlock(int iter);
+void MultiThreadEvictBlock(int round);
 void SingleThreadEvictBlock();
 
 // globals
@@ -117,10 +113,11 @@ int nblocks; // my number of blocks
 Lattice4D* lat; // lattice
 int tf; // max number of traces per block
 int pf; // max number of points per trace
-int max_iterations; // max number of iterations
+int max_rounds; // max number of rounds
 int threads; // number of threads per process
 int avail_mem; // memory space for dataset (MB)
 int b_mem; // number of blocks to keep in memory
+int max_bt; // max number of time steps in any block
 
 // debug
 #define MAX_RENDER_SEEDS 1000
@@ -218,11 +215,11 @@ void ComputeThread() {
   for (j = 0; j < nblocks; j++)
     lat->ClearComp(j);
 
-  // for all iterations
-  for (i = 0; i < max_iterations; i++) {
+  // for all rounds
+  for (i = 0; i < max_rounds; i++) {
 
     if (rank == 0)
-      fprintf(stderr, "begin iteration %d\n", i);
+      fprintf(stderr, "begin round %d\n", i);
 
     // clear streamlines
     for (j = 0; j < nblocks; j++)
@@ -269,10 +266,10 @@ void ComputeThread() {
 
 #endif
 
-  } // for all iterations
+  } // for all rounds
 
   if (rank == 0)
-    fprintf(stderr, "Completed %d iterations\n", max_iterations);
+    fprintf(stderr, "Completed %d rounds\n", max_rounds);
 
 }
 //-----------------------------------------------------------------------
@@ -297,8 +294,8 @@ void IOThread() {
   for (i = 0; i < nblocks; i++)
     lat->ClearLoad(i);
 
-  // for all iterations
-  for (j = 0; j < max_iterations; j++) {
+  // for all rounds
+  for (j = 0; j < max_rounds; j++) {
 
     // for all blocks
     for (i = 0; i < nblocks; i++) {
@@ -337,7 +334,8 @@ void IOThread() {
       } // if osuflow does not exist
 
       // read the data
-      osuflow[i]->ReadData(filename, false, minB, maxB, size, 
+      fprintf(stderr, "block %d: min %.3lf %.3lf %.3lf %d max %.3lf %.3lf %.3lf %d\n", i, minB[0], minB[1], minB[2], vb_list[blocks[i]].tmin, maxB[0], maxB[1], maxB[2], vb_list[blocks[i]].tmax);
+      osuflow[i]->ReadData(filename, false, minB, maxB, size, max_bt,
 			   vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, 
 			   MPI_COMM_WORLD); 
 
@@ -354,7 +352,7 @@ void IOThread() {
 
     usleep(1000);
 
-  } // for all iterations
+  } // for all rounds
 
 }
 //-----------------------------------------------------------------------
@@ -364,16 +362,16 @@ void IOThread() {
 // evicts next block from memory (in block number order)
 // multithread version
 //
-// iter: iteration number
+// round: round number
 //
-void MultiThreadEvictBlock(int iter) {
+void MultiThreadEvictBlock(int round) {
 
   static int target = 0; // block to evict
   int first = 1; // first time
   int usec = 1000; // initial wait time (microseconds)
 
   // wait for the block to be computed before evicting
-  while (!lat->GetComp(target, iter)) {
+  while (!lat->GetComp(target, round)) {
     if (first)
       fprintf(stderr, "Waiting to evict block %d...\n", target);
     first = 0;
@@ -413,11 +411,11 @@ void IOandCompute() {
   for (i = 0; i < nblocks; i++)
     lat->ClearLoad(i);
 
-  // for all iterations
-  for (j = 0; j < max_iterations; j++) {
+  // for all rounds
+  for (j = 0; j < max_rounds; j++) {
 
     if (rank == 0)
-      fprintf(stderr, "begin iteration %d\n", j);
+      fprintf(stderr, "*** begin round %d ***\n", j);
 
     // for all blocks
     for (i = 0; i < nblocks; i++) {
@@ -456,9 +454,10 @@ void IOandCompute() {
 	}
 
 	// read the data
-	osuflow[i]->ReadData(filename, false, minB, maxB, size, 
-			     vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, 
-			     MPI_COMM_WORLD); 
+      fprintf(stderr, "block %d: min %.3lf %.3lf %.3lf %d max %.3lf %.3lf %.3lf %d\n", i, minB[0], minB[1], minB[2], vb_list[blocks[i]].tmin, maxB[0], maxB[1], maxB[2], vb_list[blocks[i]].tmax);
+      osuflow[i]->ReadData(filename, false, minB, maxB, size, max_bt,
+			   vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, 
+			   MPI_COMM_WORLD); 
 	lat->SetData(blocks[i], 1);
 	lat->SetLoad(i);
 	num_loaded++;
@@ -481,10 +480,10 @@ void IOandCompute() {
 
 #endif
 
-  } // for all iterations
+  } // for all rounds
 
   if (rank == 0)
-    fprintf(stderr, "Completed %d iterations\n", max_iterations);
+    fprintf(stderr, "Completed %d rounds\n", max_rounds);
 
 }
 //-----------------------------------------------------------------------
@@ -504,7 +503,7 @@ void SingleThreadEvictBlock() {
   lat->SetData(blocks[target], 0);
   fprintf(stderr, "Evicted block %d\n", target);
   target = (target + 1) % nblocks;
-
+  
 }
 //-----------------------------------------------------------------------
 //
@@ -517,7 +516,6 @@ void ComputePathlines(int block_num) {
   std::list<vtListTimeSeedTrace*>::iterator trace_iter; // iter. over traces
   VECTOR4 p; // current point
   int neighbor; // neighbor's number (0-79)
-  int ei, ej, ek, et; // neighbor's lattice position
   int i, j;
 
   if (NumSeeds[block_num]) {
@@ -533,9 +531,9 @@ void ComputePathlines(int block_num) {
     for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++)
       sl_list[block_num].push_back(*trace_iter); 
 
-    // redistribute boundary points to neighbors
+    // redistribute end points of traces to neighbors
 
-    // for all boundary points
+    // for all end points of traces
     for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++) {
       if (!(*trace_iter)->size())
 	continue;
@@ -544,15 +542,15 @@ void ComputePathlines(int block_num) {
       p = **pt_iter;
 
       // find which neighbor the point is in
-      neighbor = lat->GetNeighbor(blocks[block_num], p[0], p[1], p[2], p[3],
-				  ei, ej, ek, et); 
+      neighbor = lat->GetNeighbor(blocks[block_num], p[0], p[1], p[2], p[3]);
+
       // post the point to the send list
       if (neighbor != -1)
 	lat->PostPoint(blocks[block_num], p, neighbor);
 
-    } // for all boundary points
+    } // for all end points
 
-    // send boundary list to neighbors
+    // send points to neighbors
     lat->SendNeighbors(blocks[block_num], MPI_COMM_WORLD);
 
   } // if (NumSeeds[block_num])
@@ -566,24 +564,26 @@ void ComputePathlines(int block_num) {
 //
 void ReceiveMessages() {
 
-  int i, j;
+  int i;
+  int npts;
 
-  // for all blocks, receive messages
   for (i = 0; i < nblocks; i++) {
 
-    for (j = 0; j < MAX_RECV_ATTEMPTS; j++) {
-      if (lat->ReceiveNeighbors(blocks[i], MPI_COMM_WORLD))
-	break;
-      usleep(100000);
+    if ((npts = lat->ReceiveNeighbors(blocks[i], MPI_COMM_WORLD))) {
+
+      NumSeeds[i] = npts;
+
+      while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
+	Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
+	assert(Seeds[i] != NULL);
+	SizeSeeds[i] *= 2;
+      }
+
+      lat->GetRecvPts(blocks[i], Seeds[i]);
+
     }
 
-    if (j == MAX_RECV_ATTEMPTS)
-      continue;
-
-    // prepare for next iteration
-    RecvToSeeds(i, blocks[i]);
-
-  } // for all blocks
+  }
 
 }
 //-----------------------------------------------------------------------
@@ -743,7 +743,7 @@ void GatherPts(int *ntrace, int mynpt) {
   MPI_Gatherv(mypt, mynpt * 4, MPI_FLOAT, pt, nflt, ofst,
 	      MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-  // concatenate points from current iteration with previous iterations
+  // concatenate points from current round with previous rounds
   k = 0;
   for (int i = 0; i < tot_ntrace; i++) {
 
@@ -798,7 +798,7 @@ void GetArgs(int argc, char *argv[]) {
 
   tf = atoi(argv[8]); // traces per block
   pf = atoi(argv[9]); // points per trace
-  max_iterations = atoi(argv[10]); // iterations
+  max_rounds = atoi(argv[10]); // rounds
   threads = atoi(argv[11]) <= 1 ? 1 : 2; // threads per process
   avail_mem = atoi(argv[12]); // memory data size (MB)
 
@@ -862,13 +862,16 @@ void Init() {
     assert(npt != NULL);
     pt = new VECTOR4[np];
     assert(pt != NULL);
-    Npt = new int[nt * max_iterations];
+    Npt = new int[nt * max_rounds];
     assert(Npt != NULL);
-    Pt = new VECTOR4[np * max_iterations];
+    Pt = new VECTOR4[np * max_rounds];
     assert(Pt != NULL);
   }
 
-  // compute how many blocks to keep in memory
+  // max number of time steps in any block
+  max_bt = ceil(tsize / ntpart) + 2 * ghost;
+
+  // number of blocks to keep in memory
   b_size = size[0] * size[1] / 1048576.0f * size[2] / nspart * 
            tsize / ntpart * 3 * sizeof (float);
   b_mem = avail_mem / b_size;
@@ -878,9 +881,9 @@ void Init() {
     fprintf(stderr,"Volume size: X %.3lf Y %.3lf Z %.3lf t %d\n",
 	    size[0], size[1], size[2], tsize);
     fprintf(stderr, "Number of threads per process: %d\n", threads);
-    fprintf(stderr, "Number of compute iterations: %d\n", max_iterations);
+    fprintf(stderr, "Number of compute rounds: %d\n", max_rounds);
     fprintf(stderr, "Available dataset memory per process: %d MB\n", avail_mem);
-    fprintf(stderr, "Number of blocks per process in memory: %d\n", b_mem);
+    fprintf(stderr, "Number of blocks a process can fit in memory: %d\n", b_mem);
   }
 
 }
@@ -941,27 +944,6 @@ void PrintSeeds(int nblocks) {
 
   fprintf(stderr,"\n");
 
-
-}
-//--------------------------------------------------------------------------
-//
-// RecvToSeeds
-//
-// copies received points to seeds
-// lb: local block number within this process
-// gb: global block number in entire domain
-//
-void RecvToSeeds(int lb, int gb) {
-
-  NumSeeds[lb] = lat->GetNumRecv(gb);
-
-  while (SizeSeeds[lb] < NumSeeds[lb] * sizeof(VECTOR4)) {
-    Seeds[lb] = (VECTOR4 *)realloc(Seeds[lb], SizeSeeds[lb] * 2);
-    assert(Seeds[lb] != NULL);
-    SizeSeeds[lb] *= 2;
-  }
-
-  lat->GetRecvPts(gb, Seeds[lb]);
 
 }
 //--------------------------------------------------------------------------

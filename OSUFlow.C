@@ -1022,13 +1022,14 @@ void Error(const char *fmt, ...){
 // fname is dataset file name
 // sMin, sMax are local subdomain min and max
 // dim is the total size of the domain
+// bt_max is the max number of time steps in any block
 // t_min, t_max are min and max time steps (ignored if bStatic == true)
 //
 // Tom Peterka, 11/24/08
 //
 void OSUFlow::ReadData(const char* fname, bool bStatic, 
-      VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, int t_min, int t_max, 
-      MPI_Comm comm) {
+		       VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, int bt_max, 
+		       int t_min, int t_max, MPI_Comm comm) {
 
   if (flowName == NULL)
     flowName = new char[255];
@@ -1040,7 +1041,7 @@ void OSUFlow::ReadData(const char* fname, bool bStatic,
   if(bStaticFlow)
     ReadStaticFlowField(sMin, sMax, dim, comm);
   else
-    ReadTimeVaryingFlowField(sMin, sMax, dim, t_min, t_max, comm);
+    ReadTimeVaryingFlowField(sMin, sMax, dim, bt_max, t_min, t_max, comm);
 
   has_data = true;
 
@@ -1145,12 +1146,14 @@ void OSUFlow::ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, MPI_C
 //
 // sMin, sMax: corners of subdomain
 // dim: size of total domain
+// bt_max: max number of time steps in any block
 // t_min, t_max: time range of subdomain
 //
 // Tom Peterka, 11/24/08
 //
 void OSUFlow::ReadTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax, 
-	VECTOR3 dim, int t_min, int t_max, MPI_Comm comm) {
+				       VECTOR3 dim, int bt_max, int t_min,
+				       int t_max, MPI_Comm comm) {
 
   float *Data; // the data
   MPI_File fd;
@@ -1169,6 +1172,7 @@ void OSUFlow::ReadTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
   int nt; // number of time steps in my time-space domain
   Solution* Soln;
   RegularCartesianGrid* RegCGrid;
+  int null_reads; // number of null reads to fill out max number of time steps
   int i, t;
 
   // read metadata
@@ -1230,13 +1234,15 @@ void OSUFlow::ReadTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
     assert(err == MPI_SUCCESS);
     assert(status.count == sizeof(float) * 3 * npt);
 
+    // clean up
+    MPI_File_close(&fd);
+    MPI_Type_free(&filetype);
+
     //swap bytes
 #ifdef BYTE_SWAP
     for (i = 0; i < 3 * npt; i++)
       swap4((char *)&(Data[i]));
 #endif
-
-    MPI_File_close(&fd);
 
     // copy data from floats to VEC3s
     AllPt[t - t_min] = new VECTOR3[npt];
@@ -1245,6 +1251,41 @@ void OSUFlow::ReadTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
            Data[i * 3 + 2]);
 
   } // for all time steps
+
+  // null reads to fill out the max number of time steps
+  null_reads = bt_max - t_max + t_min - 1;
+  assert(null_reads >= 0);
+  if (null_reads) {
+    err = MPI_File_open(comm, filename, MPI_MODE_RDONLY,
+			MPI_INFO_NULL, &fd);
+    assert(err == MPI_SUCCESS);
+  }
+
+  // for any null reads needed
+  for (t = 0; t < null_reads; t++) {
+    subsize[0] = subsize[1] = subsize[2] = 1;
+    start[0] = start[1] = start[2] = 0;
+    MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
+			     MPI_FLOAT, &filetype);
+    MPI_Type_commit(&filetype);
+    MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
+		      MPI_INFO_NULL);
+    err = MPI_File_read_all(fd, Data, 0, MPI_FLOAT, &status);
+
+//     fprintf(stderr, "1: size = %d %d %d subsize = %d %d %d start = %d %d %d\n", size[0], size[1], size[2], subsize[0], subsize[1], subsize[2], start[0], start[1], start[2]);
+
+//     char msg[MPI_MAX_ERROR_STRING];
+//     int resultlen;
+//     MPI_Error_string(err, msg, &resultlen);
+//     fprintf(stderr, "%s\n", msg);
+
+    assert(err == MPI_SUCCESS);
+    MPI_Type_free(&filetype);
+
+  }
+
+  if (null_reads)
+    MPI_File_close(&fd);
 
   // create the field
   Soln = new Solution(AllPt, npt, nt, t_min, t_max);
@@ -1256,7 +1297,6 @@ void OSUFlow::ReadTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
 
   // clean up
   fclose(meta);
-  MPI_Type_free(&filetype);
   for (i=0; i < nt; i++)
     delete[] AllPt[i]; 
   delete[] AllPt; 

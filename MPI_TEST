@@ -23,17 +23,17 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-#ARCH=LINUX
+ARCH=LINUX
 #ARCH=BGP
 #ARCH=FD
 #ARCH=EUREKA
-ARCH=BB
+#ARCH=BB
 
 # number of BG/P nodes
 nodes=64
 
 # number of procs
-num_procs=2
+num_procs=4
 
 # executable
 exe=./mpitest
@@ -42,64 +42,64 @@ exe=./mpitest
 data=~tpeterka/tornado/tornado.list
 
 # data size x y z t (for steady state flows use t = 1)
-dsize="128 128 128 16"
+dsize="128 128 128 4"
 
 # total number of partitions in the space domain
 sb=4
 
 # total number of partitions in the time domain
-tb=4
+tb=2
 
 # number of traces per block
-t=100
+t=200
 
 # number of points per trace
-p=100./
+p=200
 
-# number of iterations
-n=2
+# number of rounds
+r=2
 
 # number of threads
 # 1 = each process a single thread
 # 2 = each process two threads: compute and I/O
-th=2
+th=1
 
 # available memory space for dataset (MB)
 m=128
 
 if [ "$ARCH" = "LINUX" ]; then
 
-mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $t $p $n $th $m
+mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $t $p $r $th $m
 
-#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $t $p $n $th $m
+#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $t $p $r $th $m
 
-#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $t $p $n $th $m
+#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $t $p $r $th $m
 
-#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $t $p $n $th $m
+#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $t $p $r $th $m
 
 fi
 
 if [ "$ARCH" = "BGP" ]; then
 
-cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $t $p $n $th $m
+cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $t $p $r $th $m
 
 fi
 
 if [ "$ARCH" = "FD" ]; then
 
-srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $t $p $n $th $m
+srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $t $p $r $th $m
 
 fi
 
 if [ "$ARCH" = "EUREKA" ]; then
 
-mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $t $p $n $th $m
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $t $p $r $th $m
 
 fi
 
 if [ "$ARCH" = "BB" ]; then
 
-mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $t $p $n $th $m
+mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $t $p $r $th $m
 
 #mpiexec -machinefile ./nodes -l -n $num_procs hostname
 

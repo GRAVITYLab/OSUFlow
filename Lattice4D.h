@@ -23,14 +23,18 @@
 
 // a global (all processes) block or partition
 struct Partition4D {
+
+  // the following arrays are indexed according to neighbor number
   int NumSendPoints[MAX_NEIGHBORS]; // number of points ready to send
   int SizeSendPoints[MAX_NEIGHBORS]; // size of sending points list (bytes)
   float *SendPoints[MAX_NEIGHBORS]; // sending points list
   int NumRecvPoints[MAX_NEIGHBORS]; // number of points received
   int SizeRecvPoints[MAX_NEIGHBORS]; // size of receiving points list (bytes)
   float *RecvPoints[MAX_NEIGHBORS]; // receiving points list
+
   int Proc; // process(or) number (mpi rank, core number, node number, etc.)
   int HasData; // data are ready
+
 };
 
 // a local block (for one process)
@@ -56,8 +60,8 @@ class  Lattice4D {
   volume_bounds_type* GetBoundsList(){ return vb_list;}
   void GetLatticeDims(int& i, int&j, int &k, int &l) {i = idim; j=jdim; k=kdim; l = tdim; }
   bool isIn(float, float, float, float, int, int, int, int); 
+  int GetNeighbor(int myrank, float x, float y, float z, float t);
   int CheckNeighbor(int myrank, float x, float y, float z, float t); 
-  int GetNeighbor(int myrank, float x, float y, float z, float t, int &i, int &j, int &k, int&l);
   int GetProc(int, int, int, int); 
   int GetProc(int); 
   void InitSeedLists(); 
@@ -114,7 +118,6 @@ class  Lattice4D {
   void PostPoint(int myrank, VECTOR4 p, int neighbor);
   void PrintPost(int myrank);
   void PrintRecv(int myrank);
-  int GetNumRecv(int myrank);
   void GetRecvPts(int myrank, VECTOR4 *ls);
   void Error(const char *fmt, ...);
   void SendNeighbors(int myrank, MPI_Comm comm);

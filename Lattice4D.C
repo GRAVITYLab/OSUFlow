@@ -285,6 +285,8 @@ bool Lattice4D::isIn(float x, float y, float z, float t, int i, int j, int k,
 //--------------------------------------------------------------------------
 //
 // returns neighbor rank where x,y,z,t is in 
+// this is a global partition number
+// returns -1 if out of the domain
 //
 int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z, float t) {
 
@@ -305,25 +307,6 @@ int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z, float t) {
 	    return(GetRank(ni+i, nj+j, nk+k, nt+l)); 
 	}
   return(-1); 
-}
-
-//---------------------------------------------------------------------------
-//
-// GetNeighbor
-//
-//
-int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t, 
-                           int &ei, int &ej, int &ek, int &et) {
-
-  int neighbor;
-  int si, sj, sk;
-
-  neighbor = CheckNeighbor(myrank, x, y, z, t);
-  
-  GetIndices(neighbor, ei, ej, ek, et); 
-  
-  return (neighbor); 
-
 }
 
 //---------------------------------------------------------------------------
@@ -537,77 +520,70 @@ void Lattice4D::GetPartitions(int proc, int*p_list) {
 }
 //---------------------------------------------------------------------------
 //
-// GetNeighborRanks
+// GetNeighbor
+// returns neighbor number (0 - MAX_NEIGHBORS) of neighbor containing point
+// returns -1 if point is not in one of the neighbors
 //
-// gets ranks of all neighbors
-// the neighbor of an edge gets rank -1
-//
-void Lattice4D::GetNeighborRanks(int myrank, int *neighbor_ranks) {
+int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t) {
 
-  int i, j, k, l; // my lattice coords
-  int in, jn, kn, ln; // my neighbor's lattice coords
-  int n;
+  int n; // neighbor number (0 - MAX_NEIGHBORS)
+  int nr; // my neighbor's rank (global partition) number
+  int r; // rank of point
 
-  GetIndices(myrank, i, j, k, l);
+  r = GetRank(x, y, z, t);
 
   // for all neighbors
   for (n = 0; n < nbhd; n++) {
 
-    NeighborIndices(n, i, j, k, l, in, jn, kn, ln);
-    neighbor_ranks[n] = GetRank(in, jn, kn, ln);
+    // offset my rank to get neighbor's rank
+    nr = myrank + n - (nbhd - 1) / 2;
+
+    if (r == nr)
+      return n;
+
+  }
+
+  return -1;
+
+}
+//---------------------------------------------------------------------------
+//
+// GetNeighborRanks
+//
+// gets ranks of all neighbors
+// ranks are the global partition numbers for all neighbors
+// the neighbor of an edge gets rank -1
+//
+void Lattice4D::GetNeighborRanks(int myrank, int *neighbor_ranks) {
+
+  int in, jn, kn, ln; // my neighbor's lattice coords
+  int n; // my neighbor number (0-80)
+  int nr; // my neighbor's rank (global partition) number
+
+  // for all neighbors
+  for (n = 0; n < nbhd; n++) {
+
+    // offset my rank to get neighbor's rank
+    nr = myrank + n - (nbhd - 1) / 2;
+
+    // use GetIndices to filter out ranks outside of boundary
+    // then convert the remaining indices back to rank
+    if (GetIndices(nr, in, jn, kn, ln) == 1)
+      neighbor_ranks[n] = GetRank(in, jn, kn, ln);
+    else
+      neighbor_ranks[n] = -1;
 
   }
 
 }
 //---------------------------------------------------------------------------
 //
-// NeighborIndices
-//
-// given a neighbor number n (0-80) and lattice indices (i,j,k,l)
-// computes indices of that neighbor (in, jn, kn, ln)
-//
-void Lattice4D::NeighborIndices(int n, int i, int j, int k, int l, int &in,
-  int &jn, int &kn, int &ln) {
-
-    // -x, +x
-    if (n % 3 == 0)
-      in = i - 1;
-    else if ((n - 2) % 3 == 0)
-      in = i + 1;
-    else
-      in = i;
-
-    // -y, +y
-    if ((int)(floor(n / 3)) % 2 == 0)
-      jn = j - 1;
-    else if ((int)((floor(n / 3) - 2)) % 3 == 0)
-      jn = j + 1;
-    else
-      jn = j;
-
-    // -z, +z
-    if ((int)(floor(n / 9)) % 3 == 0)
-      kn = k - 1;
-    else if ((int)((floor(n / 9) - 2)) % 3 == 0)
-      kn = k + 1;
-    else
-      kn = k;
-
-    // -t, +t
-    if (nbhd == MAX_NEIGHBORS && (int)(floor(n / 27)) % 3 == 0)
-      ln = l - 1;
-    else if (nbhd == MAX_NEIGHBORS && (int)((floor(n / 27)) - 2) % 3 == 0)
-      ln = l + 1;
-    else
-      ln = l;
-
-}
-//----------------------------------------------------------------------------
-//
 // PostPoint
 //
 // posts a point for sending to a neighbor
-// myrank: global partition number
+// myrank: my global partition number
+// p: 4D point
+// neighbor: number of the neighbor (0 - MAX_NEIGHBORS)
 //
 void Lattice4D::PostPoint(int myrank, VECTOR4 p, int neighbor) {
 
@@ -644,21 +620,15 @@ void Lattice4D::PostPoint(int myrank, VECTOR4 p, int neighbor) {
 // 
 void Lattice4D::PrintPost(int myrank) {
 
-  int ranks[MAX_NEIGHBORS];
   int i, j;
 
-  GetNeighborRanks(myrank, ranks);
-
-  fprintf(stderr, "\nPosted messages list (gp = global partition #)\n");
+  fprintf(stderr, "\nPosted points list for rank %d\n", myrank);
 
   for (i = 0; i < MAX_NEIGHBORS; i++) {
 
-    if (i == (nbhd - 1) / 2.0f) // me
-      continue;
-
     if (parts[myrank].NumSendPoints[i])
-      fprintf(stderr, "gp %d posted %d points to gp %d\n", 
-	      myrank, parts[myrank].NumSendPoints[i], ranks[i]);
+      fprintf(stderr, "rank %d posted %d points to neighbor %d\n", 
+	      myrank, parts[myrank].NumSendPoints[i], i);
 
     if (parts[myrank].NumSendPoints[i]) {
       for (j = 0; j < parts[myrank].NumSendPoints[i]; j++)
@@ -683,22 +653,16 @@ void Lattice4D::PrintPost(int myrank) {
 //
 void Lattice4D::PrintRecv(int myrank) {
 
-  int ranks[MAX_NEIGHBORS];
   int i, j;
 
-  GetNeighborRanks(myrank, ranks);
-
-  fprintf(stderr, "\nReceived points list (gp = global partition #)\n");
+  fprintf(stderr, "\nReceived points list for rank %d\n", myrank);
 
   for (i = 0; i < MAX_NEIGHBORS; i++) {
 
-    if (i == (nbhd - 1) / 2.0f) // me
-      continue;
-
     if (parts[myrank].NumRecvPoints[i]) {
       fprintf(stderr, 
-           "gp %d received %d points from gp %d:\n", 
-            myrank, parts[myrank].NumRecvPoints[i], ranks[i]);
+           "rank %d received %d points from neighbor %d:\n", 
+            myrank, parts[myrank].NumRecvPoints[i], i);
       for (j = 0; j < parts[myrank].NumRecvPoints[i]; j++)
 	fprintf(stderr, "%.3f\t%.3f\t%.3f\t%.3f\n",
 		parts[myrank].RecvPoints[i][4 * j + 0],
@@ -713,31 +677,6 @@ void Lattice4D::PrintRecv(int myrank) {
 
 }
 //---------------------------------------------------------------------------
-//
-// GetNumRecv
-//
-// returns number of received points ready for processing
-// myrank: global partition number
-//
-int Lattice4D::GetNumRecv(int myrank) {
-
-  int num = 0;
-  int i;
-
-  for (i = 0; i < MAX_NEIGHBORS; i++) {
-
-    if (i == (nbhd - 1) / 2.0f) // me
-      continue;
-
-    if (parts[myrank].NumRecvPoints[i] > 0)
-      num += parts[myrank].NumRecvPoints[i];
-
-  }
-
-  return num;
-
-}
-//--------------------------------------------------------------------------
 //
 // GetRecvPts
 //
@@ -755,14 +694,12 @@ void Lattice4D::GetRecvPts(int myrank, VECTOR4 *ls) {
   // copy points
   for (i = 0; i < MAX_NEIGHBORS; i++) {
 
-    if (i == (nbhd - 1) / 2.0f) // me
-      continue;
-
     for (j = 0; j < parts[myrank].NumRecvPoints[i]; j++)
-      (ls[num++]).Set(parts[myrank].RecvPoints[i][4 * j + 0], 
-	   parts[myrank].RecvPoints[i][4 * j + 1], 
-	   parts[myrank].RecvPoints[i][4 * j + 2],
-           parts[myrank].RecvPoints[i][4 * j + 3]);
+      (ls[num++]).Set(
+		      parts[myrank].RecvPoints[i][4 * j + 0], 
+		      parts[myrank].RecvPoints[i][4 * j + 1], 
+		      parts[myrank].RecvPoints[i][4 * j + 2],
+		      parts[myrank].RecvPoints[i][4 * j + 3]);
 
   }
 
@@ -808,10 +745,7 @@ void Lattice4D::SendNeighbors(int myrank, MPI_Comm comm) {
   // for all neighbors
   for (i = 0; i < MAX_NEIGHBORS; i++) {
 
-    if (i == (nbhd - 1) / 2.0f) // me
-      continue;
-
-    // if neighbor exists (not edge)
+    // if neighbor exists (not beyond domain boundary)
     if (ranks[i] >= 0) {
 
       proc = GetProc(ranks[i]);
@@ -819,17 +753,26 @@ void Lattice4D::SendNeighbors(int myrank, MPI_Comm comm) {
       // send only to remote locations
       if (proc != myproc) {
 
-	// if there are points to send
+	MPI_Send(&(parts[myrank].NumSendPoints[i]), 1, MPI_INT, proc, 
+		 ranks[i], comm);
+
 	if (parts[myrank].NumSendPoints[i]) {
-
-	  MPI_Isend(parts[myrank].SendPoints[i], 
-	    parts[myrank].NumSendPoints[i] * 4, MPI_FLOAT, proc, 0, comm, &req);
-
+	  fprintf(stderr, "rank %d sending %d points to remote rank %d\n",
+		  myrank, parts[myrank].NumSendPoints[i], ranks[i]);
+	  MPI_Send(parts[myrank].SendPoints[i], 
+		   parts[myrank].NumSendPoints[i] * 4, MPI_FLOAT, proc,
+		   ranks[i], comm);
 	  parts[myrank].NumSendPoints[i] = 0;
-
-	} // if there are points to send
+	}
 
       } // if location is remote
+
+      // debug
+      else {
+	if (parts[myrank].NumSendPoints[i])
+	  fprintf(stderr, "rank %d sending %d points to local rank %d\n",
+		  myrank, parts[myrank].NumSendPoints[i], ranks[i]);
+	}
 
     } // if neighbor exists
 
@@ -848,9 +791,6 @@ void Lattice4D::SendNeighbors(int myrank, MPI_Comm comm) {
 int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 
   MPI_Status status;
-  MPI_Request req;
-  int flag;
-  int ready;
   int ranks[MAX_NEIGHBORS]; // ranks of my neighbors
   int num = 0;
   int proc, myproc;  
@@ -863,42 +803,26 @@ int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
   // for all neighbors
   for (i = 0; i < MAX_NEIGHBORS; i++) {
 
-    if (i == (nbhd - 1) / 2.0f) // me
-      continue;
-
     // if neighbor exists (not outside of domain)
     if (ranks[i] >= 0) {
 
       proc = GetProc(ranks[i]);
 
-      // get number of received points
+      // remote: get number of received points and tag
+      if (proc != myproc)
+	MPI_Recv(&(parts[myrank].NumRecvPoints[i]), 1, MPI_INT, 
+		 proc, myrank, comm, &status);
 
-      // remote
-      if (proc != myproc) {
-	MPI_Iprobe(proc, 0, comm, &flag, &status);
-	if (flag) {
-	  MPI_Get_count(&status, MPI_FLOAT, &n);
-	  parts[myrank].NumRecvPoints[i] = (float)n / 4.0f;
-	}
-	else
-	  parts[myrank].NumRecvPoints[i] = 0;
-
-      } // remote
-
-      // local
+      // local: get number of received points
       if (proc == myproc) {
-
-	// I am the k neighbor of my neighbor
-	k = nbhd - 1 - i;
-
+	k = nbhd - 1 - i; // I am neighbor k of my neighbor
 	if (!parts[ranks[i]].NumSendPoints[k])
 	  k = -1;
 	if (k >= 0)
 	  parts[myrank].NumRecvPoints[i] = parts[ranks[i]].NumSendPoints[k];
 	else
 	  parts[myrank].NumRecvPoints[i] = 0;
-
-      } // local
+      }
 
       // get the points
 
@@ -918,7 +842,9 @@ int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 	if (proc != myproc) {
 	  MPI_Recv(parts[myrank].RecvPoints[i], 
              parts[myrank].NumRecvPoints[i] * 4, 
-             MPI_FLOAT, proc, 0, comm, &status);
+             MPI_FLOAT, proc, myrank, comm, &status);
+	  // debug
+// 	  fprintf(stderr, "rank %d received %d points from remote rank %d\n", myrank, parts[myrank].NumRecvPoints[i], ranks[i]);
 	} // remote
 
 	// local
@@ -936,6 +862,9 @@ int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 	  }
 
 	  parts[ranks[i]].NumSendPoints[k]  = 0;
+
+// 	  // debug
+// 	  fprintf(stderr, "rank %d received %d points from local rank %d\n", myrank, parts[myrank].NumRecvPoints[i], ranks[i]);
 
 	} // local
 
