@@ -290,20 +290,14 @@ int main(int argc, char** argv)
 
   osuflow = new OSUFlow(); 
   printf("read file %s\n", argv[1]); 
-  //  minB[0] = 0; minB[1] = 0; minB[2] = 0; 
-  //  maxB[0] = 64; maxB[1] = 127; maxB[2] = 64; 
 
-  minB[0] = 0; minB[1] = 0; minB[2] = 0; 
-  maxB[0] = 120; maxB[1] = 120; maxB[2] = 400; 
+  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
 
-  osuflow->LoadData((const char*)argv[1], true, minB, maxB); //true: a steady flow field 
-
-  //  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
   osuflow->Boundary(minLen, maxLen); // get the boundary 
   minB[0] = minLen[0]; minB[1] = minLen[1];  minB[2] = minLen[2];
   maxB[0] = maxLen[0]; maxB[1] = maxLen[1];  maxB[2] = maxLen[2];
-  osuflow->SetBoundary(minB, maxB);  // set the boundary. just to test
-                                     // the subsetting feature of OSUFlow
+  //  osuflow->SetBoundary(minB, maxB);  // set the boundary. just to test
+                                         // the subsetting feature of OSUFlow
   printf(" volume boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n", 
                                 minLen[0], maxLen[0], minLen[1], maxLen[1], 
                                 minLen[2], maxLen[2]); 
@@ -319,10 +313,8 @@ int main(int argc, char** argv)
   glutInit(&argc, argv); 
   glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH); 
   glutInitWindowSize(600,600); 
-  
   glutCreateWindow("Display streamlines"); 
   glutDisplayFunc(display); 
-  //  glutIdleFunc(idle); 
   glutTimerFunc(10, timer, 0); 
   glutMouseFunc(mymouse); 
   glutMotionFunc(mymotion);

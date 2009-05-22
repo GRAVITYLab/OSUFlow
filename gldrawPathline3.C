@@ -395,8 +395,8 @@ int main(int argc, char** argv)
   minLen[0] = minLen[1] = minLen[2] = 0; 
   maxLen[0] = maxLen[1] = maxLen[2] = 127; 
 
-//   int ntime = 50;
-  int ntime = 2;
+   int ntime = 50;
+//  int ntime = 2;
   // partition the domain and create a lattice
 //   lat = new Lattice4D(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
 // 		      maxLen[2]-minLen[2]+1, 50, 1, 

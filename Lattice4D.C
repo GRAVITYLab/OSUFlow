@@ -307,6 +307,25 @@ int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z, float t) {
   return(-1); 
 }
 
+//
+// GetNeighbor
+//
+//
+int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t, 
+                           int &ei, int &ej, int &ek, int &et) {
+
+  int neighbor;
+  int si, sj, sk;
+
+  neighbor = CheckNeighbor(myrank, x, y, z, t);
+  
+  GetIndices(neighbor, ei, ej, ek, et); 
+  
+  return (neighbor); 
+
+}
+
+
 //---------------------------------------------------------------------------
 
 void Lattice4D::InitSeedLists() {

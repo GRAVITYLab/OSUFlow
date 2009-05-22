@@ -45,7 +45,7 @@ bool toggle_animate_streamlines = false;
 float center[3], len[3]; 
 int first_frame = 1; 
 
-int nproc = 32; 
+int nproc = 8; 
 
 ////////////////////////////////////////////////////////
 
@@ -308,9 +308,6 @@ int main(int argc, char** argv)
   VECTOR3 minB, maxB; 
   volume_bounds_type *vb_list; 
 
-
-  printf("hello! entering testmain...\n"); 
-
   OSUFlow *osuflow = new OSUFlow(); 
   printf("read file %s\n", argv[1]); 
   osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
@@ -321,20 +318,24 @@ int main(int argc, char** argv)
 
   int* lattice; 
   int lattice_xdim, lattice_ydim, lattice_zdim; 
-  vb_list = calc_subvolume(maxLen[0]-minLen[0], maxLen[1]-minLen[1], maxLen[2]-minLen[2], 2, nproc, lattice_xdim, lattice_ydim, lattice_zdim); 
+  vb_list = calc_subvolume(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1,
+			   maxLen[2]-minLen[2]+1, 1, nproc, 
+			   lattice_xdim, lattice_ydim, lattice_zdim); 
 
-  printf(" lattice dims = %d %d %d\n", lattice_zdim, lattice_ydim, 
-	 lattice_xdim); 
+  printf(" lattice dims = %d %d %d\n", lattice_zdim, lattice_ydim, lattice_xdim); 
+
+  /*
   for (int k=0; k<lattice_zdim; k++)
     for (int j=0; j<lattice_ydim; j++)
       for (int i=0; i<lattice_xdim; i++) {
 	int idx = k*lattice_xdim*lattice_ydim + j*lattice_xdim+i; 
 	printf(" lattice[%d][%d][%d] = %d\n", k, j, i, lattice[idx]); 
       }
+  */
 
   osuflow_list = new OSUFlow*[nproc];  // create a list of subdomains 
-  sl_list = new list<vtListSeedTrace*>[nproc]; //one streamlines list for each subdomain 
 
+  sl_list = new list<vtListSeedTrace*>[nproc]; //one streamlines list for each subdomain 
 
   for (int i=0; i<nproc; i++) {
     osuflow_list[i] = new OSUFlow(); 

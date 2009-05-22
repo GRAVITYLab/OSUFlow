@@ -22,8 +22,8 @@
 #
 #----------------------------------------------------------------------------
 
-#ARCH = MAC_OSX
-ARCH = LINUX
+ARCH = MAC_OSX
+#ARCH = LINUX
 #ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
@@ -41,7 +41,8 @@ TOP = ..
 
 ifeq ($(ARCH),MAC_OSX)
 C++ = g++
-CCFLAGS = -g -c -DMAC_OSX -DGRAPHICS
+CC  = gcc
+CCFLAGS = -g -c -DMAC_OSX -DGRAPHICS  -DDEBUG_MODE
 LIBS  = -framework GLUT -framework OpenGL 
 endif
 
@@ -154,8 +155,8 @@ OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	Element.o    StreakLine.o    VectorMatrix.o Lattice.o \
 	Field.o      PathLine.o      Streamline.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
-	OSUFlow.o    calc_subvolume.o Lattice4D.o \
-#	LatticeAMR.o
+	OSUFlow.o    FileReader.o calc_subvolume.o Lattice4D.o \
+	LatticeAMR.o
 
 SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -163,7 +164,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	Element.C    StreakLine.C    VectorMatrix.C Lattice.C \
 	Field.C      PathLine.C      Streamline.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
-	OSUFlow.C    calc_subvolume.C Lattice4D.C \
+	OSUFlow.C    FileReader.C calc_subvolume.C Lattice4D.C \
 	LatticeAMR.C
 
 .SUFFIXES: .C
@@ -174,7 +175,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 default: all
 
 all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 mpitest
+	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline # mpitest
 
 #all: lib$(LIBNAME).a 
 
@@ -234,6 +235,21 @@ gldrawFlash: gldrawFlash.o  lib$(LIBNAME).a
 
 gldrawFlash2: gldrawFlash2.o  lib$(LIBNAME).a
 	$(C++) -o gldrawFlash2 gldrawFlash2.o -L. -l$(LIBNAME) $(LIBS)
+
+gldrawFlash3: gldrawFlash3.o  lib$(LIBNAME).a
+	$(C++) -o gldrawFlash3 gldrawFlash3.o -L. -l$(LIBNAME) $(LIBS)
+
+gldrawFlash4: gldrawFlash4.o  lib$(LIBNAME).a
+	$(C++) -o gldrawFlash4 gldrawFlash4.o -L. -l$(LIBNAME) $(LIBS)
+
+gldrawFlashData: gldrawFlashData.o  lib$(LIBNAME).a
+	$(C++) -o gldrawFlashData gldrawFlashData.o -L. -l$(LIBNAME) $(LIBS)
+
+gldrawFlashTime: gldrawFlashTime.o  lib$(LIBNAME).a
+	$(C++) -o gldrawFlashTime gldrawFlashTime.o -L. -l$(LIBNAME) $(LIBS)
+
+gldrawFlashPathline: gldrawFlashPathline.o  lib$(LIBNAME).a
+	$(C++) -o gldrawFlashPathline gldrawFlashPathline.o -L. -l$(LIBNAME) $(LIBS)
 
 gldrawStreak: gldrawStreak.o  lib$(LIBNAME).a
 	$(C++) -o gldrawStreak gldrawStreak.o -L. -l$(LIBNAME) $(LIBS)

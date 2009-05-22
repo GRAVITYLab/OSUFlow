@@ -696,4 +696,14 @@ int Lattice::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 }
 //------------------------------------------------------------------------
 
+
+
 #endif
+
+//
+// Error()
+// error handler
+//
+void Lattice::Error(const char *fmt, ...){
+
+}

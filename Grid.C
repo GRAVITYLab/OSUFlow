@@ -58,6 +58,13 @@ void RegularCartesianGrid::SetBoundary(VECTOR3& minB, VECTOR3& maxB)
   oneOvermappingFactorX = (m_vMaxBound[0] - m_vMinBound[0])/(float)(xdim()-1);
   oneOvermappingFactorY = (m_vMaxBound[1] - m_vMinBound[1])/(float)(ydim()-1);
   oneOvermappingFactorZ = (m_vMaxBound[2] - m_vMinBound[2])/(float)(zdim()-1);
+
+  /*
+  printf(" 1/p ****** %f %f %f *****\n", 
+	 oneOvermappingFactorX,	 oneOvermappingFactorY, 
+	 oneOvermappingFactorZ); 
+  */
+ 
   // grid spacing
   gridSpacing = min(min(oneOvermappingFactorX, oneOvermappingFactorY), 
 		    oneOvermappingFactorZ);
@@ -155,7 +162,8 @@ int RegularCartesianGrid::getCellVertices(int cellId,
   int xidx, yidx, zidx, index;
 
   if((cellId < 0) || (cellId >= totalCell))
-    return 0;
+    //    return 0;
+    return -1;
 
   vVertices.clear();
   zidx = cellId / (xcelldim() * ycelldim());
@@ -194,10 +202,11 @@ bool RegularCartesianGrid::at_vertex(int verIdx, VECTOR3& pos)
   xidx = verIdx - zidx * xdim() * ydim() - yidx * xdim();
 
   float xpos = m_vMinBound[0] + xidx*oneOvermappingFactorX; 
-  float ypos = m_vMinBound[1] + xidx*oneOvermappingFactorY; 
-  float zpos = m_vMinBound[2] + xidx*oneOvermappingFactorZ; 
+  float ypos = m_vMinBound[1] + yidx*oneOvermappingFactorY; 
+  float zpos = m_vMinBound[2] + zidx*oneOvermappingFactorZ; 
 
   // pos.Set((float)xidx, (float)yidx, (float)zidx);
+  pos.Set((float)xpos, (float)ypos, (float)zpos);
   return true;
 }
 
@@ -290,6 +299,7 @@ void RegularCartesianGrid::interpolate(VECTOR3& nodeData,
 
   for(int iFor = 0; iFor < 3; iFor++)
     {
+      if (vData.size() == 0) printf(" vData panic.\n"); 
       nodeData[iFor] = TriLerp(vData[0][iFor], vData[1][iFor], vData[2][iFor], vData[3][iFor],
 			       vData[4][iFor], vData[5][iFor], vData[6][iFor], vData[7][iFor],
 			       fCoeff);
@@ -304,7 +314,8 @@ void RegularCartesianGrid::interpolate(VECTOR3& nodeData,
 //////////////////////////////////////////////////////////////////////////
 float RegularCartesianGrid::cellVolume(int cellId)
 {
-  float volume = 1.0;
+  //  float volume = 1.0; 
+  float volume = oneOvermappingFactorX*oneOvermappingFactorY*oneOvermappingFactorZ; 
   return volume;
 }
 

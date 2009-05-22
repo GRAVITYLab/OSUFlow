@@ -1,6 +1,6 @@
 //	File:		OSUFlow.h
 //
-//	Author:		Liya Li
+//	Author:		Liya Li and Han-Wei Shen 
 //
 //	Date:		Sept 2005
 //
@@ -15,6 +15,8 @@
 #include "Field.h"
 #include "Rake.h"
 #include "FieldLine.h"
+
+#include "FileReader.h"
 
 #ifdef MPI
 #include <mpi.h>
@@ -33,13 +35,24 @@ public:
 	OSUFlow();
 	~OSUFlow();
 
+        ////////////////
+	// data reader helper functions
 	void LoadData(const char* fname, bool bStatic, bool deferred = false);
 	void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
 		      VECTOR3 pMax, bool deferred = false);
 	void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
 		      VECTOR3 pMax, int min_t, int max_t, bool deferred = false);
 
+	// create a flow field from input data array 
+	CVectorField* CreateStaticFlowField(float*, int xsize, int ysize, int zsize, 
+				   float* minb, float* maxB); 
+	CVectorField* CreateTimeVaryingFlowField(float**, int xres, int yres, int zres, float* minB, 
+					float* maxB, int min_t, int max_t); 
+
+        //////////////
 	CVectorField* GetFlowField(void) { return flowField; }
+	void  SetFlowField(CVectorField* field) { flowField = field; }
+
 	VECTOR3 *GetSeeds(int& num) {num = numSeeds[0]*numSeeds[1]*numSeeds[2]; 
 	                             return seedPtr;}
 
@@ -87,12 +100,12 @@ public:
 
 	void DeleteData(void);
 
-	void CreateStaticFlowField(float*, int xsize, int ysize, int zsize, 
-				   VECTOR3 minb, VECTOR3 maxB); 
+
 
 protected:
 
 private:
+
 	void InitStaticFlowField(void);
 	void InitStaticFlowField(VECTOR3 minb, VECTOR3 maxB); 
 	void CreateStaticFlowField(float*, VECTOR3 minb, VECTOR3 maxB); 
@@ -101,6 +114,7 @@ private:
 	void InitTimeVaryingFlowField(int min_t, int max_t);
 	void InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB); 
 	void InitTimeVaryingFlowField(VECTOR3 minb, VECTOR3 maxB, int min_t, int max_t);
+
 
 	bool DeferredLoadData(); 
 

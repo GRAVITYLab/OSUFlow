@@ -32,9 +32,11 @@ struct Partition4D {
   int SizeRecvPoints[MAX_NEIGHBORS]; // size of receiving points list (bytes)
   float *RecvPoints[MAX_NEIGHBORS]; // receiving points list
 
+#ifdef MPI 
   // the following array fills up in order, from 0 to number of requests
   MPI_Request Reqs[4 * MAX_NEIGHBORS]; // message requests
   int NumReqs; // number of requests
+#endif 
 
   int Proc; // process(or) number (mpi rank, core number, node number, etc.)
   int HasData; // data are ready
@@ -64,6 +66,10 @@ class  Lattice4D {
   volume_bounds_type* GetBoundsList(){ return vb_list;}
   void GetLatticeDims(int& i, int&j, int &k, int &l) {i = idim; j=jdim; k=kdim; l = tdim; }
   bool isIn(float, float, float, float, int, int, int, int); 
+
+  int GetNeighbor(int myrank, float x, float y, float z, float t, 
+		  int &ei, int &ej, int &ek, int &et); 
+
   int GetNeighbor(int myrank, float x, float y, float z, float t);
   int CheckNeighbor(int myrank, float x, float y, float z, float t); 
   int GetProc(int, int, int, int); 
