@@ -76,10 +76,8 @@ Lattice4D::~Lattice4D()
 #ifdef MPI
   if (nbhd == 27 || nbhd == MAX_NEIGHBORS) {
 
-    // init the partitions list
     for (int j = 0; j < npart; j++) {
 
-      // init sending and receiving lists
       for (int i = 0; i < nbhd; i++) {
 	free(parts[j].SendPoints[i]);
 	free(parts[j].RecvPoints[i]);
@@ -409,13 +407,13 @@ void Lattice4D::ResetFlowMatrix()
 Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int d) {
 
   int i, j;
-
   volume_bounds_type *vbs; 
 
   xdim = xlen; 
   ydim = ylen; 
   zdim = zlen; 
   ldim = tlen;  // number of time steps
+
   // spatial domain partitioning first 
   vbs = calc_subvolume(xlen, ylen, zlen, ghost, nsp, idim, jdim, kdim); 
   tdim = ntp; 
@@ -457,7 +455,7 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
     // assign default procs
     parts[j].Proc = j;
 
-    // init sending and receiving lists
+    // init sending and receiving lists, request lists
     for (int i = 0; i < nbhd; i++){
 
       parts[j].NumSendPoints[i] = parts[j].NumRecvPoints[i] = 0;
@@ -467,6 +465,7 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
       assert(parts[j].RecvPoints[i] != NULL);
       parts[j].SizeSendPoints[i] = parts[j].SizeRecvPoints[i] = 4 * sizeof(float);
       parts[j].HasData = 0;
+      parts[j].NumReqs = 0;
 
     }
 
@@ -734,10 +733,9 @@ void Lattice4D::Error(const char *fmt, ...){
 //
 void Lattice4D::SendNeighbors(int myrank, MPI_Comm comm) {
 
-  MPI_Request req;
   int ranks[MAX_NEIGHBORS];
   int proc, myproc;
-  int i;
+  int i, j;
 
   MPI_Comm_rank(comm, &myproc);
   GetNeighborRanks(myrank, ranks);
@@ -753,15 +751,17 @@ void Lattice4D::SendNeighbors(int myrank, MPI_Comm comm) {
       // send only to remote locations
       if (proc != myproc) {
 
-	MPI_Send(&(parts[myrank].NumSendPoints[i]), 1, MPI_INT, proc, 
-		 ranks[i], comm);
+	j = parts[myrank].NumReqs++;
+	MPI_Isend(&(parts[myrank].NumSendPoints[i]), 1, MPI_INT, proc, 
+		 ranks[i], comm, &(parts[myrank].Reqs[j]));
 
 	if (parts[myrank].NumSendPoints[i]) {
 	  fprintf(stderr, "rank %d sending %d points to remote rank %d\n",
 		  myrank, parts[myrank].NumSendPoints[i], ranks[i]);
-	  MPI_Send(parts[myrank].SendPoints[i], 
+	  j = parts[myrank].NumReqs++;
+	  MPI_Isend(parts[myrank].SendPoints[i], 
 		   parts[myrank].NumSendPoints[i] * 4, MPI_FLOAT, proc,
-		   ranks[i], comm);
+		    ranks[i], comm, &(parts[myrank].Reqs[j]));
 	  parts[myrank].NumSendPoints[i] = 0;
 	}
 
@@ -790,7 +790,6 @@ void Lattice4D::SendNeighbors(int myrank, MPI_Comm comm) {
 //
 int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 
-  MPI_Status status;
   int ranks[MAX_NEIGHBORS]; // ranks of my neighbors
   int num = 0;
   int proc, myproc;  
@@ -809,9 +808,11 @@ int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
       proc = GetProc(ranks[i]);
 
       // remote: get number of received points and tag
-      if (proc != myproc)
-	MPI_Recv(&(parts[myrank].NumRecvPoints[i]), 1, MPI_INT, 
-		 proc, myrank, comm, &status);
+      if (proc != myproc) {
+	j = parts[myrank].NumReqs++;	
+	MPI_Irecv(&(parts[myrank].NumRecvPoints[i]), 1, MPI_INT, 
+		  proc, myrank, comm, &(parts[myrank].Reqs[j]));
+      }
 
       // local: get number of received points
       if (proc == myproc) {
@@ -840,9 +841,10 @@ int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
 
 	// remote
 	if (proc != myproc) {
-	  MPI_Recv(parts[myrank].RecvPoints[i], 
-             parts[myrank].NumRecvPoints[i] * 4, 
-             MPI_FLOAT, proc, myrank, comm, &status);
+	  j = parts[myrank].NumReqs++;
+	  MPI_Irecv(parts[myrank].RecvPoints[i],
+		    parts[myrank].NumRecvPoints[i] * 4, MPI_FLOAT, proc, 
+		    myrank, comm, &(parts[myrank].Reqs[j]));
 	  // debug
 // 	  fprintf(stderr, "rank %d received %d points from remote rank %d\n", myrank, parts[myrank].NumRecvPoints[i], ranks[i]);
 	} // remote
@@ -875,6 +877,11 @@ int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
     } // if neighbor exists
 
   } // for all neighbors
+
+  // flush all pending messages
+  MPI_Waitall(parts[myrank].NumReqs, parts[myrank].Reqs, 
+	      MPI_STATUSES_IGNORE);
+  parts[myrank].NumReqs = 0;
 
   return num;
 

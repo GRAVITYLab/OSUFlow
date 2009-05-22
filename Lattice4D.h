@@ -32,6 +32,10 @@ struct Partition4D {
   int SizeRecvPoints[MAX_NEIGHBORS]; // size of receiving points list (bytes)
   float *RecvPoints[MAX_NEIGHBORS]; // receiving points list
 
+  // the following array fills up in order, from 0 to number of requests
+  MPI_Request Reqs[4 * MAX_NEIGHBORS]; // message requests
+  int NumReqs; // number of requests
+
   int Proc; // process(or) number (mpi rank, core number, node number, etc.)
   int HasData; // data are ready
 
