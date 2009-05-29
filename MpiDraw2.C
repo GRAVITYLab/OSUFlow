@@ -118,6 +118,7 @@ int threads; // number of threads per process
 int avail_mem; // memory space for dataset (MB)
 int b_mem; // number of blocks to keep in memory
 int max_bt; // max number of time steps in any block
+int tr; // number of time partitions per round
 
 // debug
 #define MAX_RENDER_SEEDS 1000
@@ -208,68 +209,102 @@ void ComputeThread() {
   int rank;
   int first; // first time
   int usec; // initial wait time (microseconds)
+  int ngroups; // number of groups of blocks
+  int g; // current group
+  int sb, eb; // starting and ending block in the current group
+  int bg; // number of blocks per group, except perhaps last group
 
+  // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  ngroups = ceil(ntpart / tr); // number of groups
+  bg = floor(nblocks / ngroups); // number of blocks per group, except last
 
   // clear all blocks' compute status
   for (j = 0; j < nblocks; j++)
     lat->ClearComp(j);
 
-  // for all rounds
-  for (i = 0; i < max_rounds; i++) {
+  // for all groups
+  for (g = 0; g < ngroups; g++) {
 
     if (rank == 0)
-      fprintf(stderr, "begin round %d\n", i);
+      fprintf(stderr, "** begin group %d **\n", g);
 
-    // clear streamlines
-    for (j = 0; j < nblocks; j++)
-      sl_list[j].clear();
+    // starting and ending blocks in the group
+    sb = g * bg;
+    eb = (g == ngroups - 1 ? nblocks : sb + bg);
 
-    done = 0;
+    // debug
+    fprintf(stderr, "sb = %d eb = %d\n",sb, eb);
 
-    // until all blocks are computed
-    usec = 1000;
-    while (!done) {
+    // for all rounds
+    for (i = 0; i < max_rounds; i++) {
 
-      // for all blocks
-      for (j = 0; j < nblocks; j++) {
+      if (rank == 0)
+	fprintf(stderr, "begin round %d\n", i);
 
-	if (!lat->GetComp(j, i) && lat->GetLoad(j)) {
-	  ComputePathlines(j);
-	  fprintf(stderr, "Computed block %d\n", j);
-          #pragma omp flush
-	  lat->SetComp(j, i);
-          #pragma omp flush
+      // clear streamlines
+      for (j = 0; j < nblocks; j++)
+	sl_list[j].clear();
+
+      done = 0;
+
+      // until all blocks are computed
+      usec = 1000;
+      while (!done) {
+
+	// for all blocks
+	for (j = 0; j < nblocks; j++) {
+
+	  // blocks that are not in this group do a null send to neighbors
+	  if (i < sb || i >= eb) {
+	    lat->SendNeighbors(blocks[i], MPI_COMM_WORLD);
+#pragma omp flush
+	    lat->SetComp(j, i);
+#pragma omp flush
+	  }
+
+	  // blocks that are in this group get computed
+	  if (!lat->GetComp(j, i) && lat->GetLoad(j)) {
+	    ComputePathlines(j);
+	    fprintf(stderr, "Computed block %d\n", j);
+#pragma omp flush
+	    lat->SetComp(j, i);
+#pragma omp flush
+	  }
+
+	} // for all blocks
+
+	// check if all done
+	done = 1;
+	for (j = 0; j < nblocks; j++) {
+	  if (!lat->GetComp(j, i))
+	    done = 0;
 	}
 
-      } // for all blocks
+	if (!done) {
+	  usleep(usec);
+	  usec *= 2;
+	}
 
-      // check if all done
-      done = 1;
-      for (j = 0; j < nblocks; j++) {
-	if (!lat->GetComp(j, i))
-	  done = 0;
-      }
+      } // until all blocks are computed
 
-      if (!done) {
-	usleep(usec);
-	usec *= 2;
-      }
+      ReceiveMessages();
 
-    } // until all blocks are computed
+    } // for all rounds
 
-    ReceiveMessages();
+    if (rank == 0)
+      fprintf(stderr, "Completed %d rounds\n", max_rounds);
+
+  } // for all groups
+
+  if (rank == 0)
+    fprintf(stderr, "Completed %d groups\n", ngroups);
 
 #ifdef GRAPHICS
 
-    GatherPathlines();
+  GatherPathlines();
 
 #endif
-
-  } // for all rounds
-
-  if (rank == 0)
-    fprintf(stderr, "Completed %d rounds\n", max_rounds);
 
 }
 //-----------------------------------------------------------------------
@@ -285,74 +320,100 @@ void IOThread() {
   int first = 1; // first time
   int usec; // wait time in microseconds
   int i, j, k;
+  int ngroups; // number of groups of blocks
+  int g; // current group
+  int sb, eb; // starting and ending block in the current group
+  int bg; // number of blocks per group, except perhaps last group
 
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   num_loaded = 0;
+  ngroups = ceil(ntpart / tr); // number of groups
+  bg = floor(nblocks / ngroups); // number of blocks per group, except last
 
-  // clear all blocks' load status
-  for (i = 0; i < nblocks; i++)
+  // init all blocks
+  for (i = 0; i < nblocks; i++) {
+
     lat->ClearLoad(i);
+    osuflow[i] = new OSUFlow;
+    minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
+	     vb_list[blocks[i]].zmin);
+    maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
+	     vb_list[blocks[i]].zmax);
 
-  // for all rounds
-  for (j = 0; j < max_rounds; j++) {
+    // init seeds for blocks at t = initial time
+//     if (vb_list[blocks[i]].tmin == 0) {
 
-    // for all blocks
-    for (i = 0; i < nblocks; i++) {
+      from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
+      to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
+      osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+      seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
 
-      if (lat->GetLoad(i))
-	continue;
-
-      // make room for the next block
-      if (num_loaded >= b_mem) {
-	MultiThreadEvictBlock(j);
-	num_loaded--;
+      while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
+	Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
+	assert(Seeds[i] != NULL);
+	SizeSeeds[i] *= 2;
       }
 
-      // if osuflow does not exist, create it and initialize seeds
-      if (osuflow[i] == NULL) {
+      for (k = 0; k < NumSeeds[i]; k++)
+	Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], 
+			vb_list[blocks[i]].tmin);
 
-	osuflow[i] = new OSUFlow;
+//     } // init seeds
 
-	// init seeds
-	minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
-		 vb_list[blocks[i]].zmin);
-	maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
-		 vb_list[blocks[i]].zmax);
-	from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
-	to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
-	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
-	seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
-	while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
-	  Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
-	  assert(Seeds[i] != NULL);
-	  SizeSeeds[i] *= 2;
+  } // init all blocks
+
+  // for all groups
+  for (g = 0; g < ngroups; g++) {
+
+    if (rank == 0)
+      fprintf(stderr, "** begin group %d **\n", g);
+
+    // starting and ending blocks in the group
+    sb = g * bg;
+    eb = (g == ngroups - 1 ? nblocks : sb + bg);
+
+    // debug
+    fprintf(stderr, "sb = %d eb = %d\n",sb, eb);
+
+    // for all rounds
+    for (j = 0; j < max_rounds; j++) {
+
+      // for all blocks
+      for (i = 0; i < nblocks; i++) {
+
+	// block is either not in this group or is loaded already
+	if (i < sb || i >= eb || lat->GetLoad(i))
+	  continue;
+
+	// make room for the next block
+	if (num_loaded >= b_mem) {
+	  MultiThreadEvictBlock(j);
+	  num_loaded--;
 	}
-	for (k = 0; k < NumSeeds[i]; k++)
-	  Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], 0.0f);
 
-      } // if osuflow does not exist
+	// read the data
+	fprintf(stderr, "block %d: min %.3lf %.3lf %.3lf %d max %.3lf %.3lf %.3lf %d\n", i, minB[0], minB[1], minB[2], vb_list[blocks[i]].tmin, maxB[0], maxB[1], maxB[2], vb_list[blocks[i]].tmax);
+	osuflow[i]->LoadData(filename, false, minB, maxB, size, max_bt,
+			     vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, 
+			     MPI_COMM_WORLD); 
 
-      // read the data
-      fprintf(stderr, "block %d: min %.3lf %.3lf %.3lf %d max %.3lf %.3lf %.3lf %d\n", i, minB[0], minB[1], minB[2], vb_list[blocks[i]].tmin, maxB[0], maxB[1], maxB[2], vb_list[blocks[i]].tmax);
-      osuflow[i]->ReadData(filename, false, minB, maxB, size, max_bt,
-			   vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, 
-			   MPI_COMM_WORLD); 
+	// update status
+	lat->SetData(blocks[i], 1);
+	fprintf(stderr, "Loaded block %d\n", i);
+#pragma omp flush
+	lat->SetLoad(i);
+#pragma omp flush
+	num_loaded++;
+	osuflow[i]->ScaleField(10.0); // improves visibility
 
-      // update status
-      lat->SetData(blocks[i], 1);
-      fprintf(stderr, "Loaded block %d\n", i);
-      #pragma omp flush
-      lat->SetLoad(i);
-      #pragma omp flush
-      num_loaded++;
-      osuflow[i]->ScaleField(10.0); // improves visibility
+      } // for all blocks
 
-    } // for all blocks
+      usleep(1000);
 
-    usleep(1000);
+    } // for all rounds
 
-  } // for all rounds
+  } // for all groups
 
 }
 //-----------------------------------------------------------------------
@@ -402,88 +463,123 @@ void IOandCompute() {
   int num_loaded; // number of blocks loaded into memory so far
   int rank;
   int i, j, k;
+  int ngroups; // number of groups of blocks
+  int g; // current group
+  int sb, eb; // starting and ending block in the current group
+  int bg; // number of blocks per group, except perhaps last group
 
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  num_loaded = 0;
+  num_loaded = 0; // number of blocks currently loaded
+  ngroups = ceil(ntpart / tr); // number of groups
+  bg = floor(nblocks / ngroups); // number of blocks per group, except last
 
-  // clear all blocks' load status
-  for (i = 0; i < nblocks; i++)
+  // init all blocks
+  for (i = 0; i < nblocks; i++) {
+
     lat->ClearLoad(i);
+    osuflow[i] = new OSUFlow;
+    minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
+	     vb_list[blocks[i]].zmin);
+    maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
+	     vb_list[blocks[i]].zmax);
 
-  // for all rounds
-  for (j = 0; j < max_rounds; j++) {
+    // init seeds for blocks at t = initial time
+//     if (vb_list[blocks[i]].tmin == 0) {
+
+      from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
+      to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
+      osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+      seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
+
+      while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
+	Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
+	assert(Seeds[i] != NULL);
+	SizeSeeds[i] *= 2;
+      }
+
+      for (k = 0; k < NumSeeds[i]; k++)
+	Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], 
+			vb_list[blocks[i]].tmin);
+
+//     } // init seeds
+
+  } // init all blocks
+
+  // for all groups
+  for (g = 0; g < ngroups; g++) {
 
     if (rank == 0)
-      fprintf(stderr, "*** begin round %d ***\n", j);
+      fprintf(stderr, "** begin group %d **\n", g);
 
-    // for all blocks
-    for (i = 0; i < nblocks; i++) {
+    // starting and ending blocks in the group
+    sb = g * bg;
+    eb = (g == ngroups - 1 ? nblocks : sb + bg);
 
-      // if osuflow does not exist, create it and initialize seeds
-      if (osuflow[i] == NULL) {
+    // debug
+    fprintf(stderr, "sb = %d eb = %d\n",sb, eb);
 
-	osuflow[i] = new OSUFlow;
+    // for all rounds
+    for (j = 0; j < max_rounds; j++) {
 
-	// init seeds
-	minB.Set(vb_list[blocks[i]].xmin, vb_list[blocks[i]].ymin, 
-		 vb_list[blocks[i]].zmin);
-	maxB.Set(vb_list[blocks[i]].xmax, vb_list[blocks[i]].ymax, 
-		 vb_list[blocks[i]].zmax);
-	from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
-	to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
-	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
-	seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
-	while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
-	  Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
-	  assert(Seeds[i] != NULL);
-	  SizeSeeds[i] *= 2;
-	}
-	for (k = 0; k < NumSeeds[i]; k++)
-	  Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], 0.0f);
+      if (rank == 0)
+	fprintf(stderr, " * begin round %d *\n", j);
 
-      } // if osuflow does not exist
+      // for all blocks
+      for (i = 0; i < nblocks; i++) {
 
-      // if the block needs to be loaded
-      if (!lat->GetLoad(i)) {
-
-	// make room for the next block
-	if (num_loaded >= b_mem) {
-	  SingleThreadEvictBlock();
-	  num_loaded--;
+	// blocks that are not in this group do a null send to neighbors
+	if (i < sb || i >= eb) {
+	  lat->SendNeighbors(blocks[i], MPI_COMM_WORLD);
+	  continue;
 	}
 
-	// read the data
-      fprintf(stderr, "block %d: min %.3lf %.3lf %.3lf %d max %.3lf %.3lf %.3lf %d\n", i, minB[0], minB[1], minB[2], vb_list[blocks[i]].tmin, maxB[0], maxB[1], maxB[2], vb_list[blocks[i]].tmax);
-      osuflow[i]->ReadData(filename, false, minB, maxB, size, max_bt,
-			   vb_list[blocks[i]].tmin, vb_list[blocks[i]].tmax, 
-			   MPI_COMM_WORLD); 
-	lat->SetData(blocks[i], 1);
-	lat->SetLoad(i);
-	num_loaded++;
-	fprintf(stderr, "Loaded block %d\n", i);
-	osuflow[i]->ScaleField(10.0); // improves visibility
+	// if the block needs to be loaded
+	if (!lat->GetLoad(i)) {
 
-      } // if the block needs to be loaded
+	  // make room for the next block
+	  if (num_loaded >= b_mem) {
+	    SingleThreadEvictBlock();
+	    num_loaded--;
+	  }
 
-      // compute pathlines
-      ComputePathlines(i);
-      fprintf(stderr, "Computed block %d\n", i);
+	  // read the data
+	  fprintf(stderr, "rank %d: min %.3lf %.3lf %.3lf %d max %.3lf %.3lf %.3lf %d\n", blocks[i], minB[0], minB[1], minB[2], vb_list[blocks[i]].tmin, maxB[0], maxB[1], maxB[2], vb_list[blocks[i]].tmax);
+	  osuflow[i]->LoadData(filename, false, minB, maxB, size, max_bt,
+			       vb_list[blocks[i]].tmin, 
+			       vb_list[blocks[i]].tmax, MPI_COMM_WORLD); 
+	  lat->SetData(blocks[i], 1);
+	  lat->SetLoad(i);
+	  num_loaded++;
+	  fprintf(stderr, "Loaded block %d\n", i);
+	  osuflow[i]->ScaleField(10.0); // improves visibility
 
-    } // for all blocks
+	} // if the block needs to be loaded
 
-    ReceiveMessages();
+	// compute pathlines
+	ComputePathlines(i);
+	fprintf(stderr, "Computed block %d\n", i);
 
-#ifdef GRAPHICS
+      } // for all blocks
 
-    GatherPathlines();
+      ReceiveMessages();
 
-#endif
+    } // for all rounds
 
-  } // for all rounds
+    if (rank == 0)
+      fprintf(stderr, "Completed %d rounds\n", max_rounds);
+
+  } // for all groups
 
   if (rank == 0)
-    fprintf(stderr, "Completed %d rounds\n", max_rounds);
+    fprintf(stderr, "Completed %d groups\n", ngroups);
+
+  // gather pathlines at root for rendering
+#ifdef GRAPHICS
+
+  GatherPathlines();
+
+#endif
 
 }
 //-----------------------------------------------------------------------
@@ -509,6 +605,12 @@ void SingleThreadEvictBlock() {
 //
 // ComputePathlines
 //
+// computes path or streamlines
+// 
+// block_num: local block number (0 to nblocks-1)
+// not global partition number
+//
+//
 void ComputePathlines(int block_num) {
 
   list<vtListTimeSeedTrace*> list; // trace of seed points
@@ -520,12 +622,18 @@ void ComputePathlines(int block_num) {
 
   if (NumSeeds[block_num]) {
 
+    list.clear();
+
     // perform the integration
     // todo: integrate in both directions
-    list.clear();
     osuflow[block_num]->SetIntegrationParams(1, 5); 
     osuflow[block_num]->GenPathLines(Seeds[block_num], list, FORWARD, 
          NumSeeds[block_num], pf); 
+
+    // debug
+    fprintf(stderr, "NumSeeds[rank %d] = %d NumTraces[rank %d] = %d\n", 
+	    blocks[block_num], NumSeeds[block_num], blocks[block_num], 
+	    list.size());
 
     // copy each trace to the streamline list for later rendering
     for (trace_iter = list.begin(); trace_iter != list.end(); trace_iter++)
@@ -561,6 +669,7 @@ void ComputePathlines(int block_num) {
 // ReceiveMessages
 //
 // receives all pending messages
+//
 //
 void ReceiveMessages() {
 
@@ -612,12 +721,14 @@ void GatherPathlines() {
 // gathers number of points in each trace to the root
 //
 // ntrace: number of traces in each process (passed by reference)
+// sb, eb: starting and ending blocks
+//
 // returns: total number of points in my process
 //
 int GatherNumPts(int* &ntrace) {
 
   int myntrace = 0; // my number of traces
-  static int *ofst = NULL; // offsets into npt
+  static int *ofst = NULL; // offsets into ntrace
   int *mynpt; // number of points in each of my traces
   int tot_mynpt = 0; // total number of my points
   int rank, nproc; // MPI usual
@@ -775,7 +886,7 @@ void GetArgs(int argc, char *argv[]) {
   VECTOR3 minLen, maxLen; // spatial data bounds
   int minTime, maxTime; // time data bounds
 
-  assert(argc >= 13);
+  assert(argc >= 14);
 
   strncpy(filename,argv[1],sizeof(filename));
 
@@ -795,12 +906,13 @@ void GetArgs(int argc, char *argv[]) {
 
   nspart = atoi(argv[6]); // total space partitions
   ntpart = atoi(argv[7]); // total time partitions
+  tr = atoi(argv[8]); // number of time partitions per round
 
-  tf = atoi(argv[8]); // traces per block
-  pf = atoi(argv[9]); // points per trace
-  max_rounds = atoi(argv[10]); // rounds
-  threads = atoi(argv[11]) <= 1 ? 1 : 2; // threads per process
-  avail_mem = atoi(argv[12]); // memory data size (MB)
+  tf = atoi(argv[9]); // traces per block
+  pf = atoi(argv[10]); // points per trace
+  max_rounds = atoi(argv[11]); // rounds
+  threads = atoi(argv[12]) <= 1 ? 1 : 2; // threads per process
+  avail_mem = atoi(argv[13]); // memory data size (MB)
 
 }
 //-----------------------------------------------------------------------
@@ -822,6 +934,7 @@ void Init() {
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
   assert(nspart * ntpart >= nproc);
+  assert(tr <= ntpart);
 
   // init lattice and osuflow
   lat = new Lattice4D(size[0], size[1], size[2], tsize, ghost, nspart, 
@@ -856,14 +969,16 @@ void Init() {
 
   // allocate pts list and number of points list for rendering
   if (rank == 0) {
-    nt = nspart * ntpart * tf;
-    np = nt * pf;
-    npt = new int[nt];
+    nt = nspart * ntpart * tf; // max total traces, current round
+    np = nt * pf; // max total points, current round
+    npt = new int[nt]; // number of points in everyone's trace, current round
     assert(npt != NULL);
-    pt = new VECTOR4[np];
+    pt = new VECTOR4[np]; // points in everyones traces, current round
     assert(pt != NULL);
+    // number of points in everyone's traces, all rounds
     Npt = new int[nt * max_rounds];
     assert(Npt != NULL);
+    // points ini everyone's traces, all rounds
     Pt = new VECTOR4[np * max_rounds];
     assert(Pt != NULL);
   }

@@ -203,6 +203,7 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 	res = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, initialTime, vel);
 	if(res == OUT_OF_BOUND)
 		return OUT_OF_BOUND;
+
 	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
 		return CRITICAL_POINT;
 

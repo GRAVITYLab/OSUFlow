@@ -57,7 +57,7 @@ void vtCPathLine::computePathLine(list<vtListTimeSeedTrace*>& listSeedTraces)
 		vtListTimeSeedTrace *trace =  new vtListTimeSeedTrace;
 		vtParticleInfo* thisParticle = *pIter;
 		currentT = thisParticle->m_fStartTime; 
-		
+
 		if(thisParticle->itsValidFlag == 1)
 		{
 			res = advectParticle(m_integrationOrder, *thisParticle, currentT, FLT_MAX, *trace);

@@ -21,6 +21,9 @@
 // maximum number of blocks a process can have (todo: allocate dynamically)
 #define MAX_BLOCKS 256
 
+// maximum number of total global partitions
+#define MAX_PARTS 100000000
+
 // a global (all processes) block or partition
 struct Partition4D {
 

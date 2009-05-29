@@ -3,6 +3,10 @@
 #include <stdlib.h> 
 #include <assert.h>
 
+#ifdef MPI
+#include <mpi.h>
+#endif
+
 /////////////////////////////////////////////////////////
 
 float* ReadStaticDataRaw(char* fname, int* dimension) 
@@ -164,3 +168,206 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
     }
   return(ppData); 
 }
+//-----------------------------------------------------------------------
+
+// MPI functions
+
+#ifdef MPI
+
+//-----------------------------------------------------------------------
+//
+// ReadStaticDataRaw
+//
+// Read a static subdomain collectively
+// used MPI-IO collectives to perform the I/O
+//
+// flowName: dataset name
+// sMin, sMax: corners of subdomain
+// dim: size of total domain
+//
+float* ReadStaticDataRaw(char *flowName, float *sMin, float *sMax, 
+			 int *dim, MPI_Comm comm) {
+
+  float* Data = NULL; // the data
+  MPI_File fd;
+  MPI_Datatype filetype;
+  int size[3]; // sizes of entire dataset
+  int subsize[3]; // sizes of my subdomain
+  int start[3]; // starting indices of my subdomain
+  int nflt; // number of floats in my spatial domain (3 * number of points)
+  MPI_Status status;
+  int rank;
+  int i;
+
+  MPI_Comm_rank(comm, &rank);
+
+  // open the file
+  assert(MPI_File_open(comm, flowName, MPI_MODE_RDONLY, MPI_INFO_NULL,
+		       &fd) == MPI_SUCCESS);
+
+  // set subarray params
+  // reversed orders are intentional: starts and subsizes are [z][y][x]
+  // sMin and sMax are [x][y][z]
+  for (i = 0; i < 3; i++) {
+    size[2 - i] = dim[i];
+    start[2 - i] = sMin[i];
+    subsize[2 - i] = sMax[i] - sMin[i] + 1;
+  }
+  size[2] *= 3;
+  start[2] *= 3;
+  subsize[2] *= 3;
+  nflt = subsize[0] * subsize[1] * subsize[2];
+
+  // allocate data space
+  assert((Data = new float[nflt]) != NULL);
+
+  // debug
+//   fprintf(stderr,"dim = %.0f %.0f %.0f sMin = %.0f %.0f %.0f sMax = %.0f %.0f %.0f size = %d %d %d start = %d %d %d subsize = %d %d %d\n",dim[0],dim[1],dim[2],sMin[0],sMin[1],sMin[2],sMax[0],sMax[1],sMax[2],size[2],size[1],size[0],start[2],start[1],start[0],subsize[2],subsize[1],subsize[0]);
+
+  // do the actual collective io
+  MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
+       MPI_FLOAT, &filetype);
+  MPI_Type_commit(&filetype);
+  MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
+       MPI_INFO_NULL);
+  assert(MPI_File_read_all(fd, Data, nflt, MPI_FLOAT, &status) == 
+	 MPI_SUCCESS);
+  assert(status.count == sizeof(float) * nflt);
+
+  //swap bytes
+#ifdef BYTE_SWAP
+  for (i = 0; i < subsize[0] * subsize[1] * subsize[2]; i++)
+    swap4((char *)&(pData[i]));
+#endif
+
+  MPI_File_close(&fd);
+
+  return Data;
+
+}
+//---------------------------------------------------------------------------
+//
+// ReadTimeVaryingDataRaw
+//
+// Read time-varying subdomain data collectively
+// used MPI-IO collectives to perform the I/O
+//
+// flowName: dataset name
+// sMin, sMax: corners of subdomain
+// dim: size of total domain
+// bt_max: max number of time steps in any block
+// t_min, t_max: time range of subdomain
+//
+float** ReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax, 
+			       int* dim, int bt_max, int t_min,
+			       int t_max, MPI_Comm comm) {
+
+  float **Data; // the data
+  MPI_File fd;
+  MPI_Datatype filetype;
+  int size[3]; // sizes of entire dataset
+  int subsize[3]; // sizes of my subdomain
+  int start[3]; // starting indices of my subdomain
+  MPI_Status status;
+  int rank;
+  FILE *meta; // metadata file with file names of time step files
+  int timesteps; // number of timesteps in the entire dataset
+  char filename[256]; // individual timestep file name
+  int nflt; // number of floats in my spatial domain (3 * number of points)
+  int nt; // number of time steps in my time-space domain
+  int null_reads; // number of null reads to fill out max number of time steps
+  int i, t;
+
+  MPI_Comm_rank(comm, &rank);
+
+  // read metadata
+  meta = fopen(flowName, "r");
+  assert(meta != NULL);
+  fscanf(meta, "%d", &timesteps);
+
+  // set subarray params
+  // reversed orders are intentional: starts and subsizes are [z][y][x]
+  // sMin and sMax are [x][y][z]
+  for (i = 0; i < 3; i++) {
+    size[2 - i] = dim[i];
+    start[2 - i] = sMin[i];
+    subsize[2 - i] = sMax[i] - sMin[i] + 1;
+  }
+  size[2] *= 3;
+  start[2] *= 3;
+  subsize[2] *= 3;
+  nflt = subsize[0] * subsize[1] * subsize[2];
+
+  // allocate data space
+  nt = t_max - t_min + 1;
+  assert((Data = new float*[nt]) != NULL);
+  for (i = 0; i < nt; i++)
+    assert((Data[i] = new float[nflt]) != NULL);
+
+  // for all time steps
+  for (t = 0; t < timesteps; t++) {
+
+    fscanf(meta, "%s", filename);
+    if (t < t_min || t > t_max)
+      continue;
+
+    // open the file
+//     if (rank == 0)
+//       fprintf(stderr,"%s\n",filename);
+    assert(MPI_File_open(comm, filename, MPI_MODE_RDONLY,
+			 MPI_INFO_NULL, &fd) == MPI_SUCCESS);
+
+    // do the actual collective io
+    MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
+			     MPI_FLOAT, &filetype);
+    MPI_Type_commit(&filetype);
+    MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
+		      MPI_INFO_NULL);
+    assert(MPI_File_read_all(fd, Data[t - t_min], nflt,
+			     MPI_FLOAT, &status) == MPI_SUCCESS);
+    assert(status.count == sizeof(float) * nflt);
+
+    // clean up
+    MPI_File_close(&fd);
+    MPI_Type_free(&filetype);
+
+    //swap bytes
+#ifdef BYTE_SWAP
+    for (i = 0; i < 3 * npt; i++)
+      swap4((char *)&(Data[i]));
+#endif
+
+  } // for all time steps
+
+  // null reads to fill out the max number of time steps
+  null_reads = bt_max - t_max + t_min - 1;
+  assert(null_reads >= 0);
+  if (null_reads)
+    assert(MPI_File_open(comm, filename, MPI_MODE_RDONLY,
+			 MPI_INFO_NULL, &fd) == MPI_SUCCESS);
+
+  // for any null reads needed
+  for (t = 0; t < null_reads; t++) {
+    subsize[0] = subsize[1] = subsize[2] = 1;
+    start[0] = start[1] = start[2] = 0;
+    MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
+			     MPI_FLOAT, &filetype);
+    MPI_Type_commit(&filetype);
+    MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
+		      MPI_INFO_NULL);
+    assert(MPI_File_read_all(fd, Data, 0, MPI_FLOAT, &status) == MPI_SUCCESS);
+    MPI_Type_free(&filetype);
+
+  }
+
+  // clean up
+  if (null_reads)
+    MPI_File_close(&fd);
+  fclose(meta);
+
+  return Data;
+
+}
+//--------------------------------------------------------------------------
+
+#endif

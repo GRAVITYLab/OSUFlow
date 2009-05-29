@@ -437,6 +437,7 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
   vbs = calc_subvolume(xlen, ylen, zlen, ghost, nsp, idim, jdim, kdim); 
   tdim = ntp; 
   npart = nsp*ntp; 
+  assert(npart <= MAX_PARTS);
   parts = new Partition4D[npart]; 
   flowMatrix = new int[npart*npart]; 
   memset(flowMatrix, '\0', npart*npart*sizeof(int)); 
@@ -771,8 +772,10 @@ void Lattice4D::SendNeighbors(int myrank, MPI_Comm comm) {
       if (proc != myproc) {
 
 	j = parts[myrank].NumReqs++;
+	// tag for header message offset by MAX_PARTS to differentiate
+	// from points message
 	MPI_Isend(&(parts[myrank].NumSendPoints[i]), 1, MPI_INT, proc, 
-		 ranks[i], comm, &(parts[myrank].Reqs[j]));
+		 MAX_PARTS + ranks[i], comm, &(parts[myrank].Reqs[j]));
 
 	if (parts[myrank].NumSendPoints[i]) {
 	  fprintf(stderr, "rank %d sending %d points to remote rank %d\n",
@@ -829,8 +832,10 @@ int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
       // remote: get number of received points and tag
       if (proc != myproc) {
 	j = parts[myrank].NumReqs++;	
+	// tag for header message offset by MAX_PARTS to differentiate
+	// from points message
 	MPI_Irecv(&(parts[myrank].NumRecvPoints[i]), 1, MPI_INT, 
-		  proc, myrank, comm, &(parts[myrank].Reqs[j]));
+		  proc, MAX_PARTS + myrank, comm, &(parts[myrank].Reqs[j]));
       }
 
       // local: get number of received points

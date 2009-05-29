@@ -50,6 +50,9 @@ sb=4
 # total number of partitions in the time domain
 tb=2
 
+# number of time partitions per round
+tr=2
+
 # number of traces per block
 t=200
 
@@ -57,7 +60,7 @@ t=200
 p=200
 
 # number of rounds
-r=2
+r=1
 
 # number of threads
 # 1 = each process a single thread
@@ -69,38 +72,38 @@ m=128
 
 if [ "$ARCH" = "LINUX" ]; then
 
-mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $t $p $r $th $m
+mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
-#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $t $p $r $th $m
+#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
 
-#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $t $p $r $th $m
+#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
-#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $t $p $r $th $m
+#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
 fi
 
 if [ "$ARCH" = "BGP" ]; then
 
-cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $t $p $r $th $m
+cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
 fi
 
 if [ "$ARCH" = "FD" ]; then
 
-srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $t $p $r $th $m
+srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
 fi
 
 if [ "$ARCH" = "EUREKA" ]; then
 
-mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $t $p $r $th $m
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
 fi
 
 if [ "$ARCH" = "BB" ]; then
 
-mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $t $p $r $th $m
+mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
 #mpiexec -machinefile ./nodes -l -n $num_procs hostname
 

@@ -22,8 +22,8 @@
 #
 #----------------------------------------------------------------------------
 
-ARCH = MAC_OSX
-#ARCH = LINUX
+#ARCH = MAC_OSX
+ARCH = LINUX
 #ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
@@ -55,7 +55,7 @@ C++   = mpecxx -mpilog
 endif
 THREADS = -fopenmp
 CCFLAGS = -c -DLINUX -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
-CCFLAGS += -DGRAPHICS
+#CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
 LIBS = -lm -lglut -lGL

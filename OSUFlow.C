@@ -181,9 +181,6 @@ bool OSUFlow::DeferredLoadData()
   return(true); 
 }
 
-
-//---------------------------------------------------------------------------
-//
 /////////////////////////////////////////////////////////////////
 //
 //Read the whole datafile and create a vectorfield object based on that 
@@ -345,6 +342,50 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, i
 }
 
 
+///////////////////////////////////////////////
+//
+//   Create a static flow field 
+//   Input: (float) vector data, minB, maxB
+//   note this flow field can be a subfield so 
+//   minB[0/1/2] may not be zero, and maxB[0/1/2]
+//   may not be the max of the entire field 
+//   
+//
+void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB, 
+				  VECTOR3 maxB)
+{
+	int dimension[3], totalNum;
+
+	dimension[0] = maxB[0]-minB[0]+1; 
+	dimension[1] = maxB[1]-minB[1]+1; 
+	dimension[2] = maxB[2]-minB[2]+1; 
+
+	totalNum = dimension[0] * dimension[1] * dimension[2];
+
+	// create field object
+	Solution* pSolution;
+	RegularCartesianGrid* pRegularCGrid;
+	VECTOR3* pVector;
+	VECTOR3** ppVector;
+	pVector = new VECTOR3[totalNum];
+
+	for(int iFor = 0; iFor < totalNum; iFor++)
+		pVector[iFor].Set(pData[iFor*3], pData[iFor*3+1], pData[iFor*3+2]);
+	delete [] pData; 
+	ppVector = new VECTOR3*[1];
+	ppVector[0] = pVector;
+	pSolution = new Solution(ppVector, totalNum, 1);
+	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
+	lMin = minB; lMax = maxB; //local data min/max range
+	pRegularCGrid->SetBoundary(lMin, lMax);
+	assert(pSolution != NULL && pRegularCGrid != NULL);
+	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
+	if(!flowField->IsNormalized())
+		flowField->NormalizeField(true);
+	delete []pVector; 
+	delete[] ppVector; 
+}
+
 ///////////////////////////////////////////////////////////////////
 
 CVectorField* OSUFlow::CreateStaticFlowField(float *pData, 
@@ -420,6 +461,8 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
     delete[] ppData[i]; 
     ppVector[i] = pVector; 
   }
+  delete[] ppData;
+
   min_b[0] = minB[0]; min_b[1] = minB[1]; min_b[2] = minB[2]; 
   max_b[0] = maxB[0]; max_b[1] = maxB[1]; max_b[2] = maxB[2]; 
 
@@ -875,6 +918,54 @@ void Error(const char *fmt, ...){
 
 //-----------------------------------------------------------------------
 //
+// LoadData()
+//
+// loads the dataset
+//
+// fname is dataset file name
+// sMin, sMax are local subdomain min and max
+// dim is the total size of the domain
+// bt_max is the max number of time steps in any block
+// t_min, t_max are min and max time steps (ignored if bStatic == true)
+//
+void OSUFlow::LoadData(const char* fname, bool bStatic, 
+		       VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, int bt_max, 
+		       int min_t, int max_t, MPI_Comm comm) {
+
+  flowName = new char[255];
+  strcpy(flowName, fname);
+
+  bStaticFlow = bStatic;
+  lMin = sMin; lMax = sMax; 
+  has_data = false; 
+
+  if (max_t >= min_t) {
+    numTimesteps = max_t-min_t+1; 
+    MinT = min_t; MaxT = max_t; 
+  }
+
+  else {   //exception. goes back to default 
+    numTimesteps = 1; 
+    MinT = MaxT = min_t; 
+  }
+	  
+  if (bStaticFlow) {  // ignore the time range 
+    numTimesteps = 1; 
+    MinT = MaxT = 0; 
+    InitStaticFlowField(sMin, sMax, dim, comm);
+  }
+
+  else
+    InitTimeVaryingFlowField(sMin, sMax, dim, bt_max, min_t, max_t, comm); 
+
+  has_data = true; 
+
+}
+//-----------------------------------------------------------------------
+//
+// DEPRECATED - REMOVE EVENTUALLY
+// use LoadData instead
+//
 // ReadData()
 //
 // collectively reads the dataset
@@ -891,279 +982,113 @@ void OSUFlow::ReadData(const char* fname, bool bStatic,
 		       VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, int bt_max, 
 		       int t_min, int t_max, MPI_Comm comm) {
 
-  if (flowName == NULL)
-    flowName = new char[255];
+//   if (flowName == NULL)
+//     flowName = new char[255];
 
-  strcpy(flowName, fname);
+//   strcpy(flowName, fname);
 
-  bStaticFlow = bStatic;
+//   bStaticFlow = bStatic;
 
-  if(bStaticFlow)
-    ReadStaticFlowField(sMin, sMax, dim, comm);
-  else
-    ReadTimeVaryingFlowField(sMin, sMax, dim, bt_max, t_min, t_max, comm);
+//   if(bStaticFlow)
+//     ReadStaticFlowField(sMin, sMax, dim, comm);
+//   else
+//     ReadTimeVaryingFlowField(sMin, sMax, dim, bt_max, t_min, t_max, comm);
 
-  has_data = true;
+//   has_data = true;
 
 }
 //---------------------------------------------------------------------------
 //
-// ReadStaticFlowField
+// InitStaticFlowField
 //
-// Read data collectively and create a vectorfield object based on my subdomain
-// used MPI-IO collectives to perform the I/O
-// reads a single subdomain
+// initialize a vectorfield object based on my subdomain
 //
 // sMin, sMax: corners of subdomain
 // dim: size of total domain
 //
-// Tom Peterka, 11/24/08
-//
-void OSUFlow::ReadStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, MPI_Comm comm) {
+void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, 
+				  VECTOR3 dim, MPI_Comm comm) {
 
-  float* pData = NULL; // the data
-  MPI_File fd;
-  MPI_Datatype filetype;
-  int size[3]; // sizes of entire dataset
-  int subsize[3]; // sizes of my subdomain
-  int start[3]; // starting indices of my subdomain
-  MPI_Status status;
-  int err; // error status
-  int rank;
-  int i;
+  int totalNum;
+  float* pData = NULL;
+  int lxdim, lydim, lzdim; 
+  float minB[3], maxB[3]; 
+  int dimension[3]; // domain size
+  int sub[3]; // subdomain size
 
-  // init	
+  dimension[0] = dim[0];
+  dimension[1] = dim[1];
+  dimension[2] = dim[2];
+
+  minB[0] = sMin[0]; minB[1] = sMin[1]; minB[2] = sMin[2];
+  maxB[0] = sMax[0]; maxB[1] = sMax[1]; maxB[2] = sMax[2];
+
+  pData = ReadStaticDataRaw(flowName, minB, maxB, dimension, comm); 
+
   gMin.Set(0.0,0.0,0.0); 
-  gMax.Set((float)(dim[0] - 1), (float)(dim[1] - 1), (float)(dim[2] - 1));
-  MPI_Comm_rank(comm, &rank);
+  gMax.Set(dimension[0] - 1.0f, dimension[1] - 1.0f, dimension[2] - 1.0f);
+  lMin = sMin; lMax = sMax; //local data min/max range
 
-  // open the file
-  if (MPI_File_open(comm, flowName, MPI_MODE_RDONLY, MPI_INFO_NULL,
-       &fd) != MPI_SUCCESS)
-    Error("Error: ReadRawData() cannot open %s\n",flowName);
-
-  // set subarray params
-  // reversed orders are intentional: starts and subsizes are [z][y][x]
-  // sMin and sMax are [x][y][z]
-  for (i = 0; i < 3; i++) {
-    size[2 - i] = dim[i];
-    start[2 - i] = sMin[i];
-    subsize[2 - i] = sMax[i] - sMin[i] + 1;
-  }
-  size[2] *= 3;
-  start[2] *= 3;
-  subsize[2] *= 3;
-
-  // allocate data space
-  pData = new float[subsize[0] * subsize[1] * subsize[2]];
-  if (!pData)
-    Error("Error: ReadStaticFlowField() unable to allocate data space\n");
-
-  // debug
-//   fprintf(stderr,"dim = %.0f %.0f %.0f sMin = %.0f %.0f %.0f sMax = %.0f %.0f %.0f size = %d %d %d start = %d %d %d subsize = %d %d %d\n",dim[0],dim[1],dim[2],sMin[0],sMin[1],sMin[2],sMax[0],sMax[1],sMax[2],size[2],size[1],size[0],start[2],start[1],start[0],subsize[2],subsize[1],subsize[0]);
-
-  // do the actual collective io
-  MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
-       MPI_FLOAT, &filetype);
-  MPI_Type_commit(&filetype);
-  MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
-       MPI_INFO_NULL);
-  err = MPI_File_read_all(fd, pData,
-       subsize[0] * subsize[1] * subsize[2], MPI_FLOAT, &status);
-  if (err != MPI_SUCCESS)
-    Error("Error: ReadStaticFlowField() rank %d error reading file\n", rank);
-
-  // check the count
-  if (status.count != sizeof(float) * subsize[0] * subsize[1] * subsize[2])
-    Error("Error: ReadStaticFlowField() error rank %d read %d bytes instead of %d floats from file\n",
-	  rank, status.count, sizeof(float) * subsize[0] * subsize[1] * subsize[2]);
-
-  //swap bytes
-#ifdef BYTE_SWAP
-  for (i = 0; i < subsize[0] * subsize[1] * subsize[2]; i++)
-    swap4((char *)&(pData[i]));
-#endif
-
-  MPI_File_close(&fd);
-
-  // create the field
-  CreateStaticFlowField(pData, sMin, sMax); 
-
-  // debug
-//   if (rank == 0) {
-//     for (i = 0; i < subsize[0] / 3.0f * subsize[1] * subsize[2]; i += 100)
-//       fprintf(stderr,"%.3f %.3f %.3f\n",pData[3 * i + 0],pData[3 * i + 1],pData[3 * i + 2]);
-//   }
+  sub[0] = maxB[0] - minB[0]+1; 
+  sub[1] = maxB[1] - minB[1]+1; 
+  sub[2] = maxB[2] - minB[2]+1; 
+	
+  flowField = CreateStaticFlowField(pData, sub[0], sub[1], sub[2], minB, maxB); 
 
 }
-//---------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 //
-// ReadTimeVaryingFlowField
+// InitTimeVaryingFlowField
 //
-// Read data collectively and create a vectorfield object based on my subdomain
-// used MPI-IO collectives to perform the I/O
-// reads a single subdomain
+// initialize a time-varying vectorfield object based on my subdomain
 //
 // sMin, sMax: corners of subdomain
 // dim: size of total domain
 // bt_max: max number of time steps in any block
 // t_min, t_max: time range of subdomain
 //
-// Tom Peterka, 11/24/08
-//
-void OSUFlow::ReadTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax, 
+void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax, 
 				       VECTOR3 dim, int bt_max, int t_min,
 				       int t_max, MPI_Comm comm) {
 
-  float *Data; // the data
-  MPI_File fd;
-  MPI_Datatype filetype;
-  int size[3]; // sizes of entire dataset
-  int subsize[3]; // sizes of my subdomain
-  int start[3]; // starting indices of my subdomain
-  MPI_Status status;
-  int err; // error status
-  int rank;
-  FILE *meta; // metadata file with file names of time step files
-  int timesteps; // number of timesteps in the entire dataset
-  char filename[256]; // individual timestep file name
-  VECTOR3 **AllPt; // points in my time-space domain
-  int npt; // number of points in my spatial domain
-  int nt; // number of time steps in my time-space domain
-  Solution* Soln;
-  RegularCartesianGrid* RegCGrid;
-  int null_reads; // number of null reads to fill out max number of time steps
-  int i, t;
+  int n_timesteps;
+  float** ppData = NULL;
+  float minB[3], maxB[3]; 
+  int dimension[3]; // domain size
+  int sub[3]; // subdomain size
 
-  // read metadata
-  meta = fopen(flowName, "r");
-  assert(meta != NULL);
-  fscanf(meta, "%d", &timesteps);
+  dimension[0] = dim[0];
+  dimension[1] = dim[1];
+  dimension[2] = dim[2];
 
-  // init	
-  MPI_Comm_rank(comm, &rank);
-  AllPt = new VECTOR3 *[t_max - t_min + 1];
-  assert(AllPt != NULL);
-  gMin.Set(0.0,0.0,0.0); 
-  gMax.Set((float)(dim[0] - 1), (float)(dim[1] - 1), (float)(dim[2] - 1));
-  lMin = sMin;
-  lMax = sMax;
+  minB[0] = sMin[0]; 
+  minB[1] = sMin[1]; 
+  minB[2] = sMin[2]; 
+
+  maxB[0] = sMax[0]; 
+  maxB[1] = sMax[1]; 
+  maxB[2] = sMax[2]; 
+
+  ppData = ReadTimeVaryingDataRaw(flowName, minB, maxB, dimension, 
+				  bt_max, t_min, t_max, comm); 
+
+  // update the global bounds of the field
+  // Assuming the same for all time steps 
+  gMin.Set(0.0,0.0,0.0);   // assume all time steps have the same dims
+  gMax.Set(dimension[0] - 1.0f, dimension[1] - 1.0f, dimension[2] - 1.0f);
+  lMin = sMin; lMax = sMax; 
   MinT = t_min;
   MaxT = t_max; 
-  nt = t_max - t_min + 1;
 
-  // set subarray params
-  // reversed orders are intentional: starts and subsizes are [z][y][x]
-  // sMin and sMax are [x][y][z]
-  for (i = 0; i < 3; i++) {
-    size[2 - i] = dim[i];
-    start[2 - i] = sMin[i];
-    subsize[2 - i] = sMax[i] - sMin[i] + 1;
-  }
-  npt = subsize[0] * subsize[1] * subsize[2];
-  size[2] *= 3;
-  start[2] *= 3;
-  subsize[2] *= 3;
-
-  // allocate data space
-  Data = new float[3 * npt];
-  assert(Data != NULL);
-
-  // for all time steps
-  for (t = 0; t < timesteps; t++) {
-
-    fscanf(meta, "%s", filename);
-    if (t < t_min || t > t_max)
-      continue;
-
-    // open the file
-//     if (rank == 0)
-//       fprintf(stderr,"%s\n",filename);
-    err = MPI_File_open(comm, filename, MPI_MODE_RDONLY,
-			MPI_INFO_NULL, &fd);
-    assert(err == MPI_SUCCESS);
-
-    // do the actual collective io
-    MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
-			     MPI_FLOAT, &filetype);
-    MPI_Type_commit(&filetype);
-    MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
-		      MPI_INFO_NULL);
-    err = MPI_File_read_all(fd, Data,
-	 subsize[0] * subsize[1] * subsize[2], MPI_FLOAT, &status);
-    assert(err == MPI_SUCCESS);
-    assert(status.count == sizeof(float) * 3 * npt);
-
-    // clean up
-    MPI_File_close(&fd);
-    MPI_Type_free(&filetype);
-
-    //swap bytes
-#ifdef BYTE_SWAP
-    for (i = 0; i < 3 * npt; i++)
-      swap4((char *)&(Data[i]));
-#endif
-
-    // copy data from floats to VEC3s
-    AllPt[t - t_min] = new VECTOR3[npt];
-    for (i = 0; i < npt; i++)
-      AllPt[t - t_min][i].Set(Data[i * 3 + 0], Data[i * 3 + 1], 
-           Data[i * 3 + 2]);
-
-  } // for all time steps
-
-  // null reads to fill out the max number of time steps
-  null_reads = bt_max - t_max + t_min - 1;
-  assert(null_reads >= 0);
-  if (null_reads) {
-    err = MPI_File_open(comm, filename, MPI_MODE_RDONLY,
-			MPI_INFO_NULL, &fd);
-    assert(err == MPI_SUCCESS);
-  }
-
-  // for any null reads needed
-  for (t = 0; t < null_reads; t++) {
-    subsize[0] = subsize[1] = subsize[2] = 1;
-    start[0] = start[1] = start[2] = 0;
-    MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
-			     MPI_FLOAT, &filetype);
-    MPI_Type_commit(&filetype);
-    MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
-		      MPI_INFO_NULL);
-    err = MPI_File_read_all(fd, Data, 0, MPI_FLOAT, &status);
-
-//     fprintf(stderr, "1: size = %d %d %d subsize = %d %d %d start = %d %d %d\n", size[0], size[1], size[2], subsize[0], subsize[1], subsize[2], start[0], start[1], start[2]);
-
-//     char msg[MPI_MAX_ERROR_STRING];
-//     int resultlen;
-//     MPI_Error_string(err, msg, &resultlen);
-//     fprintf(stderr, "%s\n", msg);
-
-    assert(err == MPI_SUCCESS);
-    MPI_Type_free(&filetype);
-
-  }
-
-  if (null_reads)
-    MPI_File_close(&fd);
-
-  // create the field
-  Soln = new Solution(AllPt, npt, nt, t_min, t_max);
-  RegCGrid = new RegularCartesianGrid(lMax[0] - lMin[0] + 1,   
-	 lMax[1] - lMin[1] + 1, lMax[2] - lMin[2] + 1); 
-  assert(Soln != NULL && RegCGrid != NULL);
-  RegCGrid->SetBoundary(lMin, lMax);
-  flowField = new CVectorField(RegCGrid, Soln, nt, MinT);
-
-  // clean up
-  fclose(meta);
-  for (i=0; i < nt; i++)
-    delete[] AllPt[i]; 
-  delete[] AllPt; 
-  delete[] Data;
+  sub[0] = maxB[0] - minB[0]+1; 
+  sub[1] = maxB[1] - minB[1]+1; 
+  sub[2] = maxB[2] - minB[2]+1; 
+	
+  flowField = CreateTimeVaryingFlowField(ppData, sub[0], sub[1], sub[2], 
+					 minB, maxB, t_min, t_max);  
 
 }
-//---------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 
 #endif
 
