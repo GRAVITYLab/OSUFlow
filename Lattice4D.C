@@ -1,8 +1,7 @@
 
 #include "Lattice4D.h"
+
 //---------------------------------------------------------------------------
-//
-// Lattice 4D 
 //
 // constructs and initializes the time-varying lattice class
 //
@@ -10,88 +9,97 @@
 // ghost: size of ghost layer per side
 // nsp: total (global) number of spatial partitions in the lattice
 // ntp: total (global) number of parition in time 
+// d: actual dimensions used 3 (3D steady state) or 4(3D time varying)
+// default = 4 (can omit if 4D)
+// myid: rank, process number, thread number, identification of the owner
+// default = -1 (can omit if single process sequential program)
+// nid: number of processes, threads, owners
+// default = -1 (can omit if single process sequential program)
 //
-Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp) {
+Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int d, int myid, int nid) {
 
   int i, j;
-
   volume_bounds_type *vbs; 
-
-  nbhd = 0;
 
   xdim = xlen; 
   ydim = ylen; 
   zdim = zlen; 
   ldim = tlen;  // number of time steps
+
   // spatial domain partitioning first 
   vbs = calc_subvolume(xlen, ylen, zlen, ghost, nsp, idim, jdim, kdim); 
   tdim = ntp; 
-  npart = nsp*ntp; 
-  parts = new Partition4D[npart]; 
-  flowMatrix = new int[npart*npart]; 
-  memset(flowMatrix, '\0', npart*npart*sizeof(int)); 
+  npart = nsp * ntp; 
+  flowMatrix = new int[npart * npart]; 
+  memset(flowMatrix, '\0', npart * npart * sizeof(int)); 
   vb_list = new volume_bounds_type[npart]; 
 
-  for (int t=0; t<tdim; t++)
-    for(int k=0; k<kdim; k++)
-      for (int j=0; j<jdim; j++)
-	for (int i=0; i<idim; i++) {
-	  int idx = t *idim*jdim*kdim+ k*idim*jdim + j*idim+i; 
-	  int idx2 = k*idim*jdim + j*idim+i; 
-	  vb_list[idx].xmin=vbs[idx2].xmin; 
-	  vb_list[idx].xmax=vbs[idx2].xmax; 
-	  vb_list[idx].ymin=vbs[idx2].ymin; 
-	  vb_list[idx].ymax=vbs[idx2].ymax; 
-	  vb_list[idx].zmin=vbs[idx2].zmin; 
-	  vb_list[idx].zmax=vbs[idx2].zmax; 
-	  vb_list[idx].tmin= tlen/ntp * t-1; 
-	  if (vb_list[idx].tmin <0) vb_list[idx].tmin = 0; 
-	  vb_list[idx].tmax= tlen/ntp * (t+1)+1; 
-	  if (vb_list[idx].tmax > tlen-1) vb_list[idx].tmax = tlen-1; 
+  for (int t = 0; t < tdim; t++) {
+
+    for(int k = 0; k < kdim; k++) {
+
+      for (int j = 0; j < jdim; j++) {
+
+	for (int i = 0; i < idim; i++) {
+
+	  int idx = t * idim * jdim * kdim + k * idim * jdim + j * idim + i; 
+	  int idx2 = k * idim * jdim + j * idim + i; 
+	  vb_list[idx].xmin = vbs[idx2].xmin; 
+	  vb_list[idx].xmax = vbs[idx2].xmax; 
+	  vb_list[idx].ymin = vbs[idx2].ymin; 
+	  vb_list[idx].ymax = vbs[idx2].ymax; 
+	  vb_list[idx].zmin = vbs[idx2].zmin; 
+	  vb_list[idx].zmax = vbs[idx2].zmax; 
+	  vb_list[idx].tmin = tlen / ntp * t - 1; 
+	  if (vb_list[idx].tmin < 0)
+	    vb_list[idx].tmin = 0; 
+	  vb_list[idx].tmax = tlen / ntp * (t + 1) + 1; 
+	  if (vb_list[idx].tmax > tlen - 1)
+	    vb_list[idx].tmax = tlen - 1; 
+
 	}
+
+      }
+
+    }
+
+  }
+
+  // create partition class
+  part = new Partition(nsp, ntp, d);
 
   delete [] vbs; 
 
-  // init the partitions list
-  for (int j = 0; j < npart; j++)  {
-    // assign default procs
-    parts[j].Proc = j;
-  }
+  // neighborhood size
+  if (d == 3)
+    nbhd = 27;
+  else
+    nbhd = MAX_NEIGHBORS;
 
-  // init the block status
-  for (i = 0; i < MAX_BLOCKS; i++) {
-    ClearLoad(i);
-    ClearComp(i);
+  // ranks of my blocks
+  myproc = myid;
+  nproc = nid;
+  if (myproc >= 0) {
+    RoundRobin_proc(nproc);
+    nblocks = GetNumPartitions(myproc);
+    assert((block_ranks = (int *)malloc(nblocks * sizeof(int))) != NULL);
+    GetPartitions(myproc, block_ranks);
   }
 
 }
-//--------------------------------------------------------------------------
+//---------------------------------------------------------------------------
 //
 // destructor
 //
 Lattice4D::~Lattice4D()
 {
 
-  // delete the MPI-related memory
-#ifdef MPI
-  if (nbhd == 27 || nbhd == MAX_NEIGHBORS) {
-
-    for (int j = 0; j < npart; j++) {
-
-      for (int i = 0; i < nbhd; i++) {
-	free(parts[j].SendPoints[i]);
-	free(parts[j].RecvPoints[i]);
-      }
-
-    }
-
-  }
-#endif
-
   if (flowMatrix!=NULL) delete [] flowMatrix; 
-  if (parts!=NULL) delete [] parts; 
   if (vb_list!=NULL) delete [] vb_list; 
   if (seedlists!=NULL) delete [] seedlists; 
+
+  delete part;
+  delete block_ranks;
 
 }
 //---------------------------------------------------------------------------
@@ -101,7 +109,7 @@ Lattice4D::~Lattice4D()
 void Lattice4D::RoundRobin_proc(int nproc) {
 
   for (int i = 0; i < npart; i++) 
-    parts[i].Proc = i % nproc; 
+    part->parts[i].Proc = i % nproc; 
 
 }
 //---------------------------------------------------------------------------
@@ -121,14 +129,14 @@ int Lattice4D::GetProc(int i, int j, int k, int t) {
 
   int idx = t* idim*jdim*kdim + k * idim * jdim + j * idim + i; 
 
-  return (parts[idx].Proc); 
+  return (part->parts[idx].Proc); 
 
 }
 //---------------------------------------------------------------------------
 //
 int Lattice4D::GetProc(int rank) {
 
-  return(parts[rank].Proc); 
+  return(part->parts[rank].Proc); 
 
 }
 //----------------------------------------------------------------------------
@@ -140,7 +148,7 @@ void Lattice4D::GetPartitions(int proc, int**p_list, int& num) {
   int cnt = 0; 
 
   for (int i = 0; i < npart; i++) {
-    if (parts[i].Proc == proc)
+    if (part->parts[i].Proc == proc)
       cnt++;
   }
 
@@ -149,7 +157,7 @@ void Lattice4D::GetPartitions(int proc, int**p_list, int& num) {
   cnt = 0; 
 
   for (int i = 0; i < npart; i++) {
-    if (parts[i].Proc == proc)
+    if (part->parts[i].Proc == proc)
       (*p_list)[cnt++] = i; 
   }
 
@@ -189,6 +197,7 @@ int Lattice4D::GetRank(float x, float y, float z, float t) {
  }
 
   return(-1); 
+
 }
 //---------------------------------------------------------------------------
 //
@@ -206,6 +215,7 @@ int Lattice4D::GetIndices(int rank, int &iidx, int &jidx, int &kidx, int& tidx) 
   iidx = r % idim; 
 
   return(1); 
+
 }
 //--------------------------------------------------------------------------
 //
@@ -305,11 +315,9 @@ int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z, float t) {
 	    return(GetRank(ni+i, nj+j, nk+k, nt+l)); 
 	}
   return(-1); 
-}
 
-//
-// GetNeighbor
-//
+}
+//--------------------------------------------------------------------------
 //
 int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t, 
                            int &ei, int &ej, int &ek, int &et) {
@@ -324,10 +332,8 @@ int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t,
   return (neighbor); 
 
 }
-
-
 //---------------------------------------------------------------------------
-
+//
 void Lattice4D::InitSeedLists() {
 
   seedlists = new list<VECTOR4>[npart]; 
@@ -337,21 +343,22 @@ void Lattice4D::InitSeedLists() {
 
 }
 //--------------------------------------------------------------------------
-
+//
 void Lattice4D::ResetSeedLists() {
 
   for (int i = 0; i < npart; i++)
     seedlists[i].clear(); 
 
 }
-
+//--------------------------------------------------------------------------
+//
 void Lattice4D::ResetSeedLists(int i) {
 
   seedlists[i].clear(); 
 
 }
 //--------------------------------------------------------------------------
-
+//
 bool Lattice4D::InsertSeed(int i, int j, int k, int t, VECTOR4 p) {
 
   int rank = GetRank(i,j,k, t); 
@@ -361,9 +368,10 @@ bool Lattice4D::InsertSeed(int i, int j, int k, int t, VECTOR4 p) {
     seedlists[rank].push_back(p); 
     return(true); 
   }
+
 }
 //--------------------------------------------------------------------------
-
+//
 bool Lattice4D::InsertSeed(int from_i, int from_j, int from_k, int from_t, 
 			   int i, int j, int k, int t, VECTOR4 p) {
 
@@ -376,9 +384,10 @@ bool Lattice4D::InsertSeed(int from_i, int from_j, int from_k, int from_t,
     flowMatrix[from_rank*npart+to_rank]++; 
     return(true); 
   }
+
 }
 //--------------------------------------------------------------------------
-
+//
 bool Lattice4D::InsertSeed(int i, VECTOR4 p) {
 
   if (i>=npart) return(false); 
@@ -386,121 +395,29 @@ bool Lattice4D::InsertSeed(int i, VECTOR4 p) {
     seedlists[i].push_back(p); 
     return(true); 
   }
+
 }
 //--------------------------------------------------------------------------
-
+//
 bool Lattice4D::InsertSeed(int from_rank, int to_rank, VECTOR4 p) {
 
   if (from_rank >=npart || to_rank>=npart) return(false); 
   else {
     flowMatrix[from_rank*npart+to_rank]++; 
     seedlists[to_rank].push_back(p); 
-  }    return(true); 
-}
+  }
+  return(true); 
 
-void Lattice4D::ResetFlowMatrix() 
-{
+}
+//--------------------------------------------------------------------------
+//
+void Lattice4D::ResetFlowMatrix() {
+
   if (flowMatrix !=NULL) 
     memset(flowMatrix, '\0', npart*npart*sizeof(int)); 
-}
-//--------------------------------------------------------------------------
-//
-// MPI functions from this point on
-// author: Tom Peterka
-//
-
-#ifdef MPI
-
-//--------------------------------------------------------------------------
-//
-// Lattice 4D 
-//
-// constructs and initializes the time-varying lattice class
-//
-// xlen, ylen, zlen: total size of the data
-// ghost: size of ghost layer per side
-// nsp: total (global) number of spatial partitions in the lattice
-// ntp: total (global) number of parition in time 
-// d: actual dimensions used 3 (3D steady state) or 4(3D time varying)
-//
-Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int d) {
-
-  int i, j;
-  volume_bounds_type *vbs; 
-
-  xdim = xlen; 
-  ydim = ylen; 
-  zdim = zlen; 
-  ldim = tlen;  // number of time steps
-
-  // spatial domain partitioning first 
-  vbs = calc_subvolume(xlen, ylen, zlen, ghost, nsp, idim, jdim, kdim); 
-  tdim = ntp; 
-  npart = nsp*ntp; 
-  assert(npart <= MAX_PARTS);
-  parts = new Partition4D[npart]; 
-  flowMatrix = new int[npart*npart]; 
-  memset(flowMatrix, '\0', npart*npart*sizeof(int)); 
-  vb_list = new volume_bounds_type[npart]; 
-
-  for (int t=0; t<tdim; t++)
-    for(int k=0; k<kdim; k++)
-      for (int j=0; j<jdim; j++)
-	for (int i=0; i<idim; i++) {
-	  int idx = t *idim*jdim*kdim+ k*idim*jdim + j*idim+i; 
-	  int idx2 = k*idim*jdim + j*idim+i; 
-	  vb_list[idx].xmin=vbs[idx2].xmin; 
-	  vb_list[idx].xmax=vbs[idx2].xmax; 
-	  vb_list[idx].ymin=vbs[idx2].ymin; 
-	  vb_list[idx].ymax=vbs[idx2].ymax; 
-	  vb_list[idx].zmin=vbs[idx2].zmin; 
-	  vb_list[idx].zmax=vbs[idx2].zmax; 
-	  vb_list[idx].tmin= tlen/ntp * t-1; 
-	  if (vb_list[idx].tmin <0) vb_list[idx].tmin = 0; 
-	  vb_list[idx].tmax= tlen/ntp * (t+1)+1; 
-	  if (vb_list[idx].tmax > tlen-1) vb_list[idx].tmax = tlen-1; 
-	}
-
-  delete [] vbs; 
-
-  // neighborhood size
-  if (d == 3)
-    nbhd = 27;
-  else
-    nbhd = MAX_NEIGHBORS;
-
-  // init the partitions list
-  for (int j = 0; j < npart; j++)  {
-
-    // assign default procs
-    parts[j].Proc = j;
-
-    // init sending and receiving lists, request lists
-    for (int i = 0; i < nbhd; i++){
-
-      parts[j].NumSendPoints[i] = parts[j].NumRecvPoints[i] = 0;
-      parts[j].SendPoints[i] = (float *)malloc(4 * sizeof(float));
-      assert(parts[j].SendPoints[i] != NULL);
-      parts[j].RecvPoints[i] = (float *)malloc(4 * sizeof(float));
-      assert(parts[j].RecvPoints[i] != NULL);
-      parts[j].SizeSendPoints[i] = parts[j].SizeRecvPoints[i] = 4 * sizeof(float);
-      parts[j].HasData = 0;
-      parts[j].NumReqs = 0;
-
-    }
-
-  }
-
-  // init the block status
-  for (i = 0; i < MAX_BLOCKS; i++) {
-    ClearLoad(i);
-    ClearComp(i);
-  }
 
 }
 //--------------------------------------------------------------------------
-//
-// GetNumPartitions
 //
 // return the number of partitions that are assigned to processor 'proc' 
 //
@@ -510,7 +427,7 @@ int Lattice4D::GetNumPartitions(int proc) {
   int i;
 
   for (i = 0; i < npart; i++) {
-    if (parts[i].Proc == proc)
+    if (part->parts[i].Proc == proc)
       n++;
   }
 
@@ -518,8 +435,6 @@ int Lattice4D::GetNumPartitions(int proc) {
 
 }
 //---------------------------------------------------------------------------
-//
-// GetPartitions
 //
 // query the partitions that are assigned to processor 'proc' 
 // p_list must be allocated large enough prior to calling
@@ -530,7 +445,7 @@ void Lattice4D::GetPartitions(int proc, int*p_list) {
   int i;
 
   for (i = 0; i < npart; i++) {
-    if (parts[i].Proc == proc)
+    if (part->parts[i].Proc == proc)
       p_list[n++] = i;
   }
 
@@ -539,7 +454,6 @@ void Lattice4D::GetPartitions(int proc, int*p_list) {
 }
 //---------------------------------------------------------------------------
 //
-// GetNeighbor
 // returns neighbor number (0 - MAX_NEIGHBORS) of neighbor containing point
 // returns -1 if point is not in one of the neighbors
 //
@@ -566,8 +480,6 @@ int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t) {
 
 }
 //---------------------------------------------------------------------------
-//
-// GetNeighborRanks
 //
 // gets ranks of all neighbors
 // ranks are the global partition numbers for all neighbors
@@ -597,319 +509,142 @@ void Lattice4D::GetNeighborRanks(int myrank, int *neighbor_ranks) {
 }
 //---------------------------------------------------------------------------
 //
-// PostPoint
+// gets local subvolume bounds
 //
-// posts a point for sending to a neighbor
-// myrank: my global partition number
-// p: 4D point
-// neighbor: number of the neighbor (0 - MAX_NEIGHBORS)
+// block: local block number (0-nblocks)
+// min_s, max_s: (output) spatial min and max bounds
+// min_t, max_t: (output) temporal min and max bounds
 //
-void Lattice4D::PostPoint(int myrank, VECTOR4 p, int neighbor) {
+void Lattice4D::GetVB(int block, VECTOR3 &min_s, VECTOR3 &max_s, 
+		      int &min_t, int &max_t) {
 
-  while (parts[myrank].SizeSendPoints[neighbor] < 
-      (parts[myrank].NumSendPoints[neighbor] + 1) * 4 * sizeof(float)) {
-
-    parts[myrank].SendPoints[neighbor] = (float *)realloc(
-	parts[myrank].SendPoints[neighbor],
-	parts[myrank].SizeSendPoints[neighbor] * 2);
-
-    assert(parts[myrank].SendPoints[neighbor] != NULL);
-    parts[myrank].SizeSendPoints[neighbor] *= 2;
-
-  }
-
-  parts[myrank].SendPoints[neighbor][4 * 
-       parts[myrank].NumSendPoints[neighbor] + 0] = p[0];
-  parts[myrank].SendPoints[neighbor][4 * 
-       parts[myrank].NumSendPoints[neighbor] + 1] = p[1];
-  parts[myrank].SendPoints[neighbor][4 * 
-       parts[myrank].NumSendPoints[neighbor] + 2] = p[2];
-  parts[myrank].SendPoints[neighbor][4 * 
-       parts[myrank].NumSendPoints[neighbor] + 3] = p[3];
-
-  parts[myrank].NumSendPoints[neighbor]++;
+  min_s.Set(vb_list[block_ranks[block]].xmin, vb_list[block_ranks[block]].ymin, 
+	    vb_list[block_ranks[block]].zmin);
+  max_s.Set(vb_list[block_ranks[block]].xmax, vb_list[block_ranks[block]].ymax, 
+	    vb_list[block_ranks[block]].zmax);
+  min_t = vb_list[block_ranks[block]].tmin;
+  max_t = vb_list[block_ranks[block]].tmax;
 
 }
-//------------------------------------------------------------------------
+//---------------------------------------------------------------------------
 //
-// PrintPost
+// gets global subvolume bounds
+//
+// part: global partition number
+// min_s, max_s: (output) spatial min and max bounds
+// min_t, max_t: (output) temporal min and max bounds
+//
+void Lattice4D::GetGlobalVB(int part, VECTOR3 &min_s, VECTOR3 &max_s, 
+		      int &min_t, int &max_t) {
+
+  min_s.Set(vb_list[part].xmin, vb_list[part].ymin, vb_list[part].zmin);
+  max_s.Set(vb_list[part].xmax, vb_list[part].ymax, vb_list[part].zmax);
+  min_t = vb_list[part].tmin;
+  max_t = vb_list[part].tmax;
+
+}
+//---------------------------------------------------------------------------
+//
+// wrappers around blockwise partition methods
+//
+// block: local block number (0 - nblocks)
+// iter: round number
+// ls: seeds list
+//
+//
+// sets the request status
+//
+void Lattice4D::SetReq(int block) {
+  part->SetReq(block_ranks[block]);
+}
+//
+// clears the request status
+//
+void Lattice4D::ClearReq(int block) {
+  part->ClearReq(block_ranks[block]);
+}
+//
+// gets the request status
+//
+int Lattice4D::GetReq(int block) {
+  part->GetReq(block_ranks[block]); 
+}
+//
+// sets the load status
+//
+void Lattice4D::SetLoad(int block) {
+  part->SetLoad(block_ranks[block]); 
+}
+//
+// clears the load status
+//
+void Lattice4D::ClearLoad(int block) { 
+  part->ClearLoad(block_ranks[block]);
+}
+//
+// gets the load status
+//
+int Lattice4D::GetLoad(int block) {
+  part->GetLoad(block_ranks[block]); 
+}
+//
+// sets the computed status
+//
+void Lattice4D::SetComp(int block, int iter) {
+  part->SetComp(block_ranks[block], iter); 
+}
+//
+// clears the computed status
+//
+void Lattice4D::ClearComp(int block) {
+  part->ClearComp(block_ranks[block]); 
+}
+//
+// gets the computed status
+//
+int Lattice4D::GetComp(int block, int iter) {
+  part->GetComp(block_ranks[block], iter); 
+}
+//
+// posts a point for sending
+//
+void Lattice4D::PostPoint(int block, VECTOR4 p) {
+  int neighbor = GetNeighbor(block_ranks[block], p[0], p[1], p[2], p[3]);
+  if (neighbor >= 0)
+    part->PostPoint(block_ranks[block], p, neighbor); 
+}
 //
 // prints the posted points
-// myrank: global partition number
-// 
-void Lattice4D::PrintPost(int myrank) {
-
-  int i, j;
-
-  fprintf(stderr, "\nPosted points list for rank %d\n", myrank);
-
-  for (i = 0; i < MAX_NEIGHBORS; i++) {
-
-    if (parts[myrank].NumSendPoints[i])
-      fprintf(stderr, "rank %d posted %d points to neighbor %d\n", 
-	      myrank, parts[myrank].NumSendPoints[i], i);
-
-    if (parts[myrank].NumSendPoints[i]) {
-      for (j = 0; j < parts[myrank].NumSendPoints[i]; j++)
-	fprintf(stderr, "%.3f\t%.3f\t%.3f\t%.3f\n",
-            parts[myrank].SendPoints[i][4 * j + 0],
-	    parts[myrank].SendPoints[i][4 * j + 1], 
-	    parts[myrank].SendPoints[i][4 * j + 2],
-            parts[myrank].SendPoints[i][4 * j + 3]);
-    }
-
-  }
-
-  fprintf(stderr,"\n");
-
-}
-//--------------------------------------------------------------------------
 //
-// PrintRecv
+void Lattice4D::PrintPost(int block) {
+  part->PrintPost(block_ranks[block]); 
+}
 //
 // prints the received points
-// myrank: global partition number
 //
-void Lattice4D::PrintRecv(int myrank) {
-
-  int i, j;
-
-  fprintf(stderr, "\nReceived points list for rank %d\n", myrank);
-
-  for (i = 0; i < MAX_NEIGHBORS; i++) {
-
-    if (parts[myrank].NumRecvPoints[i]) {
-      fprintf(stderr, 
-           "rank %d received %d points from neighbor %d:\n", 
-            myrank, parts[myrank].NumRecvPoints[i], i);
-      for (j = 0; j < parts[myrank].NumRecvPoints[i]; j++)
-	fprintf(stderr, "%.3f\t%.3f\t%.3f\t%.3f\n",
-		parts[myrank].RecvPoints[i][4 * j + 0],
-		parts[myrank].RecvPoints[i][4 * j + 1],
-		parts[myrank].RecvPoints[i][4 * j + 2],
-		parts[myrank].RecvPoints[i][4 * j + 3]);
-    }
-
-  }
-
-  fprintf(stderr,"\n");
-
+void Lattice4D::PrintRecv(int block) { 
+  part->PrintRecv(block_ranks[block]); 
 }
-//---------------------------------------------------------------------------
 //
-// GetRecvPts
+// copies the received points to a list
 //
-// copies received points from partition to user supplied list
-// myrank: global partition number
-//
-// caller must ensure that list has enough room
-//
-//
-void Lattice4D::GetRecvPts(int myrank, VECTOR4 *ls) {
-
-  int num = 0;
-  int i, j;
-
-  // copy points
-  for (i = 0; i < MAX_NEIGHBORS; i++) {
-
-    for (j = 0; j < parts[myrank].NumRecvPoints[i]; j++)
-      (ls[num++]).Set(
-		      parts[myrank].RecvPoints[i][4 * j + 0], 
-		      parts[myrank].RecvPoints[i][4 * j + 1], 
-		      parts[myrank].RecvPoints[i][4 * j + 2],
-		      parts[myrank].RecvPoints[i][4 * j + 3]);
-
-  }
-
-  // clear receive lists
-  for (i = 0; i < MAX_NEIGHBORS; i++)
-    parts[myrank].NumRecvPoints[i] = 0;
-
+void Lattice4D::GetRecvPts(int block, VECTOR4 *ls) { 
+  part->GetRecvPts(block_ranks[block], ls); 
 }
-//---------------------------------------------------------------------------
 //
-// Error()
-// error handler
-//
-void Lattice4D::Error(const char *fmt, ...){
-
-  va_list argp;
-  vfprintf(stderr, fmt, argp);
-  sleep(5);
-#ifdef MPI
-  MPI_Abort(MPI_COMM_WORLD,0);
-#else
-  exit(0);
-#endif
-
-}
-//---------------------------------------------------------------------------
-//
-// SendNeigbors()
-//
-// myrank: global partition number
 // sends points to all neighbors
 //
-void Lattice4D::SendNeighbors(int myrank, MPI_Comm comm) {
-
-  int ranks[MAX_NEIGHBORS];
-  int proc, myproc;
-  int i, j;
-
-  MPI_Comm_rank(comm, &myproc);
-  GetNeighborRanks(myrank, ranks);
-
-  // for all neighbors
-  for (i = 0; i < MAX_NEIGHBORS; i++) {
-
-    // if neighbor exists (not beyond domain boundary)
-    if (ranks[i] >= 0) {
-
-      proc = GetProc(ranks[i]);
-
-      // send only to remote locations
-      if (proc != myproc) {
-
-	j = parts[myrank].NumReqs++;
-	// tag for header message offset by MAX_PARTS to differentiate
-	// from points message
-	MPI_Isend(&(parts[myrank].NumSendPoints[i]), 1, MPI_INT, proc, 
-		 MAX_PARTS + ranks[i], comm, &(parts[myrank].Reqs[j]));
-
-	if (parts[myrank].NumSendPoints[i]) {
-	  fprintf(stderr, "rank %d sending %d points to remote rank %d\n",
-		  myrank, parts[myrank].NumSendPoints[i], ranks[i]);
-	  j = parts[myrank].NumReqs++;
-	  MPI_Isend(parts[myrank].SendPoints[i], 
-		   parts[myrank].NumSendPoints[i] * 4, MPI_FLOAT, proc,
-		    ranks[i], comm, &(parts[myrank].Reqs[j]));
-	  parts[myrank].NumSendPoints[i] = 0;
-	}
-
-      } // if location is remote
-
-      // debug
-      else {
-	if (parts[myrank].NumSendPoints[i])
-	  fprintf(stderr, "rank %d sending %d points to local rank %d\n",
-		  myrank, parts[myrank].NumSendPoints[i], ranks[i]);
-	}
-
-    } // if neighbor exists
-
-  } // for all neighbors
-
+void Lattice4D::SendNeighbors(int block) { 
+  int neighbor_ranks[MAX_NEIGHBORS];
+  GetNeighborRanks(block_ranks[block], neighbor_ranks);
+  part->SendNeighbors(block_ranks[block], neighbor_ranks);
 }
-//--------------------------------------------------------------------------
-//
-// ReceiveNeighbors
 //
 // receives points from all neighbors
 //
-// myrank: global partition  number
-// returns total number of points received
-//
-int Lattice4D::ReceiveNeighbors(int myrank, MPI_Comm comm) {
-
-  int ranks[MAX_NEIGHBORS]; // ranks of my neighbors
-  int num = 0;
-  int proc, myproc;  
-  int i, j, k;
-  int n;
-
-  MPI_Comm_rank(comm, &myproc);
-  GetNeighborRanks(myrank, ranks);
-
-  // for all neighbors
-  for (i = 0; i < MAX_NEIGHBORS; i++) {
-
-    // if neighbor exists (not outside of domain)
-    if (ranks[i] >= 0) {
-
-      proc = GetProc(ranks[i]);
-
-      // remote: get number of received points and tag
-      if (proc != myproc) {
-	j = parts[myrank].NumReqs++;	
-	// tag for header message offset by MAX_PARTS to differentiate
-	// from points message
-	MPI_Irecv(&(parts[myrank].NumRecvPoints[i]), 1, MPI_INT, 
-		  proc, MAX_PARTS + myrank, comm, &(parts[myrank].Reqs[j]));
-      }
-
-      // local: get number of received points
-      if (proc == myproc) {
-	k = nbhd - 1 - i; // I am neighbor k of my neighbor
-	if (!parts[ranks[i]].NumSendPoints[k])
-	  k = -1;
-	if (k >= 0)
-	  parts[myrank].NumRecvPoints[i] = parts[ranks[i]].NumSendPoints[k];
-	else
-	  parts[myrank].NumRecvPoints[i] = 0;
-      }
-
-      // get the points
-
-      // if something to receive
-      if (parts[myrank].NumRecvPoints[i]) {
-
-	while (parts[myrank].SizeRecvPoints[i] < 
-            parts[myrank].NumRecvPoints[i] * 4 * sizeof(float)) {
-	  parts[myrank].RecvPoints[i] = (float *)realloc(
-            parts[myrank].RecvPoints[i], parts[myrank].SizeRecvPoints[i] * 2);
-	  assert(parts[myrank].RecvPoints[i] != NULL);
-	  parts[myrank].SizeRecvPoints[i] *= 2;
-
-	}
-
-	// remote
-	if (proc != myproc) {
-	  j = parts[myrank].NumReqs++;
-	  MPI_Irecv(parts[myrank].RecvPoints[i],
-		    parts[myrank].NumRecvPoints[i] * 4, MPI_FLOAT, proc, 
-		    myrank, comm, &(parts[myrank].Reqs[j]));
-	  // debug
-// 	  fprintf(stderr, "rank %d received %d points from remote rank %d\n", myrank, parts[myrank].NumRecvPoints[i], ranks[i]);
-	} // remote
-
-	// local
-	if (proc == myproc) {
-
-	  for (j = 0; j < parts[myrank].NumRecvPoints[i]; j++) {
-	    parts[myrank].RecvPoints[i][4 * j + 0] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 0];
-	    parts[myrank].RecvPoints[i][4 * j + 1] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 1];
-	    parts[myrank].RecvPoints[i][4 * j + 2] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 2];
-	    parts[myrank].RecvPoints[i][4 * j + 3] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 3];
-	  }
-
-	  parts[ranks[i]].NumSendPoints[k]  = 0;
-
-// 	  // debug
-// 	  fprintf(stderr, "rank %d received %d points from local rank %d\n", myrank, parts[myrank].NumRecvPoints[i], ranks[i]);
-
-	} // local
-
-	num += parts[myrank].NumRecvPoints[i];
-
-      } // something to receive
-
-    } // if neighbor exists
-
-  } // for all neighbors
-
-  // flush all pending messages
-  MPI_Waitall(parts[myrank].NumReqs, parts[myrank].Reqs, 
-	      MPI_STATUSES_IGNORE);
-  parts[myrank].NumReqs = 0;
-
-  return num;
-
+int Lattice4D::ReceiveNeighbors(int block) {
+  int neighbor_ranks[MAX_NEIGHBORS];
+  GetNeighborRanks(block_ranks[block], neighbor_ranks);
+  part->ReceiveNeighbors(block_ranks[block], neighbor_ranks);
 }
-//------------------------------------------------------------------------
-
-#endif
+//---------------------------------------------------------------------------

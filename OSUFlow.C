@@ -1,9 +1,5 @@
 #include "OSUFlow.h"
 
-#ifdef MPI
-#include <mpi.h>
-#endif
-
 #pragma warning(disable : 4251 4100 4244 4101)
 
 OSUFlow::OSUFlow()
@@ -903,19 +899,9 @@ void Error(const char *fmt, ...){
   va_list argp;
   vfprintf(stderr, fmt, argp);
   sleep(5);
-#ifdef MPI
-  MPI_Abort(MPI_COMM_WORLD, 0);
-#else
   exit(0);
-#endif
 
 }
-//-----------------------------------------------------------------------
-
-// MPI functions
-
-#ifdef MPI
-
 //-----------------------------------------------------------------------
 //
 // LoadData()
@@ -930,7 +916,7 @@ void Error(const char *fmt, ...){
 //
 void OSUFlow::LoadData(const char* fname, bool bStatic, 
 		       VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, int bt_max, 
-		       int min_t, int max_t, MPI_Comm comm) {
+		       int min_t, int max_t) {
 
   flowName = new char[255];
   strcpy(flowName, fname);
@@ -952,52 +938,16 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
   if (bStaticFlow) {  // ignore the time range 
     numTimesteps = 1; 
     MinT = MaxT = 0; 
-    InitStaticFlowField(sMin, sMax, dim, comm);
+    InitStaticFlowField(sMin, sMax, dim);
   }
 
   else
-    InitTimeVaryingFlowField(sMin, sMax, dim, bt_max, min_t, max_t, comm); 
+    InitTimeVaryingFlowField(sMin, sMax, dim, bt_max, min_t, max_t); 
 
   has_data = true; 
 
 }
 //-----------------------------------------------------------------------
-//
-// DEPRECATED - REMOVE EVENTUALLY
-// use LoadData instead
-//
-// ReadData()
-//
-// collectively reads the dataset
-//
-// fname is dataset file name
-// sMin, sMax are local subdomain min and max
-// dim is the total size of the domain
-// bt_max is the max number of time steps in any block
-// t_min, t_max are min and max time steps (ignored if bStatic == true)
-//
-// Tom Peterka, 11/24/08
-//
-void OSUFlow::ReadData(const char* fname, bool bStatic, 
-		       VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, int bt_max, 
-		       int t_min, int t_max, MPI_Comm comm) {
-
-//   if (flowName == NULL)
-//     flowName = new char[255];
-
-//   strcpy(flowName, fname);
-
-//   bStaticFlow = bStatic;
-
-//   if(bStaticFlow)
-//     ReadStaticFlowField(sMin, sMax, dim, comm);
-//   else
-//     ReadTimeVaryingFlowField(sMin, sMax, dim, bt_max, t_min, t_max, comm);
-
-//   has_data = true;
-
-}
-//---------------------------------------------------------------------------
 //
 // InitStaticFlowField
 //
@@ -1006,8 +956,7 @@ void OSUFlow::ReadData(const char* fname, bool bStatic,
 // sMin, sMax: corners of subdomain
 // dim: size of total domain
 //
-void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, 
-				  VECTOR3 dim, MPI_Comm comm) {
+void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
 
   int totalNum;
   float* pData = NULL;
@@ -1023,7 +972,7 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax,
   minB[0] = sMin[0]; minB[1] = sMin[1]; minB[2] = sMin[2];
   maxB[0] = sMax[0]; maxB[1] = sMax[1]; maxB[2] = sMax[2];
 
-  pData = ReadStaticDataRaw(flowName, minB, maxB, dimension, comm); 
+  pData = ReadStaticDataRaw(flowName, minB, maxB, dimension); 
 
   gMin.Set(0.0,0.0,0.0); 
   gMax.Set(dimension[0] - 1.0f, dimension[1] - 1.0f, dimension[2] - 1.0f);
@@ -1049,7 +998,7 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax,
 //
 void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax, 
 				       VECTOR3 dim, int bt_max, int t_min,
-				       int t_max, MPI_Comm comm) {
+				       int t_max) {
 
   int n_timesteps;
   float** ppData = NULL;
@@ -1070,7 +1019,7 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
   maxB[2] = sMax[2]; 
 
   ppData = ReadTimeVaryingDataRaw(flowName, minB, maxB, dimension, 
-				  bt_max, t_min, t_max, comm); 
+				  bt_max, t_min, t_max); 
 
   // update the global bounds of the field
   // Assuming the same for all time steps 
@@ -1089,8 +1038,6 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
 
 }
 //--------------------------------------------------------------------------
-
-#endif
 
 // utility functions
 

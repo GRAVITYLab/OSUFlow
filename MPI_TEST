@@ -60,7 +60,7 @@ t=200
 p=200
 
 # number of rounds
-r=1
+r=2
 
 # number of threads
 # 1 = each process a single thread

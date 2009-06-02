@@ -15,9 +15,7 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 			       float *minB, float *maxB, 
 			       int min_t, int max_t); 
 
-float* ReadStaticDataRaw(char *fname, float *sMin, float* sMax, int* dim,
-			 MPI_Comm comm);
+float* ReadStaticDataRaw(char *fname, float *sMin, float* sMax, int* dim);
 
 float** ReadTimeVaryingDataRaw(char *fname, float* sMin, float* sMax, 
-			       int* dim, int bt_max, int t_min,
-			       int t_max, MPI_Comm comm);
+			       int* dim, int bt_max, int t_min, int t_max);

@@ -55,7 +55,7 @@ C++   = mpecxx -mpilog
 endif
 THREADS = -fopenmp
 CCFLAGS = -c -DLINUX -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
-#CCFLAGS += -DGRAPHICS
+CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
 LIBS = -lm -lglut -lGL
@@ -152,20 +152,20 @@ INCLUDE += -I.
 OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	eigenvals.o  Interpolator.o  Rake.o	    Topology.o \
 	eigenvecs.o  IsoSurf.o	     Solution.o     triangulator.o \
-	Element.o    StreakLine.o    VectorMatrix.o Lattice.o \
+	Element.o    StreakLine.o    VectorMatrix.o \
 	Field.o      PathLine.o      Streamline.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
-	OSUFlow.o    FileReader.o calc_subvolume.o Lattice4D.o \
-	LatticeAMR.o
+	OSUFlow.o    FileReader.o    calc_subvolume.o Lattice4D.o \
+	LatticeAMR.o Partition.o     Lattice.o
 
 SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
 	eigenvecs.C  IsoSurf.C	     Solution.C     triangulator.C \
-	Element.C    StreakLine.C    VectorMatrix.C Lattice.C \
+	Element.C    StreakLine.C    VectorMatrix.C \
 	Field.C      PathLine.C      Streamline.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
-	OSUFlow.C    FileReader.C calc_subvolume.C Lattice4D.C \
-	LatticeAMR.C
+	OSUFlow.C    FileReader.C    calc_subvolume.C Lattice4D.C \
+	LatticeAMR.C Partition.C     Lattice.C
 
 .SUFFIXES: .C
 

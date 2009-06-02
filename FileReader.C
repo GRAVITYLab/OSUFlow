@@ -185,8 +185,7 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 // sMin, sMax: corners of subdomain
 // dim: size of total domain
 //
-float* ReadStaticDataRaw(char *flowName, float *sMin, float *sMax, 
-			 int *dim, MPI_Comm comm) {
+float* ReadStaticDataRaw(char *flowName, float *sMin, float *sMax, int *dim) {
 
   float* Data = NULL; // the data
   MPI_File fd;
@@ -198,6 +197,7 @@ float* ReadStaticDataRaw(char *flowName, float *sMin, float *sMax,
   MPI_Status status;
   int rank;
   int i;
+  MPI_Comm comm = MPI_COMM_WORLD;
 
   MPI_Comm_rank(comm, &rank);
 
@@ -259,8 +259,7 @@ float* ReadStaticDataRaw(char *flowName, float *sMin, float *sMax,
 // t_min, t_max: time range of subdomain
 //
 float** ReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax, 
-			       int* dim, int bt_max, int t_min,
-			       int t_max, MPI_Comm comm) {
+			       int* dim, int bt_max, int t_min, int t_max) {
 
   float **Data; // the data
   MPI_File fd;
@@ -277,6 +276,7 @@ float** ReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax,
   int nt; // number of time steps in my time-space domain
   int null_reads; // number of null reads to fill out max number of time steps
   int i, t;
+  MPI_Comm comm = MPI_COMM_WORLD;
 
   MPI_Comm_rank(comm, &rank);
 
