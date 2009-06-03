@@ -14,7 +14,7 @@
 #include <mpi.h>
 #endif
 
-struct Partition {
+struct LatPartition {
   int NumSendPoints[6]; // number of points ready to send
   int SizeSendPoints[6]; // size of sending points list (bytes)
   float *SendPoints[6]; // sending points list
@@ -46,6 +46,7 @@ class  Lattice {
   int GetProc(int); 
   void InitSeedLists(); 
   void ResetSeedLists(); 
+  void ClearSeedList(int rank); 
   void InsertSeed(int, int, int, VECTOR3); 
   void RoundRobin_proc(int n); 
   void GetPartitions(int, int**, int&); 
@@ -64,7 +65,7 @@ class  Lattice {
   int xdim, ydim, zdim; //the data range
   int npart; 
   volume_bounds_type *vb_list; 
-  Partition *parts; // list of partition information
+  LatPartition *parts; // list of partition information
   void Error(const char *fmt, ...);
 
   // MPI functions

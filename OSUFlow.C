@@ -447,26 +447,27 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
   
   int totalNum = xdim*ydim*zdim; 
 
-  numTimesteps = max_t-min_t;   //??????? potential problem 
+  numTimesteps = max_t-min_t+1;  
   ppVector = new VECTOR3 *[numTimesteps]; 
-
   for (int i=0; i<numTimesteps; i++) {
     pVector = new VECTOR3[totalNum]; 
-    for (int j = 0; j<totalNum; j++)
+    if (ppData[i] == NULL) printf("*** panic!!!\n"); 
+    for (int j = 0; j<totalNum; j++) {
       pVector[j].Set(ppData[i][j*3], ppData[i][j*3+1], ppData[i][j*3+2]); 
-    delete[] ppData[i]; 
+    }
+    //delete[] ppData[i]; 
     ppVector[i] = pVector; 
   }
   delete[] ppData;
 
   min_b[0] = minB[0]; min_b[1] = minB[1]; min_b[2] = minB[2]; 
   max_b[0] = maxB[0]; max_b[1] = maxB[1]; max_b[2] = maxB[2]; 
-
   // create the flow field now 
   pSolution = new Solution(ppVector, totalNum, numTimesteps, min_t, max_t);
   pRegularCGrid = new RegularCartesianGrid(xdim, ydim, zdim); 			
 
   pRegularCGrid->SetBoundary(min_b, max_b);
+
   assert(pSolution != NULL && pRegularCGrid != NULL);
   field = new CVectorField(pRegularCGrid, pSolution, numTimesteps, min_t);
 
@@ -902,6 +903,7 @@ void Error(const char *fmt, ...){
   exit(0);
 
 }
+#ifdef MPI
 //-----------------------------------------------------------------------
 //
 // LoadData()
@@ -1037,6 +1039,7 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
 					 minB, maxB, t_min, t_max);  
 
 }
+#endif
 //--------------------------------------------------------------------------
 
 // utility functions

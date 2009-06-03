@@ -22,8 +22,8 @@
 #
 #----------------------------------------------------------------------------
 
-#ARCH = MAC_OSX
-ARCH = LINUX
+ARCH = MAC_OSX
+#ARCH = LINUX
 #ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
@@ -155,8 +155,8 @@ OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	Element.o    StreakLine.o    VectorMatrix.o \
 	Field.o      PathLine.o      Streamline.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
-	OSUFlow.o    FileReader.o    calc_subvolume.o Lattice4D.o \
-	LatticeAMR.o Partition.o     Lattice.o
+	OSUFlow.o    FileReader.o calc_subvolume.o Lattice4D.o \
+	LatticeAMR.o Partition.o FlashAMR.o ComputeFieldLines.o Lattice.o 
 
 SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -164,8 +164,8 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	Element.C    StreakLine.C    VectorMatrix.C \
 	Field.C      PathLine.C      Streamline.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
-	OSUFlow.C    FileReader.C    calc_subvolume.C Lattice4D.C \
-	LatticeAMR.C Partition.C     Lattice.C
+	OSUFlow.C    FileReader.C calc_subvolume.C Lattice4D.C \
+	LatticeAMR.C  Partition.C FlashAMR.C ComputeFieldLines.C Lattice.C 
 
 .SUFFIXES: .C
 
@@ -175,7 +175,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 default: all
 
 all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline # mpitest
+	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline# mpitest
 
 #all: lib$(LIBNAME).a 
 

@@ -44,7 +44,9 @@ Partition::Partition(int nsp, int ntp, int d) {
     }
 
     // other status info
+#ifdef MPI
     parts[j].NumReqs = 0;
+#endif
     ClearReq(j);
     ClearLoad(j);
     ClearComp(j);

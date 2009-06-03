@@ -109,6 +109,7 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 					    float finalTime,
 					    vtListSeedTrace& seedTrace)
 {  
+  printf(" hello!\n"); 
 	int count = 0, istat, res;
 	PointInfo seedInfo;
 	PointInfo thisParticle, prevParticle, second_prevParticle;
@@ -118,10 +119,12 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 	// the first particle
 	seedInfo = initialPoint.m_pointInfo;
 	res = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, initialTime, vel);
-	if(res == OUT_OF_BOUND)
+	if(res == OUT_OF_BOUND){
 		return OUT_OF_BOUND;
-	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
-		return CRITICAL_POINT;
+	}
+	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff)) {
+	  return CRITICAL_POINT;
+	}
 
 	thisParticle = seedInfo;
 	seedTrace.push_back(new VECTOR3(seedInfo.phyCoord));
@@ -160,20 +163,28 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 		else
 			istat = runge_kutta4(m_timeDir, UNSTEADY, thisParticle, &curTime, dt);
 
-		if(istat == OUT_OF_BOUND)			// out of boundary
+		if(istat == OUT_OF_BOUND)  {			// out of boundary
+		  printf(" foul!  "); 
 			return OUT_OF_BOUND;
+		}
 
 		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, curTime, vel);
-		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff)) {
+		  printf("trap!! "); 
 			return CRITICAL_POINT;			// arrives at a critical point
+		}
+			
 		else
 		{
 			seedTrace.push_back(new VECTOR3(thisParticle.phyCoord));
 			count++;
+			printf(" count %d  ", count); 
 		}
 
-		if((curTime < m_pField->GetMinTimeStep()) || (curTime > (float)(m_pField->GetMaxTimeStep())))
+		if((curTime < m_pField->GetMinTimeStep()) || (curTime > (float)(m_pField->GetMaxTimeStep()))) {
+		  printf("out!  "); 
 			return -1;
+		}
 
 		//---> temporary turn off function of adaptive stepsize
 		//if(count > 2)
@@ -201,11 +212,12 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 	// the first particle
 	seedInfo = initialPoint.m_pointInfo;
 	res = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, initialTime, vel);
-	if(res == OUT_OF_BOUND)
+	if(res == OUT_OF_BOUND)  {
 		return OUT_OF_BOUND;
-
-	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+	}
+	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff)) {
 		return CRITICAL_POINT;
+	}
 
 	thisParticle = seedInfo;
 	VECTOR4 *p = new VECTOR4; 
@@ -249,13 +261,6 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 		else
 			istat = runge_kutta4(m_timeDir, UNSTEADY, thisParticle, &curTime, dt);
 
-		if(istat == OUT_OF_BOUND)			// out of boundary
-			return OUT_OF_BOUND;
-
-		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, curTime, vel);
-		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
-			return CRITICAL_POINT;			// arrives at a critical point
-		else
 		{
 		  VECTOR4 *p = new VECTOR4; 
 		  (*p)[0] = thisParticle.phyCoord[0]; 
@@ -266,8 +271,28 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 		  count++;
 		}
 
-		if((curTime < m_pField->GetMinTimeStep()) || (curTime > (float)(m_pField->GetMaxTimeStep())))
+		if(istat == OUT_OF_BOUND)			// out of boundary
+			return OUT_OF_BOUND;
+
+		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, curTime, vel);
+		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+			return CRITICAL_POINT;			// arrives at a critical point
+		/*
+		else
+		{
+		  VECTOR4 *p = new VECTOR4; 
+		  (*p)[0] = thisParticle.phyCoord[0]; 
+		  (*p)[1] = thisParticle.phyCoord[1]; 
+		  (*p)[2] = thisParticle.phyCoord[2]; 
+		  (*p)[3] = curTime; 
+		  seedTrace.push_back(p); 
+		  count++;
+		}
+		*/
+		if((curTime < m_pField->GetMinTimeStep()) || (curTime > (float)(m_pField->GetMaxTimeStep()))) {
+		  printf("**** time out  "); 
 			return -1;
+		}
 
 		//---> temporary turn off function of adaptive stepsize
 		//if(count > 2)

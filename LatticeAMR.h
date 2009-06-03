@@ -24,7 +24,7 @@ class  LatticeAMR {
   
   //x/y/zlen are the physical dimensions in the domain, tlen is the total number of 
   //time steps 
-  LatticeAMR(float xlen, float ylen, float zlen, float tlen, int total_level); 
+  LatticeAMR(float xlen, float ylen, float zlen, int tlen, int total_level); 
 
   ~LatticeAMR(); 
 
@@ -34,10 +34,10 @@ class  LatticeAMR {
   bool CreateLevel(int level, float xsize, float ysize, float zsize, 
 		   int x_res, int y_res, int z_res, 
 		   float x_min, float x_max, float y_min, float y_max, 
-		   float z_min, float z_max, float t_min, float t_max); 
+		   float z_min, float z_max, int t_min, int t_max); 
 
   //Check in a non-empt block in the level 
-  bool CheckIn(int level, float x, float y, float z, float t, 
+  bool CheckIn(int level, float x, float y, float z, int t, 
 	       float* data); 
 
   //Go through all levels to collect non-empty blocks 
@@ -47,22 +47,9 @@ class  LatticeAMR {
 
   void MergeAndCompleteLevels(); 
 
-
-  int GetIndexinLevel(int level, float x, float y, float z, float t);
-
-  int GetCoordsinLevel(int level, float x, float y, float z, float t, 
-			int& i, int &j, int &k, int &t); 
-
-  int GetFinestLevel(float x, float y, float z, float t);
-
   int GetRank(float x, float y, float z, float t); 
 
-  int GetRank(int i, int j, int k, int t, int level);         // serach by lattice indices
-
-  int GetIndices(int rank, int &i, int &j, int&k, int&t, int&level);  // search by rank 
-
-  int GetIndices(float x, float y, float z, float t, int& iidx, int &jidx, int&kidx, int& tidx, int& level);  // search by physical locations
-
+  int GetRank(int i, int j, int k, int t, int level);   
 
   bool isIn(float x, float y, float , float t, int i, int j, int k, int l, 
 	    int level); 
@@ -84,6 +71,8 @@ class  LatticeAMR {
   int GetNeighbor(int myrank, float x, float y, float z, float t, int &i, int &j,
 		  int &k, int&l, int&level);
 
+  int GetFinestLevel(float x, float y, float z, float t);
+
   void InitSeedLists(); 
   void ResetSeedLists(); 
   void ResetSeedLists(int i); 
@@ -94,10 +83,7 @@ class  LatticeAMR {
   int GetProc(int); 
   void GetPartitions(int, int**, int&); 
   void GetPartitions(int, int*, int&); 
-  bool MapCells(int fromI, int fromJ, int fromK, int fromT, 
-		 int fromlevel, int toLevel, int& toImin, int& toImax, 
-		 int& toJmin, int& toJmax, int& toKmin, int& toKmax, 
-		 int& toTmin, int& toTmax); 
+
   bool Mergeable(int i, int j, int k, int t, int level, int& mergeLevel); 
   void MergeBlocks(); 
 
@@ -107,19 +93,35 @@ class  LatticeAMR {
 
  private: 
 
-  int num_levels;  // the AMR refinement level 
+  int GetCoords(int rank, int &i, int &j, int&k, int&t, int&level);  // search by rank 
 
-  float xdim, ydim, zdim, tdim; //the physical dimensions of the whole domain 
+  int GetCoords(float x, float y, float z, float t, int& iidx, int &jidx, int&kidx, int& tidx, int& level);  // search by physical locations
 
-  //the physical ranges, in all levels
-  float *xmin, *xmax, *ymin, *ymax, *zmin, *zmax, *tmin, *tmax; 
+  int GetIndexinLevel(int level, float x, float y, float z, float t);
 
-  float *xlength, *ylength, *zlength, *tlength; // the physical size of the 
-                                        // block in each level
+  int GetCoordsinLevel(int level, float x, float y, float z, float t, 
+			int& i, int &j, int &k, int &t); 
 
-  int *xres, *yres, *zres, *tres; // the block data dimensions for all levels before merging 
+  bool MapCells(int fromI, int fromJ, int fromK, int fromT, 
+		 int fromlevel, int toLevel, int& toImin, int& toImax, 
+		 int& toJmin, int& toJmax, int& toKmin, int& toKmax, 
+		 int& toTmin, int& toTmax); 
 
-  int *idim, *jdim, *kdim, *ldim; //the lattice dimensions, in all levels 
+  int num_levels;  // the number of AMR levels
+
+  float xdim, ydim, zdim; //the lengths of the whole domain (not the data resolution) 
+  int tdim;               //number of time steps, always an integer
+
+  //the physical bounds of all levels
+  float *xmin, *xmax, *ymin, *ymax, *zmin, *zmax; 
+  int   *tmin, *tmax; 
+
+  float *xlength, *ylength, *zlength; // the physical lengths of blocks 
+  int   *tlength;                     // in all levels (all blocks have the same size in each level)
+
+  int *xres, *yres, *zres, *tres; // the  resolution of data blocks in all levels 
+
+  int *idim, *jdim, *kdim, *ldim; // the lattice resolutions, in all levels 
 
   bool **has_data;      // whether the block in this level has data or not 
   int ** has_data_from_merger; 
@@ -128,11 +130,10 @@ class  LatticeAMR {
   float ***data_ptr; // data pointers for every non-empty block, ordered by 
                      // level and index (so three *s here) 
 
+  int* nblocks; // number of blocks in each level (regardless of having data or not) 
 
-  int* nblocks; // number of blocks in each level regardless of having data or not 
-
-  int npart; 
-  volume_bounds_type_f *vb_list; 
+  int npart;   // number of partitions. 
+  volume_bounds_type_f *vb_list; // bounds for each partition 
   int *rank_to_index; // from rank to (i,j,k,t, level) indices 
 
   PartitionAMR4D *parts; 

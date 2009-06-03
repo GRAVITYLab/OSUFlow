@@ -453,7 +453,7 @@ main(int argc, char* argv[])
 			    block_dims[0], block_dims[1], block_dims[2],
 			    g_level_minB[i][0], g_level_maxB[i][0], g_level_minB[i][1], 
 			    g_level_maxB[i][1], g_level_minB[i][2], g_level_maxB[i][2], 
-			    0.0, (float)num_timesteps); 
+			    0, num_timesteps-1); 
 
   }
 

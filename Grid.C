@@ -114,12 +114,16 @@ void RegularCartesianGrid::Boundary(VECTOR3& minB, VECTOR3& maxB)
 //////////////////////////////////////////////////////////////////////////
 bool RegularCartesianGrid::isInBBox(VECTOR3& pos)
 {
+
+
+
   if( (pos[0] >= m_vMinBound[0]) && (pos[0] <= m_vMaxBound[0]) &&
       (pos[1] >= m_vMinBound[1]) && (pos[1] <= m_vMaxBound[1]) &&
       (pos[2] >= m_vMinBound[2]) && (pos[2] <= m_vMaxBound[2]))
     return true;
-  else
+  else {
     return false;
+  }
 }
 
 // compute a default boundary 
@@ -643,6 +647,8 @@ void IrregularGrid::Boundary(VECTOR3& minB, VECTOR3& maxB)
 //////////////////////////////////////////////////////////////////////////
 bool IrregularGrid::isInBBox(VECTOR3& pos)
 {
+
+
 
 	if( (pos[0] >= m_vMinBound[0]) && (pos[0] <= m_vMaxBound[0]) &&
 		(pos[1] >= m_vMinBound[1]) && (pos[1] <= m_vMaxBound[1]) &&

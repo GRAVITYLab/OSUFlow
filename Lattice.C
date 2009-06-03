@@ -22,7 +22,7 @@ Lattice::Lattice(int xlen, int ylen, int zlen, int ghost, int np) {
   zdim = zlen; 
   vb_list = calc_subvolume(xlen, ylen, zlen, ghost, np, idim, jdim, kdim); 
   npart = np; 
-  parts = new Partition[np]; 
+  parts = new LatPartition[np]; 
 
   // init the partitions list
   for (int j = 0; j < np; j++)  {
@@ -366,6 +366,10 @@ void Lattice::InsertSeed(int i, int j, int k, VECTOR3 p) {
 
   seedlists[rank].push_back(p); 
 
+}
+
+void Lattice::ClearSeedList(int rank) {
+  seedlists[rank].clear(); 
 }
 //-------------------------------------------------------------------------
 //

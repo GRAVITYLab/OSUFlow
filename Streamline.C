@@ -158,11 +158,9 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 	// the first particle
 	istat = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, m_fCurrentTime, vel);
 	if(istat == OUT_OF_BOUND)  {
-	  //	  printf(" out of bound... %d \n", istat); 
 		return OUT_OF_BOUND;
 	}
 	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff)) {
-	  //	  printf(" critical point... %f %f %f\n", vel[0], vel[1], vel[2]); 
 		return CRITICAL_POINT;
 	}
 

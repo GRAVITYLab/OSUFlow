@@ -34,7 +34,7 @@ typedef
   float xmin, xmax; 
   float ymin, ymax;
   float zmin, zmax;
-  float tmin, tmax;   // computational time steps
+  int tmin, tmax;   // computational time steps
   int xdim, ydim, zdim, tdim; // data resolution 
 } volume_bounds_type_f;
 

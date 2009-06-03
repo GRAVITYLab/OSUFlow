@@ -5,15 +5,15 @@
 //
 // Lattice AMR
 //
-// constructs and initializes the time-varying regular structured 
+// constructs and initializes a time-varying regular structured 
 // AMR lattice 
 //
-LatticeAMR::LatticeAMR(float xlen, float ylen, float zlen, float tlen, 
+LatticeAMR::LatticeAMR(float xlen, float ylen, float zlen, int tlen, 
 		       int total_level) {
 
-  num_levels = total_level; // total AMR level. 
+  num_levels = total_level; // total AMR levels. 
 
-  xdim = xlen;  // the physical dimension of the whole domain 
+  xdim = xlen;  // the physical dimensions of the entire domain 
   ydim = ylen; 
   zdim = zlen; 
   tdim = tlen;  // number of time steps
@@ -22,15 +22,15 @@ LatticeAMR::LatticeAMR(float xlen, float ylen, float zlen, float tlen,
   xmin = new float[num_levels];   xmax = new float[num_levels]; 
   ymin = new float[num_levels];   ymax = new float[num_levels]; 
   zmin = new float[num_levels];   zmax = new float[num_levels]; 
-  tmin = new float[num_levels];   tmax = new float[num_levels]; 
+  tmin = new int [num_levels];    tmax = new int[num_levels]; 
 
-  // the xyz lengths of a block in each level 
+  // the xyzt lengths of a block in each level, assume the same for all blocks
   xlength = new float[num_levels]; 
   ylength = new float[num_levels]; 
   zlength = new float[num_levels]; 
-  tlength = new float[num_levels]; 
+  tlength = new int[num_levels]; 
 
-  // the data resolution of blocks in all level (they should be the same) 
+  // the data resolution of blocks in each level, same for all blocks
   xres = new int[num_levels]; 
   yres = new int[num_levels]; 
   zres = new int[num_levels]; 
@@ -40,18 +40,18 @@ LatticeAMR::LatticeAMR(float xlen, float ylen, float zlen, float tlen,
   idim = new int[num_levels]; 
   jdim = new int[num_levels]; 
   kdim = new int[num_levels]; 
-  ldim = new int[num_levels]; 
+  ldim = new int[num_levels];  
 
   // data structures for book-keeping 
-  has_data = new bool*[num_levels];     // whether the element has data or not 
+  has_data = new bool*[num_levels];     // whether the lattice element has data or not 
   has_data_from_merger = new int*[num_levels]; // used for block merger 
   finest_level = new int*[num_levels];   // what is the finest level of data 
                                          // in this spatial region
-  data_ptr = new float**[num_levels]; 
+  data_ptr = new float**[num_levels];    // one float ptr per time step 
   index_to_rank = new int*[total_level]; // mapping from index to rank 
   nblocks = new int[total_level];        // how many blocks in each region 
                                          // regardless of empty or not 
-  npart = 0;                             // number of non-empty blocks total
+  npart = 0;                             // number of non-empty blocks overall 
 }
 
 /////////////////////////////////////////////////////////////////
@@ -97,13 +97,13 @@ bool LatticeAMR::CreateLevel(int level, float x_size, float y_size,
 			     int x_res, int y_res, int z_res, 
 			     float x_min, float x_max, 
 			     float y_min, float y_max, float z_min, 
-			     float z_max, float t_min, float t_max) 
+			     float z_max, int t_min, int t_max) 
 {
 
   if (level <0 || level >=num_levels) return false; 
 
   xlength[level]=x_size; ylength[level]=y_size; zlength[level]=z_size;
-  tlength[level]= 1.0;  // one time step at a time for an AMR block 
+  tlength[level]= 1;  // one time step in each AMR block 
   
   // the data resolution 
   xres[level] = x_res; yres[level] = y_res; zres[level] = z_res; 
@@ -122,7 +122,7 @@ bool LatticeAMR::CreateLevel(int level, float x_size, float y_size,
   idim[level] = (int) (x_max-x_min)/x_size; 
   jdim[level] = (int) (y_max-y_min)/y_size; 
   kdim[level] = (int) (z_max-z_min)/z_size; 
-  ldim[level] = (int) (t_max-t_min)/tlength[level]; 
+  ldim[level] = t_max-t_min+1; 
 
   printf("**** level %d dims %d %d %d %d \n", level, idim[level], jdim[level], 
   	 kdim[level], ldim[level]); 
@@ -178,17 +178,17 @@ int LatticeAMR::GetIndexinLevel(int level, float x, float y, float z, float t)
 // It also updates the corresponding lattice element in other level 
 // regarding which level has the finest level of data 
 //
-bool LatticeAMR::CheckIn(int level, float x, float y, float z, float t, 
+bool LatticeAMR::CheckIn(int level, float x, float y, float z, int t, 
 			 float* data) 
 {
-  int idx = GetIndexinLevel(level, x, y, z, t); 
+  int idx = GetIndexinLevel(level, x, y, z, (float) t); 
   if (idx == -1) { printf(" **** no! out of bound.\n"); return false; } // out of bound
   has_data[level][idx] = true; 
   data_ptr[level][idx] = data; 
 
   // update the blocks at other levels as well
   for (int i=0; i<num_levels; i++){
-    idx = GetIndexinLevel(i,x,y,z,t); 
+    idx = GetIndexinLevel(i,x,y,z, (float) t); 
     if (idx != -1) 
       if (finest_level[i][idx]<level)
 	finest_level[i][idx] = level; 
@@ -214,7 +214,8 @@ void LatticeAMR::CompleteLevels()
   rank_to_index = new int[npart]; 
 
   int isize, jsize, ksize; 
-  float x_min, x_max, y_min, y_max, z_min, z_max, t_min, t_max; 
+  float x_min, x_max, y_min, y_max, z_min, z_max; 
+  int t_min, t_max; 
   int offset = 0; 
   int rank = 0; 
   for (int level=0; level<num_levels; level++) {
@@ -227,7 +228,7 @@ void LatticeAMR::CompleteLevels()
     z_min = zmin[level]; z_max = zmax[level]; 
     t_min = tmin[level]; t_max = tmax[level]; 
 
-    printf(" --- %f %f %f %f %f %f %f %f \n", x_min, x_max, y_min, y_max, 
+    printf(" --- %f %f %f %f %f %f %d %d \n", x_min, x_max, y_min, y_max, 
 	   z_min, z_max, t_min, t_max); 
     // j is an id for all blocks in their own level
     // rank is a global id for all non-empty blocks in all levels 
@@ -313,24 +314,27 @@ void LatticeAMR::CompleteLevels(int t_interval)
 		  vb_list[npart].ymax= ymin[l]+(j+1)*ylength[l]; 
 		  vb_list[npart].zmin= zmin[l]+k*zlength[l]; 
 		  vb_list[npart].zmax= zmin[l]+(k+1)*zlength[l]; 
-		  vb_list[npart].tmin= tmin[l]+t*tlength[l]; 
-		  vb_list[npart].tmax= tmin[l]+(t+1)*tlength[l]; 
-
 		  vb_list[npart].xdim = xres[l]; 
 		  vb_list[npart].ydim = yres[l]; 
 		  vb_list[npart].zdim = zres[l]; 
-		  vb_list[npart].tdim = 1; 
 
+		  vb_list[npart].tmin= tmin[l]+t*tlength[l]; 
+		  vb_list[npart].tmax= tmin[l]+t*tlength[l]; 
+		  vb_list[npart].tdim = 1; 
 		  index_to_rank[l][idx] = npart; 
 		  rank_to_index[npart] = offset + idx; 
 
-		  counter++; 
+		  if (t+1==ldim[l]) {
+		    counter =0; 
+		  }
+		  else 
+		    counter++; 
 		}
 		else  {
-		  vb_list[npart].tmax= tmin[l]+(t+1)*tlength[l]; 
-		  vb_list[npart].tdim += 1; 
-		  index_to_rank[l][idx] = npart; 
-		  counter++; 
+		    vb_list[npart].tmax= tmin[l]+t*tlength[l]; 
+		    vb_list[npart].tdim++; 
+		    index_to_rank[l][idx] = npart; 
+		    counter++; 
 		}
 	      }
 	      else {  // do not have data
@@ -341,7 +345,6 @@ void LatticeAMR::CompleteLevels(int t_interval)
     offset+= nblocks[l]; 
   }
   npart+=1; // because earlier we start npart from -1 
-
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -362,7 +365,8 @@ void LatticeAMR::MergeAndCompleteLevels()
   rank_to_index = new int[npart]; 
 
   int isize, jsize, ksize; 
-  float x_min, x_max, y_min, y_max, z_min, z_max, t_min, t_max; 
+  float x_min, x_max, y_min, y_max, z_min, z_max; 
+  int t_min, t_max; 
   int offset = 0; 
   int rank = 0; 
   for (int level=0; level<num_levels; level++) {
@@ -501,7 +505,12 @@ float** LatticeAMR::GetDataPtr(int rank)
   int t_jump = idim[l]*jdim[l]*kdim[l]; 
   int index_offset = 0; 
   for (int i=0; i<n_steps; i++) {
+    if (has_data[l][remainder+i*t_jump] == false) {
+      printf(" panic!\n"); 
+      exit(1); 
+    }
     ppvector[i] = data_ptr[l][remainder+i*t_jump]; 
+    if (ppvector[i]==NULL) printf(" oh my god\n"); 
   }
   return (ppvector); 
 }
@@ -556,7 +565,6 @@ int LatticeAMR::GetRank(float x, float y, float z, float t) {
     if (idx!=-1)
       if (has_data[i][idx] == true) {
 	int rank = index_to_rank[i][idx]; 
-	printf("*** rank = %d \n", rank); 
 	return rank; 
       }
   }
@@ -586,7 +594,7 @@ int LatticeAMR::GetRank(int i, int j, int k, int t, int level) {
 // find the indices and level of the lattice element that has its 
 // subdomain number = rank 
 //
-int LatticeAMR::GetIndices(int rank, int &iidx, int &jidx, int &kidx, int& tidx, int& level) 
+int LatticeAMR::GetCoords(int rank, int &iidx, int &jidx, int &kidx, int& tidx, int& level) 
 {
   if (rank < 0 || rank >=npart) return (-1); 
 
@@ -620,7 +628,7 @@ int LatticeAMR::GetIndices(int rank, int &iidx, int &jidx, int &kidx, int& tidx,
 // the finest resolution of data at (x,y,z,t)
 // it also returns the rank of the lattice element 
 //
-int LatticeAMR::GetIndices(float x, float y, float z, float t, 
+int LatticeAMR::GetCoords(float x, float y, float z, float t, 
 			  int &iidx, int &jidx, int &kidx, int&tidx, int&level) 
 {
   int idx, rank; 
@@ -691,12 +699,12 @@ int LatticeAMR::GetBounds(int i, int j, int k, int t, int level, volume_bounds_t
 
   vb.xmin = xmin[level] + i*xlength[level]; 
   vb.xmax = xmin[level] + (i+1)*xlength[level]; 
-  vb.ymin = ymin[level] + i*ylength[level]; 
-  vb.ymax = ymin[level] + (i+1)*ylength[level]; 
-  vb.zmin = zmin[level] + i*zlength[level]; 
-  vb.zmax = zmin[level] + (i+1)*zlength[level]; 
-  vb.tmin = tmin[level] + i*tlength[level]; 
-  vb.tmax = tmin[level] + (i+1)*tlength[level]; 
+  vb.ymin = ymin[level] + j*ylength[level]; 
+  vb.ymax = ymin[level] + (j+1)*ylength[level]; 
+  vb.zmin = zmin[level] + k*zlength[level]; 
+  vb.zmax = zmin[level] + (k+1)*zlength[level]; 
+  vb.tmin = tmin[level] + t*tlength[level]; 
+  vb.tmax = tmin[level] + (t+1)*tlength[level]; 
 
   return(1); 
 }
@@ -736,7 +744,7 @@ int LatticeAMR::GetNeighbor(int myrank, float x, float y, float z, float t,
 			   int &ei, int &ej, int &ek, int &et, int &level) {
 
 
-  int idx = GetIndices(x,y,z,t,ei, ej, ek, et, level); 
+  int idx = GetCoords(x,y,z,t,ei, ej, ek, et, level); 
 
   return idx; 
 
@@ -907,7 +915,6 @@ bool LatticeAMR::InsertSeed(int i, int j, int k, int t, int level, VECTOR4 p) {
 
   int rank = GetRank(i,j,k, t, level); 
 
-  //  printf(" insert to rank %d \n", rank); 
   if (rank ==-1) return(false); 
   else {
     seedlists[rank].push_back(p); 

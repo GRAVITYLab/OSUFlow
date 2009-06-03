@@ -30,8 +30,10 @@ struct Partition4D {
   float *RecvPoints[MAX_NEIGHBORS]; // receiving points list
 
   // the following array fills up in order, from 0 to number of requests
+#ifdef MPI
   MPI_Request Reqs[4 * MAX_NEIGHBORS]; // message requests
   int NumReqs; // number of requests
+#endif 
 
   int Proc; // process(or) number (mpi rank, core number, node number, etc.)
 
@@ -63,8 +65,12 @@ class Partition {
   void PrintRecv(int myrank);
   void GetRecvPts(int myrank, VECTOR4 *ls);
   int GetProc(int myrank);
+#ifdef  MPI
   void SendNeighbors(int myrank, int *ranks, MPI_Comm comm = MPI_COMM_WORLD);
   int ReceiveNeighbors(int myrank, int *ranks, MPI_Comm comm = MPI_COMM_WORLD);
+#endif
+  void SendNeighbors(int myrank, int *ranks){};
+  int ReceiveNeighbors(int myrank, int *ranks){};
 
   Partition4D *parts; // list of partition information
 

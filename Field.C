@@ -152,12 +152,14 @@ int CVectorField::at_phys(const int fromCell,
 		
 	// find the cell this position belongs to
 	pInfo.Set(pos, pInfo.interpolant, fromCell, -1);
-	if(m_pGrid->phys_to_cell(pInfo) == -1)
+	if(m_pGrid->phys_to_cell(pInfo) == -1) {
 		return -1;
+	}
 
 	// get vertex value at cell vertices
-	if(at_cell(pInfo.inCell, T3_CELL, t, vNodeData) == -1)
+	if(at_cell(pInfo.inCell, T3_CELL, t, vNodeData) == -1) {
 		return -1;
+	}
 
 	// interpolate in the cell
 	m_pGrid->interpolate(nodeData, vNodeData, pInfo.interpolant);
