@@ -33,34 +33,36 @@ ARCH=LINUX
 nodes=64
 
 # number of procs
-num_procs=4
+num_procs=1
 
 # executable
 exe=./mpitest
 
 # dataset
-data=~tpeterka/tornado/tornado.list
+data=~tpeterka/flash/8km_16o40_bin_cnt_0400
 
 # data size x y z t (for steady state flows use t = 1)
-dsize="128 128 128 4"
+# for amr, can use all 1's, or whatever (finds its own size)
+dsize="1 1 1 1"
 
 # total number of partitions in the space domain
-sb=4
+sb=1
 
 # total number of partitions in the time domain
-tb=2
+# for steady state flows use tb = 1
+tb=1
 
 # number of time partitions per round
-tr=2
+tr=1
 
 # number of traces per block
-t=200
+t=1
 
 # number of points per trace
-p=200
+p=10
 
 # number of rounds
-r=2
+r=1
 
 # number of threads
 # 1 = each process a single thread
@@ -68,7 +70,7 @@ r=2
 th=1
 
 # available memory space for dataset (MB)
-m=128
+m=1024
 
 if [ "$ARCH" = "LINUX" ]; then
 

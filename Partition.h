@@ -12,9 +12,6 @@
 #include <mpi.h>
 #endif
 
-// maximum number of 4D neighbors, including myself
-#define MAX_NEIGHBORS 81
-
 // maximum number of total global partitions
 #define MAX_PARTS 100000000
 
@@ -22,16 +19,18 @@
 struct Partition4D {
 
   // the following arrays are indexed according to neighbor number
-  int NumSendPoints[MAX_NEIGHBORS]; // number of points ready to send
-  int SizeSendPoints[MAX_NEIGHBORS]; // size of sending points list (bytes)
-  float *SendPoints[MAX_NEIGHBORS]; // sending points list
-  int NumRecvPoints[MAX_NEIGHBORS]; // number of points received
-  int SizeRecvPoints[MAX_NEIGHBORS]; // size of receiving points list (bytes)
-  float *RecvPoints[MAX_NEIGHBORS]; // receiving points list
+  int *NumSendPoints; // number of points ready to send
+  int *SizeSendPoints; // size of sending points list (bytes)
+  float **SendPoints; // sending points list
+  int *NumRecvPoints; // number of points received
+  int *SizeRecvPoints; // size of receiving points list (bytes)
+  float **RecvPoints; // receiving points list
+
+  int NumNeighbors; // the number of the above arrays
 
   // the following array fills up in order, from 0 to number of requests
 #ifdef MPI
-  MPI_Request Reqs[4 * MAX_NEIGHBORS]; // message requests
+  MPI_Request *Reqs; // message requests
   int NumReqs; // number of requests
 #endif 
 
@@ -47,7 +46,7 @@ class Partition {
 
  public: 
   
-  Partition(int nsp, int ntp, int d); 
+  Partition(int nsp, int ntp, int max_neighbors); 
   ~Partition(); 
 
   void SetReq(int myrank) { parts[myrank].Requed = 1; }
@@ -65,12 +64,15 @@ class Partition {
   void PrintRecv(int myrank);
   void GetRecvPts(int myrank, VECTOR4 *ls);
   int GetProc(int myrank);
+  void SetNumNeighbors(int myrank, int num) {parts[myrank].NumNeighbors = num; }
+
 #ifdef  MPI
   void SendNeighbors(int myrank, int *ranks, MPI_Comm comm = MPI_COMM_WORLD);
   int ReceiveNeighbors(int myrank, int *ranks, MPI_Comm comm = MPI_COMM_WORLD);
-#endif
+#else
   void SendNeighbors(int myrank, int *ranks){};
   int ReceiveNeighbors(int myrank, int *ranks){};
+#endif
 
   Partition4D *parts; // list of partition information
 

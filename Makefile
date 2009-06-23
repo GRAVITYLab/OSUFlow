@@ -22,8 +22,8 @@
 #
 #----------------------------------------------------------------------------
 
-ARCH = MAC_OSX
-#ARCH = LINUX
+#ARCH = MAC_OSX
+ARCH = LINUX
 #ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
@@ -175,7 +175,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 default: all
 
 all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline# mpitest
+	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline mpitest
 
 #all: lib$(LIBNAME).a 
 
@@ -197,8 +197,11 @@ testmain3: testmain3.o lib$(LIBNAME).a
 testmain4: testmain4.o lib$(LIBNAME).a
 	$(C++) -o testmain4 testmain4.o -L. -l$(LIBNAME) -lm
 
-mpitest: MpiDraw2.o lib$(LIBNAME).a
-	$(C++) -o mpitest MpiDraw2.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
+mpitest: MpiAmrDraw.o lib$(LIBNAME).a
+	$(C++) -o mpitest MpiAmrDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
+
+#mpitest: MpiDraw2.o lib$(LIBNAME).a
+#	$(C++) -o mpitest MpiDraw2.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
 
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) $(LIBS) 

@@ -32,6 +32,11 @@ FlashAMR::FlashAMR()
 
 }
 
+FlashAMR::~FlashAMR() 
+{
+
+}
+
 int FlashAMR::LoadData(char* fname, float min[3], float max[3]) 
 {
 

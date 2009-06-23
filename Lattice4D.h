@@ -17,7 +17,7 @@ class  Lattice4D {
  public: 
   
   Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, 
-	    int ntp, int d = 4, int myproc = -1, int nproc = -1); 
+	    int ntp, int myproc = -1, int nproc = -1); 
   ~Lattice4D(); 
   int GetRank(int i, int j, int k, int l);
   int GetRank(float x, float y, float z, float t);
@@ -52,7 +52,7 @@ class  Lattice4D {
   int GetFlowMatrix(int i, int j) {return flowMatrix[i*npart+j];}
   int GetNumPartitions(int proc);
   void GetPartitions(int proc, int*p_list);
-  void GetNeighborRanks(int myrank, int *neighbor_ranks);
+  void GetNeighborRanks(int myrank);
   void NeighborIndices(int n, int i, int j, int k, int l, int &in,
 		       int &jn, int &kn, int &ln);
   void GetVB(int block, VECTOR3 &min_s, VECTOR3 &max_s, 
@@ -66,13 +66,14 @@ class  Lattice4D {
   int xdim, ydim, zdim, ldim; //the whole data range
   int nbhd; // neighborhood size
   int npart; // total number of partitions in the domain
-  int nblocks; // number of blocks belonging to my process
   int *block_ranks; // rank (global partition number) of each of my blocks
   int myproc; // my process or thread number (-1 if serial code)
   int nproc; // number of processes or threads (-1 if serial code)
   volume_bounds_type *vb_list; 
   class Partition *part;
   int* flowMatrix; 
+  int num_neighbors; // current number of neighbors
+  int *neighbor_ranks; // ranks of neighbors
 
  public:
 

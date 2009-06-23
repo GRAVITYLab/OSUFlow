@@ -9,14 +9,11 @@
 #include "calc_subvolume.h"
 #include "VectorMatrix.h" 
 #include "OSUFlow.h"
+#include "Partition.h"
 
 #ifdef MPI
 #include <mpi.h>
 #endif
-
-struct PartitionAMR4D {
-  int Proc; // process(or) number (mpi rank, core number, node number, etc.)
-};
 
 class  LatticeAMR {
 
@@ -24,7 +21,8 @@ class  LatticeAMR {
   
   //x/y/zlen are the physical dimensions in the domain, tlen is the total number of 
   //time steps 
-  LatticeAMR(float xlen, float ylen, float zlen, int tlen, int total_level); 
+  LatticeAMR(float xlen, float ylen, float zlen, int tlen, int total_level,
+	     int myproc = -1, int nproc = -1); 
 
   ~LatticeAMR(); 
 
@@ -82,7 +80,6 @@ class  LatticeAMR {
   int GetProc(int, int, int, int, int); 
   int GetProc(int); 
   void GetPartitions(int, int**, int&); 
-  void GetPartitions(int, int*, int&); 
 
   bool Mergeable(int i, int j, int k, int t, int level, int& mergeLevel); 
   void MergeBlocks(); 
@@ -136,7 +133,47 @@ class  LatticeAMR {
   volume_bounds_type_f *vb_list; // bounds for each partition 
   int *rank_to_index; // from rank to (i,j,k,t, level) indices 
 
-  PartitionAMR4D *parts; 
+  // added by Tom
+
+ public:
+  int GetMyNumPartitions(int proc);
+  void GetMyPartitions(int proc, int* p_list);
+  int GetTotalNumPartitions() { return npart; }
+  void GetVB(int block, VECTOR3 &min_s, VECTOR3 &max_s, 
+	     int &min_t, int &max_t);
+  void GetGlobalVB(int part, VECTOR3 &min_s, VECTOR3 &max_s, 
+		   int &min_t, int &max_t);
+  int GetNeighbor(int myrank, float x, float y, float z, float t);
+  void GetNeighborRanks(int myrank);
+
+ private:
+  int nbhd; // neighborhood size
+  int *block_ranks; // rank (global partition number) of each of my blocks
+  int myproc; // my process or thread number (-1 if serial code)
+  int nproc; // number of processes or threads (-1 if serial code)
+  class Partition *part; // partition class object
+  int *neighbor_ranks; // ranks of neighbors
+
+ public:
+
+  // wrappers around partition methods
+  float** GetData(int block);
+  void SetReq(int myrank);
+  void ClearReq(int myrank);
+  int GetReq(int myrank);
+  void SetLoad(int myrank);
+  void ClearLoad(int myrank);
+  int GetLoad(int myrank);
+  void SetComp(int myrank, int iter_num);
+  void ClearComp(int myrank);
+  int GetComp(int myrank, int iter_num);
+  void PostPoint(int myrank, VECTOR4 p);
+  void PrintPost(int myrank);
+  void PrintRecv(int myrank);
+  void GetRecvPts(int myrank, VECTOR4 *ls);
+  void SendNeighbors(int myrank);
+  int ReceiveNeighbors(int myrank);
+
 }; 
 
 #endif 

@@ -9,16 +9,14 @@
 // ghost: size of ghost layer per side
 // nsp: total (global) number of spatial partitions in the lattice
 // ntp: total (global) number of parition in time 
-// d: actual dimensions used 3 (3D steady state) or 4(3D time varying)
-// default = 4 (can omit if 4D)
 // myid: rank, process number, thread number, identification of the owner
 // default = -1 (can omit if single process sequential program)
 // nid: number of processes, threads, owners
 // default = -1 (can omit if single process sequential program)
 //
-Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int d, int myid, int nid) {
+Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int myid, int nid) {
 
-  int i, j;
+  int i, j, n;
   volume_bounds_type *vbs; 
 
   xdim = xlen; 
@@ -65,24 +63,24 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
 
   }
 
+  // neighborhood size
+  nbhd = 81;
+
+  // table of neighbor ranks
+  assert((neighbor_ranks = (int *)malloc(nbhd * sizeof (int))) != NULL);
+
   // create partition class
-  part = new Partition(nsp, ntp, d);
+  part = new Partition(nsp, ntp, nbhd);
 
   delete [] vbs; 
-
-  // neighborhood size
-  if (d == 3)
-    nbhd = 27;
-  else
-    nbhd = MAX_NEIGHBORS;
 
   // ranks of my blocks
   myproc = myid;
   nproc = nid;
   if (myproc >= 0) {
     RoundRobin_proc(nproc);
-    nblocks = GetNumPartitions(myproc);
-    assert((block_ranks = (int *)malloc(nblocks * sizeof(int))) != NULL);
+    n = GetNumPartitions(myproc);
+    assert((block_ranks = (int *)malloc(n * sizeof(int))) != NULL);
     GetPartitions(myproc, block_ranks);
   }
 
@@ -485,7 +483,7 @@ int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t) {
 // ranks are the global partition numbers for all neighbors
 // the neighbor of an edge gets rank -1
 //
-void Lattice4D::GetNeighborRanks(int myrank, int *neighbor_ranks) {
+void Lattice4D::GetNeighborRanks(int myrank) {
 
   int in, jn, kn, ln; // my neighbor's lattice coords
   int n; // my neighbor number (0-80)
@@ -635,16 +633,14 @@ void Lattice4D::GetRecvPts(int block, VECTOR4 *ls) {
 // sends points to all neighbors
 //
 void Lattice4D::SendNeighbors(int block) { 
-  int neighbor_ranks[MAX_NEIGHBORS];
-  GetNeighborRanks(block_ranks[block], neighbor_ranks);
+  GetNeighborRanks(block_ranks[block]);
   part->SendNeighbors(block_ranks[block], neighbor_ranks);
 }
 //
 // receives points from all neighbors
 //
 int Lattice4D::ReceiveNeighbors(int block) {
-  int neighbor_ranks[MAX_NEIGHBORS];
-  GetNeighborRanks(block_ranks[block], neighbor_ranks);
+  GetNeighborRanks(block_ranks[block]);
   part->ReceiveNeighbors(block_ranks[block], neighbor_ranks);
 }
 //---------------------------------------------------------------------------
