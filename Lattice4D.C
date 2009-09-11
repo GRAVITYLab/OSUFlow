@@ -70,7 +70,7 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
   assert((neighbor_ranks = (int *)malloc(nbhd * sizeof (int))) != NULL);
 
   // create partition class
-  part = new Partition(nsp, ntp, nbhd);
+  part = new Partition(nsp, ntp);
 
   delete [] vbs; 
 
@@ -513,15 +513,17 @@ void Lattice4D::GetNeighborRanks(int myrank) {
 // min_s, max_s: (output) spatial min and max bounds
 // min_t, max_t: (output) temporal min and max bounds
 //
-void Lattice4D::GetVB(int block, VECTOR3 &min_s, VECTOR3 &max_s, 
-		      int &min_t, int &max_t) {
+void Lattice4D::GetVB(int block, float *min_s, float *max_s, 
+		      int *min_t, int *max_t) {
 
-  min_s.Set(vb_list[block_ranks[block]].xmin, vb_list[block_ranks[block]].ymin, 
-	    vb_list[block_ranks[block]].zmin);
-  max_s.Set(vb_list[block_ranks[block]].xmax, vb_list[block_ranks[block]].ymax, 
-	    vb_list[block_ranks[block]].zmax);
-  min_t = vb_list[block_ranks[block]].tmin;
-  max_t = vb_list[block_ranks[block]].tmax;
+  min_s[0] = vb_list[block_ranks[block]].xmin;
+  min_s[1] = vb_list[block_ranks[block]].ymin;
+  min_s[2] = vb_list[block_ranks[block]].zmin;
+  max_s[0] = vb_list[block_ranks[block]].xmax;
+  max_s[1] = vb_list[block_ranks[block]].ymax;
+  max_s[2] = vb_list[block_ranks[block]].zmax;
+  *min_t = vb_list[block_ranks[block]].tmin;
+  *max_t = vb_list[block_ranks[block]].tmax;
 
 }
 //---------------------------------------------------------------------------
@@ -532,13 +534,17 @@ void Lattice4D::GetVB(int block, VECTOR3 &min_s, VECTOR3 &max_s,
 // min_s, max_s: (output) spatial min and max bounds
 // min_t, max_t: (output) temporal min and max bounds
 //
-void Lattice4D::GetGlobalVB(int part, VECTOR3 &min_s, VECTOR3 &max_s, 
-		      int &min_t, int &max_t) {
+void Lattice4D::GetGlobalVB(int part, float *min_s, float *max_s, 
+		      int *min_t, int *max_t) {
 
-  min_s.Set(vb_list[part].xmin, vb_list[part].ymin, vb_list[part].zmin);
-  max_s.Set(vb_list[part].xmax, vb_list[part].ymax, vb_list[part].zmax);
-  min_t = vb_list[part].tmin;
-  max_t = vb_list[part].tmax;
+  min_s[0] = vb_list[part].xmin;
+  min_s[1] = vb_list[part].ymin;
+  min_s[2] = vb_list[part].zmin;
+  max_s[0] = vb_list[part].xmax;
+  max_s[1] = vb_list[part].ymax;
+  max_s[2] = vb_list[part].zmax;
+  *min_t = vb_list[part].tmin;
+  *max_t = vb_list[part].tmax;
 
 }
 //---------------------------------------------------------------------------

@@ -55,10 +55,10 @@ class  Lattice4D {
   void GetNeighborRanks(int myrank);
   void NeighborIndices(int n, int i, int j, int k, int l, int &in,
 		       int &jn, int &kn, int &ln);
-  void GetVB(int block, VECTOR3 &min_s, VECTOR3 &max_s, 
-	     int &min_t, int &max_t);
-  void GetGlobalVB(int part, VECTOR3 &min_s, VECTOR3 &max_s, 
-		   int &min_t, int &max_t);
+  void GetVB(int block, float *min_s, float *max_s, 
+	     int *min_t, int *max_t);
+  void GetGlobalVB(int part, float *min_s, float *max_s, 
+		   int *min_t, int *max_t);
 
  private: 
 

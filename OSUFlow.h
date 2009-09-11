@@ -39,7 +39,7 @@ class OSUFlow
   void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
 		VECTOR3 pMax, int min_t, int max_t, bool deferred = false);
   void LoadData(const char* fname, bool bStatic, 
-		VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, int bt_max, 
+		float *from, float *to, float *size, int bt_max, 
 		int t_min, int t_max);
 
   // create a flow field from input data array 

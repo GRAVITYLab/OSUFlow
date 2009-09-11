@@ -155,8 +155,9 @@ OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	Element.o    StreakLine.o    VectorMatrix.o \
 	Field.o      PathLine.o      Streamline.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
-	OSUFlow.o    FileReader.o calc_subvolume.o Lattice4D.o \
-	LatticeAMR.o Partition.o FlashAMR.o ComputeFieldLines.o Lattice.o 
+	OSUFlow.o    FileReader.o calc_subvolume.o \
+	LatticeAMR.o Partition.o FlashAMR.o ComputeFieldLines.o \
+#	Lattice.o Lattice4D.o \
 
 SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -164,8 +165,9 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	Element.C    StreakLine.C    VectorMatrix.C \
 	Field.C      PathLine.C      Streamline.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
-	OSUFlow.C    FileReader.C calc_subvolume.C Lattice4D.C \
-	LatticeAMR.C  Partition.C FlashAMR.C ComputeFieldLines.C Lattice.C 
+	OSUFlow.C    FileReader.C calc_subvolume.C \
+	LatticeAMR.C  Partition.C FlashAMR.C ComputeFieldLines.C \
+#	Lattice.C Lattice4D.C \
 
 .SUFFIXES: .C
 

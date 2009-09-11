@@ -7,7 +7,7 @@
 
 #include "header.h"
 #include "calc_subvolume.h"
-#include "VectorMatrix.h" 
+#include "VectorMatrix.h"
 #include "OSUFlow.h"
 #include "Partition.h"
 
@@ -40,50 +40,35 @@ class  LatticeAMR {
 
   //Go through all levels to collect non-empty blocks 
   void CompleteLevels(); //extract those non-empty blocks 
-
   void CompleteLevels(int t_interval); 
-
   void MergeAndCompleteLevels(); 
 
   int GetRank(float x, float y, float z, float t); 
-
+  int GetRank(float x, float y, float z, float t, int level);
   int GetRank(int i, int j, int k, int t, int level);   
-
   bool isIn(float x, float y, float , float t, int i, int j, int k, int l, 
 	    int level); 
-
   int GetBounds(int i, int j, int k, int t, 
 		int level, volume_bounds_type_f& vb);  //return bound 
-
   int GetBounds(int rank, volume_bounds_type_f& vb);   // return bound 
-
   volume_bounds_type_f* GetBoundsList(int& num){ num = npart; return vb_list;}
-
   float**GetDataPtr(int rank); 
-
   void GetLatticeDims(int& i, int&j, int &k, int &l, int level) 
   {i = idim[level]; j=jdim[level]; k=kdim[level]; l = ldim[level]; }
-
   int CheckNeighbor(int myrank, float x, float y, float z, float t); 
-
-  int GetNeighbor(int myrank, float x, float y, float z, float t, int &i, int &j,
-		  int &k, int&l, int&level);
-
+  int GetNeighbor(int myrank, float x, float y, float z, float t, int &i, 
+		  int &j, int &k, int&l, int&level);
   int GetFinestLevel(float x, float y, float z, float t);
-
   void InitSeedLists(); 
   void ResetSeedLists(); 
   void ResetSeedLists(int i); 
   bool InsertSeed(int, int, int, int, int, VECTOR4); 
   bool InsertSeed(int rank, VECTOR4); 
-
   int GetProc(int, int, int, int, int); 
   int GetProc(int); 
   void GetPartitions(int, int**, int&); 
-
   bool Mergeable(int i, int j, int k, int t, int level, int& mergeLevel); 
   void MergeBlocks(); 
-
   void RoundRobin_proc(int n); 
   
   list<VECTOR4> *seedlists; 
@@ -139,20 +124,23 @@ class  LatticeAMR {
   int GetMyNumPartitions(int proc);
   void GetMyPartitions(int proc, int* p_list);
   int GetTotalNumPartitions() { return npart; }
-  void GetVB(int block, VECTOR3 &min_s, VECTOR3 &max_s, 
-	     int &min_t, int &max_t);
-  void GetGlobalVB(int part, VECTOR3 &min_s, VECTOR3 &max_s, 
-		   int &min_t, int &max_t);
+  void GetVB(int block, float *min_s, float *max_s, 
+	     int *min_t, int *max_t);
+  void GetGlobalVB(int part, float *min_s, float *max_s, 
+		   int *min_t, int *max_t);
   int GetNeighbor(int myrank, float x, float y, float z, float t);
-  void GetNeighborRanks(int myrank);
+  void GetNeighborRanks(int block);
 
  private:
-  int nbhd; // neighborhood size
   int *block_ranks; // rank (global partition number) of each of my blocks
   int myproc; // my process or thread number (-1 if serial code)
   int nproc; // number of processes or threads (-1 if serial code)
   class Partition *part; // partition class object
-  int *neighbor_ranks; // ranks of neighbors
+  int **neighbor_ranks; // ranks of neighbors for my blocks
+  int nb; // number of my blocks
+  void GetCoarseNeighborRanks(int block);
+  void GetFineNeighborRanks(int block);
+  void AddNeighbor(int block, int value);
 
  public:
 
@@ -173,6 +161,8 @@ class  LatticeAMR {
   void GetRecvPts(int myrank, VECTOR4 *ls);
   void SendNeighbors(int myrank);
   int ReceiveNeighbors(int myrank);
+
+  void Check(int myrank);
 
 }; 
 

@@ -9,55 +9,48 @@
 //
 // nsp: total (global) number of spatial partitions
 // ntp: total (global) number of temporal partitions
-// max_neighbors: maximum number of neighbors
 //
-Partition::Partition(int nsp, int ntp, int max_neighbors) {
+Partition::Partition(int nsp, int ntp) {
 
   int i, j;
 
   assert((npart  = nsp * ntp) <= MAX_PARTS);
   assert((parts = new Partition4D[npart]) != NULL);
 
-  nbhd = max_neighbors;
-
   // init the partitions list
-  for (int j = 0; j < npart; j++)  {
+  for (j = 0; j < npart; j++)  {
 
-    // allocate memory
-    assert((parts[j].NumSendPoints = (int *)malloc(max_neighbors * 
-						   sizeof(int))) != NULL);
-    assert((parts[j].SizeSendPoints = (int *)malloc(max_neighbors *
-						    sizeof(int))) != NULL);
-    assert((parts[j].SendPoints = (float **)malloc(max_neighbors * 
-						 sizeof(int *))) != NULL);
-    assert((parts[j].NumRecvPoints = (int *)malloc(max_neighbors * 
-						   sizeof(int))) != NULL);
-    assert((parts[j].SizeRecvPoints = (int *)malloc(max_neighbors *
-						    sizeof(int))) != NULL);
-    assert((parts[j].RecvPoints = (float **)malloc(max_neighbors * 
-						 sizeof(int *))) != NULL);
+    // allocate sending and receiving lists for one neighbor
+    assert((parts[j].NumSendPoints = (int *)malloc(sizeof(int))) != NULL);
+    assert((parts[j].SizeSendPoints = (int *)malloc(sizeof(int))) != NULL);
+    assert((parts[j].SendPoints = (float **)malloc(sizeof(float *))) != NULL);
+    assert((parts[j].NumRecvPoints = (int *)malloc(sizeof(int))) != NULL);
+    assert((parts[j].SizeRecvPoints = (int *)malloc(sizeof(int))) != NULL);
+    assert((parts[j].RecvPoints = (float **)malloc(sizeof(float *))) != NULL);
+
+    // allocate sending and receiving points for the one neighbor
+    assert((parts[j].SendPoints[0] = (float *)malloc(4 * sizeof(float)))
+	   != NULL);
+    assert((parts[j].RecvPoints[0] = (float *)malloc(4 * sizeof(float)))
+	   != NULL);
+
+    // number of points used and allocated
+    parts[j].NumSendPoints[0] = parts[j].NumRecvPoints[0] = 0;
+    parts[j].SizeSendPoints[0] = parts[j].SizeRecvPoints[0] = 
+      4 * sizeof(float);
 
 #ifdef MPI
+    // 1-d request list, with one neighbor intially and 4 requests per neighbor
     assert((parts[j].Reqs = (MPI_Request *)
-	    malloc(4 * max_neighbors * sizeof(MPI_Request))) != NULL);
+	    malloc(4 * sizeof(MPI_Request))) != NULL);
 #endif
 
     // default procs
     parts[j].Proc = j;
 
-    // sending and receiving lists
-    for (int i = 0; i < nbhd; i++){
-
-      parts[j].NumSendPoints[i] = parts[j].NumRecvPoints[i] = 0;
-      parts[j].SendPoints[i] = (float *)malloc(4 * sizeof(float));
-      assert(parts[j].SendPoints[i] != NULL);
-      parts[j].RecvPoints[i] = (float *)malloc(4 * sizeof(float));
-      assert(parts[j].RecvPoints[i] != NULL);
-      parts[j].SizeSendPoints[i] = parts[j].SizeRecvPoints[i] = 
-	4 * sizeof(float);
-
-    }
+    // number of neighbors used and allocated
     parts[j].NumNeighbors = 0;
+    parts[j].AllocNeighbors = 1;
 
     // other status info
 #ifdef MPI
@@ -80,7 +73,7 @@ Partition::~Partition()
 
   for (int j = 0; j < npart; j++) {
 
-    for (int i = 0; i < nbhd; i++) {
+    for (int i = 0; i < parts[j].AllocNeighbors; i++) {
       free(parts[j].SendPoints[i]);
       free(parts[j].RecvPoints[i]);
     }
@@ -125,11 +118,10 @@ void Partition::PostPoint(int myrank, VECTOR4 p, int neighbor) {
   while (parts[myrank].SizeSendPoints[neighbor] < 
       (parts[myrank].NumSendPoints[neighbor] + 1) * 4 * sizeof(float)) {
 
-    parts[myrank].SendPoints[neighbor] = (float *)realloc(
+    assert((parts[myrank].SendPoints[neighbor] = (float *)realloc(
 	parts[myrank].SendPoints[neighbor],
-	parts[myrank].SizeSendPoints[neighbor] * 2);
+	parts[myrank].SizeSendPoints[neighbor] * 2)) != NULL);
 
-    assert(parts[myrank].SendPoints[neighbor] != NULL);
     parts[myrank].SizeSendPoints[neighbor] *= 2;
 
   }
@@ -244,6 +236,63 @@ void Partition::GetRecvPts(int myrank, VECTOR4 *ls) {
 
 }
 //---------------------------------------------------------------------------
+//
+// GrowNeighbors
+//
+// doubles the size of the neighbor-dependent structures
+//
+// myrank: global partition number
+//
+void Partition::GrowNeighbors(int myrank) {
+
+  int nn = parts[myrank].AllocNeighbors;  // number of neighbors allocated
+  int i;
+
+  // send points list for all neighbors
+  assert((parts[myrank].NumSendPoints =
+	  (int *)realloc(parts[myrank].NumSendPoints,
+			 nn * sizeof(int) * 2)) != NULL);
+  assert((parts[myrank].SizeSendPoints =
+	  (int *)realloc(parts[myrank].SizeSendPoints, 
+			 nn * sizeof(int) * 2)) != NULL);
+  assert((parts[myrank].SendPoints =
+	  (float **)realloc(parts[myrank].SendPoints, 
+			    nn * sizeof(float *) * 2)) != NULL);
+
+  // receive points list for all neighbors
+  assert((parts[myrank].NumRecvPoints =
+	  (int *)realloc(parts[myrank].NumRecvPoints,
+			 nn * sizeof(int) * 2)) != NULL);
+  assert((parts[myrank].SizeRecvPoints =
+	  (int *)realloc(parts[myrank].SizeRecvPoints,
+			 nn * sizeof(int) * 2)) != NULL);
+  assert((parts[myrank].RecvPoints =
+	  (float **)realloc(parts[myrank].RecvPoints,
+			    nn * sizeof(float *) * 2)) != NULL);
+
+  // sending and receiving points for individual neighbors
+  for (i = nn; i < 2 * nn; i++) {
+    assert((parts[myrank].SendPoints[i] = (float *)malloc(4 * sizeof(float)))
+	   != NULL);
+    assert((parts[myrank].RecvPoints[i] = (float *)malloc(4 * sizeof(float)))
+	   != NULL);
+    parts[myrank].NumSendPoints[i] = parts[myrank].NumRecvPoints[i] = 0;
+    parts[myrank].SizeSendPoints[i] = parts[myrank].SizeRecvPoints[i] = 
+      4 * sizeof(float);
+  }
+
+  // requests
+#ifdef MPI
+  // 4 requests per neighbor
+  assert((parts[myrank].Reqs =
+	  (MPI_Request *)realloc(parts[myrank].Reqs,
+				 nn * 4 * sizeof(MPI_Request) * 2)) != NULL);
+#endif
+
+  parts[myrank].AllocNeighbors *= 2;
+
+}
+//---------------------------------------------------------------------------
 
 // MPI versions of SendNeighbors and ReceiveNeighbors 
 // todo: make shared memory versions
@@ -268,6 +317,14 @@ void Partition::SendNeighbors(int myrank, int *ranks, MPI_Comm comm) {
 
   MPI_Comm_rank(comm, &myproc);
 
+  int err;
+
+//   // debug
+//   if (myrank == 284 || myrank == 281) {
+//     for (i = 0; i < parts[myrank].NumNeighbors; i++)
+//       fprintf(stderr," rank %d has neighbor %d\n",myrank,ranks[i]);
+//   }
+
   // for all neighbors
   for (i = 0; i < parts[myrank].NumNeighbors; i++) {
 
@@ -280,18 +337,38 @@ void Partition::SendNeighbors(int myrank, int *ranks, MPI_Comm comm) {
       if (proc != myproc) {
 
 	j = parts[myrank].NumReqs++;
+
 	// tag for header message offset by MAX_PARTS to differentiate
 	// from points message
-	MPI_Isend(&(parts[myrank].NumSendPoints[i]), 1, MPI_INT, proc, 
-		 MAX_PARTS + ranks[i], comm, &(parts[myrank].Reqs[j]));
+// 	MPI_Isend(&(parts[myrank].NumSendPoints[i]), 1, MPI_INT, proc, 
+// 		 MAX_PARTS + ranks[i], comm, &(parts[myrank].Reqs[j]));
+
+	err = MPI_Send(&(parts[myrank].NumSendPoints[i]), 1, MPI_INT, proc, 
+		 MAX_PARTS + ranks[i], comm);
+
+	// debug
+	if (myrank == 284 && ranks[i] == 279)
+	  fprintf(stderr,"rank 284 sent %d points to rank 279, proc %d tag %d err = %d\n",parts[myrank].NumSendPoints[i],proc,MAX_PARTS+ranks[i],err);
+	if (myrank == 281 && ranks[i] == 272)
+	  fprintf(stderr,"rank 281 sent %d points to rank 272, proc %d tag %d err = %d\n",parts[myrank].NumSendPoints[i],proc,MAX_PARTS+ranks[i],err);
+	if (ranks[i] == 272)
+	  fprintf(stderr,"-1:\n");
+	if (ranks[i] == 279)
+	  fprintf(stderr,"-2:\n");
 
 	if (parts[myrank].NumSendPoints[i]) {
-	  fprintf(stderr, "rank %d sending %d points to remote rank %d\n",
-		  myrank, parts[myrank].NumSendPoints[i], ranks[i]);
+// 	  fprintf(stderr, "rank %d sending %d points to remote rank %d\n",
+// 		  myrank, parts[myrank].NumSendPoints[i], ranks[i]);
+
 	  j = parts[myrank].NumReqs++;
-	  MPI_Isend(parts[myrank].SendPoints[i], 
+// 	  MPI_Isend(parts[myrank].SendPoints[i], 
+// 		   parts[myrank].NumSendPoints[i] * 4, MPI_FLOAT, proc,
+// 		    ranks[i], comm, &(parts[myrank].Reqs[j]));
+
+	  MPI_Send(parts[myrank].SendPoints[i], 
 		   parts[myrank].NumSendPoints[i] * 4, MPI_FLOAT, proc,
-		    ranks[i], comm, &(parts[myrank].Reqs[j]));
+		    ranks[i], comm);
+
 	  parts[myrank].NumSendPoints[i] = 0;
 	}
 
@@ -315,49 +392,96 @@ void Partition::SendNeighbors(int myrank, int *ranks, MPI_Comm comm) {
 //
 // receives points from all neighbors
 //
-// myrank: global partition  number
-// ranks: ranks (global partition numbers) of all neighbors
+// block_ranks: global partition numbers for blocks in this process
+// neighbor_ranks: ranks of neighbors of all blocks for this process
+// block: current block number
+// nb: number of blocks in this process
 // comm: MPI communicator
 //
 // returns total number of points received
 //
-int Partition::ReceiveNeighbors(int myrank, int *ranks, MPI_Comm comm) {
+int Partition::ReceiveNeighbors(int *block_ranks, int **neighbor_ranks,
+				int block, int nb, MPI_Comm comm) {
 
-  int num = 0;
+  int nr; // rank of neighbor
+  int neigh_block; // block number of neighbor
+  int num = 0; // total number of points received
   int proc, myproc;  
   int i, j, k;
-  int n;
+  int myrank = block_ranks[block];
 
   MPI_Comm_rank(comm, &myproc);
+
+  // debug
+  MPI_Status status;
 
   // for all neighbors
   for (i = 0; i < parts[myrank].NumNeighbors; i++) {
 
-    // if neighbor exists (not outside of domain)
-    if (ranks[i] >= 0) {
+    nr = neighbor_ranks[block][i];
 
-      proc = GetProc(ranks[i]);
+    // if neighbor exists (not outside of domain)
+    if (nr >= 0) {
+
+      proc = GetProc(nr);
 
       // remote: get number of received points and tag
       if (proc != myproc) {
+
 	j = parts[myrank].NumReqs++;	
-	// tag for header message offset by MAX_PARTS to differentiate
+	// tag for header message offset by MAX_PARTS to differentiate 
 	// from points message
-	MPI_Irecv(&(parts[myrank].NumRecvPoints[i]), 1, MPI_INT, 
-		  proc, MAX_PARTS + myrank, comm, &(parts[myrank].Reqs[j]));
+// 	MPI_Irecv(&(parts[myrank].NumRecvPoints[i]), 1, MPI_INT, 
+// 		  proc, MAX_PARTS + myrank, comm, &(parts[myrank].Reqs[j]));
+// 	MPI_Waitall(parts[myrank].NumReqs, parts[myrank].Reqs, 
+// 		    MPI_STATUSES_IGNORE);
+
+	if (myrank == 279 && nr == 284)
+	  fprintf(stderr,"myrank %d expecting num pts from nr %d proc %d tag %d\n",myrank,nr,proc,MAX_PARTS+myrank);
+
+	if (myrank == 272 && nr == 281)
+	  fprintf(stderr,"myrank %d expecting num pts from nr %d proc %d tag %d\n",myrank,nr,proc,MAX_PARTS+myrank);
+
+	MPI_Recv(&(parts[myrank].NumRecvPoints[i]), 1, MPI_INT, 
+		 proc, MAX_PARTS + myrank, comm, &status);
+
+	if (myrank == 279 && nr == 284)
+	fprintf(stderr,"myrank %d received num pts from nr %d\n",myrank,nr);
+
+	if (myrank == 272 && nr == 281)
+	fprintf(stderr,"myrank %d received num pts from nr %d\n",myrank,nr);
+
+
+	if (myrank == 272)
+	  fprintf(stderr,"1:\n");
+	if (myrank == 279)
+	  fprintf(stderr,"2:\n");
 
       }
 
       // local: get number of received points
       if (proc == myproc) {
-	k = nbhd - 1 - i; // I am neighbor k of my neighbor
-                          // todo: won't work for AMR?
-	if (!parts[ranks[i]].NumSendPoints[k])
-	  k = -1;
-	if (k >= 0)
-	  parts[myrank].NumRecvPoints[i] = parts[ranks[i]].NumSendPoints[k];
-	else
-	  parts[myrank].NumRecvPoints[i] = 0;
+
+	// block number of my neighbor
+	// eventually use hash table or more efficient reverse lookup
+	for (neigh_block = 0; neigh_block < nb; neigh_block++) {
+	  if (block_ranks[neigh_block] == nr)
+	    break;
+	}
+	assert(neigh_block < nb);
+
+	// I am neighbor k of my neighbor
+	for (k = 0; k < parts[nr].NumNeighbors; k++) {
+	  if (neighbor_ranks[neigh_block][k] == myrank)
+	    break;
+	}
+
+	// I must appear as a neighbor of my neighbor (symmetric)
+	assert(k < parts[nr].NumNeighbors);
+
+	// my number received = the number my neighbor sends
+	parts[myrank].NumRecvPoints[i] = parts[nr].NumSendPoints[k];
+
       }
 
       // get the points
@@ -376,12 +500,20 @@ int Partition::ReceiveNeighbors(int myrank, int *ranks, MPI_Comm comm) {
 
 	// remote
 	if (proc != myproc) {
+
 	  j = parts[myrank].NumReqs++;
-	  MPI_Irecv(parts[myrank].RecvPoints[i],
+// 	  MPI_Irecv(parts[myrank].RecvPoints[i],
+// 		    parts[myrank].NumRecvPoints[i] * 4, MPI_FLOAT, proc, 
+// 		    myrank, comm, &(parts[myrank].Reqs[j]));
+// 	  MPI_Waitall(parts[myrank].NumReqs, parts[myrank].Reqs, 
+// 		      MPI_STATUSES_IGNORE);
+
+	  MPI_Recv(parts[myrank].RecvPoints[i],
 		    parts[myrank].NumRecvPoints[i] * 4, MPI_FLOAT, proc, 
-		    myrank, comm, &(parts[myrank].Reqs[j]));
+		   myrank, comm, &status);
+
 	  // debug
-// 	  fprintf(stderr, "rank %d received %d points from remote rank %d\n", myrank, parts[myrank].NumRecvPoints[i], ranks[i]);
+// 	  fprintf(stderr, "rank %d received %d points from remote rank %d\n", myrank, parts[myrank].NumRecvPoints[i], nr);
 
 	} // remote
 
@@ -390,21 +522,22 @@ int Partition::ReceiveNeighbors(int myrank, int *ranks, MPI_Comm comm) {
 
 	  for (j = 0; j < parts[myrank].NumRecvPoints[i]; j++) {
 	    parts[myrank].RecvPoints[i][4 * j + 0] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 0];
+            parts[nr].SendPoints[k][4 * j + 0];
 	    parts[myrank].RecvPoints[i][4 * j + 1] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 1];
+            parts[nr].SendPoints[k][4 * j + 1];
 	    parts[myrank].RecvPoints[i][4 * j + 2] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 2];
+            parts[nr].SendPoints[k][4 * j + 2];
 	    parts[myrank].RecvPoints[i][4 * j + 3] = 
-            parts[ranks[i]].SendPoints[k][4 * j + 3];
+            parts[nr].SendPoints[k][4 * j + 3];
 	  }
 
-	  parts[ranks[i]].NumSendPoints[k]  = 0;
+	  parts[nr].NumSendPoints[k] = 0;
 
 // 	  // debug
-// 	  fprintf(stderr, "rank %d received %d points from local rank %d\n", myrank, parts[myrank].NumRecvPoints[i], ranks[i]);
+// 	  fprintf(stderr, "rank %d received %d points from local rank %d\n", myrank, parts[myrank].NumRecvPoints[i], nr);
 
 	} // local
+
 
 	num += parts[myrank].NumRecvPoints[i];
 
@@ -414,9 +547,6 @@ int Partition::ReceiveNeighbors(int myrank, int *ranks, MPI_Comm comm) {
 
   } // for all neighbors
 
-  // flush all pending messages
-  MPI_Waitall(parts[myrank].NumReqs, parts[myrank].Reqs, 
-	      MPI_STATUSES_IGNORE);
   parts[myrank].NumReqs = 0;
 
   return num;
@@ -425,3 +555,24 @@ int Partition::ReceiveNeighbors(int myrank, int *ranks, MPI_Comm comm) {
 //------------------------------------------------------------------------
 
 #endif
+//---------------------------------------------------------------------------
+//
+// Check
+//
+// debug routine prints numbers of received points
+//
+// caller must ensure that list has enough room
+//
+//
+void Partition::Check(int myrank) {
+
+  int i;
+
+  for (i = 0; i < parts[myrank].NumNeighbors; i++) {
+
+    fprintf(stderr,"myrank = %d NumRecvPoints[%d] = %d\n",myrank,i,parts[myrank].NumRecvPoints[i]);
+
+  }
+
+}
+//---------------------------------------------------------------------------

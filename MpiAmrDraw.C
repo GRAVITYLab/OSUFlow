@@ -77,8 +77,7 @@ int GatherNumPts(int* &ntrace);
 void GatherPts(int *ntrace, int mynpt);
 void DrawStreamlines();
 void Cleanup();
-void draw_bounds(float xmin, float xmax, float ymin, float ymax, 
-		 float zmin, float zmax);
+void draw_bounds(float *from, float *to);
 void draw_cube(float r, float g, float b);
 void display();
 void timer(int val);
@@ -301,7 +300,6 @@ void ComputeThread() {
 //
 void IOThread() {
 
-//   VECTOR3 minB, maxB; // subdomain spatial bounds
 //   int min_t, max_t; // subdomain time bounds
 //   float from[3], to[3]; // seed points limits
 //   int num_loaded; // number of blocks loaded into memory so far
@@ -325,13 +323,11 @@ void IOThread() {
 
 //     lat->ClearLoad(i);
 //     osuflow[i] = new OSUFlow;
-//     lat->GetVB(i, minB, maxB, min_t, max_t);
+//     lat->GetVB(i, from, to, min_t, max_t);
 
 //     // init seeds for blocks at t = initial time
 //     if (min_t == 0) {
 
-//       from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
-//       to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
 //       osuflow[i]->SetRandomSeedPoints(from, to, tf); 
 //       seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
 
@@ -378,13 +374,9 @@ void IOThread() {
 // 	}
 
 // 	// read the data
-// 	lat->GetVB(i, minB, maxB, min_t, max_t);
-// 	osuflow[i]->LoadData(filename, false, minB, maxB, size, max_bt,
+// 	lat->GetVB(i, from, to, min_t, max_t);
+// 	osuflow[i]->LoadData(filename, false, from, to, size, max_bt,
 // 			     min_t, max_t); 
-
-// 	// debug
-// 	fprintf(stderr, "block %d: min %.3lf %.3lf %.3lf %d max %.3lf %.3lf %.3lf %d\n", i, minB[0], minB[1], minB[2], min_t, 
-// 		maxB[0], maxB[1], maxB[2], max_t);
 
 // 	// update status
 // 	fprintf(stderr, "Loaded block %d\n", i);
@@ -443,7 +435,6 @@ void MultiThreadEvictBlock(int round) {
 //
 void IOandCompute() {
 
-  VECTOR3 minB, maxB; // subdomain spatial bounds
   int min_t, max_t; // subdomain temporal bounds
   float from[3], to[3]; // seed points limits
   int num_loaded; // number of blocks loaded into memory so far
@@ -465,14 +456,11 @@ void IOandCompute() {
   for (i = 0; i < nblocks; i++) {
 
     lat->ClearLoad(i);
-    lat->GetVB(i, minB, maxB, min_t, max_t);
     osuflow[i] = new OSUFlow;
 
     // create field
     assert((data = lat->GetData(i)) != NULL);
-    lat->GetVB(i, minB, maxB, min_t, max_t);
-    from[0] = minB[0];   from[1] = minB[1];   from[2] = minB[2]; 
-    to[0]   = maxB[0];   to[1]   = maxB[1];   to[2]   = maxB[2]; 
+    lat->GetVB(i, from, to, &min_t, &max_t);
     osuflow[i]->CreateStaticFlowField(data[0], dims[0], dims[1], dims[2], 
 				      from, to); 
 
@@ -666,17 +654,13 @@ void ComputePathlines(int block_num) {
 void ReceiveMessages() {
 
   int i;
-  int npts;
 
   for (i = 0; i < nblocks; i++) {
 
-    if ((npts = lat->ReceiveNeighbors(i))) {
-
-      NumSeeds[i] = npts;
-
+    if ((NumSeeds[i] = lat->ReceiveNeighbors(i))) {
       while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
-	Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
-	assert(Seeds[i] != NULL);
+	assert((Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2))
+	       != NULL);
 	SizeSeeds[i] *= 2;
       }
 
@@ -895,8 +879,6 @@ void Init() {
   int ngr; // number of groups of rounds
   float blockSize[3]; 
   float levelMinB[3], levelMaxB[3]; 
-  VECTOR3 minb, maxb; // subdomain spatial bounds as VECTOR3s
-  float minB[3], maxB[3]; // subdomain spatial bounds as floats
   int min_t, max_t; // subdomain temporal bounds
   float **data; // the data
   int i;
@@ -1064,8 +1046,14 @@ void PrintSeeds(int nblocks) {
 #ifdef GRAPHICS
 
 //
-void draw_bounds(float xmin, float xmax, float ymin, float ymax, 
-		 float zmin, float zmax) {
+void draw_bounds(float *from, float *to) {
+
+  float xmin = from[0];
+  float ymin = from[1];
+  float zmin = from[2];
+  float xmax = to[0];
+  float ymax = to[1];
+  float zmax = to[2];
 
   glColor3f(1,0,0); 
   glBegin(GL_LINES); 
@@ -1097,7 +1085,7 @@ void draw_bounds(float xmin, float xmax, float ymin, float ymax,
 //
 void DrawPathlines() {
   
-  VECTOR3 minB, maxB; // subdomain spatial bounds
+  float from[3], to[3]; // subdomain spatial bounds
   int min_t, max_t; // subdomain temporal bounds (not used)
   static int step = 0; // timestep number
   static int frame_num = 0; // number of frames at this timestep
@@ -1129,8 +1117,8 @@ void DrawPathlines() {
 
   if (toggle_bounds) {
     for (i = 0; i < nspart * ntpart; i++) {
-      lat->GetGlobalVB(i, minB, maxB, min_t, max_t);
-      draw_bounds(minB[0], maxB[0], minB[1], maxB[1], minB[2], maxB[2]);
+      lat->GetGlobalVB(i, from, to, &min_t, &max_t);
+      draw_bounds(from, to);
     }
   }
 

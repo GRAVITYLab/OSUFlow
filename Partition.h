@@ -13,7 +13,7 @@
 #endif
 
 // maximum number of total global partitions
-#define MAX_PARTS 100000000
+#define MAX_PARTS 10000000
 
 // a global (all processes) block or partition
 struct Partition4D {
@@ -26,7 +26,8 @@ struct Partition4D {
   int *SizeRecvPoints; // size of receiving points list (bytes)
   float **RecvPoints; // receiving points list
 
-  int NumNeighbors; // the number of the above arrays
+  int NumNeighbors; // the number of neighbors used
+  int AllocNeighbors; // number of neighbors allocated
 
   // the following array fills up in order, from 0 to number of requests
 #ifdef MPI
@@ -46,7 +47,7 @@ class Partition {
 
  public: 
   
-  Partition(int nsp, int ntp, int max_neighbors); 
+  Partition(int nsp, int ntp); 
   ~Partition(); 
 
   void SetReq(int myrank) { parts[myrank].Requed = 1; }
@@ -65,24 +66,28 @@ class Partition {
   void GetRecvPts(int myrank, VECTOR4 *ls);
   int GetProc(int myrank);
   void SetNumNeighbors(int myrank, int num) {parts[myrank].NumNeighbors = num; }
+  int GetNumNeighbors(int myrank) { return parts[myrank].NumNeighbors; }
+  int GetAllocNeighbors(int myrank) { return parts[myrank].AllocNeighbors; }
+  void GrowNeighbors(int myrank);
 
 #ifdef  MPI
   void SendNeighbors(int myrank, int *ranks, MPI_Comm comm = MPI_COMM_WORLD);
-  int ReceiveNeighbors(int myrank, int *ranks, MPI_Comm comm = MPI_COMM_WORLD);
+  int ReceiveNeighbors(int *block_ranks, int **neighbor_ranks,
+		       int block, int nb, MPI_Comm comm = MPI_COMM_WORLD);
 #else
   void SendNeighbors(int myrank, int *ranks){};
-  int ReceiveNeighbors(int myrank, int *ranks){};
+  int ReceiveNeighbors(int myrank, int *ranks, int **all_ranks){};
+  int ReceiveNeighbors(int *block_ranks, int **neighbor_ranks,
+		       int block, int nb){};
 #endif
 
   Partition4D *parts; // list of partition information
 
+  void Check(int myrank);
+
  private: 
 
-  int nbhd; // neighborhood size
   int npart; 
-
-/*   // todo: pointer to lattice base class, not one particular lattice */
-/*   class Lattice4D *lat; // pointer to lattice */
 
 }; 
 

@@ -911,14 +911,21 @@ void Error(const char *fmt, ...){
 // loads the dataset
 //
 // fname is dataset file name
-// sMin, sMax are local subdomain min and max
-// dim is the total size of the domain
+// from, to are local subdomain min and max
+// size is the total size of the domain
 // bt_max is the max number of time steps in any block
 // t_min, t_max are min and max time steps (ignored if bStatic == true)
 //
 void OSUFlow::LoadData(const char* fname, bool bStatic, 
-		       VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim, int bt_max, 
+		       float *from, float *to, float *size, int bt_max, 
 		       int min_t, int max_t) {
+
+  VECTOR3 sMin, sMax; // spatial bounds of subdomain
+  VECTOR3 dim; // dimensions of total domain
+
+  sMin.Set(from[0], from[1], from[2]);
+  sMax.Set(to[0], to[1], to[2]);
+  dim.Set(size[0], size[1], size[2]);
 
   flowName = new char[255];
   strcpy(flowName, fname);

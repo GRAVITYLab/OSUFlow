@@ -209,13 +209,14 @@ bool LatticeAMR::CheckIn(int level, float x, float y, float z, int t,
 //  Call this function after all blocks with data have checked in
 //  Go through all levels and collect blocks that have data 
 //
-void LatticeAMR::CompleteLevels()
-{
+void LatticeAMR::CompleteLevels() {
+
+  int i, j;
 
   npart = 0; 
   // first check how many non-empty blocks
-  for (int i=0; i<num_levels; i++)
-    for (int j=0; j<nblocks[i]; j++)
+  for (i=0; i<num_levels; i++)
+    for (j=0; j<nblocks[i]; j++)
       if (has_data[i][j]) npart++; 
   // next allocate the volume bounds type etc. 
   vb_list = new volume_bounds_type_f[npart]; 
@@ -240,7 +241,7 @@ void LatticeAMR::CompleteLevels()
 	   z_min, z_max, t_min, t_max); 
     // j is an id for all blocks in their own level
     // rank is a global id for all non-empty blocks in all levels 
-    for (int j=0; j<nblocks[level]; j++) {
+    for (j=0; j<nblocks[level]; j++) {
       int iidx, jidx, kidx, tidx; 
       if (has_data[level][j]) {
 	tidx = j / (isize*jsize*ksize); 
@@ -274,42 +275,44 @@ void LatticeAMR::CompleteLevels()
 
   // added by Tom
 
-  // allocate table of neighbor ranks
-  int max_num_neighbors = 0;
-  for (int i = 0; i < num_levels; i++)
-    max_num_neighbors += 81 * pow(16.0f, i);
-  fprintf(stderr, "maximum number of neighbors = %d\n", max_num_neighbors);
-  assert((neighbor_ranks = (int *)malloc(max_num_neighbors * sizeof(int))) != NULL);
+  vb_list = GetBoundsList(npart); // volume bounds
+  part = new Partition(npart, 1); // partition
 
-  // volume bounds
-  vb_list = GetBoundsList(npart);    // volume bounds
-
-  // partition
-  part = new Partition(npart, 1, max_num_neighbors); // todo: replace hard-coded params
-
-  // ranks of my blocks
   if (myproc >= 0) {
+
     RoundRobin_proc(nproc);
-    assert((block_ranks = (int *)malloc(GetMyNumPartitions(myproc) * 
-					sizeof(int))) != NULL);
+
+    nb = GetMyNumPartitions(myproc); // number of my blocks
+
+    // allocate table of neighbor ranks for one neighbor initially
+    assert((neighbor_ranks = (int **)malloc(nb * sizeof(int *))) != NULL);
+    for (i = 0; i < nb; i++)
+      assert((neighbor_ranks[i] = (int *)malloc(sizeof(int))) != NULL);
+
+    // ranks of my blocks
+    assert((block_ranks = (int *)malloc(nb * sizeof(int))) != NULL);
     GetMyPartitions(myproc, block_ranks);
+
+    // learn who my neighbors are
+    for (i = 0; i < nb; i++)
+      GetNeighborRanks(i);
 
   }
 
 }
 
-
-
 ///////////////////////////////////////////////////////
 
-void LatticeAMR::CompleteLevels(int t_interval)
-{
+void LatticeAMR::CompleteLevels(int t_interval) {
+
+  int i, j, k, l;
+
   // quickly estimate the max number of partitions. 
   // a rough estimate, which is the worse case in that assuming 
   // one time step per partition for a given spatial region 
   npart = 0; 
-  for (int i=0; i<num_levels; i++)
-    for (int j=0; j<nblocks[i]; j++)
+  for (i=0; i<num_levels; i++)
+    for (j=0; j<nblocks[i]; j++)
       if (has_data[i][j]) npart++; 
 
   printf("*** npart = %d\n", npart); 
@@ -325,10 +328,10 @@ void LatticeAMR::CompleteLevels(int t_interval)
   // 
   npart = -1; 
   int offset = 0; 
-  for (int l=0; l<num_levels; l++) {
-    for (int k=0; k<kdim[l]; k++) 
-      for (int j=0; j<jdim[l]; j++) 
-	for (int i=0; i<idim[l]; i++)  // looping through all spatial regions in all levels
+  for (l=0; l<num_levels; l++) {
+    for (k=0; k<kdim[l]; k++) 
+      for (j=0; j<jdim[l]; j++) 
+	for (i=0; i<idim[l]; i++)  // looping through all spatial regions in all levels
 	  {
 	    int counter = 0; 
 	    for (int t=0; t<ldim[l]; t++) {
@@ -380,29 +383,27 @@ void LatticeAMR::CompleteLevels(int t_interval)
 
   // added by Tom
 
-  // allocate table of neighbor ranks
-  int max_num_neighbors = 0;
-  for (int i = 0; i < num_levels; i++)
-    max_num_neighbors += 81 * pow(16.0f, i);
+  vb_list = GetBoundsList(npart); // volume bounds
+  part = new Partition(npart, 1); // partition
 
-  // hack for now: reduce max_num_neighbors
-  max_num_neighbors /= 200;
-
-  fprintf(stderr, "maximum number of neighbors = %d\n", max_num_neighbors);
-  assert((neighbor_ranks = (int *)malloc(max_num_neighbors * sizeof(int))) != NULL);
-
-  // volume bounds
-  vb_list = GetBoundsList(npart);    // volume bounds
-
-  // partition
-  part = new Partition(npart, 1, max_num_neighbors); // todo: replace hard-coded params
-
-  // ranks of my blocks
   if (myproc >= 0) {
+
     RoundRobin_proc(nproc);
-    assert((block_ranks = (int *)malloc(GetMyNumPartitions(myproc) * 
-					sizeof(int))) != NULL);
+
+    nb = GetMyNumPartitions(myproc); // number of my blocks
+
+    // allocate table of neighbor ranks for one neighbor initially
+    assert((neighbor_ranks = (int **)malloc(nb * sizeof(int *))) != NULL);
+    for (i = 0; i < nb; i++)
+      assert((neighbor_ranks[i] = (int *)malloc(sizeof(int))) != NULL);
+
+    // ranks of my blocks
+    assert((block_ranks = (int *)malloc(nb * sizeof(int))) != NULL);
     GetMyPartitions(myproc, block_ranks);
+
+    // learn who my neighbors are
+    for (i = 0; i < nb; i++)
+      GetNeighborRanks(i);
 
   }
 
@@ -632,6 +633,22 @@ int LatticeAMR::GetRank(float x, float y, float z, float t) {
   return(-1); 
 }
 
+////////////////////////////////////////////////////////////////////
+//
+// Find the subdomain rank that contains the physical location (x,y,z,t) 
+// at the given level
+//
+// returns -1 if the level does not contain data
+//
+int LatticeAMR::GetRank(float x, float y, float z, float t, int level) {
+
+  int idx = GetIndexinLevel(level, x, y, z, t); 
+  if (idx != -1 && has_data[level][idx] == true)
+    return(index_to_rank[level][idx]);
+
+  return(-1); 
+
+}
 //////////////////////////////////////////////////////////////////////
 //
 //  Get the subdomain rank for the lattice[i,j,k] element at 
@@ -1107,15 +1124,17 @@ int LatticeAMR::GetMyNumPartitions(int proc) {
 // min_s, max_s: (output) spatial min and max bounds
 // min_t, max_t: (output) temporal min and max bounds
 //
-void LatticeAMR::GetVB(int block, VECTOR3 &min_s, VECTOR3 &max_s, 
-		      int &min_t, int &max_t) {
+void LatticeAMR::GetVB(int block, float *min_s, float *max_s, 
+		      int *min_t, int *max_t) {
 
-  min_s.Set(vb_list[block_ranks[block]].xmin, vb_list[block_ranks[block]].ymin, 
-	    vb_list[block_ranks[block]].zmin);
-  max_s.Set(vb_list[block_ranks[block]].xmax, vb_list[block_ranks[block]].ymax, 
-	    vb_list[block_ranks[block]].zmax);
-  min_t = vb_list[block_ranks[block]].tmin;
-  max_t = vb_list[block_ranks[block]].tmax;
+  min_s[0] = vb_list[block_ranks[block]].xmin;
+  min_s[1] = vb_list[block_ranks[block]].ymin;
+  min_s[2] = vb_list[block_ranks[block]].zmin;
+  max_s[0] = vb_list[block_ranks[block]].xmax;
+  max_s[1] = vb_list[block_ranks[block]].ymax;
+  max_s[2] = vb_list[block_ranks[block]].zmax;
+  *min_t = vb_list[block_ranks[block]].tmin;
+  *max_t = vb_list[block_ranks[block]].tmax;
 
 }
 //---------------------------------------------------------------------------
@@ -1126,13 +1145,17 @@ void LatticeAMR::GetVB(int block, VECTOR3 &min_s, VECTOR3 &max_s,
 // min_s, max_s: (output) spatial min and max bounds
 // min_t, max_t: (output) temporal min and max bounds
 //
-void LatticeAMR::GetGlobalVB(int part, VECTOR3 &min_s, VECTOR3 &max_s, 
-		      int &min_t, int &max_t) {
+void LatticeAMR::GetGlobalVB(int part, float *min_s, float *max_s, 
+		      int *min_t, int *max_t) {
 
-  min_s.Set(vb_list[part].xmin, vb_list[part].ymin, vb_list[part].zmin);
-  max_s.Set(vb_list[part].xmax, vb_list[part].ymax, vb_list[part].zmax);
-  min_t = vb_list[part].tmin;
-  max_t = vb_list[part].tmax;
+  min_s[0] = vb_list[part].xmin;
+  min_s[1] = vb_list[part].ymin;
+  min_s[2] = vb_list[part].zmin;
+  max_s[0] = vb_list[part].xmax;
+  max_s[1] = vb_list[part].ymax;
+  max_s[2] = vb_list[part].zmax;
+  *min_t = vb_list[part].tmin;
+  *max_t = vb_list[part].tmax;
 
 }
 //---------------------------------------------------------------------------
@@ -1140,7 +1163,7 @@ void LatticeAMR::GetGlobalVB(int part, VECTOR3 &min_s, VECTOR3 &max_s,
 // returns neighbor number of neighbor containing point
 // returns -1 if point is not in one of the neighbors
 //
-int LatticeAMR::GetNeighbor(int myrank, float x, float y, float z, float t) {
+int LatticeAMR::GetNeighbor(int block, float x, float y, float z, float t) {
 
   int n; // neighbor number
   int r; // rank of partition containing the point
@@ -1148,8 +1171,8 @@ int LatticeAMR::GetNeighbor(int myrank, float x, float y, float z, float t) {
   r = GetRank(x, y, z, t);
 
   // for all neighbors
-  for (n = 0; n < part->parts[myrank].NumNeighbors; n++) {
-    if (r == neighbor_ranks[n])
+  for (n = 0; n < part->parts[block_ranks[block]].NumNeighbors; n++) {
+    if (r == neighbor_ranks[block][n])
       return n;
   }
 
@@ -1161,20 +1184,29 @@ int LatticeAMR::GetNeighbor(int myrank, float x, float y, float z, float t) {
 // gets ranks of all neighbors
 // the neighbor of an edge gets rank -1
 //
-void LatticeAMR::GetNeighborRanks(int myrank) {
+void LatticeAMR::GetNeighborRanks(int block) {
+
+  // levels coarser than mine are handled slightly separately
+  GetCoarseNeighborRanks(block);
+  GetFineNeighborRanks(block);
+
+}
+//---------------------------------------------------------------------------
+//
+// gets ranks of all neighbors at a coarser level than mine
+// the neighbor of an edge gets rank -1
+//
+void LatticeAMR::GetCoarseNeighborRanks(int block) {
 
   float x, y, z, t; // point inside of partition
   float x0, y0, z0, t0; // reference point for point calculation
   float dx, dy, dz, dt; // delta x,y,z,t
   int i, j, k, l; // coords along an end face
-  int i_min, j_min, k_min, l_min; // minimum value of i, j, k, l
-  int i_max, j_max, k_max, l_max; // maximum value of i, j, k, l
+  int l_max; // maximum value l (index in time dimension)
   int level; // level number
-  int end_dim; // dimensions along end face
-  int n = 1; // number of (smaller) partitions in the end face
-  int side; // - or + end face
   int nr; // neighbor rank
-  int num_neighbors = 0; // number of neighbors
+  int old_nr; // previous neighbor rank
+  int myrank = block_ranks[block];
 
   // get minimum corner point and initial block size
   x0 = vb_list[myrank].xmin;
@@ -1186,89 +1218,381 @@ void LatticeAMR::GetNeighborRanks(int myrank) {
   dz = vb_list[myrank].zmax - vb_list[myrank].zmin;
   dt = vb_list[myrank].tmax - vb_list[myrank].tmin;
 
-  // for all levels
-  for (level = 0; level < num_levels; level++) {
+  // get level number of block
+  float cx = x0 + dx / 2.0f;
+  float cy = y0 + dy / 2.0f;
+  float cz = z0 + dz / 2.0f;
+  float ct = t0 + dt / 2.0f;
+  int block_level = GetFinestLevel(cx, cy, cz, ct);
+  assert(block_level >= 0);
 
-    // for all dimensions (x, y, z, t, in that order)
-    for (end_dim = 0; end_dim <= 4; end_dim++) {
+  // for levels coarser than the block level
+  for (level = 0; level < block_level; level++) {
 
-      // for both sides (-, +, in that order)
-      for (side = 0; side < 2; side++) {
+    // set iteration params
+    l_max = dt > 0.0 ? 2 : 0; // extend
 
-	// set loop parameters, point value in end dimension
+    // -x end face
+    old_nr = -1;
+    x = vb_list[myrank].xmin - 0.5 * dx;
+    for (j = -1; j < 2; j++) { // y direction
+      y = y0 + (j + 0.5) * dy;
+      for (k = -1; k < 2; k++) { // z direction
+	z = z0 + (k + 0.5) * dz;
+	for (l = -1; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0 && nr != old_nr && 
+	      vb_list[nr].xmax == vb_list[myrank].xmin) {
+	    AddNeighbor(block, nr);
+	    old_nr = nr;
+	  }
+	} // t direction
+      } // z direction
+    } // y direction
 
-	if (end_dim == 0) { // x
-	  i_min = 0 ; i_max = 0; // skip same dimension as end face
-	  j_min = -1; j_max = n + 1; // extend by 1 in each direction
-	  k_min = -1; k_max = n + 1; // extend
-	  l_min = -1; l_max = n + 1; // extend
-	  if (side == 0)
-	    x = vb_list[myrank].xmin - 0.5 * dx;
-	  else
-	    x = vb_list[myrank].xmax + 0.5 * dx;
-	}
+    // +x end face
+    old_nr = -1;
+    x = vb_list[myrank].xmax + 0.5 * dx;
+    for (j = -1; j < 2; j++) { // y direction
+      y = y0 + (j + 0.5) * dy;
+      for (k = -1; k < 2; k++) { // z direction
+	z = z0 + (k + 0.5) * dz;
+	for (l = -1; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0 && nr != old_nr && 
+	      vb_list[nr].xmin == vb_list[myrank].xmax) {
+	    AddNeighbor(block, nr);
+	    old_nr = nr;
+	  }
+	} // t direction
+      } // z direction
+    } // y direction
 
-	else if (end_dim == 1) { // y
-	  i_min = 0 ; i_max = n; // no extension
-	  j_min = 0 ; j_max = 0 ; // skip
-	  k_min = -1; k_max = n + 1; // extend
-	  l_min = -1; l_max = n + 1; // extend
-	  if (side == 0)
-	    y = vb_list[myrank].ymin - 0.5 * dy;
-	  else
-	    y = vb_list[myrank].ymax + 0.5 * dy;
-	}
+    // -y end face
+    old_nr = -1;
+    y = vb_list[myrank].ymin - 0.5 * dy;
+    for (i = -1; i < 2; i++) { // x direction along face
+      x = x0 + (i + 0.5) * dx;
+      for (k = -1; k < 2; k++) { // z direction
+	z = z0 + (k + 0.5) * dz;
+	for (l = -1; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0 && nr != old_nr && 
+	      vb_list[nr].ymax == vb_list[myrank].ymin && 
+	      vb_list[nr].xmax != vb_list[myrank].xmin && 
+	      vb_list[nr].xmin != vb_list[myrank].xmax) {
+	    AddNeighbor(block, nr);
+	    old_nr = nr;
+	  }
+	} // t direction
+      } // z direction
+    } // x direction
 
-	else if (end_dim == 2) { // z
-	  i_min = 0 ; i_max = n; // same size
-	  j_min = 0 ; j_max = n; // same size
-	  k_min = 0 ; k_max = 0; // skip
-	  l_min = -1; l_max = n + 1; // extend
-	  if (side == 0)
-	    z = vb_list[myrank].zmin - 0.5 * dz;
-	  else
-	    z = vb_list[myrank].zmax + 0.5 * dz;
-	}
+    // +y end face
+    old_nr = -1;
+    y = vb_list[myrank].ymax + 0.5 * dy;
+    for (i = -1; i < 2; i++) { // x direction along face
+      x = x0 + (i + 0.5) * dx;
+      for (k = -1; k < 2; k++) { // z direction
+	z = z0 + (k + 0.5) * dz;
+	for (l = -1; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0 && nr != old_nr && 
+	      vb_list[nr].ymin == vb_list[myrank].ymax && 
+	      vb_list[nr].xmax != vb_list[myrank].xmin && 
+	      vb_list[nr].xmin != vb_list[myrank].xmax) {
+	    AddNeighbor(block, nr);
+	    old_nr = nr;
+	  }
+	} // t direction
+      } // z direction
+    } // x direction
 
-	else { // t
-	  i_min = 0 ; i_max = n; // no extension
-	  j_min = 0 ; j_max = n; // no extension
-	  k_min = 0 ; k_max = n; // no extension
-	  l_min = 0 ; l_max = 0; // skip
-	  if (side == 0)
-	    t = vb_list[myrank].tmin - 0.5 * dt;
-	  else
-	    t = vb_list[myrank].tmax + 0.5 * dt;
-	}
+    // -z end face
+    old_nr = -1;
+    z = vb_list[myrank].zmin - 0.5 * dz;
+    for (i = -1; i < 2; i++) { // x direction along face
+      x = x0 + (i + 0.5) * dx;
+      for (j = -1; j < 2; j++) { // y direction
+	y = y0 + (j + 0.5) * dy;
+	for (l = -1; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0 && nr != old_nr && 
+	      vb_list[nr].zmax == vb_list[myrank].zmin && 
+	      vb_list[nr].xmax != vb_list[myrank].xmin && 
+	      vb_list[nr].xmin != vb_list[myrank].xmax &&
+	      vb_list[nr].ymax != vb_list[myrank].ymin && 
+	      vb_list[nr].ymin != vb_list[myrank].ymax) {
+	    AddNeighbor(block, nr);
+	    old_nr = nr;
+	  }
+	} // t direction
+      } // y direction
+    } // x direction
 
-	// iterate along the end face blocks
+    // +z end face
+    old_nr = -1;
+    z = vb_list[myrank].zmax + 0.5 * dz;
+    for (i = -1; i < 2; i++) { // x direction along face
+      x = x0 + (i + 0.5) * dx;
+      for (j = -1; j < 2; j++) { // y direction
+	y = y0 + (j + 0.5) * dy;
+	for (l = -1; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0 && nr != old_nr && 
+	      vb_list[nr].zmin == vb_list[myrank].zmax && 
+	      vb_list[nr].xmax != vb_list[myrank].xmin && 
+	      vb_list[nr].xmin != vb_list[myrank].xmax &&
+	      vb_list[nr].ymax != vb_list[myrank].ymin && 
+	      vb_list[nr].ymin != vb_list[myrank].ymax) {
+	    AddNeighbor(block, nr);
+	    old_nr = nr;
+	  }
+	} // t direction
+      } // y direction
+    } // x direction
 
-	for (i = i_min; i < i_max; i++) { // x direction along face
-	  if (end_dim != 0)
-	    x = x0 + (i + 0.5) * dx;
-	  for (j = j_min; j < j_max; j++) { // y direction
-	    if (end_dim != 1)
-	      y = y0 + (j + 0.5) * dy;
-	    for (k = k_min; k < k_max; k++) { // z direction
-	      if (end_dim != 2)
-		z = z0 + (k + 0.5) * dz;
-	      for (l = l_min; l < l_max; l++) { // t direction
-		if (end_dim != 3)
-		  t = t0 + (l + 0.5) * dt;
+    // neighbors in the time dimension exist only if the block has some
+    // "thickness" in the time dimension (dt > 0)
+    if (dt > 0.0) {
 
-		// finally get the rank
-		nr = GetRank(x, y, z, t);
-		if (nr >= 0)
-		  neighbor_ranks[num_neighbors++] = nr;
+      // -t end face
+      old_nr = -1;
+      t = vb_list[myrank].tmin - 0.5 * dt;
+      for (i = -1; i < 2; i++) { // x direction along face
+	x = x0 + (i + 0.5) * dx;
+	for (j = -1; j < 2; j++) { // y direction
+	  y = y0 + (j + 0.5) * dy;
+	  for (k = -1; k < 2; k++) { // z direction
+	    z = z0 + (k + 0.5) * dz;
+	    nr = GetRank(x, y, z, t, level);
+	    if (nr >= 0 && nr != old_nr && 
+		vb_list[nr].tmax == vb_list[myrank].tmin && 
+		vb_list[nr].xmax != vb_list[myrank].xmin && 
+		vb_list[nr].xmin != vb_list[myrank].xmax &&
+		vb_list[nr].ymax != vb_list[myrank].ymin && 
+		vb_list[nr].ymin != vb_list[myrank].ymax &&
+		vb_list[nr].zmax != vb_list[myrank].zmin && 
+		vb_list[nr].zmin != vb_list[myrank].zmax) {
+	      AddNeighbor(block, nr);
+	      old_nr = nr;
+	    }
+	  } // z direction
+	} // y direction
+      } // x direction
+    
+      // +t end face
+      old_nr = -1;
+      t = vb_list[myrank].tmax + 0.5 * dt;
+      for (i = -1; i < 2; i++) { // x direction along face
+	x = x0 + (i + 0.5) * dx;
+	for (j = -1; j < 2; j++) { // y direction
+	  y = y0 + (j + 0.5) * dy;
+	  for (k = -1; k < 2; k++) { // z direction
+	    z = z0 + (k + 0.5) * dz;
+	    nr = GetRank(x, y, z, t, level);
+	    if (nr >= 0 && nr != old_nr && 
+		vb_list[nr].tmin == vb_list[myrank].tmax && 
+		vb_list[nr].xmax != vb_list[myrank].xmin && 
+		vb_list[nr].xmin != vb_list[myrank].xmax &&
+		vb_list[nr].ymax != vb_list[myrank].ymin && 
+		vb_list[nr].ymin != vb_list[myrank].ymax &&
+		vb_list[nr].zmax != vb_list[myrank].zmin && 
+		vb_list[nr].zmin != vb_list[myrank].zmax) {
+	      AddNeighbor(block, nr);
+	      old_nr = nr;
+	    }
+	  } // z direction
+	} // y direction
+      } // x direction
 
-	      } // t direction
-	    } // z direction
-	  } // y direction
-	} // x direction
+    } // dt > 0
 
-      } // for both sides
+  } // for all coarser levels
 
-    } // for all dimensions
+}
+//---------------------------------------------------------------------------
+//
+// gets ranks of all neighbors at the same or finer level than min
+// the neighbor of an edge gets rank -1
+//
+void LatticeAMR::GetFineNeighborRanks(int block) {
+
+  float x, y, z, t; // point inside of partition
+  float x0, y0, z0, t0; // reference point for point calculation
+  float dx, dy, dz, dt; // delta x,y,z,t
+  int i, j, k, l; // coords along an end face
+  int i_min, j_min, k_min, l_min; // minimum value of i, j, k, l
+  int i_max, j_max, k_max, l_max; // maximum value of i, j, k, l
+  int level; // level number
+  int n = 1; // number of (smaller) partitions in the end face
+  int nr; // neighbor rank
+  int myrank = block_ranks[block];
+
+  // get minimum corner point and initial block size
+  x0 = vb_list[myrank].xmin;
+  y0 = vb_list[myrank].ymin;
+  z0 = vb_list[myrank].zmin;
+  t0 = vb_list[myrank].tmin;
+  dx = vb_list[myrank].xmax - vb_list[myrank].xmin;
+  dy = vb_list[myrank].ymax - vb_list[myrank].ymin;
+  dz = vb_list[myrank].zmax - vb_list[myrank].zmin;
+  dt = vb_list[myrank].tmax - vb_list[myrank].tmin;
+
+  // get level number of block
+  float cx = x0 + dx / 2.0f;
+  float cy = y0 + dy / 2.0f;
+  float cz = z0 + dz / 2.0f;
+  float ct = t0 + dt / 2.0f;
+  int block_level = GetFinestLevel(cx, cy, cz, ct);
+  assert(block_level >= 0);
+
+  // for levels starting at the the block level and finer
+  for (level = block_level; level < num_levels; level++) {
+
+    // set iteration params
+    j_min = k_min = l_min = -1;
+    j_max = dy > 0.0 ? n + 1 : 0; // extend
+    k_max = dz > 0.0 ? n + 1 : 0; // extend
+    l_max = dt > 0.0 ? n + 1 : 0; // extend
+
+    // -x end face
+    x = vb_list[myrank].xmin - 0.5 * dx;
+    for (j = j_min; j < j_max; j++) { // y direction
+      y = y0 + (j + 0.5) * dy;
+      for (k = k_min; k < k_max; k++) { // z direction
+	z = z0 + (k + 0.5) * dz;
+	for (l = l_min; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0)
+	    AddNeighbor(block, nr);
+	} // t direction
+      } // z direction
+    } // y direction
+
+    // +x end face
+    x = vb_list[myrank].xmax + 0.5 * dx;
+    for (j = j_min; j < j_max; j++) { // y direction
+      y = y0 + (j + 0.5) * dy;
+      for (k = k_min; k < k_max; k++) { // z direction
+	z = z0 + (k + 0.5) * dz;
+	for (l = l_min; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0)
+	    AddNeighbor(block, nr);
+	} // t direction
+      } // z direction
+    } // y direction
+
+    // -y end face
+    i_min = 0;
+    i_max = n; // same size
+    y = vb_list[myrank].ymin - 0.5 * dy;
+    for (i = i_min; i < i_max; i++) { // x direction along face
+      x = x0 + (i + 0.5) * dx;
+      for (k = k_min; k < k_max; k++) { // z direction
+	z = z0 + (k + 0.5) * dz;
+	for (l = l_min; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0)
+	    AddNeighbor(block, nr);
+	} // t direction
+      } // z direction
+    } // x direction
+
+    // +y end face
+    y = vb_list[myrank].ymax + 0.5 * dy;
+    for (i = i_min; i < i_max; i++) { // x direction along face
+      x = x0 + (i + 0.5) * dx;
+      for (k = k_min; k < k_max; k++) { // z direction
+	z = z0 + (k + 0.5) * dz;
+	for (l = l_min; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0)
+	    AddNeighbor(block, nr);
+	} // t direction
+      } // z direction
+    } // x direction
+
+    // -z end face
+    j_min = 0;
+    j_max = n; // same size
+    z = vb_list[myrank].zmin - 0.5 * dz;
+    for (i = i_min; i < i_max; i++) { // x direction along face
+      x = x0 + (i + 0.5) * dx;
+      for (j = j_min; j < j_max; j++) { // y direction
+	y = y0 + (j + 0.5) * dy;
+	for (l = l_min; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0)
+	    AddNeighbor(block, nr);
+	} // t direction
+      } // y direction
+    } // x direction
+
+    // +z end face
+    z = vb_list[myrank].zmax + 0.5 * dz;
+    for (i = i_min; i < i_max; i++) { // x direction along face
+      x = x0 + (i + 0.5) * dx;
+      for (j = j_min; j < j_max; j++) { // y direction
+	y = y0 + (j + 0.5) * dy;
+	for (l = l_min; l < l_max; l++) { // t direction
+	  t = t0 + (l + 0.5) * dt;
+	  nr = GetRank(x, y, z, t, level);
+	  if (nr >= 0)
+	    AddNeighbor(block, nr);
+	} // t direction
+      } // y direction
+    } // x direction
+
+    // neighbors in the time dimension exist only if the block has some
+    // "thickness" in the time dimension (dt > 0)
+    if (dt > 0.0) {
+
+      // -t end face
+      k_min = 0;
+      k_max = n; // same size
+      t = vb_list[myrank].tmin - 0.5 * dt;
+      for (i = i_min; i < i_max; i++) { // x direction along face
+	x = x0 + (i + 0.5) * dx;
+	for (j = j_min; j < j_max; j++) { // y direction
+	  y = y0 + (j + 0.5) * dy;
+	  for (k = k_min; k < k_max; k++) { // z direction
+	    z = z0 + (k + 0.5) * dz;
+	    nr = GetRank(x, y, z, t, level);
+	    if (nr >= 0)
+	      AddNeighbor(block, nr);
+	  } // z direction
+	} // y direction
+      } // x direction
+    
+      // +t end face
+      t = vb_list[myrank].tmax + 0.5 * dt;
+      for (i = i_min; i < i_max; i++) { // x direction along face
+	x = x0 + (i + 0.5) * dx;
+	for (j = j_min; j < j_max; j++) { // y direction
+	  y = y0 + (j + 0.5) * dy;
+	  for (k = k_min; k < k_max; k++) { // z direction
+	    z = z0 + (k + 0.5) * dz;
+	    nr = GetRank(x, y, z, t, level);
+	    if (nr >= 0)
+	      AddNeighbor(block, nr);
+	  } // z direction
+	} // y direction
+      } // x direction
+
+    } // dt > 0
 
     n *= 2;
     dx *= 0.5f;
@@ -1279,10 +1603,32 @@ void LatticeAMR::GetNeighborRanks(int myrank) {
   } // for all levels
 
   // don't forget to include myself
-  neighbor_ranks[num_neighbors++] = myrank;
+  AddNeighbor(block, myrank);
 
-  // update partition
-  part->SetNumNeighbors(myrank, num_neighbors);
+}
+//---------------------------------------------------------------------------
+//
+// adds a neighbor to the end of the neighbor_ranks table and sets its value
+// updates the local block neighbors as well as the global partition
+// growing both if necessary
+//
+// block: local block number
+// value: global partition number of the neighbor
+//
+void LatticeAMR::AddNeighbor(int block, int value) {
+
+  int nn; // number of neighbors allocated
+  int myrank = block_ranks[block];
+  int num_neighbors = part->GetNumNeighbors(myrank);
+
+  while ((nn = part->GetAllocNeighbors(myrank)) < num_neighbors + 1) {
+    part->GrowNeighbors(myrank);
+    assert((neighbor_ranks[block] = (int *)realloc(neighbor_ranks[block],
+				    nn * 2 * sizeof(int))) != NULL);
+  }
+
+  neighbor_ranks[block][num_neighbors] = value;
+  part->SetNumNeighbors(myrank, num_neighbors + 1);
 
 }
 //---------------------------------------------------------------------------
@@ -1357,7 +1703,7 @@ int LatticeAMR::GetComp(int block, int iter) {
 // posts a point for sending
 //
 void LatticeAMR::PostPoint(int block, VECTOR4 p) {
-  int neighbor = GetNeighbor(block_ranks[block], p[0], p[1], p[2], p[3]);
+  int neighbor = GetNeighbor(block, p[0], p[1], p[2], p[3]);
   if (neighbor >= 0)
     part->PostPoint(block_ranks[block], p, neighbor); 
 }
@@ -1375,6 +1721,7 @@ void LatticeAMR::PrintRecv(int block) {
 }
 //
 // copies the received points to a list
+// caller must ensure that ls has enough room for the points
 //
 void LatticeAMR::GetRecvPts(int block, VECTOR4 *ls) { 
   part->GetRecvPts(block_ranks[block], ls); 
@@ -1383,14 +1730,22 @@ void LatticeAMR::GetRecvPts(int block, VECTOR4 *ls) {
 // sends points to all neighbors
 //
 void LatticeAMR::SendNeighbors(int block) { 
-  GetNeighborRanks(block_ranks[block]);
-  part->SendNeighbors(block_ranks[block], neighbor_ranks);
+  part->SendNeighbors(block_ranks[block], neighbor_ranks[block]);
 }
 //
 // receives points from all neighbors
 //
 int LatticeAMR::ReceiveNeighbors(int block) {
-  GetNeighborRanks(block_ranks[block]);
-  part->ReceiveNeighbors(block_ranks[block], neighbor_ranks);
+
+  part->ReceiveNeighbors(block_ranks, neighbor_ranks, block, nb);
+  
+}
+//
+// debug
+//
+void LatticeAMR::Check(int myrank) {
+
+  part->Check(myrank);
+  
 }
 //---------------------------------------------------------------------------
