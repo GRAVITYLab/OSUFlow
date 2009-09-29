@@ -69,7 +69,7 @@ class  LatticeAMR {
   void GetPartitions(int, int**, int&); 
   bool Mergeable(int i, int j, int k, int t, int level, int& mergeLevel); 
   void MergeBlocks(); 
-  void RoundRobin_proc(int n); 
+  void RoundRobin_proc(); 
   
   list<VECTOR4> *seedlists; 
 
@@ -140,7 +140,7 @@ class  LatticeAMR {
   int nb; // number of my blocks
   void GetCoarseNeighborRanks(int block);
   void GetFineNeighborRanks(int block);
-  void AddNeighbor(int block, int value);
+  void AddNeighbor(int myblock, int neighrank);
 
  public:
 
@@ -159,10 +159,7 @@ class  LatticeAMR {
   void PrintPost(int myrank);
   void PrintRecv(int myrank);
   void GetRecvPts(int myrank, VECTOR4 *ls);
-  void SendNeighbors(int myrank);
-  int ReceiveNeighbors(int myrank);
-
-  void Check(int myrank);
+  void ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds);
 
 }; 
 

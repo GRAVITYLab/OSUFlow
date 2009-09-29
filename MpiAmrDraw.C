@@ -507,11 +507,11 @@ void IOandCompute() {
       // for all blocks
       for (i = 0; i < nblocks; i++) {
 
-	// blocks that are not in this group do a null send to neighbors
-	if (i < sb || i >= eb) {
-	  lat->SendNeighbors(i);
-	  continue;
-	}
+// 	// blocks that are not in this group do a null send to neighbors
+// 	if (i < sb || i >= eb) {
+// 	  lat->SendNeighbors(i);
+// 	  continue;
+// 	}
 
 	// if the block needs to be loaded
 	if (!lat->GetLoad(i)) {
@@ -534,7 +534,7 @@ void IOandCompute() {
 
       } // for all blocks
 
-      ReceiveMessages();
+      lat->ExchangeNeighbors(Seeds, SizeSeeds);
 
     } // for all rounds
 
@@ -639,39 +639,49 @@ void ComputePathlines(int block_num) {
 
   } // if (NumSeeds[block_num])
   
-  // send points to neighbors
-  // quantity of 0 is sent, even if there are none
-  lat->SendNeighbors(block_num);
+//   // exchange points with neighbors
+//   NumSeeds[block_num] = lat->ExchangeNeighbors(block_num);
+
+//   // allocate seeds
+//   while (SizeSeeds[block_num] < NumSeeds[block_num] * sizeof(VECTOR4)) {
+//     assert((Seeds[block_num] = 
+// 	    (VECTOR4 *)realloc(Seeds[block_num], 
+// 			       SizeSeeds[block_num] * 2)) != NULL);
+//     SizeSeeds[block_num] *= 2;
+//   }
+
+//   // copy received points to seeds
+//   lat->GetRecvPts(block_num, Seeds[block_num]);
 
 }
 //-----------------------------------------------------------------------
-//
-// ReceiveMessages
-//
-// receives all pending messages
-//
-//
-void ReceiveMessages() {
+// //
+// // ReceiveMessages
+// //
+// // receives all pending messages
+// //
+// //
+// void ReceiveMessages() {
 
-  int i;
+//   int i;
 
-  for (i = 0; i < nblocks; i++) {
+//   for (i = 0; i < nblocks; i++) {
 
-    if ((NumSeeds[i] = lat->ReceiveNeighbors(i))) {
-      while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
-	assert((Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2))
-	       != NULL);
-	SizeSeeds[i] *= 2;
-      }
+//     if ((NumSeeds[i] = lat->ReceiveNeighbors(i))) {
+//       while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
+// 	assert((Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2))
+// 	       != NULL);
+// 	SizeSeeds[i] *= 2;
+//       }
 
-      lat->GetRecvPts(i, Seeds[i]);
+//       lat->GetRecvPts(i, Seeds[i]);
 
-    }
+//     }
 
-  }
+//   }
 
-}
-//-----------------------------------------------------------------------
+// }
+// //-----------------------------------------------------------------------
 //
 // GatherPathlines
 //

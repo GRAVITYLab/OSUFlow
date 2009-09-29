@@ -5,15 +5,9 @@
 #include<stdlib.h>
 #include "VectorMatrix.h" 
 
-/* // todo: lattice base class header */
-/* #include "Lattice4D.h" */
-
 #ifdef MPI
 #include <mpi.h>
 #endif
-
-// maximum number of total global partitions
-#define MAX_PARTS 10000000
 
 // a global (all processes) block or partition
 struct Partition4D {
@@ -31,8 +25,10 @@ struct Partition4D {
 
   // the following array fills up in order, from 0 to number of requests
 #ifdef MPI
-  MPI_Request *Reqs; // message requests
-  int NumReqs; // number of requests
+  MPI_Request *SendReqs; // send requests
+  MPI_Request *RecvReqs; // receive requests
+  int NumSendReqs; // number of send requests
+  int NumRecvReqs; // number of receive requests
 #endif 
 
   int Proc; // process(or) number (mpi rank, core number, node number, etc.)
@@ -47,7 +43,7 @@ class Partition {
 
  public: 
   
-  Partition(int nsp, int ntp); 
+  Partition(int npart, int nproc); 
   ~Partition(); 
 
   void SetReq(int myrank) { parts[myrank].Requed = 1; }
@@ -65,29 +61,34 @@ class Partition {
   void PrintRecv(int myrank);
   void GetRecvPts(int myrank, VECTOR4 *ls);
   int GetProc(int myrank);
-  void SetNumNeighbors(int myrank, int num) {parts[myrank].NumNeighbors = num; }
   int GetNumNeighbors(int myrank) { return parts[myrank].NumNeighbors; }
   int GetAllocNeighbors(int myrank) { return parts[myrank].AllocNeighbors; }
   void GrowNeighbors(int myrank);
+  void AddNeighbor(int myrank, int neighblock, int neighrank);
 
 #ifdef  MPI
-  void SendNeighbors(int myrank, int *ranks, MPI_Comm comm = MPI_COMM_WORLD);
-  int ReceiveNeighbors(int *block_ranks, int **neighbor_ranks,
-		       int block, int nb, MPI_Comm comm = MPI_COMM_WORLD);
+  void ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds,
+			MPI_Comm comm = MPI_COMM_WORLD);
 #else
-  void SendNeighbors(int myrank, int *ranks){};
-  int ReceiveNeighbors(int myrank, int *ranks, int **all_ranks){};
-  int ReceiveNeighbors(int *block_ranks, int **neighbor_ranks,
-		       int block, int nb){};
+  int ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, 
+			int *size_seeds){};
 #endif
 
-  Partition4D *parts; // list of partition information
+  // global partition list
+  Partition4D *parts;
 
-  void Check(int myrank);
+  // data structures indexed by process for faster access when
+  // aggregating messages from / to a process
+  int **proc_parts; // partition ranks
+  int *proc_nparts; // number of paritition ranks
+  int ***proc_neighbors; // neighbor blocks
+  int **proc_nneighbors; // number of neighbor blocks in proc_neighbors
+  int **proc_aneighbors; // number of allocated neighbors in proc_neighbors
 
  private: 
 
-  int npart; 
+  int npart; // total number of partitions
+  int nproc; // total number of processes
 
 }; 
 
