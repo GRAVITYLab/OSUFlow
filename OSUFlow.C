@@ -21,7 +21,7 @@ OSUFlow::~OSUFlow()
   delete[] flowName;
   if (has_data)
     delete flowField;
-  if (seedPtr!=NULL) delete[] seedPtr; 
+//   if (seedPtr!=NULL) delete[] seedPtr; 
   if (seedTimeArray!=NULL) delete [] seedTimeArray; 
   flowName = NULL;
   flowField = NULL;

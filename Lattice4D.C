@@ -16,7 +16,7 @@
 //
 Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int myid, int nid) {
 
-  int i, j, n;
+  int i, j;
   volume_bounds_type *vbs; 
 
   xdim = xlen; 
@@ -66,22 +66,30 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
   // neighborhood size
   nbhd = 81;
 
-  // table of neighbor ranks
-  assert((neighbor_ranks = (int *)malloc(nbhd * sizeof (int))) != NULL);
-
-  // create partition class
-  part = new Partition(nsp, ntp);
-
+  part = new Partition(nsp * ntp, nid);
   delete [] vbs; 
-
-  // ranks of my blocks
   myproc = myid;
   nproc = nid;
+
   if (myproc >= 0) {
-    RoundRobin_proc(nproc);
-    n = GetNumPartitions(myproc);
-    assert((block_ranks = (int *)malloc(n * sizeof(int))) != NULL);
+
+    // assign partitions
+    RoundRobin_proc();
+    nb = GetNumPartitions(myproc);
+
+    // allocate table of neighbor ranks for one neighbor initially
+    assert((neighbor_ranks = (int **)malloc(nb * sizeof(int *))) != NULL);
+    for (i = 0; i < nb; i++)
+      assert((neighbor_ranks[i] = (int *)malloc(sizeof(int))) != NULL);
+
+    // ranks of my blocks
+    assert((block_ranks = (int *)malloc(nb * sizeof(int))) != NULL);
     GetPartitions(myproc, block_ranks);
+
+    // learn who my neighbors are
+    for(i = 0; i < nb; i++)
+      GetNeighborRanks(i);
+
   }
 
 }
@@ -97,17 +105,32 @@ Lattice4D::~Lattice4D()
   if (seedlists!=NULL) delete [] seedlists; 
 
   delete part;
-  delete block_ranks;
+//   delete block_ranks;
 
 }
 //---------------------------------------------------------------------------
 //
 // assign the partitions to the processors in a round-robin manner 
 //
-void Lattice4D::RoundRobin_proc(int nproc) {
+void Lattice4D::RoundRobin_proc() {
 
-  for (int i = 0; i < npart; i++) 
-    part->parts[i].Proc = i % nproc; 
+  int proc; // process number
+  int n; // index into a row of the process table, local block number
+  int i; // partition rank
+
+  for (i = 0; i < npart; i++) {
+
+    proc = i % nproc;
+    n = i / nproc;
+
+    // assign the process number
+    part->parts[i].Proc = proc; 
+
+    // add entry into the process table
+    part->proc_parts[proc][n] = i;
+    part->proc_nparts[proc] = n + 1;
+
+  }
 
 }
 //---------------------------------------------------------------------------
@@ -320,14 +343,14 @@ int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z, float t) {
 int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t, 
                            int &ei, int &ej, int &ek, int &et) {
 
-  int neighbor;
+  int neighbor_rank;
   int si, sj, sk;
 
-  neighbor = CheckNeighbor(myrank, x, y, z, t);
+  neighbor_rank = CheckNeighbor(myrank, x, y, z, t);
   
-  GetIndices(neighbor, ei, ej, ek, et); 
+  GetIndices(neighbor_rank, ei, ej, ek, et); 
   
-  return (neighbor); 
+  return (neighbor_rank); 
 
 }
 //---------------------------------------------------------------------------
@@ -455,26 +478,25 @@ void Lattice4D::GetPartitions(int proc, int*p_list) {
 // returns neighbor number (0 - MAX_NEIGHBORS) of neighbor containing point
 // returns -1 if point is not in one of the neighbors
 //
-int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t) {
+int Lattice4D::GetNeighbor(int myblock, float x, float y, float z, float t) {
 
   int n; // neighbor number (0 - MAX_NEIGHBORS)
   int nr; // my neighbor's rank (global partition) number
   int r; // rank of point
+  int myrank = block_ranks[myblock];
 
   r = GetRank(x, y, z, t);
+  if (r == -1)
+    return r;
 
   // for all neighbors
-  for (n = 0; n < nbhd; n++) {
-
-    // offset my rank to get neighbor's rank
-    nr = myrank + n - (nbhd - 1) / 2;
-
-    if (r == nr)
+  for (n = 0; n < part->parts[myrank].NumNeighbors; n++) {
+    if (r == neighbor_ranks[myblock][n])
       return n;
-
   }
 
-  return -1;
+  assert(n < part->parts[myrank].NumNeighbors);
+  return(-1);
 
 }
 //---------------------------------------------------------------------------
@@ -483,11 +505,14 @@ int Lattice4D::GetNeighbor(int myrank, float x, float y, float z, float t) {
 // ranks are the global partition numbers for all neighbors
 // the neighbor of an edge gets rank -1
 //
-void Lattice4D::GetNeighborRanks(int myrank) {
+// block: my local block number
+//
+void Lattice4D::GetNeighborRanks(int block) {
 
   int in, jn, kn, ln; // my neighbor's lattice coords
   int n; // my neighbor number (0-80)
   int nr; // my neighbor's rank (global partition) number
+  int myrank = block_ranks[block];
 
   // for all neighbors
   for (n = 0; n < nbhd; n++) {
@@ -497,10 +522,11 @@ void Lattice4D::GetNeighborRanks(int myrank) {
 
     // use GetIndices to filter out ranks outside of boundary
     // then convert the remaining indices back to rank
-    if (GetIndices(nr, in, jn, kn, ln) == 1)
-      neighbor_ranks[n] = GetRank(in, jn, kn, ln);
-    else
-      neighbor_ranks[n] = -1;
+    if (GetIndices(nr, in, jn, kn, ln) == 1) {
+      nr = GetRank(in, jn, kn, ln);
+      if (nr >= 0)
+	AddNeighbor(block, nr);
+    }
 
   }
 
@@ -545,6 +571,30 @@ void Lattice4D::GetGlobalVB(int part, float *min_s, float *max_s,
   max_s[2] = vb_list[part].zmax;
   *min_t = vb_list[part].tmin;
   *max_t = vb_list[part].tmax;
+
+}
+//---------------------------------------------------------------------------
+//
+// adds a neighbor to the end of the neighbor_ranks table and sets its value
+// updates the local block neighbors as well as the global partition
+// grows local block neighbors if necessary
+//
+// myblock: my local block number
+// neighrank: global partition number of the neighbor
+//
+void Lattice4D::AddNeighbor(int myblock, int neighrank) {
+
+  int nn; // number of neighbors allocated
+  int myrank = block_ranks[myblock];
+  int num_neighbors = part->GetNumNeighbors(myrank);
+
+  if ((nn = part->GetAllocNeighbors(myrank)) < num_neighbors + 1)
+    assert((neighbor_ranks[myblock] = (int *)realloc(neighbor_ranks[myblock],
+				    nn * 2 * sizeof(int))) != NULL);
+
+  neighbor_ranks[myblock][num_neighbors] = neighrank;
+
+  part->AddNeighbor(myrank, myblock, neighrank);
 
 }
 //---------------------------------------------------------------------------
@@ -613,7 +663,7 @@ int Lattice4D::GetComp(int block, int iter) {
 // posts a point for sending
 //
 void Lattice4D::PostPoint(int block, VECTOR4 p) {
-  int neighbor = GetNeighbor(block_ranks[block], p[0], p[1], p[2], p[3]);
+  int neighbor = GetNeighbor(block, p[0], p[1], p[2], p[3]);
   if (neighbor >= 0)
     part->PostPoint(block_ranks[block], p, neighbor); 
 }
@@ -629,24 +679,16 @@ void Lattice4D::PrintPost(int block) {
 void Lattice4D::PrintRecv(int block) { 
   part->PrintRecv(block_ranks[block]); 
 }
+// //
+// // copies the received points to a list
+// //
+// void Lattice4D::GetRecvPts(int block, VECTOR4 *ls) { 
+//   part->GetRecvPts(block_ranks[block], ls); 
+// }
 //
-// copies the received points to a list
+// exchanges points with all neighbors
 //
-void Lattice4D::GetRecvPts(int block, VECTOR4 *ls) { 
-  part->GetRecvPts(block_ranks[block], ls); 
-}
-//
-// sends points to all neighbors
-//
-void Lattice4D::SendNeighbors(int block) { 
-  GetNeighborRanks(block_ranks[block]);
-  part->SendNeighbors(block_ranks[block], neighbor_ranks);
-}
-//
-// receives points from all neighbors
-//
-int Lattice4D::ReceiveNeighbors(int block) {
-  GetNeighborRanks(block_ranks[block]);
-  part->ReceiveNeighbors(block_ranks[block], neighbor_ranks);
+void Lattice4D::ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds) { 
+  part->ExchangeNeighbors(neighbor_ranks, seeds, size_seeds);
 }
 //---------------------------------------------------------------------------

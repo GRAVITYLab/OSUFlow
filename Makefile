@@ -157,7 +157,7 @@ OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
 	OSUFlow.o    FileReader.o calc_subvolume.o \
 	LatticeAMR.o Partition.o FlashAMR.o ComputeFieldLines.o \
-#	Lattice.o Lattice4D.o \
+	Lattice4D.o \
 
 SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -167,7 +167,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
 	OSUFlow.C    FileReader.C calc_subvolume.C \
 	LatticeAMR.C  Partition.C FlashAMR.C ComputeFieldLines.C \
-#	Lattice.C Lattice4D.C \
+	Lattice4D.C \
 
 .SUFFIXES: .C
 
@@ -177,7 +177,7 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 default: all
 
 all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline mpitest
+	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline mpitest mpiamrtest
 
 #all: lib$(LIBNAME).a 
 
@@ -199,11 +199,11 @@ testmain3: testmain3.o lib$(LIBNAME).a
 testmain4: testmain4.o lib$(LIBNAME).a
 	$(C++) -o testmain4 testmain4.o -L. -l$(LIBNAME) -lm
 
-mpitest: MpiAmrDraw.o lib$(LIBNAME).a
-	$(C++) -o mpitest MpiAmrDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
+mpiamrtest: MpiAmrDraw.o lib$(LIBNAME).a
+	$(C++) -o mpiamrtest MpiAmrDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
 
-#mpitest: MpiDraw2.o lib$(LIBNAME).a
-#	$(C++) -o mpitest MpiDraw2.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
+mpitest: MpiDraw.o lib$(LIBNAME).a
+	$(C++) -o mpitest MpiDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
 
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) $(LIBS) 

@@ -71,11 +71,13 @@ void GetArgs(int argc, char *argv[]);
 void Init();
 void PrintSeeds(int nblocks);
 int EndTrace(list<vtListSeedTrace*> &list, VECTOR3 &p, int index);
+void ComputeFieldlines(int block_num);
 void ComputePathlines(int block_num);
-void GatherPathlines();
+void ComputeStreamlines(int block_num);
+void GatherFieldlines();
 int GatherNumPts(int* &ntrace);
 void GatherPts(int *ntrace, int mynpt);
-void DrawStreamlines();
+void DrawFieldlines();
 void Cleanup();
 void draw_bounds(float *from, float *to);
 void draw_cube(float r, float g, float b);
@@ -88,7 +90,6 @@ void idle();
 void ComputeThread();
 void IOThread();
 void IOandCompute();
-void ReceiveMessages();
 int ComputeBlocksFit();
 void MultiThreadEvictBlock(int round);
 void SingleThreadEvictBlock();
@@ -116,7 +117,7 @@ int avail_mem; // memory space for dataset (MB)
 int b_mem; // number of blocks to keep in memory
 int max_bt; // max number of time steps in any block
 int tr; // number of time partitions per round
-FlashAMR *amr; // AMR object
+TimeVaryingFlashAMR *tamr; // AMR object
 //----------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
@@ -252,7 +253,7 @@ void ComputeThread() {
 
 // 	  // blocks that are in this group get computed
 // 	  if (!lat->GetComp(j, i) && lat->GetLoad(j)) {
-// 	    ComputePathlines(j);
+// 	    ComputeFieldlines(j);
 // 	    fprintf(stderr, "Computed block %d\n", j);
 // #pragma omp flush
 // 	    lat->SetComp(j, i);
@@ -273,9 +274,9 @@ void ComputeThread() {
 // 	  usec *= 2;
 // 	}
 
-//       } // until all blocks are computed
+//       } // for all blocks
 
-//       ReceiveMessages();
+//       lat->ExchangeNeighbors(Seeds, SizeSeeds);
 
 //     } // for all rounds
 
@@ -289,7 +290,7 @@ void ComputeThread() {
 
 // #ifdef GRAPHICS
 
-//   GatherPathlines();
+//   GatherFieldlines();
 
 // #endif
 
@@ -529,7 +530,7 @@ void IOandCompute() {
 	} // if the block needs to be loaded
 	
 	// compute pathlines
-	ComputePathlines(i);
+	ComputeFieldlines(i);
 // 	fprintf(stderr, "Computed block %d\n", i);
 
       } // for all blocks
@@ -549,7 +550,7 @@ void IOandCompute() {
   // gather pathlines at root for rendering
 #ifdef GRAPHICS
 
-  GatherPathlines();
+  GatherFieldlines();
 
 #endif
 
@@ -575,15 +576,28 @@ void SingleThreadEvictBlock() {
 }
 //-----------------------------------------------------------------------
 //
-// ComputePathlines
+// ComputeFieldlines
 //
-// computes streamlines or pathlines
-// 
 // block_num: local block number (0 to nblocks-1)
 // not global partition number
 //
 //
-void ComputePathlines(int block_num) {
+void ComputeFieldlines(int block_num) {
+
+  if (tsize > 1)
+    ComputePathlines(block_num);
+  else
+    ComputeStreamlines(block_num);
+
+}
+//-----------------------------------------------------------------------
+//
+// ComputeStreamlines
+//
+// block_num: local block number (0 to nblocks-1)
+// not global partition number
+//
+void ComputeStreamlines(int block_num) {
 
   list<vtListSeedTrace*> list3; // 3D list of traces
   std::list<VECTOR3*>::iterator pt_iter3; // 3D iterator over pts in one trace
@@ -637,57 +651,63 @@ void ComputePathlines(int block_num) {
 
     }
 
-  } // if (NumSeeds[block_num])
+  }
   
-//   // exchange points with neighbors
-//   NumSeeds[block_num] = lat->ExchangeNeighbors(block_num);
-
-//   // allocate seeds
-//   while (SizeSeeds[block_num] < NumSeeds[block_num] * sizeof(VECTOR4)) {
-//     assert((Seeds[block_num] = 
-// 	    (VECTOR4 *)realloc(Seeds[block_num], 
-// 			       SizeSeeds[block_num] * 2)) != NULL);
-//     SizeSeeds[block_num] *= 2;
-//   }
-
-//   // copy received points to seeds
-//   lat->GetRecvPts(block_num, Seeds[block_num]);
-
 }
 //-----------------------------------------------------------------------
-// //
-// // ReceiveMessages
-// //
-// // receives all pending messages
-// //
-// //
-// void ReceiveMessages() {
-
-//   int i;
-
-//   for (i = 0; i < nblocks; i++) {
-
-//     if ((NumSeeds[i] = lat->ReceiveNeighbors(i))) {
-//       while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
-// 	assert((Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2))
-// 	       != NULL);
-// 	SizeSeeds[i] *= 2;
-//       }
-
-//       lat->GetRecvPts(i, Seeds[i]);
-
-//     }
-
-//   }
-
-// }
-// //-----------------------------------------------------------------------
 //
-// GatherPathlines
+// ComputePathlines
 //
-// gathers all pathlines at the root for rendering
+// block_num: local block number (0 to nblocks-1)
+// not global partition number
 //
-void GatherPathlines() {
+void ComputePathlines(int block_num) {
+
+  list<vtListTimeSeedTrace*> list; // list of traces
+  std::list<VECTOR4*>::iterator pt_iter; // iterator over pts in one trace
+  std::list<vtListTimeSeedTrace*>::iterator trace_iter; // iter. over traces
+  VECTOR4 p; // current point
+  int i;
+
+  if (NumSeeds[block_num]) {
+
+    // start clean
+    lat->ResetSeedLists();
+	  
+    // perform the integration
+    // todo: integrate in both directions
+    osuflow[block_num]->SetIntegrationParams(1, 5); 
+    osuflow[block_num]->GenPathLines(Seeds[block_num], list, FORWARD, 
+				       NumSeeds[block_num], pf); 
+
+    // copy each trace to the streamline list for later rendering
+    // post end point of each trace to the send list
+    for (trace_iter = list.begin(); trace_iter != list.end(); 
+	 trace_iter++) {
+
+      if (!(*trace_iter)->size())
+	continue;
+
+      // get the end point
+      pt_iter = (*trace_iter)->end();
+      pt_iter--;
+      p = **pt_iter;
+
+      lat->PostPoint(block_num, p); // last point only
+      sl_list[block_num].push_back(*trace_iter); // for later rendering
+
+    }
+
+  }
+  
+}
+//-----------------------------------------------------------------------
+//
+// GatherFieldlines
+//
+// gathers all fieldlines at the root for rendering
+//
+void GatherFieldlines() {
 
   static int *ntrace = NULL; // number of traces for each proc
   int n; // total number of my points
@@ -893,19 +913,21 @@ void Init() {
   float **data; // the data
   int i;
   int nb; // number of blocks
+  int nts; // number of time steps
   int num_levels; // the total number of level 
   float len[3]; // global physical x y z lengths
   float *center; // spatial center of block
+  int t; // time-step
   
   MPI_Comm_rank(MPI_COMM_WORLD, &myproc);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
   // init AMR
-  amr = new FlashAMR; 
-  amr->LoadData(filename, min, max); 
-  nb = amr->GetNumBlocks(); 
-  num_levels = amr->GetNumLevels(); 
-  amr->GetDims(dims); 
+  tamr = new TimeVaryingFlashAMR; 
+  tamr->LoadData(filename, min, max); 
+  nts = tamr->GetNumTimeSteps();
+  num_levels = tamr->GetNumLevels(); 
+  tamr->GetDims(dims); 
 
   // init lattice
   len[0] = max[0]-min[0]; 
@@ -915,8 +937,8 @@ void Init() {
 
   for (i = 0; i < num_levels; i++)  {
 
-    amr->GetLevelBlockSize(i, blockSize); 
-    amr->GetLevelBounds(i, levelMinB, levelMaxB); 
+    tamr->GetLevelBlockSize(i, blockSize); 
+    tamr->GetLevelBounds(i, levelMinB, levelMaxB); 
 
     printf(" level size: [%.0f %.0f %.0f] min corner [%.0f %.0f %.0f] max corner [%.0f %.0f %.0f]\n", 
 	   blockSize[0], blockSize[1], blockSize[2], 
@@ -930,13 +952,17 @@ void Init() {
 
   }
 
-  for (int i = 0; i < nb; i++) {
-    center = amr->GetBlockCenter(i); 
-    lat->CheckIn(amr->GetLevel(i), center[0], center[1], center[2], 0, 
-		 amr->GetDataPtr(i)); 
+  for (t = 0; t < nts; t++) {
+    FlashAMR *amr = tamr->GetTimeStep(t);
+    nb = amr->GetNumBlocks();
+    for (i = 0; i < nb; i++) {
+      center = amr->GetBlockCenter(i); 
+      lat->CheckIn(amr->GetLevel(i), center[0], center[1], center[2], 0, 
+		   amr->GetDataPtr(i)); 
+    }
   }
 
-  lat->CompleteLevels(1); // This call is very important. Finishes up all the 
+  lat->CompleteLevels(2); // This call is very important. Finishes up all the 
                           // book-keeping and completes the lattice setup
 
 
@@ -1025,7 +1051,7 @@ void Cleanup() {
   free(Seeds);
 
   delete [] osuflow;
-  delete amr;
+  delete tamr;
   delete lat;
 
 }
@@ -1093,7 +1119,7 @@ void draw_bounds(float *from, float *to) {
 }
 //--------------------------------------------------------------------------
 //
-void DrawPathlines() {
+void DrawFieldlines() {
   
   float from[3], to[3]; // subdomain spatial bounds
   int min_t, max_t; // subdomain temporal bounds (not used)
@@ -1117,11 +1143,13 @@ void DrawPathlines() {
 
     glBegin(GL_LINE_STRIP); 
     for (j = 0; j < npt[i]; j++) {
-      if (pt[k][3] <= step)
+      if (pt[k][3] <= step) {
 	glVertex3f(pt[k][0], pt[k][1], pt[k][2]);
+// 	fprintf(stderr,"%.0f %.0f %.0f\n",pt[k][0],pt[k][1],pt[k][2]);
+      }
       k++;
     }
-    glEnd(); 
+    glEnd();
 
   }
 
@@ -1165,7 +1193,7 @@ void display() {
   glRotatef(y_angle, 1,0,0);
   glScalef(scale_size, scale_size, scale_size); 
 
-  DrawPathlines(); 
+  DrawFieldlines(); 
 
   glPushMatrix(); 
   glScalef(1.0, size[1] / size[0], size[2] / size[0]); 

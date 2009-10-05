@@ -158,7 +158,6 @@ class  LatticeAMR {
   void PostPoint(int myrank, VECTOR4 p);
   void PrintPost(int myrank);
   void PrintRecv(int myrank);
-  void GetRecvPts(int myrank, VECTOR4 *ls);
   void ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds);
 
 }; 

@@ -33,13 +33,13 @@ ARCH=LINUX
 nodes=64
 
 # number of procs
-num_procs=2
+num_procs=1
 
 # executable
-exe=./mpitest
+exe=./mpiamrtest
 
 # dataset
-data=~tpeterka/flash/8km_16o40_bin_cnt_0400
+data=/homes/tpeterka/flash/flash.list
 
 # data size x y z t (for steady state flows use t = 1)
 # for amr, can use all 1's, or whatever (finds its own size)
@@ -70,7 +70,7 @@ r=1
 th=1
 
 # available memory space for dataset (MB)
-m=1024
+m=2048
 
 if [ "$ARCH" = "LINUX" ]; then
 

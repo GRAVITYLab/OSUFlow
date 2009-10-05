@@ -1484,7 +1484,7 @@ void LatticeAMR::GetCoarseNeighborRanks(int block) {
 }
 //---------------------------------------------------------------------------
 //
-// gets ranks of all neighbors at the same or finer level than min
+// gets ranks of all neighbors at the same or finer level than mine
 // the neighbor of an edge gets rank -1
 //
 void LatticeAMR::GetFineNeighborRanks(int block) {
@@ -1783,13 +1783,13 @@ void LatticeAMR::PrintPost(int block) {
 void LatticeAMR::PrintRecv(int block) { 
   part->PrintRecv(block_ranks[block]); 
 }
-//
-// copies the received points to a list
-// caller must ensure that ls has enough room for the points
-//
-void LatticeAMR::GetRecvPts(int block, VECTOR4 *ls) { 
-  part->GetRecvPts(block_ranks[block], ls); 
-}
+// //
+// // copies the received points to a list
+// // caller must ensure that ls has enough room for the points
+// //
+// void LatticeAMR::GetRecvPts(int block, VECTOR4 *ls) { 
+//   part->GetRecvPts(block_ranks[block], ls); 
+// }
 //
 // exchanges points with all neighbors
 //

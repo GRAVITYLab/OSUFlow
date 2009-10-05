@@ -512,15 +512,15 @@ void Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *si
     }
     assert(b < proc_nparts[myproc]);
     // grow size of seeds
-    if (!size_seeds[i]) {
-      assert((seeds[i] = (VECTOR4 *)
+    if (!size_seeds[b]) {
+      assert((seeds[b] = (VECTOR4 *)
 	      malloc(RecvCounts[n * 2 + 1] * sizeof(VECTOR4))) != NULL);
-      size_seeds[i] = RecvCounts[n * 2 + 1] * sizeof(VECTOR4);
+      size_seeds[b] = RecvCounts[n * 2 + 1] * sizeof(VECTOR4);
     }
-    while (size_seeds[i] < RecvCounts[n * 2 + 1] * sizeof(VECTOR4)) {
-      assert((seeds[i] = (VECTOR4 *)realloc(seeds[i], size_seeds[i] * 2))
+    while (size_seeds[b] < RecvCounts[n * 2 + 1] * sizeof(VECTOR4)) {
+      assert((seeds[b] = (VECTOR4 *)realloc(seeds[b], size_seeds[b] * 2))
 	     != NULL);
-      size_seeds[i] *= 2;
+      size_seeds[b] *= 2;
     }
     // copy points to seeds
     for (i = 0; i < RecvCounts[n * 2 + 1]; i++) {

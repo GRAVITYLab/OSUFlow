@@ -196,6 +196,10 @@ TimeVaryingFlashAMR::TimeVaryingFlashAMR()
 
 }
 
+TimeVaryingFlashAMR::~TimeVaryingFlashAMR()
+{
+}
+
 int TimeVaryingFlashAMR::LoadData(char* fname, float min[3], float max[3])
 {
   FILE *fIn; 
