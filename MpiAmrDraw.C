@@ -458,12 +458,7 @@ void IOandCompute() {
 
     lat->ClearLoad(i);
     osuflow[i] = new OSUFlow;
-
-    // create field
-    assert((data = lat->GetData(i)) != NULL);
     lat->GetVB(i, from, to, &min_t, &max_t);
-    osuflow[i]->CreateStaticFlowField(data[0], dims[0], dims[1], dims[2], 
-				      from, to); 
 
     // init seeds for blocks at t = initial time
     if (min_t == 0) {
@@ -495,9 +490,6 @@ void IOandCompute() {
     sb = g * bg;
     eb = (g == ngroups - 1 ? nblocks : sb + bg);
 
-    // debug
-//     fprintf(stderr, "sb = %d eb = %d\n",sb, eb);
-
     // for all rounds
     for (j = 0; j < max_rounds; j++) {
 
@@ -517,15 +509,23 @@ void IOandCompute() {
 	// if the block needs to be loaded
 	if (!lat->GetLoad(i)) {
 
-	  // make room for the next block
-	  if (num_loaded >= b_mem) {
-	    SingleThreadEvictBlock();
-	    num_loaded--;
-	  }
+// 	  // make room for the next block
+// 	  if (num_loaded >= b_mem) {
+// 	    SingleThreadEvictBlock();
+// 	    num_loaded--;
+// 	  }
 
-	  // data were already loaded (for now)
+	  // read the data
+	  assert((data = lat->GetData(i)) != NULL);
+	  lat->GetVB(i, from, to, &min_t, &max_t);
+// 	  fprintf(stderr,"tsize = %d min_t = %d max_t = %d\n",tsize,min_t, max_t);
+	  osuflow[i]->CreateTimeVaryingFlowField(data, dims[0], dims[1], 
+						 dims[2], from, to, 
+						 min_t, max_t); 
 	  lat->SetLoad(i);
 	  num_loaded++;
+// 	  fprintf(stderr, "Loaded block %d\n", i);
+	  osuflow[i]->ScaleField(0.1); // improves visibility
 
 	} // if the block needs to be loaded
 	
@@ -909,7 +909,6 @@ void Init() {
   int ngr; // number of groups of rounds
   float blockSize[3]; 
   float levelMinB[3], levelMaxB[3]; 
-  int min_t, max_t; // subdomain temporal bounds
   float **data; // the data
   int i;
   int nb; // number of blocks
@@ -926,14 +925,15 @@ void Init() {
   tamr = new TimeVaryingFlashAMR; 
   tamr->LoadData(filename, min, max); 
   nts = tamr->GetNumTimeSteps();
-  num_levels = tamr->GetNumLevels(); 
+  num_levels = tamr->GetNumLevels();
   tamr->GetDims(dims); 
 
   // init lattice
   len[0] = max[0]-min[0]; 
   len[1] = max[1]-min[1]; 
   len[2] = max[2]-min[2]; 
-  lat = new LatticeAMR(len[0], len[1], len[2], 1, num_levels, myproc, nproc); 
+
+  lat = new LatticeAMR(len[0], len[1], len[2], tsize, num_levels, myproc, nproc); 
 
   for (i = 0; i < num_levels; i++)  {
 
@@ -948,7 +948,7 @@ void Init() {
     lat->CreateLevel(i, blockSize[0], blockSize[1], blockSize[2], 
 		     dims[0], dims[1], dims[2], 
 		     levelMinB[0], levelMaxB[0], levelMinB[1], levelMaxB[1], 
-		     levelMinB[2], levelMaxB[2], 0, 0); 
+		     levelMinB[2], levelMaxB[2], 0, tsize - 1); 
 
   }
 
@@ -962,7 +962,7 @@ void Init() {
     }
   }
 
-  lat->CompleteLevels(2); // This call is very important. Finishes up all the 
+  lat->CompleteLevels(tsize); // This call is very important. Finishes up all the 
                           // book-keeping and completes the lattice setup
 
 

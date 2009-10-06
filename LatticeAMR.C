@@ -275,7 +275,6 @@ void LatticeAMR::CompleteLevels() {
 
   // added by Tom
 
-  vb_list = GetBoundsList(npart); // volume bounds
   part = new Partition(npart, nproc); // partition
 
   if (myproc >= 0) {
@@ -358,7 +357,7 @@ void LatticeAMR::CompleteLevels(int t_interval) {
 		  vb_list[npart].tdim = 1; 
 		  index_to_rank[l][idx] = npart; 
 		  rank_to_index[npart] = offset + idx; 
-
+// 		  fprintf(stderr,"rank = %d t_min = %d t_max = %d\n",npart,vb_list[npart].tmin,vb_list[npart].tmax);
 		  if (t+1==ldim[l]) {
 		    counter =0; 
 		  }
@@ -383,7 +382,6 @@ void LatticeAMR::CompleteLevels(int t_interval) {
 
   // added by Tom
 
-  vb_list = GetBoundsList(npart); // volume bounds
   part = new Partition(npart, nproc); // partition
 
   if (myproc >= 0) {

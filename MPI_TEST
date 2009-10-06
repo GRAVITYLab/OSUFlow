@@ -33,7 +33,7 @@ ARCH=LINUX
 nodes=64
 
 # number of procs
-num_procs=2
+num_procs=1
 
 # executable
 exe=./mpitest
