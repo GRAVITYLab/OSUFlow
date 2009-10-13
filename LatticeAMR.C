@@ -8,8 +8,15 @@
 // constructs and initializes a time-varying regular structured 
 // AMR lattice 
 //
+// xlen, ylen, zlen, tlen: total size of the data
+// total_level: total number of levels
+// nid: number of processes, threads, owners
+// default = 1 (can omit if single process sequential program)
+// myid: rank, process number, thread number, identification of the owner
+// default = 0 (can omit if single process sequential program)
+//
 LatticeAMR::LatticeAMR(float xlen, float ylen, float zlen, int tlen, 
-		       int total_level, int myid, int nid) {
+		       int total_level, int nid, int myid) {
 
   int n;
 

@@ -306,7 +306,7 @@ int main(int argc, char** argv)
   // partition the domain and create a lattice
 
   lat = new Lattice(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
-			     maxLen[2]-minLen[2]+1, 1, npart);  //1 is ghost layer
+		    maxLen[2]-minLen[2]+1, 1, npart);  //1 is ghost layer
   vb_list = lat->GetBoundsList(); 
   lat->InitSeedLists(); 
   lat->RoundRobin_proc(nproc); 

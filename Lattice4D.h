@@ -17,7 +17,7 @@ class  Lattice4D {
  public: 
   
   Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, 
-	    int ntp, int myproc = -1, int nproc = -1); 
+	    int ntp, int nproc = 1, int myproc = 0); 
   ~Lattice4D(); 
   int GetRank(int i, int j, int k, int l);
   int GetRank(float x, float y, float z, float t);
@@ -66,8 +66,8 @@ class  Lattice4D {
   int nbhd; // neighborhood size
   int npart; // total number of partitions in the domain
   int *block_ranks; // rank (global partition number) of each of my blocks
-  int myproc; // my process or thread number (-1 if serial code)
-  int nproc; // number of processes or threads (-1 if serial code)
+  int myproc; // my process or thread number
+  int nproc; // number of processes or threads
   volume_bounds_type *vb_list; 
   class Partition *part;
   int* flowMatrix; 

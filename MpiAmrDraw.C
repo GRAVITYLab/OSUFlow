@@ -518,7 +518,6 @@ void IOandCompute() {
 	  // read the data
 	  assert((data = lat->GetData(i)) != NULL);
 	  lat->GetVB(i, from, to, &min_t, &max_t);
-// 	  fprintf(stderr,"tsize = %d min_t = %d max_t = %d\n",tsize,min_t, max_t);
 	  osuflow[i]->CreateTimeVaryingFlowField(data, dims[0], dims[1], 
 						 dims[2], from, to, 
 						 min_t, max_t); 
@@ -957,7 +956,7 @@ void Init() {
     nb = amr->GetNumBlocks();
     for (i = 0; i < nb; i++) {
       center = amr->GetBlockCenter(i); 
-      lat->CheckIn(amr->GetLevel(i), center[0], center[1], center[2], 0, 
+      lat->CheckIn(amr->GetLevel(i), center[0], center[1], center[2], t, 
 		   amr->GetDataPtr(i)); 
     }
   }

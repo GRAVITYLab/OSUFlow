@@ -512,14 +512,14 @@ int main(int argc, char** argv)
   // partition the domain and create a lattice
   lat = new Lattice4D(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
 		      maxLen[2]-minLen[2]+1, 50, 1, 
-		      nsp, ntp);  //1 is ghost layer
+		      nsp, ntp, nproc);  //1 is ghost layer
 
   lat->GetLatticeDims(lidim, ljdim, lkdim, ltdim); 
 
   vb_list = lat->GetBoundsList(); 
   lat->InitSeedLists();  
   // assign partitions to processors (npart partitions -> nproc processors) 
-  lat->RoundRobin_proc(nproc); 
+  lat->RoundRobin_proc(); 
 
   plist = new int*[nproc]; 
   num_partitions = new int[nproc]; 

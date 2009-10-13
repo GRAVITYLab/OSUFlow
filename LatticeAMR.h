@@ -22,7 +22,7 @@ class  LatticeAMR {
   //x/y/zlen are the physical dimensions in the domain, tlen is the total number of 
   //time steps 
   LatticeAMR(float xlen, float ylen, float zlen, int tlen, int total_level,
-	     int myproc = -1, int nproc = -1); 
+	     int nproc = 1, int myproc = 0); 
 
   ~LatticeAMR(); 
 
@@ -133,8 +133,8 @@ class  LatticeAMR {
 
  private:
   int *block_ranks; // rank (global partition number) of each of my blocks
-  int myproc; // my process or thread number (-1 if serial code)
-  int nproc; // number of processes or threads (-1 if serial code)
+  int myproc; // my process or thread number
+  int nproc; // number of processes or threads
   class Partition *part; // partition class object
   int **neighbor_ranks; // ranks of neighbors for my blocks
   int nb; // number of my blocks

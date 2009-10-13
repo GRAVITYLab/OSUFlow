@@ -5,16 +5,16 @@
 //
 // constructs and initializes the time-varying lattice class
 //
-// xlen, ylen, zlen: total size of the data
+// xlen, ylen, zlen, tlen: total size of the data
 // ghost: size of ghost layer per side
 // nsp: total (global) number of spatial partitions in the lattice
 // ntp: total (global) number of parition in time 
-// myid: rank, process number, thread number, identification of the owner
-// default = -1 (can omit if single process sequential program)
 // nid: number of processes, threads, owners
-// default = -1 (can omit if single process sequential program)
+// default = 1 (can omit if single process sequential program)
+// myid: rank, process number, thread number, identification of the owner
+// default = 0 (can omit if single process sequential program)
 //
-Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int myid, int nid) {
+Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int nid, int myid) {
 
   int i, j;
   volume_bounds_type *vbs; 

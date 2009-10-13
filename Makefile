@@ -176,16 +176,17 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 
 default: all
 
-all: lib$(LIBNAME).a testmain testmain2 testmain3 testmain4 gldraw gldraw2 gldraw3 gldraw4 \
-	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak  gldrawStreak2  gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline mpitest mpiamrtest
+all: lib$(LIBNAME).a testmain testmain2 testmain3 gldraw gldraw2 gldraw3 \
+	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak \
+	gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 \
+	gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline mpitest mpiamrtest
 
-#all: lib$(LIBNAME).a 
+# deprecated - remove eventually
+#	testmain4 gldrawStreak2 gldraw4
 
 lib$(LIBNAME).a : $(OBJS)
 	$(RM) -f $@
-#	/usr/lib/DCC/edg_prelink -v $(OBJS) 
 	$(AR) $@ $(OBJS) 
-#	cp $@ ../lib
 
 testmain: testmain.o lib$(LIBNAME).a
 	$(C++) -o testmain testmain.o -L. -l$(LIBNAME) -lm
