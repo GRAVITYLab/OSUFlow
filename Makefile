@@ -176,13 +176,13 @@ SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
 
 default: all
 
-all: lib$(LIBNAME).a testmain testmain2 testmain3 gldraw gldraw2 gldraw3 \
+all: lib$(LIBNAME).a testmain testmain2 gldraw gldraw2 \
 	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak \
 	gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 \
 	gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline mpitest mpiamrtest
 
 # deprecated - remove eventually
-#	testmain4 gldrawStreak2 gldraw4
+#	testmain3 testmain4 gldrawStreak2 gldraw3 gldraw4
 
 lib$(LIBNAME).a : $(OBJS)
 	$(RM) -f $@
@@ -194,11 +194,11 @@ testmain: testmain.o lib$(LIBNAME).a
 testmain2: testmain2.o lib$(LIBNAME).a
 	$(C++) -o testmain2 testmain2.o -L. -l$(LIBNAME) -lm
 
-testmain3: testmain3.o lib$(LIBNAME).a
-	$(C++) -o testmain3 testmain3.o -L. -l$(LIBNAME) -lm
+#testmain3: testmain3.o lib$(LIBNAME).a
+#	$(C++) -o testmain3 testmain3.o -L. -l$(LIBNAME) -lm
 
-testmain4: testmain4.o lib$(LIBNAME).a
-	$(C++) -o testmain4 testmain4.o -L. -l$(LIBNAME) -lm
+#testmain4: testmain4.o lib$(LIBNAME).a
+#	$(C++) -o testmain4 testmain4.o -L. -l$(LIBNAME) -lm
 
 mpiamrtest: MpiAmrDraw.o lib$(LIBNAME).a
 	$(C++) -o mpiamrtest MpiAmrDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
@@ -212,11 +212,11 @@ gldraw: gldraw.o  lib$(LIBNAME).a
 gldraw2: gldraw2.o  lib$(LIBNAME).a
 	$(C++) -o gldraw2 gldraw2.o -L. -l$(LIBNAME) $(LIBS) 
 
-gldraw3: gldraw3.o  lib$(LIBNAME).a
-	$(C++) -o gldraw3 gldraw3.o -L. -l$(LIBNAME) $(LIBS)
+#gldraw3: gldraw3.o  lib$(LIBNAME).a
+#	$(C++) -o gldraw3 gldraw3.o -L. -l$(LIBNAME) $(LIBS)
 
-gldraw4: gldraw4.o  lib$(LIBNAME).a
-	$(C++) -o gldraw4 gldraw4.o -L. -l$(LIBNAME) $(LIBS)
+#gldraw4: gldraw4.o  lib$(LIBNAME).a
+#	$(C++) -o gldraw4 gldraw4.o -L. -l$(LIBNAME) $(LIBS)
 
 testmainPathline: testmainPathline.o  lib$(LIBNAME).a
 	$(C++) -o testmainPathline testmainPathline.o -L. -l$(LIBNAME) -lm 
@@ -260,8 +260,8 @@ gldrawFlashPathline: gldrawFlashPathline.o  lib$(LIBNAME).a
 gldrawStreak: gldrawStreak.o  lib$(LIBNAME).a
 	$(C++) -o gldrawStreak gldrawStreak.o -L. -l$(LIBNAME) $(LIBS)
 
-gldrawStreak2: gldrawStreak2.o  lib$(LIBNAME).a
-	$(C++) -o gldrawStreak2 gldrawStreak2.o -L. -l$(LIBNAME) $(LIBS)
+#gldrawStreak2: gldrawStreak2.o  lib$(LIBNAME).a
+#	$(C++) -o gldrawStreak2 gldrawStreak2.o -L. -l$(LIBNAME) $(LIBS)
 
 gldrawStreak3: gldrawStreak3.o  lib$(LIBNAME).a
 	$(C++) -o gldrawStreak3 gldrawStreak3.o -L. -l$(LIBNAME) $(LIBS)
