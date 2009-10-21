@@ -58,7 +58,8 @@ CCFLAGS = -c -DLINUX -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
-LIBS = -lm -lglut -lGL
+LIBS = -lm -lglut -lGL \
+#	 -lhdf5
 endif
 
 ### BG/P version ###
@@ -149,25 +150,25 @@ endif
 
 INCLUDE += -I.
 
-OBJS =  Candidate.o  Grid.o  polynomials.o  TimeVaryingFieldLine.o \
+OBJS =  Candidate.o  Grid.o          polynomials.o  TimeVaryingFieldLine.o \
 	eigenvals.o  Interpolator.o  Rake.o	    Topology.o \
 	eigenvecs.o  IsoSurf.o	     Solution.o     triangulator.o \
 	Element.o    StreakLine.o    VectorMatrix.o \
 	Field.o      PathLine.o      Streamline.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
-	OSUFlow.o    FileReader.o calc_subvolume.o \
-	LatticeAMR.o Partition.o FlashAMR.o ComputeFieldLines.o \
-	Lattice4D.o \
+	OSUFlow.o    FileReader.o    calc_subvolume.o \
+	LatticeAMR.o Partition.o     FlashAMR.o ComputeFieldLines.o \
+	Lattice4D.o  flashhdf5_float.o \
 
-SRCS =  Candidate.C  Grid.C  polynomials.C  TimeVaryingFieldLine.C \
+SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
 	eigenvecs.C  IsoSurf.C	     Solution.C     triangulator.C \
 	Element.C    StreakLine.C    VectorMatrix.C \
 	Field.C      PathLine.C      Streamline.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
-	OSUFlow.C    FileReader.C calc_subvolume.C \
-	LatticeAMR.C  Partition.C FlashAMR.C ComputeFieldLines.C \
-	Lattice4D.C \
+	OSUFlow.C    FileReader.C    calc_subvolume.C \
+	LatticeAMR.C Partition.C     FlashAMR.C ComputeFieldLines.C \
+	Lattice4D.C  flashhdf5_float.C \
 
 .SUFFIXES: .C
 

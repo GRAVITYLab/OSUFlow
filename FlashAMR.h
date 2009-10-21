@@ -13,7 +13,8 @@ class FlashAMR {
 
   FlashAMR(); 
   ~FlashAMR(); 
-  int LoadData(char* fname, float*, float*); 
+  int LoadRawData(char* fname, float*, float*); 
+  int LoadHDF5Data(char* fname, float*, float*); 
   int GetNumBlocks() {return nb;}
   int GetLevel(int i) {return block_level[i];}
   void SetLevel(int i, int level) {block_level[i] = level;}

@@ -915,7 +915,7 @@ void Init() {
 
   // init lattice and osuflow
   lat = new Lattice4D(size[0], size[1], size[2], tsize, ghost, nspart, 
-		      ntpart, myproc, nproc);
+		      ntpart, nproc, myproc);
   lat->InitSeedLists(); 
   nblocks = lat->GetNumPartitions(myproc);
   osuflow = new OSUFlow*[nblocks];

@@ -39,12 +39,12 @@ num_procs=1
 exe=./mpiamrtest
 
 # dataset
-data=/homes/tpeterka/flash/flash.list
+data=/homes/tpeterka/flash/old.flash.list
 
 # data size x y z t
 # use x = y = z = 1 (finds its own spatial size)
 # use t = # of timesteps (static flow use t = 1)
-dsize="1 1 1 2"
+dsize="1 1 1 1"
 
 # total number of partitions in the space domain
 sb=1

@@ -22,7 +22,7 @@ class  LatticeAMR {
   //x/y/zlen are the physical dimensions in the domain, tlen is the total number of 
   //time steps 
   LatticeAMR(float xlen, float ylen, float zlen, int tlen, int total_level,
-	     int nproc = 1, int myproc = 0); 
+	     int nid = 1, int myid = 0); 
 
   ~LatticeAMR(); 
 

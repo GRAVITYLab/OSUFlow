@@ -17,7 +17,7 @@ class  Lattice4D {
  public: 
   
   Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, 
-	    int ntp, int nproc = 1, int myproc = 0); 
+	    int ntp, int nid = 1, int myid = 0); 
   ~Lattice4D(); 
   int GetRank(int i, int j, int k, int l);
   int GetRank(float x, float y, float z, float t);

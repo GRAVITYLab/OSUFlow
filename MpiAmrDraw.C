@@ -932,7 +932,7 @@ void Init() {
   len[1] = max[1]-min[1]; 
   len[2] = max[2]-min[2]; 
 
-  lat = new LatticeAMR(len[0], len[1], len[2], tsize, num_levels, myproc, nproc); 
+  lat = new LatticeAMR(len[0], len[1], len[2], tsize, num_levels, nproc, myproc); 
 
   for (i = 0; i < num_levels; i++)  {
 

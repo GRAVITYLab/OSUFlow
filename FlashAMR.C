@@ -1,5 +1,5 @@
 
-
+#include "flashhdf5_float.h"
 #include "FlashAMR.h" 
 
 void sort_list(float* list, int& cnt) 
@@ -37,7 +37,7 @@ FlashAMR::~FlashAMR()
 
 }
 
-int FlashAMR::LoadData(char* fname, float min[3], float max[3]) 
+int FlashAMR::LoadRawData(char* fname, float min[3], float max[3]) 
 {
 
   float *sizes; 
@@ -167,6 +167,173 @@ int FlashAMR::LoadData(char* fname, float min[3], float max[3])
   }
   return(1); 
 }
+//-----------------------------------------------------------------------
+// //
+// // LoadHDF5Data
+// //
+// // fname: file name
+// // min, max: global min, max corners
+// //
+// int FlashAMR::LoadHDF5Data(char* fname, float min[3], float max[3]) {
+
+//   int size; // total number of voxels in each block
+//   float bounds[6]; // bounding box: min, max corners
+//   int level;
+//   float *sizes; 
+//   FlashHDFFile fdf(fname);
+//   int idx;
+//   int i, j, c;
+//   char scalar1[] = "velx"; // hard-coded variable names for now
+//   char scalar2[] = "vely";
+//   char scalar3[] = "velz";
+
+//   // read number of blocks and block dimensions
+//   nb = fdf.GetNumberOfBlocks();
+//   fdf.GetCellDimensions(block_dims);
+//   fprintf(stderr," %d blocks.\n", nb); 
+//   fprintf(stderr," block dims %d %d %d\n", block_dims[0], block_dims[1], 
+// 	  block_dims[2]); //16x16x16 for example 
+//   size = block_dims[0]*block_dims[1]*block_dims[2];
+
+//   // allocate memory  
+//   block_level = new int[nb]; // level that each block belongs to 
+//   block_index = new int[nb]; // index of each block (defined by application)
+//   block_center = new float[nb * 3]; // center x y and z of each block 
+//   block_length = new float[nb * 3]; // physical length (x, y, z) of each block 
+//   block_minB = new float[nb * 3]; // min corner (x, y, z) of each blk
+//   block_maxB = new float[nb * 3]; // max corner (x, y, z) of each blk
+//   voxel_xsize = new float[nb]; // physical x length of a voxel in each block  
+//   voxel_ysize = new float[nb]; // physical y length of a voxel in each block 
+//   voxel_zsize = new float[nb]; // physical z length of a voxel in each block 
+//   vectors = new float*[nb]; // the vector data
+//   sizes = new float[nb]; // one of the x y z lengths used to get block level 
+
+//   // read all blocks
+//   for (i = 0; i < nb; i++) {
+
+//     idx = i * 3; 
+
+//     // read block index, center, length, min, max corners
+//     block_index[i] = i;
+//     fdf.Get3dCoordinate(i, &(block_center[idx]));
+//     fdf.Get3dBlockSize(i, &(block_length[idx]));
+//     fdf.Get3dBoundingBox(i, bounds);
+//     block_minB[idx]     = bounds[0];
+//     block_maxB[idx]     = bounds[1]; 
+//     block_minB[idx + 1] = bounds[2];
+//     block_maxB[idx + 1] = bounds[3]; 
+//     block_minB[idx + 2] = bounds[4];
+//     block_maxB[idx + 2] = bounds[5]; 
+
+//     // find global min, max corners
+//     if (i == 0) {
+//       min[0] = block_minB[0]; min[1] = block_minB[1]; min[2] = block_minB[2]; 
+//       max[0] = block_maxB[0]; max[1] = block_maxB[1]; max[2] = block_maxB[2]; 
+//     }
+//     else {
+//       if (block_minB[idx] < min[0])
+// 	min[0] = block_minB[idx]; 
+//       if (block_minB[idx+1] < min[1])
+// 	min[1] = block_minB[idx+1];      
+//       if (block_minB[idx+2] < min[2])
+// 	min[2] = block_minB[idx+2]; 
+//       if (block_maxB[idx] > max[0])
+// 	max[0] = block_maxB[idx]; 
+//       if (block_maxB[idx+1] > max[1])
+// 	max[1] = block_maxB[idx+1]; 
+//       if (block_maxB[idx+2] > max[2])
+// 	max[2] = block_maxB[idx+2]; 
+//     }
+
+//     // read the data vector
+//     vectors[i] = new float[size * 3]; 
+//     float *xcomp = new float[size]; 
+//     float *ycomp = new float[size]; 
+//     float *zcomp = new float[size]; 
+//     fdf.GetScalarVariable(scalar1, i, xcomp);
+//     fdf.GetScalarVariable(scalar2, i, ycomp);
+//     fdf.GetScalarVariable(scalar3, i, zcomp);
+//     for (c = 0; c < size; c++) {
+//       vectors[i][c * 3]     = xcomp[c]; 
+//       vectors[i][c * 3 + 1] = ycomp[c]; 
+//       vectors[i][c * 3 + 2] = zcomp[c]; 
+//     }
+//     delete [] xcomp; 
+//     delete [] ycomp; 
+//     delete [] zcomp; 
+
+//     // compute the length of each cell in the block 
+//     // will be used to determine the level that the block belongs to 
+//     sizes[i] = voxel_xsize[i] = block_length[idx]     / (float)block_dims[0]; 
+//     voxel_ysize[i]            = block_length[idx + 1] / (float)block_dims[1]; 
+//     voxel_zsize[i]            = block_length[idx + 2] / (float)block_dims[2]; 
+
+//   } // read all blocks
+
+//   // sort the sizes into distinct levels
+//   int count = nb; 
+//   sort_list(sizes, count); 
+//   num_levels = count; // total number of levels present
+
+//   // min, max corners and physical block size of each level
+
+//   // allocate memory
+//   level_minB = new float[num_levels * 3];
+//   level_maxB = new float[num_levels * 3]; 
+//   block_xsize_inLevel = new float[num_levels];
+//   block_ysize_inLevel = new float[num_levels]; 
+//   block_zsize_inLevel = new float[num_levels]; 
+
+//   // init
+//   for (i = 0; i < num_levels; i++) {
+//     idx = i * 3; 
+//     level_minB[idx] = level_minB[idx + 1] = level_minB[idx + 2] = 999999999; 
+//     level_maxB[idx] = level_maxB[idx + 1] = level_maxB[idx + 2] = -999999999; 
+//   }
+
+//   // find min, max, block size
+//   for (i = 0; i < nb; i++) {
+
+//     for (j = 0; j < num_levels; j++) {
+
+//       if (voxel_xsize[i] == sizes[j]) {
+
+// 	level = num_levels - 1 - j; 
+// 	block_level[i] = level; 
+
+// 	// update the level block size
+// 	block_xsize_inLevel[level] = block_length[i * 3]; 
+// 	block_ysize_inLevel[level] = block_length[i * 3 + 1]; 
+// 	block_zsize_inLevel[level] = block_length[i * 3 + 2]; 
+
+// 	idx = i * 3; 
+
+// 	// update the level min corner 
+// 	if (block_minB[idx] < level_minB[level * 3]) 
+// 	  level_minB[level * 3] = block_minB[idx]; 
+// 	if (block_minB[idx + 1] < level_minB[level * 3 + 1]) 
+// 	  level_minB[level * 3 + 1] = block_minB[idx + 1]; 
+// 	if (block_minB[idx + 2] < level_minB[level * 3 + 2]) 
+// 	  level_minB[level * 3 + 2] = block_minB[idx + 2]; 
+
+// 	// update the level max corner 
+// 	if (block_maxB[idx] > level_maxB[level * 3]) 
+// 	  level_maxB[level * 3] = block_maxB[idx]; 
+// 	if (block_maxB[idx + 1] > level_maxB[level * 3 + 1]) 
+// 	  level_maxB[level * 3 + 1] = block_maxB[idx + 1]; 
+// 	if (block_maxB[idx + 2] > level_maxB[level * 3 + 2]) 
+// 	  level_maxB[level * 3 + 2] = block_maxB[idx + 2]; 
+
+//       }
+
+//     }
+
+//   }
+
+//   return(1); 
+
+// }
+//-----------------------------------------------------------------------
 
 void FlashAMR::GetLevelBlockSize(int level, float size[3]) 
 {
@@ -185,6 +352,7 @@ void FlashAMR::GetLevelBounds(int level, float minB[3], float maxB[3])
   maxB[1] = level_maxB[level*3+1]; 
   maxB[2] = level_maxB[level*3+2]; 
 }
+
 
 
 
@@ -216,7 +384,9 @@ int TimeVaryingFlashAMR::LoadData(char* fname, float min[3], float max[3])
     fscanf(fIn, "%s", filename); 
     printf(" to read %s ....\n", filename); 
     amr_list[i] = new FlashAMR; 
-    amr_list[i]->LoadData(filename, pmin, pmax); 
+
+    amr_list[i]->LoadRawData(filename, pmin, pmax); 
+//     amr_list[i]->LoadHDF5Data(filename, pmin, pmax); 
 
     if (i==0) {
       min[0] = pmin[0]; min[1] = pmin[1]; min[2] = pmin[2]; 
