@@ -12,7 +12,7 @@
 //
 Partition::Partition(int npart, int nproc) {
 
-  int nn = ceil(npart / nproc); // max number of parts per proc
+  int nn = (int)(ceil(npart / nproc)); // max number of parts per proc
   int i, j;
 
   this->npart = npart;
@@ -43,7 +43,7 @@ Partition::Partition(int npart, int nproc) {
     parts[j].SizeSendPoints[0] = parts[j].SizeRecvPoints[0] = 
       4 * sizeof(float);
 
-#ifdef MPI
+#ifdef _MPI
     // request lists, with one neighbor initially
     assert((parts[j].SendReqs = (MPI_Request *)
 	    malloc(sizeof(MPI_Request))) != NULL);
@@ -59,7 +59,7 @@ Partition::Partition(int npart, int nproc) {
     parts[j].AllocNeighbors = 1;
 
     // other status info
-#ifdef MPI
+#ifdef _MPI
     parts[j].NumSendReqs = 0;
     parts[j].NumRecvReqs = 0;
 #endif
@@ -358,7 +358,7 @@ void Partition::GrowNeighbors(int myrank) {
   }
 
   // requests
-#ifdef MPI
+#ifdef _MPI
   assert((parts[myrank].SendReqs =
 	  (MPI_Request *)realloc(parts[myrank].SendReqs,
 				 nn * sizeof(MPI_Request) * 2)) != NULL);
@@ -375,7 +375,7 @@ void Partition::GrowNeighbors(int myrank) {
 // MPI versions of communication
 // todo: make shared memory versions
 
-#ifdef MPI
+#ifdef _MPI
 
 //---------------------------------------------------------------------------
 //

@@ -229,9 +229,9 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax)
 	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
 	lMin = sMin; lMax = sMax; //local data min/max range
 
-	dimension[0] = maxB[0]-minB[0]+1; 
-	dimension[1] = maxB[1]-minB[1]+1; 
-	dimension[2] = maxB[2]-minB[2]+1; 
+	dimension[0] = (int)(maxB[0]-minB[0]+1); 
+	dimension[1] = (int)(maxB[1]-minB[1]+1); 
+	dimension[2] = (int)(maxB[2]-minB[2]+1); 
 	
 	flowField = CreateStaticFlowField(pData, dimension[0], dimension[1], dimension[2], 
 			      minB,maxB); 
@@ -294,9 +294,9 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB)
 	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
         lMin = minB; lMax = maxB; 
 
-	dimension[0] = maxB[0]-minB[0]+1; 
-	dimension[1] = maxB[1]-minB[1]+1; 
-	dimension[2] = maxB[2]-minB[2]+1; 
+	dimension[0] = (int)(maxB[0]-minB[0]+1); 
+	dimension[1] = (int)(maxB[1]-minB[1]+1); 
+	dimension[2] = (int)(maxB[2]-minB[2]+1); 
 	
 	flowField = CreateTimeVaryingFlowField(ppData, dimension[0], dimension[1], 
 					       dimension[2], min_B, max_B, 
@@ -327,9 +327,9 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, i
 	gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
         lMin = minB; lMax = maxB; 
 
-	dimension[0] = maxB[0]-minB[0]+1; 
-	dimension[1] = maxB[1]-minB[1]+1; 
-	dimension[2] = maxB[2]-minB[2]+1; 
+	dimension[0] = (int)(maxB[0]-minB[0]+1); 
+	dimension[1] = (int)(maxB[1]-minB[1]+1); 
+	dimension[2] = (int)(maxB[2]-minB[2]+1); 
 	
 	flowField = CreateTimeVaryingFlowField(ppData, dimension[0], dimension[1], 
 					       dimension[2], min_B, max_B, 
@@ -352,9 +352,9 @@ void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB,
 {
 	int dimension[3], totalNum;
 
-	dimension[0] = maxB[0]-minB[0]+1; 
-	dimension[1] = maxB[1]-minB[1]+1; 
-	dimension[2] = maxB[2]-minB[2]+1; 
+	dimension[0] = (int)(maxB[0]-minB[0]+1); 
+	dimension[1] = (int)(maxB[1]-minB[1]+1); 
+	dimension[2] = (int)(maxB[2]-minB[2]+1); 
 
 	totalNum = dimension[0] * dimension[1] * dimension[2];
 
@@ -903,7 +903,7 @@ void Error(const char *fmt, ...){
   exit(0);
 
 }
-#ifdef MPI
+#ifdef _MPI
 //-----------------------------------------------------------------------
 //
 // LoadData()
@@ -974,9 +974,9 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
   int dimension[3]; // domain size
   int sub[3]; // subdomain size
 
-  dimension[0] = dim[0];
-  dimension[1] = dim[1];
-  dimension[2] = dim[2];
+  dimension[0] = (int)dim[0];
+  dimension[1] = (int)dim[1];
+  dimension[2] = (int)dim[2];
 
   minB[0] = sMin[0]; minB[1] = sMin[1]; minB[2] = sMin[2];
   maxB[0] = sMax[0]; maxB[1] = sMax[1]; maxB[2] = sMax[2];
@@ -987,9 +987,9 @@ void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
   gMax.Set(dimension[0] - 1.0f, dimension[1] - 1.0f, dimension[2] - 1.0f);
   lMin = sMin; lMax = sMax; //local data min/max range
 
-  sub[0] = maxB[0] - minB[0]+1; 
-  sub[1] = maxB[1] - minB[1]+1; 
-  sub[2] = maxB[2] - minB[2]+1; 
+  sub[0] = (int)(maxB[0] - minB[0]+1); 
+  sub[1] = (int)(maxB[1] - minB[1]+1); 
+  sub[2] = (int)(maxB[2] - minB[2]+1); 
 	
   flowField = CreateStaticFlowField(pData, sub[0], sub[1], sub[2], minB, maxB); 
 
@@ -1015,9 +1015,9 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
   int dimension[3]; // domain size
   int sub[3]; // subdomain size
 
-  dimension[0] = dim[0];
-  dimension[1] = dim[1];
-  dimension[2] = dim[2];
+  dimension[0] = (int)dim[0];
+  dimension[1] = (int)dim[1];
+  dimension[2] = (int)dim[2];
 
   minB[0] = sMin[0]; 
   minB[1] = sMin[1]; 
@@ -1038,9 +1038,9 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
   MinT = t_min;
   MaxT = t_max; 
 
-  sub[0] = maxB[0] - minB[0]+1; 
-  sub[1] = maxB[1] - minB[1]+1; 
-  sub[2] = maxB[2] - minB[2]+1; 
+  sub[0] = (int)(maxB[0] - minB[0]+1); 
+  sub[1] = (int)(maxB[1] - minB[1]+1); 
+  sub[2] = (int)(maxB[2] - minB[2]+1); 
 	
   flowField = CreateTimeVaryingFlowField(ppData, sub[0], sub[1], sub[2], 
 					 minB, maxB, t_min, t_max);  

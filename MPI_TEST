@@ -33,13 +33,14 @@ ARCH=LINUX
 nodes=64
 
 # number of procs
-num_procs=1
+num_procs=2
 
 # executable
 exe=./mpitest
 
 # dataset
-data=~tpeterka/tornado/tornado.list
+#data=/homes/tpeterka/tornado/tornado.list
+data=/Users/troot/tornado/tornado.list
 
 # data size x y z t (for steady state flows use t = 1)
 dsize="128 128 128 4"
@@ -107,3 +108,4 @@ mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $
 #mpiexec -machinefile ./nodes -l -n $num_procs hostname
 
 fi
+

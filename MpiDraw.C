@@ -40,6 +40,11 @@
 #include <GL/gl.h>
 #endif
 
+#ifdef MAC_OSX_10_4
+#include <GLUT/glut.h> 
+#include <OpenGL/gl.h>
+#endif
+
 #include "OSUFlow.h"
 #include "calc_subvolume.h"
 #include "Lattice4D.h"
@@ -146,8 +151,9 @@ int main(int argc, char *argv[]) {
   Init();
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // multithread version
+#ifndef MAC_OSX_10_4
 
+  // multithread version
   if (threads == 2) {
 
     #pragma omp parallel num_threads(2)
@@ -162,6 +168,8 @@ int main(int argc, char *argv[]) {
     }
 
   }
+
+#endif
 
   // single thread version
 
@@ -211,8 +219,8 @@ void ComputeThread() {
 
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  ngroups = ceil(ntpart / tr); // number of groups
-  bg = floor(nblocks / ngroups); // number of blocks per group, except last
+  ngroups = (int)(ceil(ntpart / tr)); // number of groups
+  bg = (int)(floor(nblocks / ngroups)); // number of blocks per group, except last
 
   // clear all blocks' compute status
   for (j = 0; j < nblocks; j++)
@@ -319,8 +327,8 @@ void IOThread() {
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   num_loaded = 0;
-  ngroups = ceil(ntpart / tr); // number of groups
-  bg = floor(nblocks / ngroups); // number of blocks per group, except last
+  ngroups = (int)(ceil(ntpart / tr)); // number of groups
+  bg = (int)(floor(nblocks / ngroups)); // number of blocks per group, except last
 
   // init all blocks
   for (i = 0; i < nblocks; i++) {
@@ -452,8 +460,8 @@ void IOandCompute() {
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   num_loaded = 0; // number of blocks currently loaded
-  ngroups = ceil(ntpart / tr); // number of groups
-  bg = floor(nblocks / ngroups); // number of blocks per group, except last
+  ngroups = (int)(ceil(ntpart / tr)); // number of groups
+  bg = (int)(floor(nblocks / ngroups)); // number of blocks per group, except last
 
   // init all blocks
   for (i = 0; i < nblocks; i++) {
@@ -867,17 +875,18 @@ void GetArgs(int argc, char *argv[]) {
 
   // hard code the minimum corner to be 0,0,0,0
   // need to allow for variable data origin in the future
-  minLen[0] = minLen[1] = minLen[2] = minTime = 0.0;
+  minLen[0] = minLen[1] = minLen[2] = 0.0;
+  minTime = 0;
 
   maxLen[0] = atof(argv[2]) - 1.0f;
   maxLen[1] = atof(argv[3]) - 1.0f;
   maxLen[2] = atof(argv[4]) - 1.0f;
-  maxTime   = atof(argv[5]) - 1.0f;
+  maxTime   = (int)(atof(argv[5]) - 1.0f);
 
   size[0] = maxLen[0] - minLen[0] + 1.0f; // data sizes, space and time
   size[1] = maxLen[1] - minLen[1] + 1.0f;
   size[2] = maxLen[2] - minLen[2] + 1.0f;
-  tsize   = maxTime - minTime + 1.0f;
+  tsize   = (int)(maxTime - minTime + 1.0f);
 
   nspart = atoi(argv[6]); // total space partitions
   ntpart = atoi(argv[7]); // total time partitions
@@ -914,7 +923,7 @@ void Init() {
 //   assert(ntpart <= nproc);
 
   // init lattice and osuflow
-  lat = new Lattice4D(size[0], size[1], size[2], tsize, ghost, nspart, 
+  lat = new Lattice4D((int)size[0], (int)size[1], (int)size[2], tsize, ghost, nspart, 
 		      ntpart, nproc, myproc);
   lat->InitSeedLists(); 
   nblocks = lat->GetNumPartitions(myproc);
@@ -940,7 +949,7 @@ void Init() {
   sl_list = new list<vtListTimeSeedTrace*>[nspart * ntpart];
 
   // allocate pts list and number of points list for rendering
-  ngr = ceil(ntpart / tr); // number of groups
+  ngr = (int)(ceil(ntpart / tr)); // number of groups
   if (myproc == 0) {
     nt = nspart * ntpart * tf * max_rounds * ngr; // max total traces
     np = nt * pf; // max total points
@@ -951,11 +960,11 @@ void Init() {
   }
 
   // max number of time steps in any block
-  max_bt = ceil(tsize / ntpart) + 2 * ghost;
+  max_bt = (int)(ceil(tsize / ntpart) + 2 * ghost);
 
   // number of blocks to keep in memory
-  b_size = size[0] * size[1] / 1048576.0f * size[2] / nspart * 
-           tsize / ntpart * 4 * sizeof (float);
+  b_size = (int)(size[0] * size[1] / 1048576.0f * size[2] / nspart * 
+		 tsize / ntpart * 4 * sizeof (float));
   b_mem = avail_mem / b_size;
 
   // print some of the args

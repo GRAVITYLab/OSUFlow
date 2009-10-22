@@ -1,5 +1,5 @@
 
-#include "flashhdf5_float.h"
+// #include "flashhdf5_float.h"
 #include "FlashAMR.h" 
 
 void sort_list(float* list, int& cnt) 
@@ -12,7 +12,7 @@ void sort_list(float* list, int& cnt)
     for (int j = i; j<cnt; j++) {
       if (tmp_list[j]>largest) {idx = j; largest = tmp_list[j]; }
     }
-    int tmp = tmp_list[i]; 
+    int tmp = (int)tmp_list[i]; 
     tmp_list[i] = tmp_list[idx]; 
     tmp_list[idx] =tmp; 
   }

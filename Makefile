@@ -23,7 +23,8 @@
 #----------------------------------------------------------------------------
 
 #ARCH = MAC_OSX
-ARCH = LINUX
+ARCH = MAC_OSX_10_4
+#ARCH = LINUX
 #ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
@@ -37,13 +38,23 @@ AR = ar cq
 
 TOP = ..
 
-### mac version ####
+### mac version osx 10.5 w/ open mpi ####
 
 ifeq ($(ARCH),MAC_OSX)
 C++ = g++
 CC  = gcc
 CCFLAGS = -g -c -DMAC_OSX -DGRAPHICS  -DDEBUG_MODE
 LIBS  = -framework GLUT -framework OpenGL 
+endif
+
+### mac version osx 10.4 w/ mpich installed ####
+
+ifeq ($(ARCH),MAC_OSX_10_4)
+LIBS = -lmpich -framework GLUT -framework OpenGL
+C++ = mpicxx
+CCFLAGS = -g -c -DMAC_OSX_10_4 -D_MPI
+CCFLAGS += -DGRAPHICS
+CCFLAGS += -g
 endif
 
 ### linux version ###
@@ -54,7 +65,7 @@ ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
 endif
 THREADS = -fopenmp
-CCFLAGS = -c -DLINUX -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS = -c -DLINUX -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
@@ -77,7 +88,7 @@ endif
 THREADS = -qsmp=omp:noauto
 #THREADS = 
 CCFLAGS += -O3 -qarch=450d -qtune=450
-CCFLAGS += -c -DBGP -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS += -c -DBGP -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 ifeq ($(MPE), YES)
 CCFLAGS += -DMPE
 endif
@@ -93,7 +104,7 @@ C++   = mpicxx
 ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
 endif
-CCFLAGS = -c -DFD -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS = -c -DFD -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 #CCFLAGS += -g3
 CCFLAGS += -O3
 #CCFLAGS += -Wall -Wextra
@@ -114,7 +125,7 @@ C++   = mpicxx
 ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
 endif
-CCFLAGS = -c -DBB -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS = -c -DBB -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 #CCFLAGS += -g3
 CCFLAGS += -O3
 #CCFLAGS += -Wall -Wextra
@@ -136,7 +147,7 @@ ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
 endif
 #CCFLAGS += -g3
-CCFLAGS = -c -DEUREKA -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX# -DGRAPHICS
+CCFLAGS = -c -DEUREKA -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX# -DGRAPHICS
 CCFLAGS += -O3
 #CCFLAGS += -Wall -Wextra
 ifeq ($(MPE), YES)
@@ -158,7 +169,8 @@ OBJS =  Candidate.o  Grid.o          polynomials.o  TimeVaryingFieldLine.o \
 	FieldLine.o  Plot3DReader.o  TimeLine.o \
 	OSUFlow.o    FileReader.o    calc_subvolume.o \
 	LatticeAMR.o Partition.o     FlashAMR.o ComputeFieldLines.o \
-	Lattice4D.o  flashhdf5_float.o \
+	Lattice4D.o  \
+# flashhdf5_float.o \
 
 SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -168,7 +180,8 @@ SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 	FieldLine.C  Plot3DReader.C  TimeLine.C \
 	OSUFlow.C    FileReader.C    calc_subvolume.C \
 	LatticeAMR.C Partition.C     FlashAMR.C ComputeFieldLines.C \
-	Lattice4D.C  flashhdf5_float.C \
+	Lattice4D.C  \
+# flashhdf5_float.C \
 
 .SUFFIXES: .C
 

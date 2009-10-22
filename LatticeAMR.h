@@ -11,7 +11,7 @@
 #include "OSUFlow.h"
 #include "Partition.h"
 
-#ifdef MPI
+#ifdef _MPI
 #include <mpi.h>
 #endif
 

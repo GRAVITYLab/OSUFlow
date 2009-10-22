@@ -5,7 +5,7 @@
 #include<stdlib.h>
 #include "VectorMatrix.h" 
 
-#ifdef MPI
+#ifdef _MPI
 #include <mpi.h>
 #endif
 
@@ -24,7 +24,7 @@ struct Partition4D {
   int AllocNeighbors; // number of neighbors allocated
 
   // the following array fills up in order, from 0 to number of requests
-#ifdef MPI
+#ifdef _MPI
   MPI_Request *SendReqs; // send requests
   MPI_Request *RecvReqs; // receive requests
   int NumSendReqs; // number of send requests
@@ -66,7 +66,7 @@ class Partition {
   void GrowNeighbors(int myrank);
   void AddNeighbor(int myrank, int neighblock, int neighrank);
 
-#ifdef  MPI
+#ifdef _MPI
   void ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds,
 			MPI_Comm comm = MPI_COMM_WORLD);
 #else

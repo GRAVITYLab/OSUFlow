@@ -3,7 +3,7 @@
 #include <stdlib.h> 
 #include <assert.h>
 
-#ifdef MPI
+#ifdef _MPI
 #include <mpi.h>
 #endif
 
@@ -44,20 +44,20 @@ float* ReadStaticDataRaw(char *fname, int* dimension,
   assert(fIn != NULL);
   fread(dimension, sizeof(int), 3, fIn);
 
-  lxdim = sMax[0]-sMin[0]+1; 
-  lydim = sMax[1]-sMin[1]+1; 
-  lzdim = sMax[2]-sMin[2]+1; 
+  lxdim = (int)(sMax[0]-sMin[0]+1); 
+  lydim = (int)(sMax[1]-sMin[1]+1); 
+  lzdim = (int)(sMax[2]-sMin[2]+1); 
 
   totalNum = lxdim*lydim*lzdim; 
 
   pData = new float[totalNum * 3];
 
   float *p = pData; 
-  for (int z = sMin[2]; z<=sMax[2]; z++) {
-    for (int y = sMin[1]; y<=sMax[1]; y++) {
-      long offset = (z*dimension[0]*dimension[1]+y*dimension[0]+sMin[0])*3*4; 
+  for (int z = (int)sMin[2]; z<=(int)sMax[2]; z++) {
+    for (int y = (int)sMin[1]; y<=(int)sMax[1]; y++) {
+      long offset = (long)(z*dimension[0]*dimension[1]+y*dimension[0]+sMin[0])*3*4;
       fseek(fIn, offset, SEEK_SET); 
-      int size = (sMax[0]-sMin[0]+1)*3; 
+      int size = (int)(sMax[0]-sMin[0]+1)*3; 
       fread(p, sizeof(float), size, fIn); 
       p+=size; 
     }
@@ -132,9 +132,9 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 
   ppData = new float*[numTimesteps]; 
 
-  lxdim = maxB[0]-minB[0]+1; 
-  lydim = maxB[1]-minB[1]+1; 
-  lzdim = maxB[2]-minB[2]+1; 
+  lxdim = (int)(maxB[0]-minB[0]+1); 
+  lydim = (int)(maxB[1]-minB[1]+1); 
+  lzdim = (int)(maxB[2]-minB[2]+1); 
 
   printf(" min max t = %d %d \n", min_t, max_t); 
 
@@ -154,11 +154,11 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
       pData = new float[totalNum * 3];
 
       float *p = pData; 
-      for (int z = minB[2]; z<=maxB[2]; z++) {
-	for (int y = minB[1]; y<=maxB[1]; y++) {
-	  long offset = (z*dimension[0]*dimension[1]+y*dimension[0]+minB[0])*3*4;
+      for (int z = (int)minB[2]; z<=(int)maxB[2]; z++) {
+	for (int y = (int)minB[1]; y<=(int)maxB[1]; y++) {
+	  long offset = (long)(z*dimension[0]*dimension[1]+y*dimension[0]+minB[0])*3*4;
 	  fseek(fVecIn, offset, SEEK_SET);
-	  int size = (maxB[0]-minB[0]+1)*3;
+	  int size = (int)(maxB[0]-minB[0]+1)*3;
 	  fread(p, sizeof(float), size, fVecIn);
 	  p+=size;
 	}
@@ -172,7 +172,7 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 
 // MPI functions
 
-#ifdef MPI
+#ifdef _MPI
 
 //-----------------------------------------------------------------------
 //
@@ -210,8 +210,8 @@ float* ReadStaticDataRaw(char *flowName, float *sMin, float *sMax, int *dim) {
   // sMin and sMax are [x][y][z]
   for (i = 0; i < 3; i++) {
     size[2 - i] = dim[i];
-    start[2 - i] = sMin[i];
-    subsize[2 - i] = sMax[i] - sMin[i] + 1;
+    start[2 - i] = (int)sMin[i];
+    subsize[2 - i] = (int)(sMax[i] - sMin[i]) + 1;
   }
   size[2] *= 3;
   start[2] *= 3;
@@ -290,8 +290,8 @@ float** ReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax,
   // sMin and sMax are [x][y][z]
   for (i = 0; i < 3; i++) {
     size[2 - i] = dim[i];
-    start[2 - i] = sMin[i];
-    subsize[2 - i] = sMax[i] - sMin[i] + 1;
+    start[2 - i] = (int)sMin[i];
+    subsize[2 - i] = (int)(sMax[i] - sMin[i]) + 1;
   }
   size[2] *= 3;
   start[2] *= 3;

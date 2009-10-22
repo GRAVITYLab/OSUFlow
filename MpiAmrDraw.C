@@ -40,6 +40,11 @@
 #include <GL/gl.h>
 #endif
 
+#ifdef MAC_OSX_10_4
+#include <GLUT/glut.h> 
+#include <OpenGL/gl.h>
+#endif
+
 #include "OSUFlow.h"
 #include "calc_subvolume.h"
 #include "LatticeAMR.h"
@@ -142,6 +147,8 @@ int main(int argc, char *argv[]) {
   Init();
   MPI_Barrier(MPI_COMM_WORLD);
 
+#ifndef MAC_OSX_10_4
+
   // multithread version
 
   if (threads == 2) {
@@ -158,6 +165,8 @@ int main(int argc, char *argv[]) {
     }
 
   }
+
+#endif
 
   // single thread version
 
@@ -450,8 +459,8 @@ void IOandCompute() {
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   num_loaded = 0; // number of blocks currently loaded
-  ngroups = ceil(ntpart / tr); // number of groups
-  bg = floor(nblocks / ngroups); // number of blocks per group, except last
+  ngroups = (int)(ceil(ntpart / tr)); // number of groups
+  bg = (int)(floor(nblocks / ngroups)); // number of blocks per group, except last
 
   // init all blocks
   for (i = 0; i < nblocks; i++) {
@@ -868,17 +877,18 @@ void GetArgs(int argc, char *argv[]) {
 
   // hard code the minimum corner to be 0,0,0,0
   // need to allow for variable data origin in the future
-  minLen[0] = minLen[1] = minLen[2] = minTime = 0.0;
+  minLen[0] = minLen[1] = minLen[2] = 0.0;
+  minTime = 0;
 
   maxLen[0] = atof(argv[2]) - 1.0f;
   maxLen[1] = atof(argv[3]) - 1.0f;
   maxLen[2] = atof(argv[4]) - 1.0f;
-  maxTime   = atof(argv[5]) - 1.0f;
+  maxTime   = (int)(atof(argv[5]) - 1.0f);
 
   size[0] = maxLen[0] - minLen[0] + 1.0f; // data sizes, space and time
   size[1] = maxLen[1] - minLen[1] + 1.0f;
   size[2] = maxLen[2] - minLen[2] + 1.0f;
-  tsize   = maxTime - minTime + 1.0f;
+  tsize   = (int)(maxTime - minTime + 1.0f);
 
   nspart = atoi(argv[6]); // total space partitions
   ntpart = atoi(argv[7]); // total time partitions
@@ -993,7 +1003,7 @@ void Init() {
   sl_list = new list<vtListTimeSeedTrace*>[nspart * ntpart];
 
   // allocate pts list and number of points list for rendering
-  ngr = ceil(ntpart / tr); // number of groups
+  ngr = (int)(ceil(ntpart / tr)); // number of groups
   if (myproc == 0) {
     nt = nspart * ntpart * tf * max_rounds * ngr; // max total traces
     np = nt * pf; // max total points
@@ -1004,11 +1014,11 @@ void Init() {
   }
 
   // max number of time steps in any block
-  max_bt = ceil(tsize / ntpart) + 2 * ghost;
+  max_bt = (int)(ceil(tsize / ntpart) + 2 * ghost);
 
   // number of blocks to keep in memory
   b_size = dims[0] * dims[1] * dims[2] * tsize / ntpart * 4 * sizeof (float);
-  b_mem = avail_mem * 1048576.0f / b_size;
+  b_mem = (int)(avail_mem * 1048576.0f / b_size);
 
   // print some of the args
   fflush(stderr);
