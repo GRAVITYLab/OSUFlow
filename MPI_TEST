@@ -39,8 +39,8 @@ num_procs=2
 exe=./mpitest
 
 # dataset
-#data=/homes/tpeterka/tornado/tornado.list
-data=/Users/troot/tornado/tornado.list
+data=/homes/tpeterka/tornado/tornado.list
+#data=/Users/troot/tornado/tornado.list
 
 # data size x y z t (for steady state flows use t = 1)
 dsize="128 128 128 4"

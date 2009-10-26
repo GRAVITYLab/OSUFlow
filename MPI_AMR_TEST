@@ -39,7 +39,7 @@ num_procs=1
 exe=./mpiamrtest
 
 # dataset
-data=/homes/tpeterka/flash/old.flash.list
+data=/homes/tpeterka/flash/flash.list
 
 # data size x y z t
 # use x = y = z = 1 (finds its own spatial size)
@@ -74,6 +74,7 @@ th=1
 m=2048
 
 if [ "$ARCH" = "LINUX" ]; then
+
 
 mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 

@@ -508,7 +508,7 @@ main(int argc, char* argv[])
   float min[3], max[3]; 
 
   amr = new FlashAMR; 
-  amr->LoadData(argv[1], min, max); 
+  amr->LoadRawData(argv[1], min, max); 
   nb = amr->GetNumBlocks(); 
   num_levels = amr->GetNumLevels(); 
 

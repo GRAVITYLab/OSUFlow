@@ -23,8 +23,8 @@
 #----------------------------------------------------------------------------
 
 #ARCH = MAC_OSX
-ARCH = MAC_OSX_10_4
-#ARCH = LINUX
+#ARCH = MAC_OSX_10_4
+ARCH = LINUX
 #ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
@@ -69,8 +69,8 @@ CCFLAGS = -c -DLINUX -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
-LIBS = -lm -lglut -lGL \
-#	 -lhdf5
+LIBS = -lm -lglut -lGL -lz \
+	/homes/tpeterka/hdf5-install/lib/libhdf5.a
 endif
 
 ### BG/P version ###
@@ -170,7 +170,7 @@ OBJS =  Candidate.o  Grid.o          polynomials.o  TimeVaryingFieldLine.o \
 	OSUFlow.o    FileReader.o    calc_subvolume.o \
 	LatticeAMR.o Partition.o     FlashAMR.o ComputeFieldLines.o \
 	Lattice4D.o  \
-# flashhdf5_float.o \
+	flashhdf5_float.o \
 
 SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -181,7 +181,7 @@ SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 	OSUFlow.C    FileReader.C    calc_subvolume.C \
 	LatticeAMR.C Partition.C     FlashAMR.C ComputeFieldLines.C \
 	Lattice4D.C  \
-# flashhdf5_float.C \
+	flashhdf5_float.C \
 
 .SUFFIXES: .C
 

@@ -134,12 +134,12 @@ bool LatticeAMR::CreateLevel(int level, float x_size, float y_size,
   //space-time domain is filled with blocks from this level 
   // this is the lattice dimensions for this level 
   // 
-  idim[level] = (int) (x_max-x_min)/x_size; 
-  jdim[level] = (int) (y_max-y_min)/y_size; 
-  kdim[level] = (int) (z_max-z_min)/z_size; 
+  idim[level] = (int)((x_max-x_min)/x_size); 
+  jdim[level] = (int)((y_max-y_min)/y_size); 
+  kdim[level] = (int)((z_max-z_min)/z_size); 
   ldim[level] = t_max-t_min+1; 
 
-  printf("**** level %d dims %d %d %d %d \n", level, idim[level], jdim[level], 
+  printf("Level %d: dims (number of blocks at this level in the domain, not all exist) %d %d %d %d \n", level, idim[level], jdim[level], 
   	 kdim[level], ldim[level]); 
 
   int size = idim[level]*jdim[level]*kdim[level]*ldim[level]; // total number of lattice elements 
@@ -171,19 +171,30 @@ bool LatticeAMR::CreateLevel(int level, float x_size, float y_size,
 //
 //  Get the index of the block at the given level that contains (x,y,z,t)
 //
-int LatticeAMR::GetIndexinLevel(int level, float x, float y, float z, float t)
-{
+int LatticeAMR::GetIndexinLevel(int level, float x, float y, float z, float t) {
+
   if (level <0 || level >=num_levels) return -1; 
-  if (x<xmin[level] || x>xmax[level] || y<ymin[level] || y>ymax[level] || 
-      z<zmin[level] || z>zmax[level] || t<tmin[level] || t>ymax[level])
+
+  if (x < xmin[level] || x > xmax[level] || y < ymin[level] || y > ymax[level] || 
+      z < zmin[level] || z > zmax[level] || t < tmin[level] || t > tmax[level])
     return -1; 
   
-  int i = (int)((x-xmin[level])/xlength[level]); 
-  int j = (int)((y-ymin[level])/ylength[level]); 
-  int k = (int)((z-zmin[level])/zlength[level]); 
-  int l = (int)((t-tmin[level])/tlength[level]); 
-  int idx = l*idim[level]*jdim[level]*kdim[level]+k*idim[level]*jdim[level]+j*idim[level]+i; 
+  int i = (int)((x - xmin[level]) / xlength[level]); 
+  int j = (int)((y - ymin[level]) / ylength[level]); 
+  int k = (int)((z - zmin[level]) / zlength[level]); 
+  int l = (int)((t - tmin[level]) / tlength[level]); 
+
+  // clamp max edge to be inside last block
+  i = (i == idim[level] ? i - 1 : i);
+  j = (j == jdim[level] ? j - 1 : j);
+  k = (k == kdim[level] ? k - 1 : k);
+  l = (l == ldim[level] ? l - 1 : l);
+
+  int idx = l * idim[level] * jdim[level] * kdim[level] + 
+    k * idim[level] * jdim[level] + j * idim[level] + i; 
+
   return idx; 
+
 }
 
 ///////////////////////////////////////////////////////////
@@ -212,100 +223,100 @@ bool LatticeAMR::CheckIn(int level, float x, float y, float z, int t,
 }
 
 ///////////////////////////////////////////////////////////////////////
-//
-//  Call this function after all blocks with data have checked in
-//  Go through all levels and collect blocks that have data 
-//
-void LatticeAMR::CompleteLevels() {
+// //
+// //  Call this function after all blocks with data have checked in
+// //  Go through all levels and collect blocks that have data 
+// //
+// void LatticeAMR::CompleteLevels() {
 
-  int i, j;
+//   int i, j;
 
-  npart = 0; 
-  // first check how many non-empty blocks
-  for (i=0; i<num_levels; i++)
-    for (j=0; j<nblocks[i]; j++)
-      if (has_data[i][j]) npart++; 
-  // next allocate the volume bounds type etc. 
-  vb_list = new volume_bounds_type_f[npart]; 
-  rank_to_index = new int[npart]; 
+//   npart = 0; 
+//   // first check how many non-empty blocks
+//   for (i=0; i<num_levels; i++)
+//     for (j=0; j<nblocks[i]; j++)
+//       if (has_data[i][j]) npart++; 
+//   // next allocate the volume bounds type etc. 
+//   vb_list = new volume_bounds_type_f[npart]; 
+//   rank_to_index = new int[npart]; 
 
-  int isize, jsize, ksize; 
-  float x_min, x_max, y_min, y_max, z_min, z_max; 
-  int t_min, t_max; 
-  int offset = 0; 
-  int rank = 0; 
-  for (int level=0; level<num_levels; level++) {
-    isize = idim[level]; 
-    jsize = jdim[level]; 
-    ksize = kdim[level]; 
+//   int isize, jsize, ksize; 
+//   float x_min, x_max, y_min, y_max, z_min, z_max; 
+//   int t_min, t_max; 
+//   int offset = 0; 
+//   int rank = 0; 
+//   for (int level=0; level<num_levels; level++) {
+//     isize = idim[level]; 
+//     jsize = jdim[level]; 
+//     ksize = kdim[level]; 
 
-    x_min = xmin[level]; x_max = xmax[level]; 
-    y_min = ymin[level]; y_max = ymax[level]; 
-    z_min = zmin[level]; z_max = zmax[level]; 
-    t_min = tmin[level]; t_max = tmax[level]; 
+//     x_min = xmin[level]; x_max = xmax[level]; 
+//     y_min = ymin[level]; y_max = ymax[level]; 
+//     z_min = zmin[level]; z_max = zmax[level]; 
+//     t_min = tmin[level]; t_max = tmax[level]; 
 
-    printf(" --- %f %f %f %f %f %f %d %d \n", x_min, x_max, y_min, y_max, 
-	   z_min, z_max, t_min, t_max); 
-    // j is an id for all blocks in their own level
-    // rank is a global id for all non-empty blocks in all levels 
-    for (j=0; j<nblocks[level]; j++) {
-      int iidx, jidx, kidx, tidx; 
-      if (has_data[level][j]) {
-	tidx = j / (isize*jsize*ksize); 
-	int r = j % (isize*jsize*ksize); 
-	kidx = r / (isize * jsize) ; 
-	jidx = (r % (isize * jsize)) / isize; 
-	iidx = r % isize; 
+//     printf(" --- %f %f %f %f %f %f %d %d \n", x_min, x_max, y_min, y_max, 
+// 	   z_min, z_max, t_min, t_max); 
+//     // j is an id for all blocks in their own level
+//     // rank is a global id for all non-empty blocks in all levels 
+//     for (j=0; j<nblocks[level]; j++) {
+//       int iidx, jidx, kidx, tidx; 
+//       if (has_data[level][j]) {
+// 	tidx = j / (isize*jsize*ksize); 
+// 	int r = j % (isize*jsize*ksize); 
+// 	kidx = r / (isize * jsize) ; 
+// 	jidx = (r % (isize * jsize)) / isize; 
+// 	iidx = r % isize; 
 	
-	vb_list[rank].xmin= x_min+iidx*xlength[level]; 
-	vb_list[rank].xmax= x_min+(iidx+1)*xlength[level]; 
-	vb_list[rank].ymin= y_min+jidx*ylength[level]; 
-	vb_list[rank].ymax= y_min+(jidx+1)*ylength[level]; 
-	vb_list[rank].zmin= z_min+kidx*zlength[level]; 
-	vb_list[rank].zmax= z_min+(kidx+1)*zlength[level]; 
-	vb_list[rank].tmin= t_min+tidx*tlength[level]; 
-	vb_list[rank].tmax= t_min+(tidx+1)*tlength[level]; 
+// 	vb_list[rank].xmin= x_min+iidx*xlength[level]; 
+// 	vb_list[rank].xmax= x_min+(iidx+1)*xlength[level]; 
+// 	vb_list[rank].ymin= y_min+jidx*ylength[level]; 
+// 	vb_list[rank].ymax= y_min+(jidx+1)*ylength[level]; 
+// 	vb_list[rank].zmin= z_min+kidx*zlength[level]; 
+// 	vb_list[rank].zmax= z_min+(kidx+1)*zlength[level]; 
+// 	vb_list[rank].tmin= t_min+tidx*tlength[level]; 
+// 	vb_list[rank].tmax= t_min+(tidx+1)*tlength[level]; 
 
-	vb_list[rank].xdim = xres[level]; 
-	vb_list[rank].ydim = yres[level]; 
-	vb_list[rank].zdim = zres[level]; 
-	vb_list[rank].tdim = tres[level]; 
+// 	vb_list[rank].xdim = xres[level]; 
+// 	vb_list[rank].ydim = yres[level]; 
+// 	vb_list[rank].zdim = zres[level]; 
+// 	vb_list[rank].tdim = tres[level]; 
 	
-	// two-way mapping is established 
-	index_to_rank[level][j] = rank; 
-	rank_to_index[rank] = offset + j; 
-	rank++; 
-      }
-    }
-    offset+= nblocks[level]; 
-  }
+// 	// two-way mapping is established 
+// 	index_to_rank[level][j] = rank; 
+// 	rank_to_index[rank] = offset + j; 
+// 	rank++; 
+//       }
+//     }
+//     offset+= nblocks[level]; 
+//   }
 
-  // added by Tom
+//   // added by Tom
 
-  part = new Partition(npart, nproc); // partition
+//   part = new Partition(npart, nproc); // partition
 
-  if (myproc >= 0) {
+//   if (myproc >= 0) {
 
-    RoundRobin_proc();
+//     RoundRobin_proc();
 
-    nb = GetMyNumPartitions(myproc); // number of my blocks
+//     nb = GetMyNumPartitions(myproc); // number of my blocks
 
-    // allocate table of neighbor ranks for one neighbor initially
-    assert((neighbor_ranks = (int **)malloc(nb * sizeof(int *))) != NULL);
-    for (i = 0; i < nb; i++)
-      assert((neighbor_ranks[i] = (int *)malloc(sizeof(int))) != NULL);
+//     // allocate table of neighbor ranks for one neighbor initially
+//     assert((neighbor_ranks = (int **)malloc(nb * sizeof(int *))) != NULL);
+//     for (i = 0; i < nb; i++)
+//       assert((neighbor_ranks[i] = (int *)malloc(sizeof(int))) != NULL);
 
-    // ranks of my blocks
-    assert((block_ranks = (int *)malloc(nb * sizeof(int))) != NULL);
-    GetMyPartitions(myproc, block_ranks);
+//     // ranks of my blocks
+//     assert((block_ranks = (int *)malloc(nb * sizeof(int))) != NULL);
+//     GetMyPartitions(myproc, block_ranks);
 
-    // learn who my neighbors are
-    for (i = 0; i < nb; i++)
-      GetNeighborRanks(i);
+//     // learn who my neighbors are
+//     for (i = 0; i < nb; i++)
+//       GetNeighborRanks(i);
 
-  }
+//   }
 
-}
+// }
 
 ///////////////////////////////////////////////////////
 

@@ -949,8 +949,8 @@ void Init() {
     tamr->GetLevelBlockSize(i, blockSize); 
     tamr->GetLevelBounds(i, levelMinB, levelMaxB); 
 
-    printf(" level size: [%.0f %.0f %.0f] min corner [%.0f %.0f %.0f] max corner [%.0f %.0f %.0f]\n", 
-	   blockSize[0], blockSize[1], blockSize[2], 
+    printf("Level %d: physical size of one block in this level [%.4e %.4e %.4e] min corner [%.4e %.4e %.4e] max corner [%.4e %.4e %.4e]\n", 
+	   i, blockSize[0], blockSize[1], blockSize[2], 
 	   levelMinB[0], levelMinB[1], levelMinB[2], 
 	   levelMaxB[0], levelMaxB[1], levelMaxB[2]); 
 
