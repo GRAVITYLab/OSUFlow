@@ -75,7 +75,6 @@ m=2048
 
 if [ "$ARCH" = "LINUX" ]; then
 
-
 mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
 #mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $tr $t $p $r $th $m

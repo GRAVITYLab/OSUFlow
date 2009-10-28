@@ -11,10 +11,11 @@ class FlashAMR {
 
  public: 
 
-  FlashAMR(); 
-  ~FlashAMR(); 
-  int LoadRawData(char* fname, float*, float*); 
-  int LoadHDF5Data(char* fname, float*, float*); 
+  FlashAMR(){}
+  ~FlashAMR(){} 
+/*   int LoadRawData(char* fname, float*, float*);  */
+  int LoadHDF5MetaData(char* fname, float*, float*); 
+  int LoadHDF5Data(char* fname); 
   int GetNumBlocks() {return nb;}
   int GetLevel(int i) {return block_level[i];}
   void SetLevel(int i, int level) {block_level[i] = level;}
@@ -36,7 +37,7 @@ class FlashAMR {
   float *block_center; 
   float *block_length; 
   float *block_minB, *block_maxB; 
-  float *voxel_xsize, *voxel_ysize, *voxel_zsize; 
+/*   float *voxel_xsize, *voxel_ysize, *voxel_zsize;  */
   float *level_minB; 
   float *level_maxB; 
 
@@ -52,8 +53,8 @@ class TimeVaryingFlashAMR {
 
  public: 
 
-  TimeVaryingFlashAMR(); 
-  ~TimeVaryingFlashAMR(); 
+  TimeVaryingFlashAMR(){}
+  ~TimeVaryingFlashAMR(){} 
   
   int LoadData(char *fname, float*, float*); 
   int GetNumTimeSteps() {return num_timesteps; }
@@ -81,7 +82,7 @@ class TimeVaryingFlashAMR {
   float *block_ysize_inLevel; 
   float *block_zsize_inLevel; 
   
-  void match_all_timesteps(); 
+  void MatchTimestepLevels(); 
 
 }; 
 

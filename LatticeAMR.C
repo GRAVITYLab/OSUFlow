@@ -139,12 +139,13 @@ bool LatticeAMR::CreateLevel(int level, float x_size, float y_size,
   kdim[level] = (int)((z_max-z_min)/z_size); 
   ldim[level] = t_max-t_min+1; 
 
-  printf("Level %d: dims (number of blocks at this level in the domain, not all exist) %d %d %d %d \n", level, idim[level], jdim[level], 
-  	 kdim[level], ldim[level]); 
+  // total number of theoretical blocks at this level
+  // (not all have data)
+  int size = idim[level]*jdim[level]*kdim[level]*ldim[level];
+  nblocks[level] = size;
 
-  int size = idim[level]*jdim[level]*kdim[level]*ldim[level]; // total number of lattice elements 
-  nblocks[level] = size;  // number of blocks at this level, remember not all blocks have data
-  printf(" nblock[%d] = %d \n", level, size); 
+  printf("Level %d: theoretical lattice dims %dx%dx%dx%d=%d \n", 
+	 level, idim[level], jdim[level], kdim[level], ldim[level], size); 
 
   has_data[level] = new bool[size]; 
   has_data_from_merger[level] = new int[size]; 
@@ -205,21 +206,28 @@ int LatticeAMR::GetIndexinLevel(int level, float x, float y, float z, float t) {
 // regarding which level has the finest level of data 
 //
 bool LatticeAMR::CheckIn(int level, float x, float y, float z, int t, 
-			 float* data) 
-{
+			 float* data) {
+
   int idx = GetIndexinLevel(level, x, y, z, (float) t); 
-  if (idx == -1) { printf(" **** no! out of bound.\n"); return false; } // out of bound
+
+  if (idx == -1) { 
+    fprintf(stderr,"panic! out of bound. level = %d\n", level); 
+    return false; 
+  }
+
   has_data[level][idx] = true; 
   data_ptr[level][idx] = data; 
 
   // update the blocks at other levels as well
-  for (int i=0; i<num_levels; i++){
+  for (int i = 0; i < num_levels; i++){
     idx = GetIndexinLevel(i,x,y,z, (float) t); 
     if (idx != -1) 
-      if (finest_level[i][idx]<level)
+      if (finest_level[i][idx] < level)
 	finest_level[i][idx] = level; 
   }
+
   return true; 
+
 }
 
 ///////////////////////////////////////////////////////////////////////
