@@ -48,7 +48,6 @@
 #include "OSUFlow.h"
 #include "calc_subvolume.h"
 #include "LatticeAMR.h"
-#include "FlashAMR.h"
 
 // defines related to drawing
 #define XFORM_NONE    0 
@@ -101,8 +100,8 @@ void SingleThreadEvictBlock();
 
 // globals
 static char filename[256]; // dataset file name
-VECTOR3 size; // spatial domain size
 int dims[3]; // number of cells in an AMR block (eg 16x16x16)
+VECTOR3 size; // spatial domain size
 static int tsize; // temporal domain size
 int *NumSeeds; // number of seeds
 int *SizeSeeds; // size of seeds list (bytes)
@@ -122,7 +121,6 @@ int avail_mem; // memory space for dataset (MB)
 int b_mem; // number of blocks to keep in memory
 int max_bt; // max number of time steps in any block
 int tr; // number of time partitions per round
-TimeVaryingFlashAMR *tamr; // AMR object
 //----------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
@@ -893,7 +891,7 @@ void GetArgs(int argc, char *argv[]) {
   nspart = atoi(argv[6]); // total space partitions
   ntpart = atoi(argv[7]); // total time partitions
   tr = atoi(argv[8]); // number of time partitions per round
-
+  
   tf = atoi(argv[9]); // traces per block
   pf = atoi(argv[10]); // points per trace
   max_rounds = atoi(argv[11]); // rounds
@@ -909,75 +907,22 @@ void GetArgs(int argc, char *argv[]) {
 //
 void Init() {
 
-  float min[3], max[3]; 
   int myproc, nproc; // usual MPI
   int nt; // max total number of traces
   int np; // max total number of points
   int ghost = 1; // number of ghost cells per spatial edge
   int b_size; // data size in a typical block (Mbytes)
   int ngr; // number of groups of rounds
-  float blockSize[3]; 
-  float levelMinB[3], levelMaxB[3]; 
-  float **data; // the data
   int i;
-  int nb; // number of blocks
-  int nts; // number of time steps
-  int num_levels; // the total number of level 
-  float len[3]; // global physical x y z lengths
-  float *center; // spatial center of block
-  int t; // time-step
   
   MPI_Comm_rank(MPI_COMM_WORLD, &myproc);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
-  // init AMR
-  tamr = new TimeVaryingFlashAMR; 
-  tamr->LoadData(filename, min, max); 
-  nts = tamr->GetNumTimeSteps();
-  num_levels = tamr->GetNumLevels();
-  tamr->GetDims(dims); 
-
-  // init lattice
-  len[0] = max[0]-min[0]; 
-  len[1] = max[1]-min[1]; 
-  len[2] = max[2]-min[2]; 
-
-  lat = new LatticeAMR(len[0], len[1], len[2], tsize, num_levels, nproc, myproc); 
-
-  for (i = 0; i < num_levels; i++)  {
-
-    tamr->GetLevelBlockSize(i, blockSize); 
-    tamr->GetLevelBounds(i, levelMinB, levelMaxB); 
-
-    printf("Level %d: physical size of one block in this level [%.4e %.4e %.4e] min corner [%.4e %.4e %.4e] max corner [%.4e %.4e %.4e]\n", 
-	   i, blockSize[0], blockSize[1], blockSize[2], 
-	   levelMinB[0], levelMinB[1], levelMinB[2], 
-	   levelMaxB[0], levelMaxB[1], levelMaxB[2]); 
-
-    lat->CreateLevel(i, blockSize[0], blockSize[1], blockSize[2], 
-		     dims[0], dims[1], dims[2], 
-		     levelMinB[0], levelMaxB[0], levelMinB[1], levelMaxB[1], 
-		     levelMinB[2], levelMaxB[2], 0, tsize - 1); 
-
-  }
-
-  for (t = 0; t < nts; t++) {
-    FlashAMR *amr = tamr->GetTimeStep(t);
-    nb = amr->GetNumBlocks();
-    for (i = 0; i < nb; i++) {
-      center = amr->GetBlockCenter(i); 
-      lat->CheckIn(amr->GetLevel(i), center[0], center[1], center[2], t, 
-		   amr->GetDataPtr(i)); 
-    }
-  }
-
-  lat->CompleteLevels(tsize); // This call is very important. Finishes up all the 
-                          // book-keeping and completes the lattice setup
-
-
-  // get my number of blocks and total number of partitions
+  // create the lattice
+  lat = new LatticeAMR(filename, tsize, nproc, myproc); 
   nblocks = lat->GetMyNumPartitions(myproc);
-  nspart = lat->GetTotalNumPartitions(); // all spatial for now, not time-varying
+  nspart = lat->GetTotalNumPartitions(); // all spatial for now
+  lat->GetBlockDims(dims);
 
   // init osuflow
   osuflow = new OSUFlow*[nblocks];
@@ -1060,7 +1005,6 @@ void Cleanup() {
   free(Seeds);
 
   delete [] osuflow;
-  delete tamr;
   delete lat;
 
 }
@@ -1103,25 +1047,29 @@ void draw_bounds(float *from, float *to) {
   glColor3f(1,0,0); 
   glBegin(GL_LINES); 
 
+  // artificial boundary to see only center region
+
+  if (xmin >= -3.072e8 && xmax <= 3.072e8 && 
+      ymin >= -5.12e7 && ymax <= 5.12e7 && 
+      zmin >= -3.072e8 && zmax <= 3.072e8) {
+
   glVertex3f(xmin, ymin, zmin); glVertex3f(xmax, ymin, zmin); 
   glVertex3f(xmax, ymin, zmin); glVertex3f(xmax, ymax, zmin); 
   glVertex3f(xmax, ymax, zmin); glVertex3f(xmin, ymax, zmin); 
-  glVertex3f(xmin, ymax, zmin); glVertex3f(xmin, xmin, zmin); 
+  glVertex3f(xmin, ymax, zmin); glVertex3f(xmin, ymin, zmin); 
 
   glVertex3f(xmin, ymin, zmax); glVertex3f(xmax, ymin, zmax); 
   glVertex3f(xmax, ymin, zmax); glVertex3f(xmax, ymax, zmax); 
   glVertex3f(xmax, ymax, zmax); glVertex3f(xmin, ymax, zmax); 
-  glVertex3f(xmin, ymax, zmax); glVertex3f(xmin, xmin, zmax); 
+  glVertex3f(xmin, ymax, zmax); glVertex3f(xmin, ymin, zmax); 
 
   glVertex3f(xmin, ymin, zmin); glVertex3f(xmin, ymin, zmax); 
-  glVertex3f(xmin, ymin, zmax); glVertex3f(xmin, ymax, zmax); 
   glVertex3f(xmin, ymax, zmax); glVertex3f(xmin, ymax, zmin); 
-  glVertex3f(xmin, ymax, zmin); glVertex3f(xmin, ymin, zmin); 
 
   glVertex3f(xmax, ymin, zmin); glVertex3f(xmax, ymin, zmax); 
-  glVertex3f(xmax, ymin, zmax); glVertex3f(xmax, ymax, zmax); 
   glVertex3f(xmax, ymax, zmax); glVertex3f(xmax, ymax, zmin); 
-  glVertex3f(xmax, ymax, zmin); glVertex3f(xmax, ymin, zmin); 
+
+  }
 
   glEnd(); 
 
@@ -1153,8 +1101,16 @@ void DrawFieldlines() {
     glBegin(GL_LINE_STRIP); 
     for (j = 0; j < npt[i]; j++) {
       if (pt[k][3] <= step) {
-	glVertex3f(pt[k][0], pt[k][1], pt[k][2]);
+
+	// artificial boundary to see only center region
+	if (pt[k][0] >= -3.072e8 && pt[k][0] <= 3.072e8 && 
+	pt[k][1] >= -5.12e7 && pt[k][1] <= 5.12e7 && 
+	pt[k][2] >= -3.072e8 && pt[k][2] <= 3.072e8)
+
+	  glVertex3f(pt[k][0], pt[k][1], pt[k][2]);
+
 // 	fprintf(stderr,"%.0f %.0f %.0f\n",pt[k][0],pt[k][1],pt[k][2]);
+
       }
       k++;
     }
@@ -1209,13 +1165,13 @@ void display() {
   glPopMatrix(); 
   
   glBegin(GL_LINES); 
-  glColor3f(1,0,0); 
+  glColor3f(1,0,0); // red x-axis
   glVertex3f(0,0,0); 
   glVertex3f(1,0,0);
-  glColor3f(0,1,0);  
+  glColor3f(0,1,0);  // green y-axis
   glVertex3f(0,0,0);
   glVertex3f(0,1,0); 
-  glColor3f(0,0,1);  
+  glColor3f(0,0,1);  // blue z-axis
   glVertex3f(0,0,0); 
   glVertex3f(0,0,1); 
   glEnd(); 

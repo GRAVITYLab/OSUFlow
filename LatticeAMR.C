@@ -1,5 +1,6 @@
 
 #include "LatticeAMR.h"
+#include "FlashAMR.h"
 
 /////////////////////////////////////////////////////////
 //
@@ -8,23 +9,31 @@
 // constructs and initializes a time-varying regular structured 
 // AMR lattice 
 //
-// xlen, ylen, zlen, tlen: total size of the data
-// total_level: total number of levels
+// filename: file containing list of timestep files
+// tlen: number of timesteps
 // nid: number of processes, threads, owners
 // default = 1 (can omit if single process sequential program)
 // myid: rank, process number, thread number, identification of the owner
 // default = 0 (can omit if single process sequential program)
 //
-LatticeAMR::LatticeAMR(float xlen, float ylen, float zlen, int tlen, 
-		       int total_level, int nid, int myid) {
+LatticeAMR::LatticeAMR(char *filename, int tlen, int nid, int myid) {
 
-  int n;
+  float min[3], max[3]; // spatial extents
+  float blockSize[3]; // physical size of a block
+  float levelMinB[3], levelMaxB[3]; // extents in a level
+  float *center; // spatial center of block
+  int i, t;
 
-  num_levels = total_level; // total AMR levels. 
+  // init AMR
+  TimeVaryingFlashAMR *tamr = new TimeVaryingFlashAMR; 
+  tamr->LoadData(filename, min, max); 
+  num_levels = tamr->GetNumLevels();
+  tamr->GetDims(block_dims); 
 
-  xdim = xlen;  // the physical dimensions of the entire domain 
-  ydim = ylen; 
-  zdim = zlen; 
+  // lattice overall bounds
+  xdim = max[0]-min[0]; 
+  ydim = max[1]-min[1]; 
+  zdim = max[2]-min[2]; 
   tdim = tlen;  // number of time steps
 
   // the bounds of each level 
@@ -57,15 +66,46 @@ LatticeAMR::LatticeAMR(float xlen, float ylen, float zlen, int tlen,
   finest_level = new int*[num_levels];   // what is the finest level of data 
                                          // in this spatial region
   data_ptr = new float**[num_levels];    // one float ptr per time step 
-  index_to_rank = new int*[total_level]; // mapping from index to rank 
-  nblocks = new int[total_level];        // how many blocks in each region 
+  index_to_rank = new int*[num_levels]; // mapping from index to rank 
+  nblocks = new int[num_levels];        // how many blocks in each region 
                                          // regardless of empty or not 
   npart = 0;                             // number of non-empty blocks overall 
 
-  // added by Tom:
-
+  // process info
   myproc = myid;
   nproc = nid;
+
+  // create AMR levels
+  for (i = 0; i < num_levels; i++)  {
+
+    tamr->GetLevelBlockSize(i, blockSize); 
+    tamr->GetLevelBounds(i, levelMinB, levelMaxB); 
+
+    printf("Level %d: physical size of one block in this level [%.4e %.4e %.4e] min corner [%.4e %.4e %.4e] max corner [%.4e %.4e %.4e]\n", 
+	   i, blockSize[0], blockSize[1], blockSize[2], 
+	   levelMinB[0], levelMinB[1], levelMinB[2], 
+	   levelMaxB[0], levelMaxB[1], levelMaxB[2]); 
+
+    CreateLevel(i, blockSize[0], blockSize[1], blockSize[2], 
+		block_dims[0], block_dims[1], block_dims[2], 
+		levelMinB[0], levelMaxB[0], levelMinB[1], levelMaxB[1], 
+		levelMinB[2], levelMaxB[2], 0, tlen - 1); 
+
+  }
+
+  // check in each block
+  for (t = 0; t < tlen; t++) {
+    FlashAMR *amr = tamr->GetTimeStep(t);
+    for (i = 0; i < amr->GetNumBlocks(); i++) {
+      center = amr->GetBlockCenter(i); 
+      CheckIn(amr->GetLevel(i), center[0], center[1], center[2], t, 
+		   amr->GetDataPtr(i)); 
+    }
+  }
+
+  // complete the levels after data has been checked in
+  CompleteLevels(tlen); // Finishes up all the book keeping
+                              // and completes the lattice setup
 
 }
 
@@ -231,102 +271,6 @@ bool LatticeAMR::CheckIn(int level, float x, float y, float z, int t,
 }
 
 ///////////////////////////////////////////////////////////////////////
-// //
-// //  Call this function after all blocks with data have checked in
-// //  Go through all levels and collect blocks that have data 
-// //
-// void LatticeAMR::CompleteLevels() {
-
-//   int i, j;
-
-//   npart = 0; 
-//   // first check how many non-empty blocks
-//   for (i=0; i<num_levels; i++)
-//     for (j=0; j<nblocks[i]; j++)
-//       if (has_data[i][j]) npart++; 
-//   // next allocate the volume bounds type etc. 
-//   vb_list = new volume_bounds_type_f[npart]; 
-//   rank_to_index = new int[npart]; 
-
-//   int isize, jsize, ksize; 
-//   float x_min, x_max, y_min, y_max, z_min, z_max; 
-//   int t_min, t_max; 
-//   int offset = 0; 
-//   int rank = 0; 
-//   for (int level=0; level<num_levels; level++) {
-//     isize = idim[level]; 
-//     jsize = jdim[level]; 
-//     ksize = kdim[level]; 
-
-//     x_min = xmin[level]; x_max = xmax[level]; 
-//     y_min = ymin[level]; y_max = ymax[level]; 
-//     z_min = zmin[level]; z_max = zmax[level]; 
-//     t_min = tmin[level]; t_max = tmax[level]; 
-
-//     printf(" --- %f %f %f %f %f %f %d %d \n", x_min, x_max, y_min, y_max, 
-// 	   z_min, z_max, t_min, t_max); 
-//     // j is an id for all blocks in their own level
-//     // rank is a global id for all non-empty blocks in all levels 
-//     for (j=0; j<nblocks[level]; j++) {
-//       int iidx, jidx, kidx, tidx; 
-//       if (has_data[level][j]) {
-// 	tidx = j / (isize*jsize*ksize); 
-// 	int r = j % (isize*jsize*ksize); 
-// 	kidx = r / (isize * jsize) ; 
-// 	jidx = (r % (isize * jsize)) / isize; 
-// 	iidx = r % isize; 
-	
-// 	vb_list[rank].xmin= x_min+iidx*xlength[level]; 
-// 	vb_list[rank].xmax= x_min+(iidx+1)*xlength[level]; 
-// 	vb_list[rank].ymin= y_min+jidx*ylength[level]; 
-// 	vb_list[rank].ymax= y_min+(jidx+1)*ylength[level]; 
-// 	vb_list[rank].zmin= z_min+kidx*zlength[level]; 
-// 	vb_list[rank].zmax= z_min+(kidx+1)*zlength[level]; 
-// 	vb_list[rank].tmin= t_min+tidx*tlength[level]; 
-// 	vb_list[rank].tmax= t_min+(tidx+1)*tlength[level]; 
-
-// 	vb_list[rank].xdim = xres[level]; 
-// 	vb_list[rank].ydim = yres[level]; 
-// 	vb_list[rank].zdim = zres[level]; 
-// 	vb_list[rank].tdim = tres[level]; 
-	
-// 	// two-way mapping is established 
-// 	index_to_rank[level][j] = rank; 
-// 	rank_to_index[rank] = offset + j; 
-// 	rank++; 
-//       }
-//     }
-//     offset+= nblocks[level]; 
-//   }
-
-//   // added by Tom
-
-//   part = new Partition(npart, nproc); // partition
-
-//   if (myproc >= 0) {
-
-//     RoundRobin_proc();
-
-//     nb = GetMyNumPartitions(myproc); // number of my blocks
-
-//     // allocate table of neighbor ranks for one neighbor initially
-//     assert((neighbor_ranks = (int **)malloc(nb * sizeof(int *))) != NULL);
-//     for (i = 0; i < nb; i++)
-//       assert((neighbor_ranks[i] = (int *)malloc(sizeof(int))) != NULL);
-
-//     // ranks of my blocks
-//     assert((block_ranks = (int *)malloc(nb * sizeof(int))) != NULL);
-//     GetMyPartitions(myproc, block_ranks);
-
-//     // learn who my neighbors are
-//     for (i = 0; i < nb; i++)
-//       GetNeighborRanks(i);
-
-//   }
-
-// }
-
-///////////////////////////////////////////////////////
 
 void LatticeAMR::CompleteLevels(int t_interval) {
 
@@ -1063,6 +1007,8 @@ void LatticeAMR::RoundRobin_proc() {
 
 //---------------------------------------------------------------------------
 //
+// return the process that owns the partition rank
+//
 int LatticeAMR::GetProc(int rank) {
 
   return(part->parts[rank].Proc); 
@@ -1118,8 +1064,17 @@ void LatticeAMR::GetPartitions(int proc, int**p_list, int& num) {
 }
 //---------------------------------------------------------------------------
 //
-// added by Tom:
+// get the number of voxels per block (eg 16x16x16)
+// assumed constant for all blocks
 //
+void LatticeAMR::GetBlockDims(int *dims) {
+
+  int i;
+
+  for (i = 0; i < 3; i++)
+    dims[i] = block_dims[i];
+
+}
 //----------------------------------------------------------------------------
 //
 // query the partitions that are assigned to processor 'proc' 

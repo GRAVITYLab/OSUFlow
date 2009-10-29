@@ -13,7 +13,6 @@ class FlashAMR {
 
   FlashAMR(){}
   ~FlashAMR(){} 
-/*   int LoadRawData(char* fname, float*, float*);  */
   int LoadHDF5MetaData(char* fname, float*, float*); 
   int LoadHDF5Data(char* fname); 
   int GetNumBlocks() {return nb;}
@@ -37,7 +36,6 @@ class FlashAMR {
   float *block_center; 
   float *block_length; 
   float *block_minB, *block_maxB; 
-/*   float *voxel_xsize, *voxel_ysize, *voxel_zsize;  */
   float *level_minB; 
   float *level_maxB; 
 

@@ -21,8 +21,7 @@ class  LatticeAMR {
   
   //x/y/zlen are the physical dimensions in the domain, tlen is the total number of 
   //time steps 
-  LatticeAMR(float xlen, float ylen, float zlen, int tlen, int total_level,
-	     int nid = 1, int myid = 0); 
+  LatticeAMR(char *filename, int tlen, int nid = 1, int myid = 0); 
 
   ~LatticeAMR(); 
 
@@ -34,7 +33,7 @@ class  LatticeAMR {
 		   float x_min, float x_max, float y_min, float y_max, 
 		   float z_min, float z_max, int t_min, int t_max); 
 
-  //Check in a non-empt block in the level 
+  //Check in a non-empty block in the level 
   bool CheckIn(int level, float x, float y, float z, int t, 
 	       float* data); 
 
@@ -70,8 +69,35 @@ class  LatticeAMR {
   bool Mergeable(int i, int j, int k, int t, int level, int& mergeLevel); 
   void MergeBlocks(); 
   void RoundRobin_proc(); 
+  void GetBlockDims(int *dims);
   
   list<VECTOR4> *seedlists; 
+
+  int GetMyNumPartitions(int proc);
+  void GetMyPartitions(int proc, int* p_list);
+  int GetTotalNumPartitions() { return npart; }
+  void GetVB(int block, float *min_s, float *max_s, 
+	     int *min_t, int *max_t);
+  void GetGlobalVB(int part, float *min_s, float *max_s, 
+		   int *min_t, int *max_t);
+  int GetNeighbor(int myrank, float x, float y, float z, float t);
+  void GetNeighborRanks(int block);
+
+  // wrappers around partition methods
+  float** GetData(int block);
+  void SetReq(int myrank);
+  void ClearReq(int myrank);
+  int GetReq(int myrank);
+  void SetLoad(int myrank);
+  void ClearLoad(int myrank);
+  int GetLoad(int myrank);
+  void SetComp(int myrank, int iter_num);
+  void ClearComp(int myrank);
+  int GetComp(int myrank, int iter_num);
+  void PostPoint(int myrank, VECTOR4 p);
+  void PrintPost(int myrank);
+  void PrintRecv(int myrank);
+  void ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds);
 
  private: 
 
@@ -89,8 +115,8 @@ class  LatticeAMR {
 		 int& toJmin, int& toJmax, int& toKmin, int& toKmax, 
 		 int& toTmin, int& toTmax); 
 
+  int block_dims[3]; // number of voxels per block eg 16x16x16
   int num_levels;  // the number of AMR levels
-
   float xdim, ydim, zdim; //the lengths of the whole domain (not the data resolution) 
   int tdim;               //number of time steps, always an integer
 
@@ -118,20 +144,6 @@ class  LatticeAMR {
   volume_bounds_type_f *vb_list; // bounds for each partition 
   int *rank_to_index; // from rank to (i,j,k,t, level) indices 
 
-  // added by Tom
-
- public:
-  int GetMyNumPartitions(int proc);
-  void GetMyPartitions(int proc, int* p_list);
-  int GetTotalNumPartitions() { return npart; }
-  void GetVB(int block, float *min_s, float *max_s, 
-	     int *min_t, int *max_t);
-  void GetGlobalVB(int part, float *min_s, float *max_s, 
-		   int *min_t, int *max_t);
-  int GetNeighbor(int myrank, float x, float y, float z, float t);
-  void GetNeighborRanks(int block);
-
- private:
   int *block_ranks; // rank (global partition number) of each of my blocks
   int myproc; // my process or thread number
   int nproc; // number of processes or threads
@@ -141,24 +153,6 @@ class  LatticeAMR {
   void GetCoarseNeighborRanks(int block);
   void GetFineNeighborRanks(int block);
   void AddNeighbor(int myblock, int neighrank);
-
- public:
-
-  // wrappers around partition methods
-  float** GetData(int block);
-  void SetReq(int myrank);
-  void ClearReq(int myrank);
-  int GetReq(int myrank);
-  void SetLoad(int myrank);
-  void ClearLoad(int myrank);
-  int GetLoad(int myrank);
-  void SetComp(int myrank, int iter_num);
-  void ClearComp(int myrank);
-  int GetComp(int myrank, int iter_num);
-  void PostPoint(int myrank, VECTOR4 p);
-  void PrintPost(int myrank);
-  void PrintRecv(int myrank);
-  void ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds);
 
 }; 
 
