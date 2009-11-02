@@ -69,6 +69,7 @@ class  LatticeAMR {
   bool Mergeable(int i, int j, int k, int t, int level, int& mergeLevel); 
   void MergeBlocks(); 
   void RoundRobin_proc(); 
+  void ContigRange_proc();
   void GetBlockDims(int *dims);
   
   list<VECTOR4> *seedlists; 

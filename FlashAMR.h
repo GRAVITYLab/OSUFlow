@@ -11,10 +11,8 @@ class FlashAMR {
 
  public: 
 
-  FlashAMR(){}
+  FlashAMR(int myid = 0){ myproc = myid; }
   ~FlashAMR(){} 
-  int LoadHDF5MetaData(char* fname, float*, float*); 
-  int LoadHDF5Data(char* fname); 
   int GetNumBlocks() {return nb;}
   int GetLevel(int i) {return block_level[i];}
   void SetLevel(int i, int level) {block_level[i] = level;}
@@ -25,10 +23,20 @@ class FlashAMR {
   void GetLevelBlockSize(int level, float size[3]); 
   void GetLevelBounds(int level, float minB[3], float maxB[3]); 
   void GetDims(int dims[3]) {dims[0] = block_dims[0]; dims[1] = block_dims[1];                               dims[2] = block_dims[2]; }
+  int GetMaxLevelValue() { return max_level_value; };
+  int LoadHDF5MetaData(char* fname, float*, float*); 
+  int SerialLoadHDF5Data(char* fname); 
+
+#ifdef _MPI
+  int ParallelLoadHDF5Data(char* fname, int start_block, int end_block); 
+#endif
+
  private: 
 
-  int nb; 
+  int nb; // number of leaf blocks that are kept
+  int file_nb; // total number of leaf + nonleaf blocks in the file
   int num_levels; 
+  int max_level_value; // maximum level number in file
 
   int block_dims[3]; 
   int *block_index; 
@@ -45,16 +53,19 @@ class FlashAMR {
 
   float **vectors; 
 
+  int myproc; // my process or thread number (0 if serial)
+
 } ; 
 
 class TimeVaryingFlashAMR {
 
  public: 
 
-  TimeVaryingFlashAMR(){}
+  TimeVaryingFlashAMR(int myid = 0){ myproc = myid; }
   ~TimeVaryingFlashAMR(){} 
   
-  int LoadData(char *fname, float*, float*); 
+  int LoadMetaData(char *fname, float*, float*); 
+  int LoadData(char *fname, int start_block, int end_block); 
   int GetNumTimeSteps() {return num_timesteps; }
   int GetNumLevels() {return num_levels; } 
   FlashAMR* GetTimeStep(int t) {if (t>=0 && t<num_timesteps) return amr_list[t]; 
@@ -81,6 +92,8 @@ class TimeVaryingFlashAMR {
   float *block_zsize_inLevel; 
   
   void MatchTimestepLevels(); 
+
+  int myproc; // my process or thread number (0 if serial)
 
 }; 
 

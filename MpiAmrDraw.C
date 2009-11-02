@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
     }
 
   }
-
+  
 #endif
 
   // single thread version
@@ -970,7 +970,7 @@ void Init() {
   fflush(stdout);
   MPI_Barrier(MPI_COMM_WORLD);
   if (myproc == 0) {
-    fprintf(stderr,"Volume size: %d blocks * %d * %d * %d, t %d\n",
+    fprintf(stderr,"\nVolume size: %d blocks * %d * %d * %d, t %d\n",
 	    nspart, dims[0], dims[1], dims[2], tsize);
     fprintf(stderr, "Number of threads per process: %d\n", threads);
     fprintf(stderr, "Number of compute rounds: %d\n", max_rounds);
@@ -978,7 +978,7 @@ void Init() {
 	    avail_mem);
     fprintf(stderr, "Number of blocks a process can fit in memory: %d\n", 
 	    b_mem);
-    fprintf(stderr, "Number of blocks per process %d\n", nblocks);
+    fprintf(stderr, "Number of blocks per process %d\n\n", nblocks);
   }
 
 }

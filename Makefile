@@ -34,7 +34,7 @@ MPE = NO
 
 LIBNAME = OSUFlow
 RM = rm 
-AR = ar cq
+AR = ar cru
 
 TOP = ..
 
@@ -164,24 +164,22 @@ INCLUDE += -I.
 OBJS =  Candidate.o  Grid.o          polynomials.o  TimeVaryingFieldLine.o \
 	eigenvals.o  Interpolator.o  Rake.o	    Topology.o \
 	eigenvecs.o  IsoSurf.o	     Solution.o     triangulator.o \
-	Element.o    StreakLine.o    VectorMatrix.o \
-	Field.o      PathLine.o      Streamline.o \
-	FieldLine.o  Plot3DReader.o  TimeLine.o \
-	OSUFlow.o    FileReader.o    calc_subvolume.o \
-	LatticeAMR.o Partition.o     FlashAMR.o ComputeFieldLines.o \
-	Lattice4D.o  \
-	flashhdf5_float.o \
+	Element.o    StreakLine.o    VectorMatrix.o Field.o \
+        PathLine.o   Streamline.o    FieldLine.o    Plot3DReader.o \
+ 	TimeLine.o   OSUFlow.o       FileReader.o   calc_subvolume.o \
+	LatticeAMR.o Partition.o     FlashAMR.o     ComputeFieldLines.o \
+	Lattice4D.o  flashhdf5_float.o \
+
 
 SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
 	eigenvecs.C  IsoSurf.C	     Solution.C     triangulator.C \
-	Element.C    StreakLine.C    VectorMatrix.C \
-	Field.C      PathLine.C      Streamline.C \
-	FieldLine.C  Plot3DReader.C  TimeLine.C \
-	OSUFlow.C    FileReader.C    calc_subvolume.C \
-	LatticeAMR.C Partition.C     FlashAMR.C ComputeFieldLines.C \
-	Lattice4D.C  \
-	flashhdf5_float.C \
+	Element.C    StreakLine.C    VectorMatrix.C Field.C \
+	PathLine.C   Streamline.C    FieldLine.C    Plot3DReader.C \
+	TimeLine.C   OSUFlow.C       FileReader.C   calc_subvolume.C \
+	LatticeAMR.C Partition.C     FlashAMR.C     ComputeFieldLines.C \
+	Lattice4D.C  flashhdf5_float.C \
+ 
 
 .SUFFIXES: .C
 
@@ -195,9 +193,6 @@ all: lib$(LIBNAME).a testmain testmain2 gldraw gldraw2 \
 	gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 \
 	gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline mpitest mpiamrtest
 
-# deprecated - remove eventually
-#	testmain3 testmain4 gldrawStreak2 gldraw3 gldraw4
-
 lib$(LIBNAME).a : $(OBJS)
 	$(RM) -f $@
 	$(AR) $@ $(OBJS) 
@@ -207,12 +202,6 @@ testmain: testmain.o lib$(LIBNAME).a
 
 testmain2: testmain2.o lib$(LIBNAME).a
 	$(C++) -o testmain2 testmain2.o -L. -l$(LIBNAME) -lm
-
-#testmain3: testmain3.o lib$(LIBNAME).a
-#	$(C++) -o testmain3 testmain3.o -L. -l$(LIBNAME) -lm
-
-#testmain4: testmain4.o lib$(LIBNAME).a
-#	$(C++) -o testmain4 testmain4.o -L. -l$(LIBNAME) -lm
 
 mpiamrtest: MpiAmrDraw.o lib$(LIBNAME).a
 	$(C++) -o mpiamrtest MpiAmrDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
@@ -225,12 +214,6 @@ gldraw: gldraw.o  lib$(LIBNAME).a
 
 gldraw2: gldraw2.o  lib$(LIBNAME).a
 	$(C++) -o gldraw2 gldraw2.o -L. -l$(LIBNAME) $(LIBS) 
-
-#gldraw3: gldraw3.o  lib$(LIBNAME).a
-#	$(C++) -o gldraw3 gldraw3.o -L. -l$(LIBNAME) $(LIBS)
-
-#gldraw4: gldraw4.o  lib$(LIBNAME).a
-#	$(C++) -o gldraw4 gldraw4.o -L. -l$(LIBNAME) $(LIBS)
 
 testmainPathline: testmainPathline.o  lib$(LIBNAME).a
 	$(C++) -o testmainPathline testmainPathline.o -L. -l$(LIBNAME) -lm 
@@ -274,13 +257,8 @@ gldrawFlashPathline: gldrawFlashPathline.o  lib$(LIBNAME).a
 gldrawStreak: gldrawStreak.o  lib$(LIBNAME).a
 	$(C++) -o gldrawStreak gldrawStreak.o -L. -l$(LIBNAME) $(LIBS)
 
-#gldrawStreak2: gldrawStreak2.o  lib$(LIBNAME).a
-#	$(C++) -o gldrawStreak2 gldrawStreak2.o -L. -l$(LIBNAME) $(LIBS)
-
 gldrawStreak3: gldrawStreak3.o  lib$(LIBNAME).a
 	$(C++) -o gldrawStreak3 gldrawStreak3.o -L. -l$(LIBNAME) $(LIBS)
-
-
 
 clean:
 	rm -f *.o *.a
