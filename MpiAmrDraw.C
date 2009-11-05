@@ -142,6 +142,7 @@ int main(int argc, char *argv[]) {
   }
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+
   Init();
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -919,7 +920,9 @@ void Init() {
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
   // create the lattice
-  lat = new LatticeAMR(filename, tsize, nproc, myproc); 
+  // names of velocity components velx, vely, velz hard-coded
+  lat = new LatticeAMR(filename, tsize, (char *)"velx", (char *)"vely", (char *)
+		       "velz", nproc, myproc); 
   nblocks = lat->GetMyNumPartitions(myproc);
   nspart = lat->GetTotalNumPartitions(); // all spatial for now
   lat->GetBlockDims(dims);

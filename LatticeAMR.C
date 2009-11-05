@@ -11,12 +11,14 @@
 //
 // filename: file containing list of timestep files
 // tlen: number of timesteps
+// vx, vy, vz: names of velocity components in the dataset
 // nid: number of processes, threads, owners
 // default = 1 (can omit if single process sequential program)
 // myid: rank, process number, thread number, identification of the owner
 // default = 0 (can omit if single process sequential program)
 //
-LatticeAMR::LatticeAMR(char *filename, int tlen, int nid, int myid) {
+LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
+		       int nid, int myid) {
 
   float min[3], max[3]; // spatial extents
   float blockSize[3]; // physical size of a block
@@ -119,7 +121,7 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, int nid, int myid) {
   end_block = part->proc_parts[myproc][part->proc_nparts[myproc] - 1];
 
   // read my data blocks (contiguous range)
-  tamr->LoadData(filename, start_block, end_block);
+  tamr->LoadData(filename, start_block, end_block, vx, vy, vz);
 
   // check in each block
   for (t = 0; t < tlen; t++) {
@@ -141,6 +143,13 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, int nid, int myid) {
   // complete the levels after data has been checked in
   CompleteLevels(tlen); // Finishes up all the book keeping
                         // and completes the lattice setup
+
+  // debug
+  // average number of neighbors for each block
+  int tot_neighbors = 0;
+  for (i = 0; i < nb; i++)
+    tot_neighbors += part->parts[i].NumNeighbors;
+  fprintf(stderr,"Average number of neighbors per block = %d\n", tot_neighbors / nb);
 
 }
 

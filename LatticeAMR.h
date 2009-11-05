@@ -21,7 +21,8 @@ class  LatticeAMR {
   
   //x/y/zlen are the physical dimensions in the domain, tlen is the total number of 
   //time steps 
-  LatticeAMR(char *filename, int tlen, int nid = 1, int myid = 0); 
+  LatticeAMR(char *filename, int tlen, char * vx, char * vy, char *vz,
+	     int nid = 1, int myid = 0); 
 
   ~LatticeAMR(); 
 

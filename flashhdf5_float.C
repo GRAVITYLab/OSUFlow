@@ -1,6 +1,15 @@
+//------------------------------------------------------------------------------
+//
+// FLASH I/O library
+//
+// Used with permission from Mike Papka
+//
+//------------------------------------------------------------------------------
+
 // General Headers
 #include <stdlib.h>
 #include <values.h>
+#include <assert.h>
 
 // use HDF5 version 1.6 API
 #define H5_USE_16_API
@@ -76,12 +85,43 @@ FlashHDFFile::FlashHDFFile()
     _ResetSettings(CONSTRUCTOR);
 }// End of FlashHDFFile()
 
+#ifdef _MPI
+
+//-----------------------------------------------------------------------
+//
+// Constructor for collective I/O
+//
+// filename: dataset file name
+// comm: MPI communicator
+//
+// Tom Peterka, 11/2/09
+//
+FlashHDFFile::FlashHDFFile(char *filename, MPI_Comm comm) {
+
+  MPI_Info info;
+  hid_t plist_id; // HDF property list for collective I/O
+
+  _ResetSettings(CONSTRUCTOR);
+
+  // open the file w/ collective I/O
+  MPI_Info_create(&info); // todo: figure out appropriate hints for hdf5
+  plist_id = H5Pcreate(H5P_FILE_ACCESS);
+  H5Pset_fapl_mpio(plist_id, comm, info);
+  assert((datasetId = H5Fopen(filename, H5F_ACC_RDONLY, plist_id)) >= 0);
+
+  _InitSettings();
+
+}
+//-----------------------------------------------------------------------
+
+#endif
+
 FlashHDFFile::FlashHDFFile(char *filename)
 {
     _ResetSettings(CONSTRUCTOR);
     //    cout << "About to open " << endl;
     datasetId = H5Fopen(filename,H5F_ACC_RDONLY,H5P_DEFAULT);
-    HDF_ERROR_CHECK(datasetId,(char *)"ERROR: Failed On File Open");
+    HDF_ERROR_CHECK(datasetId,(char *)("ERROR: Failed On File Open"));
     _InitSettings();
 }// End of FlashHDFFile(char *filename)
 
@@ -812,6 +852,81 @@ FlashHDFFile::GetScalarVariable(char variableName[5], int dataPointIndex, float 
     return 1;
     
 }// End of
+
+//-----------------------------------------------------------------------
+//
+// ParallelGetScalarVariable
+//
+// parallel scalar variable read
+//
+// var: desired variable to read
+// idx, nblocks: starting index and number of blocks to read
+// leaf_only: 0 = keep all nodes, 1 = keep only leaf nodes
+// data: (output) result
+//
+// added by Tom Peterka, 11/2/09
+//
+int FlashHDFFile::ParallelGetScalarVariable(char *var, int idx, int nblocks,
+					    int leaf_only, float *data) {
+  int rank = 4;
+  hsize_t dims[4], start[4];
+  hid_t dataspace, memspace, dataset;
+  int size; // size of a block (eg. 16x16x16)
+  int skip = 0; // number of nonleaf blocks skipped
+  hid_t plist_id; // HDF property list for collective I/O
+  int i, j;
+
+  // set proplist for collective I/O
+  plist_id = H5Pcreate(H5P_DATASET_XFER);
+  H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
+  // cell dimensions (eg 16x16x16)
+  if((cellDimensions[0] <= -1) || (cellDimensions[1] <= -1) || 
+     (cellDimensions[2] <= -1))
+    _SetCellDimensions();
+    	
+  // data dimensions and starting offset
+  dims[0] = nblocks;
+  dims[1] = cellDimensions[2]; 
+  dims[2] = cellDimensions[1];
+  dims[3] = cellDimensions[0];
+  start[0] = idx;
+  start[1] = start[2] = start[3] = 0;
+
+  // read the data
+  memspace = H5Screate_simple(rank, dims, NULL);
+  assert((dataset = H5Dopen(datasetId, var)) >= 0);
+  dataspace = H5Dget_space(dataset);
+  H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, start, NULL, dims, NULL);
+  assert(H5Dread(dataset, H5T_NATIVE_FLOAT, memspace, dataspace, plist_id,
+		 data) >= 0);
+
+  // cleanup    
+  H5Sclose(memspace);
+  H5Sclose(dataspace);
+  H5Dclose(dataset);
+
+  // removing nonleaf blocks requires a data copy (in place)
+  if (leaf_only) {
+
+    size = dims[1] * dims[2] * dims[3];
+    for (i = 0; i < nblocks; i++) {
+      if (GetNodeType(idx + i) != 1) {
+	skip++;
+	continue;
+      }
+      for (j = 0; j < size; j++) {
+	if (skip)
+	  data[(i - skip) * size + j] = data[i * size + j];
+      }
+    }
+
+  }
+
+  return 1;
+    
+}
+//-----------------------------------------------------------------------
 
 int
 FlashHDFFile::GetScalarVariable(char variableName[5], int dataPointIndex, float bounds[6], float *variable)

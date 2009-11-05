@@ -6,6 +6,9 @@
 #include <stdlib.h> 
 #include <assert.h>
 
+#ifdef _MPI
+#include <mpi.h>
+#endif
 
 class FlashAMR {
 
@@ -25,10 +28,13 @@ class FlashAMR {
   void GetDims(int dims[3]) {dims[0] = block_dims[0]; dims[1] = block_dims[1];                               dims[2] = block_dims[2]; }
   int GetMaxLevelValue() { return max_level_value; };
   int LoadHDF5MetaData(char* fname, float*, float*); 
-  int SerialLoadHDF5Data(char* fname); 
+  int SerialLoadHDF5Data(char* fname, char *vx, char *vy, char *vz); 
+  int SerialLoadHDF5Data(char* fname, int start_block, int end_block, 
+			 char *vx, char *vy, char *vz); 
 
 #ifdef _MPI
-  int ParallelLoadHDF5Data(char* fname, int start_block, int end_block); 
+  int ParallelLoadHDF5Data(char* fname, int start_block, int end_block,
+			   char *vx, char *vy, char *vz, MPI_Comm comm); 
 #endif
 
  private: 
@@ -65,7 +71,15 @@ class TimeVaryingFlashAMR {
   ~TimeVaryingFlashAMR(){} 
   
   int LoadMetaData(char *fname, float*, float*); 
-  int LoadData(char *fname, int start_block, int end_block); 
+
+#ifdef _MPI
+  int LoadData(char *fname, int start_block, int end_block, char *vx, char *vy,
+	       char *vz, MPI_Comm comm = MPI_COMM_WORLD); 
+#else
+  int LoadData(char *fname, int start_block, int end_block, char *vx, char *vy,
+	       char *vz); 
+#endif
+
   int GetNumTimeSteps() {return num_timesteps; }
   int GetNumLevels() {return num_levels; } 
   FlashAMR* GetTimeStep(int t) {if (t>=0 && t<num_timesteps) return amr_list[t]; 

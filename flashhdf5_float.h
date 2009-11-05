@@ -52,6 +52,11 @@ class FlashHDFFile
     // Constructor that opens a given HDF file
     FlashHDFFile(char *filename); 
 
+#ifdef _MPI
+    // constructor that opens a given HDF file for collective I/O
+    FlashHDFFile(char *filename, MPI_Comm comm);
+#endif
+
     // Open given HDF File
     int Open(char *filename);
     
@@ -120,6 +125,10 @@ class FlashHDFFile
     int GetScalarVariable(char variableName[5], int index, int runlength, float *variable);
     int GetScalarVariable(char variableName[5], int index, float bounds[6], float *variable);
     int GetScalarVariable(char variableName[5], int index, int runlength, float bounds[6], float *variable);
+
+    // a parallel (collective) I/O version of GetScalarVariable
+    int ParallelGetScalarVariable(char *var, int idx, int nblocks, 
+				  int leaf_only, float *data);
     
     int GetRefinementLevel(int index);
 

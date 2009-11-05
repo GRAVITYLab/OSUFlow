@@ -1,6 +1,41 @@
+//------------------------------------------------------------------------------
+//
+// static and time-varying FLASH AMR data
+//
+// Copyright (c) 2009 Han-Wei Shen and Tom Peterka
+//
+// Contact:
+//
+// Han-Wei Shen
+// The Ohio State University
+// Columbus, OH
+//
+// Tom Peterka
+// MCS Radix Lab
+// Argonne National Laboratory
+// 9700 S. Cass Ave.
+// Argonne, IL 60439
+// tpeterka@mcs.anl.gov
+//
+// All rights reserved. May not be used, modified, or copied
+// without permission
+//
+//--------------------------------------------------------------------------
 
 #include "flashhdf5_float.h"
 #include "FlashAMR.h" 
+
+#ifdef _MPI
+#include <mpi.h>
+#endif
+
+
+//-----------------------------------------------------------------------
+//
+// utility functions, not part of any class
+//
+//-----------------------------------------------------------------------
+
 
 //-----------------------------------------------------------------------
 //
@@ -96,6 +131,16 @@ void float_sort_list(float* list, int& cnt)  {
   cnt = count; 
 
 }
+//-----------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------
+//
+// FlashAMR functions, static (single timestep) AMR
+//
+//-----------------------------------------------------------------------
+
+
 //-----------------------------------------------------------------------
 //
 // LoadHDF5MetaData
@@ -238,27 +283,24 @@ int FlashAMR::LoadHDF5MetaData(char* fname, float min[3], float max[3]) {
 // SerialLoadHDF5Data
 //
 // serial reader for HDF5 Flash vector data
+// reads all blocks
 //
 // fname: file name
+// vx, vy, vz: names of three velocity components in the dataset
 //
-int FlashAMR::SerialLoadHDF5Data(char* fname) {
+int FlashAMR::SerialLoadHDF5Data(char* fname, char *vx, char *vy, char*vz) {
 
   int size = block_dims[0] * block_dims[1] * block_dims[2]; // total voxels
   int n = 0; // total number of (leaf) blocks read and kept
-  float *xcomp, *ycomp, *zcomp; // x,y,z components of vector data
+  float *comp; // oen component of vector data
   FlashHDFFile fdf(fname);
-  char scalar1[] = "velx"; // hard-coded variable names for now
-  char scalar2[] = "vely";
-  char scalar3[] = "velz";
   int i, j;
 
   // allocate memory  
   // allocates more than necessary for now, some blocks are non-leaf
   // and not stored; no memory needed for them
   vectors = new float*[nb]; // the vector data
-  xcomp = new float[size]; 
-  ycomp = new float[size]; 
-  zcomp = new float[size]; 
+  comp = new float[size]; 
 
   // read all blocks
   for (i = 0; i < file_nb; i++) {
@@ -268,45 +310,47 @@ int FlashAMR::SerialLoadHDF5Data(char* fname) {
       continue;
 
     vectors[n] = new float[size * 3]; 
-    fdf.GetScalarVariable(scalar1, i, xcomp);
-    fdf.GetScalarVariable(scalar2, i, ycomp);
-    fdf.GetScalarVariable(scalar3, i, zcomp);
-    for (j = 0; j < size; j++) {
-      vectors[n][j * 3 + 0] = xcomp[j]; 
-      vectors[n][j * 3 + 1] = ycomp[j]; 
-      vectors[n][j * 3 + 2] = zcomp[j]; 
-    }
+
+    // x component
+    fdf.GetScalarVariable(vx, i, comp);
+    for (j = 0; j < size; j++)
+      vectors[n][j * 3 + 0] = comp[j]; 
+    // y component
+    fdf.GetScalarVariable(vy, i, comp);
+    for (j = 0; j < size; j++)
+      vectors[n][j * 3 + 1] = comp[j]; 
+    // z component
+    fdf.GetScalarVariable(vz, i, comp);
+    for (j = 0; j < size; j++)
+      vectors[n][j * 3 + 2] = comp[j]; 
 
     n++;
 
   }
 
-  delete [] xcomp; 
-  delete [] ycomp; 
-  delete [] zcomp; 
+  delete [] comp; 
 
   return(1); 
 
 }
 //-----------------------------------------------------------------------
 //
-// ParallelLoadHDF5Data
+// SerialLoadHDF5Data
 //
-// parallel reader for HDF5 Flash vector data
+// serial reader for HDF5 Flash vector data from 
+// reads start_block to end_block (inclusive)
 //
 // fname: file name
 // start_block, end_block: contiguous range of blocks to read
+// vx, vy, vz: names of three velocity components in the dataset
 //
-int FlashAMR::ParallelLoadHDF5Data(char* fname, int start_block, 
-				   int end_block) {
+int FlashAMR::SerialLoadHDF5Data(char* fname, int start_block, int end_block,
+				 char * vx, char * vy, char *vz) {
 
   int size = block_dims[0] * block_dims[1] * block_dims[2]; // total voxels
   int n = start_block; // index of (leaf) blocks read and kept
-  float *xcomp, *ycomp, *zcomp; // x,y,z components of vector data
+  float *comp; // one component of vector data
   FlashHDFFile fdf(fname);
-  char scalar1[] = "velx"; // hard-coded variable names for now
-  char scalar2[] = "vely";
-  char scalar3[] = "velz";
   int start_file_block, end_file_block; // file blocks (leaf + nonleaf)
                                         // corresponding to start/end blocks
   int num_file_block; // number of blocks to read from the file (leaf + nonleaf)
@@ -316,9 +360,7 @@ int FlashAMR::ParallelLoadHDF5Data(char* fname, int start_block,
   // allocates more than necessary for now, some blocks are non-leaf
   // and not stored; no memory needed for them
   vectors = new float*[nb]; // the vector data
-  xcomp = new float[size]; 
-  ycomp = new float[size]; 
-  zcomp = new float[size]; 
+  comp = new float[size]; 
 
   // find file blocks (leaf + nonleaf) corresponding to start/end leaf blocks
   // todo: store this in memory to avoid another file access
@@ -349,22 +391,102 @@ int FlashAMR::ParallelLoadHDF5Data(char* fname, int start_block,
       continue;
 
     vectors[n] = new float[size * 3]; 
-    fdf.GetScalarVariable(scalar1, i, xcomp);
-    fdf.GetScalarVariable(scalar2, i, ycomp);
-    fdf.GetScalarVariable(scalar3, i, zcomp);
-    for (j = 0; j < size; j++) {
-      vectors[n][j * 3 + 0] = xcomp[j]; 
-      vectors[n][j * 3 + 1] = ycomp[j]; 
-      vectors[n][j * 3 + 2] = zcomp[j]; 
-    }
+
+    // x component
+    fdf.GetScalarVariable(vx, i, comp);
+    for (j = 0; j < size; j++)
+      vectors[n][j * 3 + 0] = comp[j]; 
+    // y component
+    fdf.GetScalarVariable(vy, i, comp);
+    for (j = 0; j < size; j++)
+      vectors[n][j * 3 + 1] = comp[j]; 
+    // z component
+    fdf.GetScalarVariable(vz, i, comp);
+    for (j = 0; j < size; j++)
+      vectors[n][j * 3 + 2] = comp[j]; 
 
     n++;
 
   }
 
-  delete [] xcomp; 
-  delete [] ycomp; 
-  delete [] zcomp; 
+  delete [] comp; 
+
+  return(1); 
+
+}
+//-----------------------------------------------------------------------
+//
+// ParallelLoadHDF5Data
+//
+// parallel reader for HDF5 Flash vector data
+// reads start_block to end_block (inclusive)
+//
+// fname: file name
+// start_block, end_block: contiguous range of blocks to read
+// vx, vy, vz: names of three velocity components in the dataset
+// comm: MPI communicator
+//
+int FlashAMR::ParallelLoadHDF5Data(char* fname, int start_block, int end_block, 
+				   char * vx, char *vy, char *vz, MPI_Comm comm) {
+
+  int size = block_dims[0] * block_dims[1] * block_dims[2]; // total voxels
+  float *comp; // one component of vector data
+  FlashHDFFile fdf(fname, comm);
+  int start_file_block, end_file_block; // file blocks (leaf + nonleaf)
+                                        // corresponding to start/end blocks
+  int num_file_block; // number of blocks to read from the file (leaf + nonleaf)
+  int i, j, n;
+
+  // find file blocks (leaf + nonleaf) corresponding to start/end leaf blocks
+  // todo: store this in memory to avoid another file access
+  j = 0;
+  for (i = 0; i < file_nb; i++) {
+    if (fdf.GetNodeType(i) != 1)
+      continue;
+    if (j == start_block)
+      break;
+    j++;
+  }
+  start_file_block = i;
+  for ( ; i < file_nb; i++) {
+    if (fdf.GetNodeType(i) != 1)
+      continue;
+    if (j == end_block)
+      break;
+    j++;
+  }
+  end_file_block = i;
+  num_file_block = end_file_block - start_file_block + 1;
+
+  // allocate memory  
+  // comp needs enough space to read nonleaf data as well
+  vectors = new float*[nb]; // the vector data
+  comp = new float[size * num_file_block]; 
+
+  // read my blocks
+
+  // x component
+  fdf.ParallelGetScalarVariable(vx, start_file_block, num_file_block, 1, comp);
+  for (n = 0; n < end_block - start_block + 1; n++) {
+
+    vectors[start_block + n] = new float[size * 3]; // large enough for all 
+                                                    // three components
+    for (j = 0; j < size; j++)
+      vectors[start_block + n][j * 3 + 0] = comp[n * size + j];
+  }
+  // y component
+  fdf.ParallelGetScalarVariable(vy, start_file_block, num_file_block, 1, comp);
+  for (n = 0; n < end_block - start_block + 1; n++)
+    for (j = 0; j < size; j++)
+      vectors[start_block + n][j * 3 + 1] = comp[n * size + j]; 
+  // z component
+  fdf.ParallelGetScalarVariable(vz, start_file_block, num_file_block, 1, comp);
+  for (n = 0; n < end_block - start_block + 1; n++)
+    for (j = 0; j < size; j++)
+      vectors[start_block + n][j * 3 + 2] = comp[n * size + j]; 
+
+
+  delete [] comp; 
 
   return(1); 
 
@@ -399,6 +521,16 @@ void FlashAMR::GetLevelBounds(int level, float minB[3], float maxB[3]){
   maxB[2] = level_maxB[level*3+2]; 
 
 }
+//-----------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------
+//
+// TimeVaryingFlashAMR functions, time-varying (multiple timesteps) AMR
+//
+//-----------------------------------------------------------------------
+
+
 //-----------------------------------------------------------------------
 //
 // LoadMetaData
@@ -460,6 +592,10 @@ int TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) {
 
 }
 //-----------------------------------------------------------------------
+
+#ifdef _MPI
+
+//-----------------------------------------------------------------------
 //
 // LoadData
 //
@@ -467,9 +603,11 @@ int TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) {
 //
 // fname: file containing list of timestep files
 // start_block, end_block: contiguous range of blocks to read
+// vx, vy, vz: names of three velocity components in the dataset
+// comm: MPI communicator
 //
-int TimeVaryingFlashAMR::LoadData(char* fname, int start_block,
-				  int end_block) {
+int TimeVaryingFlashAMR::LoadData(char* fname, int start_block, int end_block,
+				  char *vx, char *vy, char *vz, MPI_Comm comm) {
 
   FILE *fIn; 
   char filename[300]; 
@@ -482,10 +620,52 @@ int TimeVaryingFlashAMR::LoadData(char* fname, int start_block,
     fscanf(fIn, "%s", filename); 
     if (myproc == 0)
       fprintf(stderr,"Reading vector data from %s ...\n\n", filename); 
-    amr_list[i]->ParallelLoadHDF5Data(filename, start_block, end_block);
+    amr_list[i]->ParallelLoadHDF5Data(filename, start_block, end_block,
+				      vx, vy, vz, comm);
+//     amr_list[i]->SerialLoadHDF5Data(filename, start_block, end_block,
+// 				      vx, vy, vz);
+
   }
 
 }
+//-----------------------------------------------------------------------
+
+#else
+
+//-----------------------------------------------------------------------
+//
+// LoadData
+//
+// reads vector data for a time-varying flash AMR dataset
+//
+// fname: file containing list of timestep files
+// start_block, end_block: contiguous range of blocks to read
+// vx, vy, vz: names of three velocity components in the dataset
+//
+int TimeVaryingFlashAMR::LoadData(char* fname, int start_block, int end_block,
+				  char *vx, char *vy, char *vz) {
+
+  FILE *fIn; 
+  char filename[300]; 
+  int i;
+
+  assert((fIn = fopen(fname, "r")) != NULL);
+  fscanf(fIn, "%d", &num_timesteps); 
+
+  for (i = 0; i < num_timesteps; i++) {
+    fscanf(fIn, "%s", filename); 
+    if (myproc == 0)
+      fprintf(stderr,"Reading vector data from %s ...\n\n", filename); 
+    amr_list[i]->SerialLoadHDF5Data(filename, start_block, end_block,
+				    vx, vy, vz);
+  }
+
+}
+
+//-----------------------------------------------------------------------
+
+#endif
+
 //-----------------------------------------------------------------------
 //
 // MatchTimestepLevels
