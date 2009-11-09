@@ -57,6 +57,9 @@ FlashHDFFile::_ResetSettings(int constructor = 0)
     min = max = NULL;
     for(i=0;i<3;i++)
 	cellDimensions[i] = -1;
+    if (node_type != NULL)
+      delete [] node_type;
+    node_type = NULL;
     
 }// End of _ResetSettings()
 
@@ -99,7 +102,6 @@ FlashHDFFile::FlashHDFFile()
 FlashHDFFile::FlashHDFFile(char *filename, MPI_Comm comm) {
 
   MPI_Info info;
-  hid_t plist_id; // HDF property list for collective I/O
 
   _ResetSettings(CONSTRUCTOR);
 
@@ -109,6 +111,10 @@ FlashHDFFile::FlashHDFFile(char *filename, MPI_Comm comm) {
   H5Pset_fapl_mpio(plist_id, comm, info);
   assert((datasetId = H5Fopen(filename, H5F_ACC_RDONLY, plist_id)) >= 0);
 
+  // set proplist for collective I/O
+  plist_id = H5Pcreate(H5P_DATASET_XFER);
+  H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
   _InitSettings();
 
 }
@@ -116,14 +122,27 @@ FlashHDFFile::FlashHDFFile(char *filename, MPI_Comm comm) {
 
 #endif
 
-FlashHDFFile::FlashHDFFile(char *filename)
-{
-    _ResetSettings(CONSTRUCTOR);
-    //    cout << "About to open " << endl;
-    datasetId = H5Fopen(filename,H5F_ACC_RDONLY,H5P_DEFAULT);
-    HDF_ERROR_CHECK(datasetId,(char *)("ERROR: Failed On File Open"));
-    _InitSettings();
-}// End of FlashHDFFile(char *filename)
+//-----------------------------------------------------------------------
+//
+// Constructor for independent I/O
+//
+// filename: dataset file name
+//
+// Tom Peterka, 11/2/09
+//
+FlashHDFFile::FlashHDFFile(char *filename) {
+
+  _ResetSettings(CONSTRUCTOR);
+
+  assert((datasetId = H5Fopen(filename,H5F_ACC_RDONLY,H5P_DEFAULT)) >= 0);
+
+  // set proplist for collective I/O
+  plist_id = H5Pcreate(H5P_DATASET_XFER);
+
+  _InitSettings();
+
+}
+//-----------------------------------------------------------------------
 
 #define FILE_SPLITTING 0
 
@@ -248,6 +267,85 @@ int len;
     return numberOfDimensions;
 
 }// End of GetNumberOfDimensions()
+
+//-----------------------------------------------------------------------
+//
+// GetNumBlocks
+//
+// reads the total number of blocks in the file
+//
+// Tom Peterka, 11/6/09
+//
+int FlashHDFFile::GetNumBlocks() {
+
+  typedef struct int_list_t {
+    char name[80];
+    int value;
+  } int_list_t;
+
+  hsize_t dimens_1d, maxdimens_1d;
+  hid_t int_list_type;
+  hid_t string_type;
+  int_list_t *int_list;
+  char testName[80];
+  char *string_index;
+  char aname[80];
+  int len;
+
+  if(numberOfBlocks <= 0) {
+                  
+    string_type = H5Tcopy(H5T_C_S1);
+    H5Tset_size(string_type, MAX_STRING_LENGTH);
+    hid_t dataset = H5Dopen(datasetId, "integer scalars");
+    hid_t dataspace = H5Dget_space(dataset);
+    /* read extent of 'dataspace' (i.e. # of name/value pairs) into 'dimens_1d' */
+    H5Sget_simple_extent_dims(dataspace, &dimens_1d, &maxdimens_1d);
+    /* malloc a pointer to a list of int_list_t's */
+    int_list = new int_list_t[dimens_1d];
+    /* create a new simple dataspace of 1 dimension and size of 'dimens_1d' */
+    hid_t memspace = H5Screate_simple(1, &dimens_1d, NULL);
+    /* create an empty vessel sized to hold one int_list_t's worth of data */
+    int_list_type = H5Tcreate(H5T_COMPOUND, sizeof(int_list_t));
+    /* subdivide the empty vessel into its component sections (name and value) */
+    H5Tinsert(int_list_type,
+	      "name", 
+	      HOFFSET(int_list_t, name),
+	      string_type);
+    H5Tinsert(int_list_type,
+	      "value",
+	      HOFFSET(int_list_t, value),
+	      H5T_NATIVE_INT);
+    /* read the data into 'int_list' */
+    status = H5Dread(dataset, int_list_type, memspace, dataspace,
+		     H5P_DEFAULT, int_list);
+    for(unsigned int i=0; i<dimens_1d; i++) {
+      strcpy(testName,int_list[i].name);
+      string_index = testName;
+
+      len = 0;
+      while(*string_index != ' ' && *string_index != '\0') {
+	aname[len] = testName[len];
+	len++;
+	string_index++;
+      }
+      *(aname+len) = '\0';
+      if(strcmp(aname,"globalnumblocks") == 0) {
+	numberOfBlocks = int_list[i].value;
+      }
+    }
+    delete [] int_list;
+    H5Tclose(int_list_type);
+    H5Sclose(memspace);
+    H5Sclose(dataspace);
+    H5Dclose(dataset);
+
+
+  }
+
+  return numberOfBlocks;
+
+}
+//-----------------------------------------------------------------------
 
 int
 FlashHDFFile::GetNumberOfBlocks()
@@ -514,109 +612,73 @@ FlashHDFFile::_SetCellDimensions()
     return;
 }
 
+//----------------------------------------------------------------------------
+//
+// GetNodeType
+// returns the node type of a block, 1 = leaf node
+//
+// reads the file only upon the first call and stores all node types in memory
+// after the first time called reads the node type from a buffer in memory
+//
+// Tom Peterka, 11/7/09
+//
+int FlashHDFFile::GetNodeType(int idx) {
 
-int
-FlashHDFFile::GetNodeType(int idx)
-{
-    int ntype;
-    
-    int rank;
-    hsize_t dimens_1d;
-    hid_t ierr;
-    
-    hid_t dataspace, memspace, dataset;
-    
-    hsize_t start_1d;
-    
-    hsize_t stride_1d, count_1d;
-    
-    herr_t status;
+  if (node_type == NULL) {
+    node_type = new int[numberOfBlocks];
+    GetIntVecBlocks((char *)"node type", 0, numberOfBlocks, 1, 0, node_type);
+  }
 
-    rank = 1;
-    dimens_1d = numberOfBlocks;
+  return node_type[idx];
 
-    /* define the dataspace -- same as above */
-    start_1d  = (hsize_t)idx;
-    stride_1d = 1;
-    count_1d  = 1;
+}
+//----------------------------------------------------------------------------
+int FlashHDFFile::GetNodeType(int idx,int runsize,int *nodearray) {
+  
+  int rank;
+  hsize_t dimens_1d;
+  hid_t ierr;
+  hid_t dataspace, memspace, dataset;
+  hsize_t start_1d;
+  hsize_t stride_1d, count_1d;
+  herr_t status;
+
+  rank = 1;
+  dimens_1d = numberOfBlocks;
+
+  /* define the dataspace -- same as above */
+  start_1d  = (hsize_t)idx;
+  stride_1d = 1;
+  count_1d  = runsize;
     
-    dataspace = H5Screate_simple(rank, &dimens_1d, NULL);
+  dataspace = H5Screate_simple(rank, &dimens_1d, NULL);
 
-    ierr = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET,
+  ierr = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET,
 			     &start_1d, &stride_1d, &count_1d, NULL);
     
-    /* define the memory space */
-    dimens_1d = 1;
-    memspace = H5Screate_simple(rank, &dimens_1d, NULL);
+  /* define the memory space */
+  dimens_1d = runsize;
+  memspace = H5Screate_simple(rank, &dimens_1d, NULL);
     
-    /* create the dataset from scratch only if this is our first time */
-    dataset = H5Dopen(datasetId, "node type");
-    status  = H5Dread(dataset, H5T_NATIVE_INT, memspace, dataspace, 
-		      H5P_DEFAULT, (void *)&ntype);
-  
-    H5Sclose(memspace);
-    H5Sclose(dataspace);
-    H5Dclose(dataset);
-    
-    return ntype;
-    
-}// End of GetNodeType(int idx)
-
-int 
-FlashHDFFile::GetNodeType(int idx,int runsize,int *nodearray)
-{
-  
-    int rank;
-    hsize_t dimens_1d;
-    hid_t ierr;
-    
-    hid_t dataspace, memspace, dataset;
-    
-    hsize_t start_1d;
-    
-    hsize_t stride_1d, count_1d;
-    
-    herr_t status;
-
-    rank = 1;
-    dimens_1d = numberOfBlocks;
-
-    /* define the dataspace -- same as above */
-    start_1d  = (hsize_t)idx;
-    stride_1d = 1;
-    count_1d  = runsize;
-    
-    dataspace = H5Screate_simple(rank, &dimens_1d, NULL);
-
-    ierr = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET,
-			     &start_1d, &stride_1d, &count_1d, NULL);
-    
-    /* define the memory space */
-    dimens_1d = runsize;
-    memspace = H5Screate_simple(rank, &dimens_1d, NULL);
-    
-    /* create the dataset from scratch only if this is our first time */
-    dataset = H5Dopen(datasetId, "node type");
-    status  = H5Dread(dataset, H5T_NATIVE_INT, memspace, dataspace, 
-    	      H5P_DEFAULT, (void *)nodearray);
+  /* create the dataset from scratch only if this is our first time */
+  dataset = H5Dopen(datasetId, "node type");
+  status  = H5Dread(dataset, H5T_NATIVE_INT, memspace, dataspace, 
+		    H5P_DEFAULT, (void *)nodearray);
 
     
-    H5Sclose(memspace);
-    H5Sclose(dataspace);
-    H5Dclose(dataset);
+  H5Sclose(memspace);
+  H5Sclose(dataspace);
+  H5Dclose(dataset);
 
-    int leafcount = 0;
-    
-    for(int i=0;i<runsize;i++)
-    {
-	if(nodearray[i] == LEAF_NODE)
-	{
-	    leafcount++;
-	}
-    }
+  int leafcount = 0;
+  for(int i=0;i<runsize;i++) {
+    if(nodearray[i] == LEAF_NODE)
+      leafcount++;
+  }
     
  
-    return leafcount;
+  return leafcount;
+
 }
 
 int
@@ -852,81 +914,6 @@ FlashHDFFile::GetScalarVariable(char variableName[5], int dataPointIndex, float 
     return 1;
     
 }// End of
-
-//-----------------------------------------------------------------------
-//
-// ParallelGetScalarVariable
-//
-// parallel scalar variable read
-//
-// var: desired variable to read
-// idx, nblocks: starting index and number of blocks to read
-// leaf_only: 0 = keep all nodes, 1 = keep only leaf nodes
-// data: (output) result
-//
-// added by Tom Peterka, 11/2/09
-//
-int FlashHDFFile::ParallelGetScalarVariable(char *var, int idx, int nblocks,
-					    int leaf_only, float *data) {
-  int rank = 4;
-  hsize_t dims[4], start[4];
-  hid_t dataspace, memspace, dataset;
-  int size; // size of a block (eg. 16x16x16)
-  int skip = 0; // number of nonleaf blocks skipped
-  hid_t plist_id; // HDF property list for collective I/O
-  int i, j;
-
-  // set proplist for collective I/O
-  plist_id = H5Pcreate(H5P_DATASET_XFER);
-  H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-
-  // cell dimensions (eg 16x16x16)
-  if((cellDimensions[0] <= -1) || (cellDimensions[1] <= -1) || 
-     (cellDimensions[2] <= -1))
-    _SetCellDimensions();
-    	
-  // data dimensions and starting offset
-  dims[0] = nblocks;
-  dims[1] = cellDimensions[2]; 
-  dims[2] = cellDimensions[1];
-  dims[3] = cellDimensions[0];
-  start[0] = idx;
-  start[1] = start[2] = start[3] = 0;
-
-  // read the data
-  memspace = H5Screate_simple(rank, dims, NULL);
-  assert((dataset = H5Dopen(datasetId, var)) >= 0);
-  dataspace = H5Dget_space(dataset);
-  H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, start, NULL, dims, NULL);
-  assert(H5Dread(dataset, H5T_NATIVE_FLOAT, memspace, dataspace, plist_id,
-		 data) >= 0);
-
-  // cleanup    
-  H5Sclose(memspace);
-  H5Sclose(dataspace);
-  H5Dclose(dataset);
-
-  // removing nonleaf blocks requires a data copy (in place)
-  if (leaf_only) {
-
-    size = dims[1] * dims[2] * dims[3];
-    for (i = 0; i < nblocks; i++) {
-      if (GetNodeType(idx + i) != 1) {
-	skip++;
-	continue;
-      }
-      for (j = 0; j < size; j++) {
-	if (skip)
-	  data[(i - skip) * size + j] = data[i * size + j];
-      }
-    }
-
-  }
-
-  return 1;
-    
-}
-//-----------------------------------------------------------------------
 
 int
 FlashHDFFile::GetScalarVariable(char variableName[5], int dataPointIndex, float bounds[6], float *variable)
@@ -1626,6 +1613,7 @@ FlashHDFFile::Get3dCoordinate(int idx, float coords[3])
     
 }// End of Get3dCoordinate(int, float[3])
 
+    
 int
 FlashHDFFile::Get3dCoordinate(int idx, int sizeofrun, float *coords)
 {
@@ -1945,6 +1933,396 @@ FlashHDFFile::GetParticleData(FlashParticleData **particleData)
 	
 }// End of GetParticleData
 
+//-----------------------------------------------------------------------
+//
+// GetFloatVecBlocks
+//
+// reads a (2D) vector of floats for selected blocks in the file
+// vector can have size d = 1 (scalar)
+//
+// var: variable (dataset) name
+//
+// sblock, nblocks: starting block and number of blocks
+// if leaf_only = 1, sblock and nblocks are in terms of leaf blocks
+// else, sblock and nblocks are in terms of all file blocks
+//
+// d: size of vector in each block
+// leaf_only: 0 = keep all nodes, 1 = keep only leaf nodes
+// data: enough space to hold all the result (d * total number blocks)
+//
+// returns: number of blocks stored (leaf + nonleaf or only leaf)
+//
+// Tom Peterka, 11/6/09
+//
+int FlashHDFFile::GetFloatVecBlocks(char *var, int sblock, int nblocks,
+					int d, int leaf_only, float *data) {
+
+  int rank = 2;
+  hsize_t dims[2];
+  hid_t dataspace, memspace, dataset;
+  hsize_t start[2];
+  int skip = 0; // number of nonleaf blocks skipped
+  int i, j;
+    
+  // number of blocks and starting offset when all blocks are used
+  if (!leaf_only || sblock == 0 && nblocks == numberOfBlocks) {
+    dims[0] = nblocks;
+    start[0] = sblock;
+  }
+
+  // number of blocks and starting offset when only leaf blocks are used
+  else {
+
+    j = 0;
+    for (i = 0; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      if (j == sblock)
+	break;
+      j++;
+    }
+    start[0] = i;
+    for ( ; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      if (j == sblock + nblocks - 1)
+	break;
+      j++;
+    }
+    dims[0] = i - start[0] + 1;
+
+  }
+
+  dims[1] = d;
+  start[1] = 0;
+
+  // read the data    
+  memspace = H5Screate_simple(rank, dims, NULL);    
+  assert((dataset = H5Dopen(datasetId, var)) >= 0);
+  dataspace = H5Dget_space(dataset);
+  H5Sselect_hyperslab(dataspace, H5S_SELECT_SET,
+		      start, NULL, dims, NULL);
+  assert(H5Dread(dataset, H5T_NATIVE_FLOAT, memspace, dataspace, plist_id,
+		 data) >= 0);
+
+  // cleanup
+  H5Sclose(memspace);
+  H5Sclose(dataspace);
+  H5Dclose(dataset);
+    
+  // remove nonleaf blocks (in-place data copy)
+  if (leaf_only) {
+
+    for (i = 0; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1) {
+	skip++;
+	continue;
+      }
+      for (j = 0; j < d; j++) {
+	if (skip)
+	  data[(i - skip) * d + j] = data[i * d + j];
+      }
+    }
+    return(nblocks - skip);
+
+  }
+
+  else
+    return nblocks;
+    
+}
+//-----------------------------------------------------------------------
+//
+// GetFloatVolBlocks
+//
+// reads a (3D) volume of floats for selected blocks in the file
+//
+// var: variable (dataset) name
+//
+// sblock, nblocks: starting block and number of blocks
+// if leaf_only = 1, sblock and nblocks are in terms of leaf blocks
+// else, sblock and nblocks are in terms of all file blocks
+//
+// d1, d2, d3: size of volume in each block
+// leaf_only: 0 = keep all nodes, 1 = keep only leaf nodes
+// data: enough space to hold all the result (d * total number blocks)
+//
+// returns: number of blocks stored (leaf + nonleaf or only leaf)
+//
+// Tom Peterka, 11/6/09
+//
+int FlashHDFFile::GetFloatVolBlocks(char *var, int sblock, int nblocks,
+					int d1, int d2, int d3, int leaf_only,
+					float *data) {
+
+  int rank = 4;
+  hsize_t dims[4];
+  hid_t dataspace, memspace, dataset;
+  hsize_t start[4];
+  int skip = 0; // number of nonleaf blocks skipped
+  int d = d1 * d2 * d3; // total size of the block
+  int i, j;
+    
+  // number of blocks and starting offset when all blocks are used
+  if (!leaf_only || sblock == 0 && nblocks == numberOfBlocks) {
+    dims[0] = nblocks;
+    start[0] = sblock;
+  }
+
+  // number of blocks and starting offset when only leaf blocks are used
+  else {
+
+    j = 0;
+    for (i = 0; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      if (j == sblock)
+	break;
+      j++;
+    }
+    start[0] = i;
+    for ( ; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      if (j == sblock + nblocks - 1)
+	break;
+      j++;
+    }
+    dims[0] = i - start[0] + 1;
+
+  }
+
+  dims[1] = d1;
+  dims[2] = d2;
+  dims[3] = d3;
+  start[1] = start[2] = start[3] = 0;
+
+  // read the data    
+  memspace = H5Screate_simple(rank, dims, NULL);    
+  assert((dataset = H5Dopen(datasetId, var)) >= 0);
+  dataspace = H5Dget_space(dataset);
+  H5Sselect_hyperslab(dataspace, H5S_SELECT_SET,
+		      start, NULL, dims, NULL);
+  assert(H5Dread(dataset, H5T_NATIVE_FLOAT, memspace, dataspace, plist_id,
+		 data) >= 0);
+
+  // cleanup
+  H5Sclose(memspace);
+  H5Sclose(dataspace);
+  H5Dclose(dataset);
+    
+  // remove nonleaf blocks (in-place data copy)
+  if (leaf_only) {
+
+    for (i = 0; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1) {
+	skip++;
+	continue;
+      }
+      for (j = 0; j < d; j++) {
+	if (skip)
+	  data[(i - skip) * d + j] = data[i * d + j];
+      }
+    }
+    return(nblocks - skip);
+
+  }
+
+  else
+    return nblocks;
+    
+}
+//-----------------------------------------------------------------------
+//
+// GetFloatMatBlocks
+//
+// reads a (2D) matrix of  floats for selected blocks in the file
+// eg. 3x2 block bounds
+//
+// var: variable (dataset) name
+// sblock, nblocks: starting block and number of blocks
+// d1, d2: matrix size in the order listed in the file
+// leaf_only: 0 = keep all nodes, 1 = keep only leaf nodes
+// data: enough space to hold all the result (d1 * d2 * total number blocks)
+//
+// returns: number of blocks stored (leaf + nonleaf or only leaf)
+//
+// added by Tom Peterka, 11/2/09
+//
+int FlashHDFFile::GetFloatMatBlocks(char *var, int sblock, int nblocks, 
+				    int d1, int d2, int leaf_only, 
+				    float *data) {
+
+  int rank = 3;
+  hsize_t dims[3];
+  hid_t dataspace, memspace, dataset;
+  hsize_t start[3];
+  int skip = 0; // number of nonleaf blocks skipped
+  int d = d1 * d2; // number of elements per block
+  int i, j;
+    
+  // number of blocks and starting offset when all blocks are used
+  if (!leaf_only || sblock == 0 && nblocks == numberOfBlocks) {
+    dims[0] = nblocks;
+    start[0] = sblock;
+  }
+
+  // number of blocks and starting offset when only leaf blocks are used
+  else {
+
+    j = 0;
+    for (i = 0; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      if (j == sblock)
+	break;
+      j++;
+    }
+    start[0] = i;
+    for ( ; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      if (j == sblock + nblocks - 1)
+	break;
+      j++;
+    }
+    dims[0] = i - start[0] + 1;
+
+  }
+  dims[1] = d1;
+  dims[2] = d2;
+  start[1] = start[2] = 0;
+
+  // read the data    
+  memspace = H5Screate_simple(rank, dims, NULL);    
+  assert((dataset = H5Dopen(datasetId, var)) >= 0);
+  dataspace = H5Dget_space(dataset);
+  H5Sselect_hyperslab(dataspace, H5S_SELECT_SET,
+		      start, NULL, dims, NULL);
+  assert(H5Dread(dataset, H5T_NATIVE_FLOAT, memspace, dataspace, plist_id,
+		 data) >= 0);
+
+  // cleanup
+  H5Sclose(memspace);
+  H5Sclose(dataspace);
+  H5Dclose(dataset);
+    
+  // remove nonleaf blocks (in-place data copy)
+  if (leaf_only) {
+
+    for (i = 0; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1) {
+	skip++;
+	continue;
+      }
+      for (j = 0; j < d; j++) {
+	if (skip)
+	  data[(i - skip) * d + j] = data[i * d + j];
+      }
+    }
+    return(nblocks - skip);
+
+  }
+
+  else
+    return nblocks;
+    
+}
+//-----------------------------------------------------------------------
+//
+// GetIntVecBlocks
+//
+// reads a (1D) vector of ints for all blocks in the file
+// eg. block centers or block sizes
+//
+// var: variable (dataset) name
+// sblock, nblocks: starting block and number of blocks
+// d: size of vector in each block
+// leaf_only: 0 = keep all nodes, 1 = keep only leaf nodes
+// data: enough space to hold all the result (d * total number blocks)
+//
+// returns: number of blocks stored (leaf + nonleaf or only leaf)
+//
+// added by Tom Peterka, 11/2/09
+//
+int FlashHDFFile::GetIntVecBlocks(char *var, int sblock, int nblocks, 
+				     int d, int leaf_only, int *data) {
+
+  int rank = 2;
+  hsize_t dims[2];
+  hid_t dataspace, memspace, dataset;
+  hsize_t start[2];
+  int skip = 0; // number of nonleaf blocks skipped
+  int i, j;
+    
+  // number of blocks and starting offset when all blocks are used
+  if (!leaf_only || sblock == 0 && nblocks == numberOfBlocks) {
+    dims[0] = nblocks;
+    start[0] = sblock;
+  }
+
+  // number of blocks and starting offset when only leaf blocks are used
+  else {
+
+    j = 0;
+    for (i = 0; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      if (j == sblock)
+	break;
+      j++;
+    }
+    start[0] = i;
+    for ( ; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      if (j == sblock + nblocks - 1)
+	break;
+      j++;
+    }
+    dims[0] = i - start[0] + 1;
+
+  }
+  dims[1] = d;
+  start[1] = 0;
+
+  // read the data    
+  memspace = H5Screate_simple(rank, dims, NULL);    
+  assert((dataset = H5Dopen(datasetId, var)) >= 0);
+  dataspace = H5Dget_space(dataset);
+  H5Sselect_hyperslab(dataspace, H5S_SELECT_SET,
+		      start, NULL, dims, NULL);
+  assert(H5Dread(dataset, H5T_NATIVE_INT, memspace, dataspace, plist_id,
+		 data) >= 0);
+
+  // cleanup
+  H5Sclose(memspace);
+  H5Sclose(dataspace);
+  H5Dclose(dataset);
+    
+  // remove nonleaf blocks (in-place data copy)
+  if (leaf_only) {
+
+    for (i = 0; i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1) {
+	skip++;
+	continue;
+      }
+      for (j = 0; j < d; j++) {
+	if (skip)
+	  data[(i - skip) * d + j] = data[i * d + j];
+      }
+    }
+    return(nblocks - skip);
+
+  }
+
+  else
+    return nblocks;
+    
+}
+//-----------------------------------------------------------------------
+
 #if 0
 int
 FlashHDFFile::GetVectorVariable(int variableIndex, int dataPointIndex, float *variable)
@@ -2079,5 +2457,6 @@ sdPrintInformation(int32 id)
 
     return data_type;
 }// End of sdPrintInformation() 
+
 
 #endif

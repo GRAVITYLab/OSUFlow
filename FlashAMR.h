@@ -5,6 +5,7 @@
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <assert.h>
+#include "flashhdf5_float.h"
 
 #ifdef _MPI
 #include <mpi.h>
@@ -27,18 +28,20 @@ class FlashAMR {
   void GetLevelBounds(int level, float minB[3], float maxB[3]); 
   void GetDims(int dims[3]) {dims[0] = block_dims[0]; dims[1] = block_dims[1];                               dims[2] = block_dims[2]; }
   int GetMaxLevelValue() { return max_level_value; };
-  int LoadHDF5MetaData(char* fname, float*, float*); 
-  int SerialLoadHDF5Data(char* fname, char *vx, char *vy, char *vz); 
-  int SerialLoadHDF5Data(char* fname, int start_block, int end_block, 
-			 char *vx, char *vy, char *vz); 
 
 #ifdef _MPI
-  int ParallelLoadHDF5Data(char* fname, int start_block, int end_block,
-			   char *vx, char *vy, char *vz, MPI_Comm comm); 
+  int ParallelLoadHDF5MetaData(char* fname, float* min, float* max, 
+			       MPI_Comm comm); 
 #endif
+  int SerialLoadHDF5MetaData(char* fname, float* min, float* max); 
+
+  int LoadHDF5MetaData(float* min, float* max); 
+  int LoadHDF5Data(int start_block, int end_block, 
+		   char *vx, char *vy, char *vz); 
 
  private: 
 
+  FlashHDFFile *fdf; // flash data file
   int nb; // number of leaf blocks that are kept
   int file_nb; // total number of leaf + nonleaf blocks in the file
   int num_levels; 
@@ -70,15 +73,13 @@ class TimeVaryingFlashAMR {
   TimeVaryingFlashAMR(int myid = 0){ myproc = myid; }
   ~TimeVaryingFlashAMR(){} 
   
-  int LoadMetaData(char *fname, float*, float*); 
-
 #ifdef _MPI
-  int LoadData(char *fname, int start_block, int end_block, char *vx, char *vy,
-	       char *vz, MPI_Comm comm = MPI_COMM_WORLD); 
+  int LoadMetaData(char *fname, float*, float*, MPI_Comm = MPI_COMM_WORLD); 
 #else
+  int LoadMetaData(char *fname, float*, float*); 
+#endif
   int LoadData(char *fname, int start_block, int end_block, char *vx, char *vy,
 	       char *vz); 
-#endif
 
   int GetNumTimeSteps() {return num_timesteps; }
   int GetNumLevels() {return num_levels; } 
