@@ -204,11 +204,6 @@ int FlashAMR::LoadHDF5MetaData(float min[3], float max[3]) {
   nb = fdf->GetNumberOfBlocks(); // includes non-leaf blocks
   file_nb = nb; // save the total number of file block (leaf + nonleaf)
   fdf->GetCellDimensions(block_dims);
-  if (myproc == 0) {
-    fprintf(stderr,"Total number of leaf + nonleaf blocks = %d\n", nb); 
-    fprintf(stderr,"Each block is %dx%dx%d cells\n",
-	    block_dims[0], block_dims[1], block_dims[2]);
-  }
 
   // allocate memory for leaf and non-leaf blocks
   block_level = new int[nb]; // level that each block belongs to 
@@ -304,6 +299,13 @@ int FlashAMR::LoadHDF5MetaData(float min[3], float max[3]) {
   delete [] init;
   delete [] bounds;
 
+  if (myproc == 0) {
+    fprintf(stderr,"Number of leaf + nonleaf blocks = %d\n", file_nb); 
+    fprintf(stderr,"Number of leaf blocks = %d\n", nb); 
+    fprintf(stderr,"Each block is %dx%dx%d cells\n",
+	    block_dims[0], block_dims[1], block_dims[2]);
+  }
+
 }
 //-----------------------------------------------------------------------
 //
@@ -325,7 +327,7 @@ int FlashAMR::LoadHDF5Data(int start_block, int end_block,
   int nblocks = end_block - start_block + 1;
 
   // allocate memory for leaf + nonleaf blocks
-  vectors = new float*[nblocks]; // the vector data
+  vectors = new float*[nb]; // the vector data
   comp = new float[file_nb * size]; // don't know how much data will need to be
                                     //  read in order to get nblocks leaf blocks
                                     // todo: find a tighter bound for comp?
@@ -436,7 +438,8 @@ int TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3],
     if (myproc == 0)
       fprintf(stderr,"Reading metadata from %s ...\n\n", filename); 
     amr_list[i] = new FlashAMR(myproc);
-    amr_list[i]->ParallelLoadHDF5MetaData(filename, pmin, pmax, comm); 
+//     amr_list[i]->ParallelLoadHDF5MetaData(filename, pmin, pmax, comm); 
+    amr_list[i]->SerialLoadHDF5MetaData(filename, pmin, pmax); 
 
     // compute data extents over all the timesteps
     if (i == 0) {
@@ -550,16 +553,44 @@ int TimeVaryingFlashAMR::LoadData(char* fname, int start_block, int end_block,
 
   FILE *fIn; 
   char filename[300]; 
+  int fo; // offset of start of current time step in the total block range
+  int fs; // starting block number in current time step
+  int fe; // ending block number in current time step
+  int nb; // number of blocks in current time step
   int i;
 
   assert((fIn = fopen(fname, "r")) != NULL);
   fscanf(fIn, "%d", &num_timesteps); 
 
-  for (i = 0; i < num_timesteps; i++) {
+  fo = 0;
+
+  for (i = 0; i < num_timesteps && start_block <= end_block; i++) {
+
+    // start end end block within the current time step
+    fs = start_block - fo;
+    fe = end_block - fo;
+    nb = amr_list[i]->GetNumBlocks();
+
+    // block range does not include this file
+    if (fs < 0 || fs >= nb) {
+      fo += nb;
+      continue;
+    }
+
+    // block range extends beyond end of this time step
+    if (fe >= nb)
+      fe = nb - 1;
+
+    // read the blocks in the current time step
     fscanf(fIn, "%s", filename); 
     if (myproc == 0)
       fprintf(stderr,"Reading vector data from %s ...\n\n", filename); 
-    amr_list[i]->LoadHDF5Data(start_block, end_block, vx, vy, vz);
+    amr_list[i]->LoadHDF5Data(fs, fe, vx, vy, vz);
+
+    // update for next time step
+    start_block += (fe - fs + 1);
+    fo += nb;
+
   }
 
 }

@@ -1,3 +1,26 @@
+//------------------------------------------------------------------------------
+//
+// static and time-varying FLASH AMR data
+//
+// Copyright (c) 2009 Han-Wei Shen and Tom Peterka
+//
+// Contact:
+//
+// Han-Wei Shen
+// The Ohio State University
+// Columbus, OH
+//
+// Tom Peterka
+// MCS Radix Lab
+// Argonne National Laboratory
+// 9700 S. Cass Ave.
+// Argonne, IL 60439
+// tpeterka@mcs.anl.gov
+//
+// All rights reserved. May not be used, modified, or copied
+// without permission
+//
+//--------------------------------------------------------------------------
 
 #ifndef _FLASHAMR_H_ 
 #define _FLASHAMR_H_ 
@@ -11,6 +34,17 @@
 #include <mpi.h>
 #endif
 
+//--------------------------------------------------------------------------
+//
+// utility functions
+//
+void int_sort_list(int* list, int& cnt);
+void float_sort_list(float* list, int& cnt);
+
+//--------------------------------------------------------------------------
+//
+// Static FlashAMR class
+//
 class FlashAMR {
 
  public: 
@@ -65,7 +99,10 @@ class FlashAMR {
   int myproc; // my process or thread number (0 if serial)
 
 } ; 
-
+//--------------------------------------------------------------------------
+//
+// Static FlashAMR class
+//
 class TimeVaryingFlashAMR {
 
  public: 
@@ -111,5 +148,6 @@ class TimeVaryingFlashAMR {
   int myproc; // my process or thread number (0 if serial)
 
 }; 
+//--------------------------------------------------------------------------
 
 #endif 

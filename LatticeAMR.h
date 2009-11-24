@@ -10,6 +10,7 @@
 #include "VectorMatrix.h"
 #include "OSUFlow.h"
 #include "Partition.h"
+#include "FlashAMR.h"
 
 #ifdef _MPI
 #include <mpi.h>
@@ -34,7 +35,7 @@ class  LatticeAMR {
 		   float x_min, float x_max, float y_min, float y_max, 
 		   float z_min, float z_max, int t_min, int t_max); 
 
-  //Check in a non-empty block in the level 
+  // Check in a non-empty block in the level, along with its data
   bool CheckIn(int level, float x, float y, float z, int t, 
 	       float* data); 
 
@@ -42,6 +43,15 @@ class  LatticeAMR {
   void CompleteLevels(); //extract those non-empty blocks 
   void CompleteLevels(int t_interval); 
   void MergeAndCompleteLevels(); 
+
+  // assign contiguous division of blocks to processes and get the process
+  // id back based on that division
+  int AssignContig(int start_time, int end_time,
+		   int *start_block, int *end_block);
+  int GetProc(int level, int idx);
+
+  // time-varying AMR object
+  TimeVaryingFlashAMR *tamr;
 
   int GetRank(float x, float y, float z, float t); 
   int GetRank(float x, float y, float z, float t, int level);
@@ -122,12 +132,13 @@ class  LatticeAMR {
   float xdim, ydim, zdim; //the lengths of the whole domain (not the data resolution) 
   int tdim;               //number of time steps, always an integer
 
-  //the physical bounds of all levels
+  // the physical bounds of all levels
   float *xmin, *xmax, *ymin, *ymax, *zmin, *zmax; 
   int   *tmin, *tmax; 
 
   float *xlength, *ylength, *zlength; // the physical lengths of blocks 
-  int   *tlength;                     // in all levels (all blocks have the same size in each level)
+  int   *tlength;                     // in all levels (all blocks have the 
+                                      // same size in each level)
 
   int *xres, *yres, *zres, *tres; // the  resolution of data blocks in all levels 
 
@@ -136,12 +147,14 @@ class  LatticeAMR {
   bool **has_data;      // whether the block in this level has data or not 
   int ** has_data_from_merger; 
   int  **finest_level;  // in which level the finest data are defined 
-  int  **index_to_rank; 
+  int  **index_to_rank; // mapping index in a level to a partition rank
+  int  **index_to_seq; // mapping index in a level to a block sequence number
   float ***data_ptr; // data pointers for every non-empty block, ordered by 
                      // level and index (so three *s here) 
 
   int* nblocks; // number of blocks in each level (regardless of having data or not) 
 
+  int tot_nblocks; // total number of blocks in a time interval
   int npart;   // number of partitions. 
   volume_bounds_type_f *vb_list; // bounds for each partition 
   int *rank_to_index; // from rank to (i,j,k,t, level) indices 

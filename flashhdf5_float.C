@@ -103,6 +103,7 @@ FlashHDFFile::FlashHDFFile(char *filename, MPI_Comm comm) {
 
   MPI_Info info;
 
+  node_type = NULL;
   _ResetSettings(CONSTRUCTOR);
 
   // open the file w/ collective I/O
@@ -111,7 +112,7 @@ FlashHDFFile::FlashHDFFile(char *filename, MPI_Comm comm) {
   H5Pset_fapl_mpio(plist_id, comm, info);
   assert((datasetId = H5Fopen(filename, H5F_ACC_RDONLY, plist_id)) >= 0);
 
-  // set proplist for collective I/O
+  // create the proplist and set it for collective I/O
   plist_id = H5Pcreate(H5P_DATASET_XFER);
   H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 
@@ -132,11 +133,12 @@ FlashHDFFile::FlashHDFFile(char *filename, MPI_Comm comm) {
 //
 FlashHDFFile::FlashHDFFile(char *filename) {
 
+  node_type = NULL;
   _ResetSettings(CONSTRUCTOR);
 
   assert((datasetId = H5Fopen(filename,H5F_ACC_RDONLY,H5P_DEFAULT)) >= 0);
 
-  // set proplist for collective I/O
+  // create the proplist
   plist_id = H5Pcreate(H5P_DATASET_XFER);
 
   _InitSettings();
@@ -1964,33 +1966,26 @@ int FlashHDFFile::GetFloatVecBlocks(char *var, int sblock, int nblocks,
   int skip = 0; // number of nonleaf blocks skipped
   int i, j;
     
-  // number of blocks and starting offset when all blocks are used
-  if (!leaf_only || sblock == 0 && nblocks == numberOfBlocks) {
+  // bracket the file blocks to read (start[0], dims[0])
+  if (!leaf_only) {
     dims[0] = nblocks;
     start[0] = sblock;
   }
-
-  // number of blocks and starting offset when only leaf blocks are used
   else {
-
+    j = -1; // count of leaf blocks
+    for (i = 0; j < sblock && i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      j++;
+    }
+    start[0] = i - 1;
     j = 0;
-    for (i = 0; i < numberOfBlocks; i++) {
+    for ( ; j < nblocks && i < numberOfBlocks; i++) {
       if (GetNodeType(i) != 1)
 	continue;
-      if (j == sblock)
-	break;
       j++;
     }
-    start[0] = i;
-    for ( ; i < numberOfBlocks; i++) {
-      if (GetNodeType(i) != 1)
-	continue;
-      if (j == sblock + nblocks - 1)
-	break;
-      j++;
-    }
-    dims[0] = i - start[0] + 1;
-
+    dims[0] = i - start[0];
   }
 
   dims[1] = d;
@@ -2013,8 +2008,8 @@ int FlashHDFFile::GetFloatVecBlocks(char *var, int sblock, int nblocks,
   // remove nonleaf blocks (in-place data copy)
   if (leaf_only) {
 
-    for (i = 0; i < numberOfBlocks; i++) {
-      if (GetNodeType(i) != 1) {
+    for (i = 0; i < dims[0]; i++) {
+      if (GetNodeType(start[0] + i) != 1) {
 	skip++;
 	continue;
       }
@@ -2023,12 +2018,12 @@ int FlashHDFFile::GetFloatVecBlocks(char *var, int sblock, int nblocks,
 	  data[(i - skip) * d + j] = data[i * d + j];
       }
     }
-    return(nblocks - skip);
+    return(dims[0] - skip);
 
   }
 
   else
-    return nblocks;
+    return dims[0];
     
 }
 //-----------------------------------------------------------------------
@@ -2063,33 +2058,26 @@ int FlashHDFFile::GetFloatVolBlocks(char *var, int sblock, int nblocks,
   int d = d1 * d2 * d3; // total size of the block
   int i, j;
     
-  // number of blocks and starting offset when all blocks are used
-  if (!leaf_only || sblock == 0 && nblocks == numberOfBlocks) {
+  // bracket the file blocks to read (start[0], dims[0])
+  if (!leaf_only) {
     dims[0] = nblocks;
     start[0] = sblock;
   }
-
-  // number of blocks and starting offset when only leaf blocks are used
   else {
-
+    j = -1; // count of leaf blocks
+    for (i = 0; j < sblock && i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      j++;
+    }
+    start[0] = i - 1;
     j = 0;
-    for (i = 0; i < numberOfBlocks; i++) {
+    for ( ; j < nblocks && i < numberOfBlocks; i++) {
       if (GetNodeType(i) != 1)
 	continue;
-      if (j == sblock)
-	break;
       j++;
     }
-    start[0] = i;
-    for ( ; i < numberOfBlocks; i++) {
-      if (GetNodeType(i) != 1)
-	continue;
-      if (j == sblock + nblocks - 1)
-	break;
-      j++;
-    }
-    dims[0] = i - start[0] + 1;
-
+    dims[0] = i - start[0];
   }
 
   dims[1] = d1;
@@ -2114,8 +2102,8 @@ int FlashHDFFile::GetFloatVolBlocks(char *var, int sblock, int nblocks,
   // remove nonleaf blocks (in-place data copy)
   if (leaf_only) {
 
-    for (i = 0; i < numberOfBlocks; i++) {
-      if (GetNodeType(i) != 1) {
+    for (i = 0; i < dims[0]; i++) {
+      if (GetNodeType(start[0] + i) != 1) {
 	skip++;
 	continue;
       }
@@ -2124,12 +2112,12 @@ int FlashHDFFile::GetFloatVolBlocks(char *var, int sblock, int nblocks,
 	  data[(i - skip) * d + j] = data[i * d + j];
       }
     }
-    return(nblocks - skip);
+    return(dims[0] - skip);
 
   }
 
   else
-    return nblocks;
+    return dims[0];
     
 }
 //-----------------------------------------------------------------------
@@ -2161,34 +2149,28 @@ int FlashHDFFile::GetFloatMatBlocks(char *var, int sblock, int nblocks,
   int d = d1 * d2; // number of elements per block
   int i, j;
     
-  // number of blocks and starting offset when all blocks are used
-  if (!leaf_only || sblock == 0 && nblocks == numberOfBlocks) {
+  // bracket the file blocks to read (start[0], dims[0])
+  if (!leaf_only) {
     dims[0] = nblocks;
     start[0] = sblock;
   }
-
-  // number of blocks and starting offset when only leaf blocks are used
   else {
-
+    j = -1; // count of leaf blocks
+    for (i = 0; j < sblock && i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      j++;
+    }
+    start[0] = i - 1;
     j = 0;
-    for (i = 0; i < numberOfBlocks; i++) {
+    for ( ; j < nblocks && i < numberOfBlocks; i++) {
       if (GetNodeType(i) != 1)
 	continue;
-      if (j == sblock)
-	break;
       j++;
     }
-    start[0] = i;
-    for ( ; i < numberOfBlocks; i++) {
-      if (GetNodeType(i) != 1)
-	continue;
-      if (j == sblock + nblocks - 1)
-	break;
-      j++;
-    }
-    dims[0] = i - start[0] + 1;
-
+    dims[0] = i - start[0];
   }
+
   dims[1] = d1;
   dims[2] = d2;
   start[1] = start[2] = 0;
@@ -2210,8 +2192,8 @@ int FlashHDFFile::GetFloatMatBlocks(char *var, int sblock, int nblocks,
   // remove nonleaf blocks (in-place data copy)
   if (leaf_only) {
 
-    for (i = 0; i < numberOfBlocks; i++) {
-      if (GetNodeType(i) != 1) {
+    for (i = 0; i < dims[0]; i++) {
+      if (GetNodeType(start[0] + i) != 1) {
 	skip++;
 	continue;
       }
@@ -2220,12 +2202,12 @@ int FlashHDFFile::GetFloatMatBlocks(char *var, int sblock, int nblocks,
 	  data[(i - skip) * d + j] = data[i * d + j];
       }
     }
-    return(nblocks - skip);
+    return(dims[0] - skip);
 
   }
 
   else
-    return nblocks;
+    return dims[0];
     
 }
 //-----------------------------------------------------------------------
@@ -2255,34 +2237,28 @@ int FlashHDFFile::GetIntVecBlocks(char *var, int sblock, int nblocks,
   int skip = 0; // number of nonleaf blocks skipped
   int i, j;
     
-  // number of blocks and starting offset when all blocks are used
-  if (!leaf_only || sblock == 0 && nblocks == numberOfBlocks) {
+  // bracket the file blocks to read (start[0], dims[0])
+  if (!leaf_only) {
     dims[0] = nblocks;
     start[0] = sblock;
   }
-
-  // number of blocks and starting offset when only leaf blocks are used
   else {
-
+    j = -1; // count of leaf blocks
+    for (i = 0; j < sblock && i < numberOfBlocks; i++) {
+      if (GetNodeType(i) != 1)
+	continue;
+      j++;
+    }
+    start[0] = i - 1;
     j = 0;
-    for (i = 0; i < numberOfBlocks; i++) {
+    for ( ; j < nblocks && i < numberOfBlocks; i++) {
       if (GetNodeType(i) != 1)
 	continue;
-      if (j == sblock)
-	break;
       j++;
     }
-    start[0] = i;
-    for ( ; i < numberOfBlocks; i++) {
-      if (GetNodeType(i) != 1)
-	continue;
-      if (j == sblock + nblocks - 1)
-	break;
-      j++;
-    }
-    dims[0] = i - start[0] + 1;
-
+    dims[0] = i - start[0];
   }
+
   dims[1] = d;
   start[1] = 0;
 
@@ -2303,8 +2279,8 @@ int FlashHDFFile::GetIntVecBlocks(char *var, int sblock, int nblocks,
   // remove nonleaf blocks (in-place data copy)
   if (leaf_only) {
 
-    for (i = 0; i < numberOfBlocks; i++) {
-      if (GetNodeType(i) != 1) {
+    for (i = 0; i < dims[0]; i++) {
+      if (GetNodeType(start[0] + i) != 1) {
 	skip++;
 	continue;
       }
@@ -2313,12 +2289,12 @@ int FlashHDFFile::GetIntVecBlocks(char *var, int sblock, int nblocks,
 	  data[(i - skip) * d + j] = data[i * d + j];
       }
     }
-    return(nblocks - skip);
+    return(dims[0] - skip);
 
   }
 
   else
-    return nblocks;
+    return dims[0];
     
 }
 //-----------------------------------------------------------------------

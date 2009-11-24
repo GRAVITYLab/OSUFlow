@@ -523,7 +523,8 @@ void IOandCompute() {
 // 	    num_loaded--;
 // 	  }
 
-	  // read the data
+	  // get the pointer to the data, create flow field
+	  // data were read into memory earlier
 	  assert((data = lat->GetData(i)) != NULL);
 	  lat->GetVB(i, from, to, &min_t, &max_t);
 	  osuflow[i]->CreateTimeVaryingFlowField(data, dims[0], dims[1], 

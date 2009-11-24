@@ -1,8 +1,31 @@
+//------------------------------------------------------------------------------
+//
+// AMR lattice
+//
+// Copyright (c) 2009 Han-Wei Shen and Tom Peterka
+//
+// Contact:
+//
+// Han-Wei Shen
+// The Ohio State University
+// Columbus, OH
+//
+// Tom Peterka
+// MCS Radix Lab
+// Argonne National Laboratory
+// 9700 S. Cass Ave.
+// Argonne, IL 60439
+// tpeterka@mcs.anl.gov
+//
+// All rights reserved. May not be used, modified, or copied
+// without permission
+//
+//--------------------------------------------------------------------------
 
 #include "LatticeAMR.h"
 #include "FlashAMR.h"
 
-/////////////////////////////////////////////////////////
+//--------------------------------------------------------------------------
 //
 // Lattice AMR
 //
@@ -30,10 +53,12 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
   FlashAMR *amr; // AMR object for one time step
   int level; // current level
   int idx; // index in level
-  int i, t;
+  int rank; // partition rank of one block
+  int p; // process id for a block
+  int i, j, n, t;
 
   // init AMR
-  TimeVaryingFlashAMR *tamr = new TimeVaryingFlashAMR(myid);
+  tamr = new TimeVaryingFlashAMR(myid);
   tamr->LoadMetaData(filename, min, max); 
   num_levels = tamr->GetNumLevels();
   tamr->GetDims(block_dims); 
@@ -75,10 +100,10 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
                                          // in this spatial region
   data_ptr = new float**[num_levels];    // one float ptr per time step 
   index_to_rank = new int*[num_levels];  // mapping from index to rank 
+  index_to_seq = new int*[num_levels];  // mapping from index to block sequence
+                                        // number
   nblocks = new int[num_levels];         // how many blocks in each region 
                                          // regardless of empty or not 
-  npart = 0;                             // number of non-empty blocks overall 
-
   // process info
   myproc = myid;
   nproc = nid;
@@ -90,10 +115,11 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
     tamr->GetLevelBounds(i, levelMinB, levelMaxB); 
 
     if (myproc == 0)
-      fprintf(stderr, "Level %d: physical size of one block in this level = [%.4e %.4e %.4e] min=[%.4e %.4e %.4e] max=[%.4e %.4e %.4e]\n", 
+      fprintf(stderr, "Level %d: physical size of one block in this level = [%.4e %.4e %.4e] min=[%.4e %.4e %.4e %d] max=[%.4e %.4e %.4e %d]\n", 
 	      i, blockSize[0], blockSize[1], blockSize[2], 
 	      levelMinB[0], levelMinB[1], levelMinB[2], 
-	      levelMaxB[0], levelMaxB[1], levelMaxB[2]); 
+	      levelMaxB[0], levelMaxB[1], levelMaxB[2],
+	      0, tlen - 1); 
 
     CreateLevel(i, blockSize[0], blockSize[1], blockSize[2], 
 		block_dims[0], block_dims[1], block_dims[2], 
@@ -102,58 +128,108 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
 
   }
 
-  // total number of blocks
-  npart = 0;
-  for (i = 0; i < tlen; i++) {
-    amr = tamr->GetTimeStep(i);
-    npart += amr->GetNumBlocks();
-  }
-  if (myproc == 0)
-    fprintf(stderr,"\nTotal number of leaf blocks = %d\n\n",npart);
-
-  // create partition data structure
-  part = new Partition(npart, nproc);
-
-  // partition domain (contiguous range for now)
-  ContigRange_proc();
-  nb = GetMyNumPartitions(myproc); // number of my blocks
-  start_block = part->proc_parts[myproc][0];
-  end_block = part->proc_parts[myproc][part->proc_nparts[myproc] - 1];
-
-  // read my data blocks (contiguous range)
-  tamr->LoadData(filename, start_block, end_block, vx, vy, vz);
-
-  // check in each block
+  // check in each block, without the data for now
   for (t = 0; t < tlen; t++) {
     amr = tamr->GetTimeStep(t);
     for (i = 0; i < amr->GetNumBlocks(); i++) {
       center = amr->GetBlockCenter(i); 
-      if (GetProc(i) == myproc)
-	data = amr->GetDataPtr(i);
-      else
-	data = 0;
-      level = amr->GetLevel(i);
-      assert((idx = GetIndexinLevel(level, center[0], center[1], center[2],
-				    (float) t)) != -1);
-      index_to_rank[level][idx] = i;
-      CheckIn(level, center[0], center[1], center[2], t, data);
+      CheckIn(amr->GetLevel(i), center[0], center[1], center[2], t, 0);
     }
   }
 
-  // complete the levels after data has been checked in
-  CompleteLevels(tlen); // Finishes up all the book keeping
-                        // and completes the lattice setup
+  // assign a contiguous distribution of blocks to processes
+  AssignContig(0, tlen - 1, &start_block, &end_block);
+
+  // final bookkeeping and combining any blocks that are possible
+  CompleteLevels(tlen);
+
+  // create partition data structure
+  part = new Partition(npart, nproc);
+
+  // read my data blocks
+  tamr->LoadData(filename, start_block, end_block, vx, vy, vz);
+
+  // check in actual data into my blocks
+  // record partition data struture info for all blocks
+  n = 0; // block number in the entire sequence so far
+  for (t = 0; t < tlen; t++) {
+
+    amr = tamr->GetTimeStep(t);
+    for (i = 0; i < amr->GetNumBlocks(); i++) {
+
+      // identify the block by its center -> level and index in level
+      center = amr->GetBlockCenter(i); 
+      level = amr->GetLevel(i);
+      assert((idx = GetIndexinLevel(level, center[0], center[1], center[2],
+				    (float)t)) != -1);
+
+      // get and save process id
+      rank = index_to_rank[level][idx];
+      p = GetProc(level, idx);
+      part->parts[rank].Proc = p;
+
+      // update proc_parts and check in data for my own blocks only
+      if (n >= start_block && n <= end_block) {
+
+	// check if we have this rank already
+	for (j = 0; j < part->proc_nparts[p]; j++) {
+	  if (part->proc_parts[p][j] == rank)
+	    break;
+	}
+	// if the block is in a new partition rank, 
+	// add it to the proc_parts structure
+	if (j == part->proc_nparts[p]) {
+	  part->proc_parts[p][part->proc_nparts[p]] = rank;
+	  part->proc_nparts[p]++;
+	}
+	// check in the data of the block
+	data_ptr[level][idx] = amr->GetDataPtr(i); 
+
+      }
+
+      n++;
+
+    }
+
+  }
+
+  // proc_parts needs to be sorted in same order as blocks (ascending order)
+  for (i = 0; i < nid; i++) {
+    if (part->proc_nparts[i] > 0)
+      int_sort_list(part->proc_parts[i],part->proc_nparts[i]);
+  }
+
+  // ranks of my blocks and my neighbors' blocks
+  nb = GetMyNumPartitions(myproc); // my number of blocks
+  fprintf(stderr,"Process %d has %d partitions\n", myproc, nb);
+
+  if (myproc >= 0) {
+
+    // allocate table of neighbor ranks for one neighbor initially
+    assert((neighbor_ranks = (int **)malloc(nb * sizeof(int *))) != NULL);
+    for (i = 0; i < nb; i++)
+      assert((neighbor_ranks[i] = (int *)malloc(sizeof(int))) != NULL);
+
+    // ranks of my blocks
+    assert((block_ranks = (int *)malloc(nb * sizeof(int))) != NULL);
+    GetMyPartitions(myproc, block_ranks);
+
+    // learn who my neighbors are
+    for (i = 0; i < nb; i++)
+      GetNeighborRanks(i);
+
+  }
 
   // debug
   // average number of neighbors for each block
   int tot_neighbors = 0;
   for (i = 0; i < nb; i++)
     tot_neighbors += part->parts[i].NumNeighbors;
-  fprintf(stderr,"Average number of neighbors per block = %d\n", tot_neighbors / nb);
+  fprintf(stderr,"Average number of neighbors per block = %d\n", 
+	  tot_neighbors / nb);
 
 }
-
-/////////////////////////////////////////////////////////////////
+//------------------------------------------------------------------------------
 //
 //  Destructor
 // 
@@ -170,18 +246,20 @@ LatticeAMR::~LatticeAMR()
     delete [] has_data[i]; 
     delete [] finest_level[i]; 
     delete [] index_to_rank[i]; 
+    delete [] index_to_seq[i]; 
   }
   delete [] has_data; 
   delete [] finest_level; 
   delete [] index_to_rank; 
+  delete [] index_to_seq; 
 
   delete part;
 
   if (vb_list!=NULL) delete [] vb_list; 
   if (seedlists!=NULL) delete [] seedlists; 
-}
 
-//////////////////////////////////////////////////////////////////////////
+}
+//------------------------------------------------------------------------------
 //
 // Create a new level of lattice. The level has to be smaller than the 
 // largest level set in the constructor 
@@ -237,6 +315,7 @@ bool LatticeAMR::CreateLevel(int level, float x_size, float y_size,
   finest_level[level] = new int[size]; 
   data_ptr[level] = new float*[size]; 
   index_to_rank[level] = new int[size];
+  index_to_seq[level] = new int[size];
 
   int idx = 0; 
   for (int t=0; t<ldim[level]; t++) 
@@ -252,17 +331,17 @@ bool LatticeAMR::CreateLevel(int level, float x_size, float y_size,
 	}
   return true; 
 }
-
-//////////////////////////////////////////////////////////////////////////
+//------------------------------------------------------------------------------
 //
 //  Get the index of the block at the given level that contains (x,y,z,t)
 //
 int LatticeAMR::GetIndexinLevel(int level, float x, float y, float z, float t) {
 
-  if (level <0 || level >=num_levels) return -1; 
-
-  if (x < xmin[level] || x > xmax[level] || y < ymin[level] || y > ymax[level] || 
-      z < zmin[level] || z > zmax[level] || t < tmin[level] || t > tmax[level])
+  if (level < 0 || level >= num_levels || 
+      x < xmin[level] || x > xmax[level] || 
+      y < ymin[level] || y > ymax[level] || 
+      z < zmin[level] || z > zmax[level] || 
+      t < tmin[level] || t > tmax[level])
     return -1; 
   
   int i = (int)((x - xmin[level]) / xlength[level]); 
@@ -282,24 +361,95 @@ int LatticeAMR::GetIndexinLevel(int level, float x, float y, float z, float t) {
   return idx; 
 
 }
-
-///////////////////////////////////////////////////////////
+//------------------------------------------------------------------------------
 //
-// check in to indicate that the lattice element containing x, y, z, t
-// has data at this level 
+// AssignContig
+//
+// assigns a contiguous partitioning of blocks over a time interval
+// sets start and end block numbers for a process
+//
+// start_time, end_time: time interval in question
+// start_block, end_block: (output) starting and ending block range of this proc
+// returns: total number of blocks
+//
+int LatticeAMR::AssignContig(int start_time, int end_time,
+			     int *start_block, int *end_block) {
+
+  int blocks_per_proc; // number of blocks per process
+  FlashAMR *amr; // AMR object for one time step
+  int i;
+
+  // total number of blocks
+  tot_nblocks = 0;
+  for (i = 0; i < end_time - start_time + 1; i++) {
+    amr = tamr->GetTimeStep(i);
+    tot_nblocks += amr->GetNumBlocks();
+  }
+
+  if (myproc == 0)
+    fprintf(stderr,"\nTotal number of leaf blocks = %d\n\n", tot_nblocks);
+
+  // start and end blocks
+  blocks_per_proc = tot_nblocks / nproc;
+  *start_block = myproc * blocks_per_proc;
+  *end_block = *start_block + blocks_per_proc - 1;
+  if (myproc == nproc - 1)
+    *end_block = tot_nblocks - 1;
+
+  // debug
+  fprintf(stderr, "start_block = %d end_block = %d blocks_per_proc = %d\n",
+	  *start_block, *end_block, blocks_per_proc);
+
+  return tot_nblocks;
+
+}
+//------------------------------------------------------------------------------
+//
+// GetProc
+//
+// gets the process id. corrsponding to a block level and index
+// assumes block has already been checked in
+// assumes contiguous block division to map block sequence number to process
+//
+int LatticeAMR::GetProc(int level, int idx) {
+
+  int n; // sequence number of a block
+  int blocks_per_proc; // number of blocks per process
+  int p; // process id
+
+  // convert level and idx to the block sequence number
+  n = index_to_seq[level][idx];
+
+  // divide the blocks contiguously among processers
+  blocks_per_proc = tot_nblocks / nproc;
+  p = n / blocks_per_proc;
+  if (p == nproc) // edge case, last process has remainder blocks
+    p--;
+
+  return p;
+
+}
+//------------------------------------------------------------------------------
+//
+// CheckIn
+//
+// Indicates that the lattice element containing x, y, z, t
+// has data at this level, or will have it before completing the lattice setup
+// 
 // It also updates the corresponding lattice element in other level 
 // regarding which level has the finest level of data 
 //
-// each process must check in all blocks in the entire lattice, 
+// Each process must check in all blocks in the entire lattice, 
 // in order to have a consistent view of the entire structure
+// even if the data will actually come from a different process
 //
-// if a process owns the data for this block, it should supply a pointer to it
-// otherwise, it should supply data = NULL
+// If data will be provided later or by another process, pass data = 0
 //
 bool LatticeAMR::CheckIn(int level, float x, float y, float z, int t, 
 			 float* data) {
 
   int idx; // index in level
+  static int n; // sequence number of block (in the order CheckIn was called)
 
   if ((idx = GetIndexinLevel(level, x, y, z, (float)t)) == -1) {
     fprintf(stderr, "panic: idx = -1\n");
@@ -308,6 +458,7 @@ bool LatticeAMR::CheckIn(int level, float x, float y, float z, int t,
 
   has_data[level][idx] = true; 
   data_ptr[level][idx] = data; 
+  index_to_seq[level][idx] = n;
 
   // update the blocks at other levels as well
   for (int i = 0; i < num_levels; i++){
@@ -317,12 +468,10 @@ bool LatticeAMR::CheckIn(int level, float x, float y, float z, int t,
 	finest_level[i][idx] = level; 
   }
 
+  n++;
   return true; 
 
 }
-
-///////////////////////////////////////////////////////////////////////
-
 //----------------------------------------------------------------------------
 //
 // CompleteLevels
@@ -333,18 +482,33 @@ bool LatticeAMR::CheckIn(int level, float x, float y, float z, int t,
 // A new segment results if the length > than t_interval, or there is no data
 // in the corresponding spatial region 
 // 
+// stores the final number of partitions after simplifying into time segments
+// in the class variable nparts
+//
 void LatticeAMR::CompleteLevels(int t_interval) {
 
-  int part; // current partition
   int idx; // index in level
+  int old_proc; // process id for previous block
   int counter;
   int offset;
   int i, j, k, l, t;
 
+  // count the number of blocks before any simplification
+  npart = 0; 
+  for (i=0; i<num_levels; i++)
+    for (j=0; j<nblocks[i]; j++)
+      if (has_data[i][j]) npart++; 
+  if (myproc == 0)
+    fprintf(stderr,"Before combining any time intervals, npart = %d\n", npart); 
+
+  // allocate a few data structures for the max number of partitions
   vb_list = new volume_bounds_type_f[npart]; 
   rank_to_index = new int[npart]; 
 
+  // init
+  npart = -1; 
   offset = 0; 
+  old_proc = -1;
 
   // loop through all spatial regions in all levels
   for (l = 0; l < num_levels; l++) {
@@ -354,80 +518,70 @@ void LatticeAMR::CompleteLevels(int t_interval) {
 
 	  counter = 0; 
 
-	    for (t = 0; t < ldim[l]; t++) {
+	  for (t = 0; t < ldim[l]; t++) {
+
+	    idx = t * idim[l] * jdim[l] * kdim[l] + k * idim[l] * jdim[l] +
+	      j * idim[l] + i; 
+
+	    if (has_data[l][idx]) {
 
 	      // reset the counter. ready to start another time segment 
-	      if (counter >= t_interval)
+	      if (counter >= t_interval || GetProc(l, idx) != old_proc)
 		counter = 0;
 
-	      idx = t * idim[l] * jdim[l] * kdim[l] +
-		k * idim[l] * jdim[l] +j * idim[l] + i;
+	      if (counter == 0) {    // a new time segment starts
 
-	      if (has_data[l][idx]) {
+		npart++; 
 
-		if (counter == 0) {    // a new time segment starts
+		vb_list[npart].xmin= xmin[l] +i * xlength[l]; 
+		vb_list[npart].xmax= xmin[l] + (i + 1) * xlength[l]; 
+		vb_list[npart].ymin= ymin[l] + j * ylength[l]; 
+		vb_list[npart].ymax= ymin[l] + (j + 1) * ylength[l]; 
+		vb_list[npart].zmin= zmin[l] + k * zlength[l]; 
+		vb_list[npart].zmax= zmin[l] + (k + 1) * zlength[l]; 
+		vb_list[npart].xdim = xres[l]; 
+		vb_list[npart].ydim = yres[l]; 
+		vb_list[npart].zdim = zres[l]; 
+		vb_list[npart].tmin= tmin[l] + t * tlength[l]; 
+		vb_list[npart].tmax= tmin[l] + t * tlength[l]; 
+		vb_list[npart].tdim = 1; 
 
-		  part = index_to_rank[l][idx];
+		index_to_rank[l][idx] = npart; 
+		rank_to_index[npart] = offset + idx; 
+		old_proc = GetProc(l, idx);
 
-		  vb_list[part].xmin = xmin[l] + i * xlength[l]; 
-		  vb_list[part].xmax = xmin[l] + (i + 1) * xlength[l]; 
-		  vb_list[part].ymin = ymin[l] + j * ylength[l]; 
-		  vb_list[part].ymax = ymin[l] + (j + 1) * ylength[l]; 
-		  vb_list[part].zmin = zmin[l] + k * zlength[l]; 
-		  vb_list[part].zmax = zmin[l] + (k + 1) * zlength[l]; 
-		  vb_list[part].xdim = xres[l]; 
-		  vb_list[part].ydim = yres[l]; 
-		  vb_list[part].zdim = zres[l]; 
-
-		  vb_list[part].tmin = tmin[l] + t * tlength[l]; 
-		  vb_list[part].tmax = tmin[l] + t * tlength[l]; 
-		  vb_list[part].tdim = 1; 
-
-		  rank_to_index[part] = offset + idx; 
-
-		  if (t + 1 == ldim[l])
-		    counter = 0; 
-		  else 
-		    counter++; 
-		}
-
-		else  {
-		  vb_list[part].tmax = tmin[l] + t * tlength[l]; 
-		  vb_list[part].tdim++; 
+		// update the counter for next block
+		if (t + 1 == ldim[l])
+		  counter = 0; 
+		else 
 		  counter++; 
-		}
+
 	      }
 
-	      else  // do not have data
-		counter = 0; // reset the counter
+	      else  { // add to existing time segment
+		vb_list[npart].tmax = tmin[l] + t * tlength[l]; 
+		vb_list[npart].tdim++; 
+		index_to_rank[l][idx] = npart; 
+		counter++; 
+	      }
 
-	    }
+	    } // has data
+
+	    else  // do not have data
+	      counter = 0;
 
 	  }
 
+	}
+
     offset += nblocks[l]; 
+
   }
+
+  npart++;
 
   if (myproc == 0)
     fprintf(stderr,"After combining any time intervals, final npart = %d\n", npart); 
-
-  // ranks of my blocks and my neighbors' blocks
-  if (myproc >= 0) {
-
-    // allocate table of neighbor ranks for one neighbor initially
-    assert((neighbor_ranks = (int **)malloc(nb * sizeof(int *))) != NULL);
-    for (i = 0; i < nb; i++)
-      assert((neighbor_ranks[i] = (int *)malloc(sizeof(int))) != NULL);
-
-    // ranks of my blocks
-    assert((block_ranks = (int *)malloc(nb * sizeof(int))) != NULL);
-    GetMyPartitions(myproc, block_ranks);
-
-    // learn who my neighbors are
-    for (i = 0; i < nb; i++)
-      GetNeighborRanks(i);
-
-  }
 
 }
 //----------------------------------------------------------------------------
@@ -590,7 +744,8 @@ float** LatticeAMR::GetDataPtr(int rank)
   int index_offset = 0; 
   for (int i=0; i<n_steps; i++) {
     if (has_data[l][remainder+i*t_jump] == false) {
-      printf("panic: has_data[%d][%d] is false\n",l,remainder+i*t_jump); 
+      printf("panic: has_data[%d][%d] is false, rank = %d remainder = %d \n",
+	     l, remainder+i*t_jump, rank, remainder); 
       exit(1); 
     }
     ppvector[i] = data_ptr[l][remainder+i*t_jump]; 

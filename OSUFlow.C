@@ -451,7 +451,8 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
   ppVector = new VECTOR3 *[numTimesteps]; 
   for (int i=0; i<numTimesteps; i++) {
     pVector = new VECTOR3[totalNum]; 
-    if (ppData[i] == NULL) printf("*** panic!!!\n"); 
+    if (ppData[i] == NULL) 
+      printf("panic: null data pointer in CreateTimeVaryingFlowField\n"); 
     for (int j = 0; j<totalNum; j++) {
       pVector[j].Set(ppData[i][j*3], ppData[i][j*3+1], ppData[i][j*3+2]); 
     }

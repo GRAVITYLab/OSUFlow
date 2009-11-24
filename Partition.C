@@ -12,7 +12,11 @@
 //
 Partition::Partition(int npart, int nproc) {
 
-  int nn = (int)(ceil(npart / nproc)); // max number of parts per proc
+//   int nn = (int)(ceil(npart / nproc)); // max number of parts per proc
+
+// todo: following is wasteful and needs to be fixed
+  int nn = npart; // max number of parts per proc
+
   int i, j;
 
   this->npart = npart;
@@ -74,6 +78,8 @@ Partition::Partition(int npart, int nproc) {
   for (i = 0; i < nproc; i++)
     assert((proc_parts[i] = (int *)malloc(nn * sizeof(int))) != NULL);
   assert((proc_nparts = (int *)malloc(nproc * sizeof(int))) != NULL);
+  for (i = 0; i < nproc; i++)
+    proc_nparts[i] = 0;
 
   assert((proc_neighbors = (int ***)malloc(nproc * sizeof(int **))) != NULL);
   for (i = 0; i < nproc; i++) {
@@ -447,6 +453,7 @@ void Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *si
     nps += SendCounts[i * 2 + 1];
     npr += RecvCounts[i * 2 + 1];
   }
+
   assert((SendPoints = (int *)malloc(nps * 4 * sizeof(float))) != NULL);
   assert((RecvPoints = (int *)malloc(npr * 4 * sizeof(float))) != NULL);
   assert((SendPointSizes = (int *)malloc(groupsize * sizeof(int))) != NULL);
