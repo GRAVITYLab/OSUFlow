@@ -175,7 +175,7 @@ int FlashAMR::ParallelLoadHDF5MetaData(char* fname, float min[3], float max[3],
 // fname: file name
 // min, max: (output) global min, max corners
 //
-int FlashAMR::SerialLoadHDF5MetaData(char* fname, float min[3], float max[3]) {
+void FlashAMR::SerialLoadHDF5MetaData(char* fname, float min[3], float max[3]) {
 
   fdf = new FlashHDFFile(fname); // flash file object
   LoadHDF5MetaData(min, max);
@@ -191,7 +191,7 @@ int FlashAMR::SerialLoadHDF5MetaData(char* fname, float min[3], float max[3]) {
 //
 // min, max: (output) global min, max corners
 //
-int FlashAMR::LoadHDF5MetaData(float min[3], float max[3]) {
+void FlashAMR::LoadHDF5MetaData(float min[3], float max[3]) {
 
   float *bounds; // bounding box: min, max corners
   int *init; // initial flag for each level
@@ -483,7 +483,7 @@ int TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3],
 // fname: file containing list of timestep files
 // min, max: (output) global min, max extent over entire dataset (space+time)
 //
-int TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) {
+void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) {
 
   FILE *fIn; 
   char filename[300]; 
@@ -548,7 +548,7 @@ int TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) {
 // start_block, end_block: contiguous range of blocks to read
 // vx, vy, vz: names of three velocity components in the dataset
 //
-int TimeVaryingFlashAMR::LoadData(char* fname, int start_block, int end_block,
+void TimeVaryingFlashAMR::LoadData(char* fname, int start_block, int end_block,
 				  char *vx, char *vy, char *vz) {
 
   FILE *fIn; 

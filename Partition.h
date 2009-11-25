@@ -70,7 +70,7 @@ class Partition {
   void ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds,
 			MPI_Comm comm = MPI_COMM_WORLD);
 #else
-  int ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, 
+  void ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, 
 			int *size_seeds){};
 #endif
 

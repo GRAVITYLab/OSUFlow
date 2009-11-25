@@ -24,8 +24,8 @@
 
 #ARCH = MAC_OSX
 #ARCH = MAC_OSX_10_4
-ARCH = LINUX
-#ARCH = BGP
+#ARCH = LINUX
+ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
 #ARCH = BB
@@ -69,6 +69,7 @@ CCFLAGS = -c -DLINUX -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
+INCLUDE = -I/homes/tpeterka/hdf5-install/include
 LIBS = -lm -lglut -lGL -lz \
 	/homes/tpeterka/hdf5-install/lib/libhdf5.a
 endif
@@ -79,16 +80,18 @@ ifeq ($(ARCH), BGP)
 INCLUDE = -I/usr/local/include \
 	-I/usr/X11R6/include \
 	-I/bgsys/drivers/ppcfloor/arch/include \
+	-I/soft/apps/hdf5-1.8.0/include \
 
-LIB  = -lm
+LIBS  = -L/soft/apps/hdf5-1.8.0/lib \
+	-lm -lhdf5
 C++ = mpixlcxx_r
 ifeq ($(MPE), YES)
 C++ = /home/chan/mpe_work/install_ibm/bin/mpecc -mpilog
 endif
-THREADS = -qsmp=omp:noauto
-#THREADS = 
-CCFLAGS += -O3 -qarch=450d -qtune=450
-CCFLAGS += -c -DBGP -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+#THREADS = -qsmp=omp:noauto:noopt
+THREADS = 
+CCFLAGS += -c -O3 $(THREADS) -qarch=450d -qtune=450
+CCFLAGS += -DBGP -DMPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 ifeq ($(MPE), YES)
 CCFLAGS += -DMPE
 endif
@@ -99,7 +102,7 @@ endif
 ifeq ($(ARCH), FD)
 
 INCLUDE = -I/usr/include
-LIB  = -lm
+LIBS  = -lm
 C++   = mpicxx
 ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
@@ -120,7 +123,7 @@ endif
 ifeq ($(ARCH), BB)
 
 INCLUDE = -I/usr/include
-LIB  = -lm
+LIBS  = -lm
 C++   = mpicxx
 ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
@@ -141,7 +144,7 @@ endif
 ifeq ($(ARCH), EUREKA)
 
 INCLUDE = -I/usr/include
-LIB  = -lm
+LIBS  = -lm
 C++   = mpicxx
 ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
@@ -166,7 +169,7 @@ OBJS =  Candidate.o  Grid.o          polynomials.o  TimeVaryingFieldLine.o \
 	eigenvecs.o  IsoSurf.o	     Solution.o     triangulator.o \
 	Element.o    StreakLine.o    VectorMatrix.o Field.o \
         PathLine.o   Streamline.o    FieldLine.o    Plot3DReader.o \
- 	TimeLine.o   OSUFlow.o       FileReader.o   calc_subvolume.o \
+	TimeLine.o   OSUFlow.o       FileReader.o   calc_subvolume.o \
 	LatticeAMR.o Partition.o     FlashAMR.o     ComputeFieldLines.o \
 	Lattice4D.o  flashhdf5_float.o \
 

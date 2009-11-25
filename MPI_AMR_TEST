@@ -23,14 +23,14 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-ARCH=LINUX
-#ARCH=BGP
+#ARCH=LINUX
+ARCH=BGP
 #ARCH=FD
 #ARCH=EUREKA
 #ARCH=BB
 
 # number of BG/P nodes
-nodes=64
+nodes=1
 
 # number of procs
 num_procs=1
@@ -39,12 +39,12 @@ num_procs=1
 exe=./mpiamrtest
 
 # dataset
-data=/homes/tpeterka/flash/flash.list
+data=/pvfs-surveyor/tpeterka/flash/flash.list
 
 # data size x y z t
 # use x = y = z = 1 (finds its own spatial size)
 # use t = # of timesteps (static flow use t = 1)
-dsize="1 1 1 2"
+dsize="1 1 1 1"
 
 # total number of partitions in the space domain
 sb=1

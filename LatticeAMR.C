@@ -1928,7 +1928,7 @@ void LatticeAMR::AddNeighbor(int myblock, int neighrank) {
 // gets the data pointer
 //
 float** LatticeAMR::GetData(int block) {
-  GetDataPtr(block_ranks[block]);
+  return GetDataPtr(block_ranks[block]);
 }
 //
 // sets the request status
@@ -1946,7 +1946,7 @@ void LatticeAMR::ClearReq(int block) {
 // gets the request status
 //
 int LatticeAMR::GetReq(int block) {
-  part->GetReq(block_ranks[block]); 
+  return part->GetReq(block_ranks[block]); 
 }
 //
 // sets the load status
@@ -1964,7 +1964,7 @@ void LatticeAMR::ClearLoad(int block) {
 // gets the load status
 //
 int LatticeAMR::GetLoad(int block) {
-  part->GetLoad(block_ranks[block]); 
+  return part->GetLoad(block_ranks[block]); 
 }
 //
 // sets the computed status
@@ -1982,7 +1982,7 @@ void LatticeAMR::ClearComp(int block) {
 // gets the computed status
 //
 int LatticeAMR::GetComp(int block, int iter) {
-  part->GetComp(block_ranks[block], iter); 
+  return part->GetComp(block_ranks[block], iter); 
 }
 //
 // posts a point for sending

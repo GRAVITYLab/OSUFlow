@@ -13,10 +13,8 @@
 
 
 #define MAX_STRING_LENGTH 80
-// HDF Header Files
-/* #include <hdf5.h> */
 
-#include "/homes/tpeterka/hdf5-install/include/hdf5.h"
+#include <hdf5.h>
 
 using namespace std;
 

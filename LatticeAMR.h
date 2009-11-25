@@ -120,7 +120,7 @@ class  LatticeAMR {
   int GetIndexinLevel(int level, float x, float y, float z, float t);
 
   int GetCoordsinLevel(int level, float x, float y, float z, float t, 
-			int& i, int &j, int &k, int &t); 
+			int& i, int &j, int &k, int &l); 
 
   bool MapCells(int fromI, int fromJ, int fromK, int fromT, 
 		 int fromlevel, int toLevel, int& toImin, int& toImax, 

@@ -36,6 +36,7 @@ class  Lattice4D {
 
   int GetNeighbor(int myrank, float x, float y, float z, float t);
   int CheckNeighbor(int myrank, float x, float y, float z, float t); 
+  int myGetNeighbor(int myrank, float x, float y, float z, float t, int *i, int *j, int *k, int *l);
   int GetProc(int, int, int, int); 
   int GetProc(int); 
   void InitSeedLists(); 

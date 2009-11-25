@@ -67,9 +67,9 @@ class FlashAMR {
   int ParallelLoadHDF5MetaData(char* fname, float* min, float* max, 
 			       MPI_Comm comm); 
 #endif
-  int SerialLoadHDF5MetaData(char* fname, float* min, float* max); 
+  void SerialLoadHDF5MetaData(char* fname, float* min, float* max); 
 
-  int LoadHDF5MetaData(float* min, float* max); 
+  void LoadHDF5MetaData(float* min, float* max); 
   int LoadHDF5Data(int start_block, int end_block, 
 		   char *vx, char *vy, char *vz); 
 
@@ -111,11 +111,11 @@ class TimeVaryingFlashAMR {
   ~TimeVaryingFlashAMR(){} 
   
 #ifdef _MPI
-  int LoadMetaData(char *fname, float*, float*, MPI_Comm = MPI_COMM_WORLD); 
+  void LoadMetaData(char *fname, float*, float*, MPI_Comm = MPI_COMM_WORLD); 
 #else
-  int LoadMetaData(char *fname, float*, float*); 
+  void LoadMetaData(char *fname, float*, float*); 
 #endif
-  int LoadData(char *fname, int start_block, int end_block, char *vx, char *vy,
+  void LoadData(char *fname, int start_block, int end_block, char *vx, char *vy,
 	       char *vz); 
 
   int GetNumTimeSteps() {return num_timesteps; }

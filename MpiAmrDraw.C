@@ -121,6 +121,12 @@ int avail_mem; // memory space for dataset (MB)
 int b_mem; // number of blocks to keep in memory
 int max_bt; // max number of time steps in any block
 int tr; // number of time partitions per round
+
+// instrumentation
+double tot_time;
+double io_time;
+double comm_time;
+
 //----------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {

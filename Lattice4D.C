@@ -621,7 +621,7 @@ void Lattice4D::ClearReq(int block) {
 // gets the request status
 //
 int Lattice4D::GetReq(int block) {
-  part->GetReq(block_ranks[block]); 
+  return part->GetReq(block_ranks[block]); 
 }
 //
 // sets the load status
@@ -639,7 +639,7 @@ void Lattice4D::ClearLoad(int block) {
 // gets the load status
 //
 int Lattice4D::GetLoad(int block) {
-  part->GetLoad(block_ranks[block]); 
+  return part->GetLoad(block_ranks[block]); 
 }
 //
 // sets the computed status
@@ -657,7 +657,7 @@ void Lattice4D::ClearComp(int block) {
 // gets the computed status
 //
 int Lattice4D::GetComp(int block, int iter) {
-  part->GetComp(block_ranks[block], iter); 
+  return part->GetComp(block_ranks[block], iter); 
 }
 //
 // posts a point for sending
