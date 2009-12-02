@@ -56,10 +56,13 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
   int rank; // partition rank of one block
   int p; // process id for a block
   int i, j, n, t;
+  double t0; // temporary timer for performance instrumentation
 
   // init AMR
   tamr = new TimeVaryingFlashAMR(myid);
+  t0 = MPI_Wtime();
   tamr->LoadMetaData(filename, min, max); 
+  io_time = MPI_Wtime() - t0;
   num_levels = tamr->GetNumLevels();
   tamr->GetDims(block_dims); 
 
@@ -114,12 +117,14 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
     tamr->GetLevelBlockSize(i, blockSize); 
     tamr->GetLevelBounds(i, levelMinB, levelMaxB); 
 
+#ifdef DEBUG
     if (myproc == 0)
       fprintf(stderr, "Level %d: physical size of one block in this level = [%.4e %.4e %.4e] min=[%.4e %.4e %.4e %d] max=[%.4e %.4e %.4e %d]\n", 
 	      i, blockSize[0], blockSize[1], blockSize[2], 
 	      levelMinB[0], levelMinB[1], levelMinB[2], 
 	      levelMaxB[0], levelMaxB[1], levelMaxB[2],
 	      0, tlen - 1); 
+#endif
 
     CreateLevel(i, blockSize[0], blockSize[1], blockSize[2], 
 		block_dims[0], block_dims[1], block_dims[2], 
@@ -147,7 +152,9 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
   part = new Partition(npart, nproc);
 
   // read my data blocks
+  t0 = MPI_Wtime();
   tamr->LoadData(filename, start_block, end_block, vx, vy, vz);
+  io_time += (MPI_Wtime() - t0);
 
   // check in actual data into my blocks
   // record partition data struture info for all blocks
@@ -200,8 +207,11 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
   }
 
   // ranks of my blocks and my neighbors' blocks
-  nb = GetMyNumPartitions(myproc); // my number of blocks
+  nb = GetMyNumPartitions(); // my number of blocks
+
+#ifdef DEBUG
   fprintf(stderr,"Process %d has %d partitions\n", myproc, nb);
+#endif
 
   if (myproc >= 0) {
 
@@ -220,13 +230,11 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
 
   }
 
-  // debug
   // average number of neighbors for each block
   int tot_neighbors = 0;
   for (i = 0; i < nb; i++)
     tot_neighbors += part->parts[i].NumNeighbors;
-  fprintf(stderr,"Average number of neighbors per block = %d\n", 
-	  tot_neighbors / nb);
+  avg_neigh = tot_neighbors / nb;
 
 }
 //------------------------------------------------------------------------------
@@ -306,9 +314,11 @@ bool LatticeAMR::CreateLevel(int level, float x_size, float y_size,
   int size = idim[level]*jdim[level]*kdim[level]*ldim[level];
   nblocks[level] = size;
 
+#ifdef DEBUG
   if (myproc == 0)
     fprintf(stderr,"Level %d: theoretical lattice dims %dx%dx%dx%d=%d \n", 
 	    level, idim[level], jdim[level], kdim[level], ldim[level], size); 
+#endif
 
   has_data[level] = new bool[size]; 
   has_data_from_merger[level] = new int[size]; 
@@ -386,8 +396,10 @@ int LatticeAMR::AssignContig(int start_time, int end_time,
     tot_nblocks += amr->GetNumBlocks();
   }
 
+#ifdef DEBUG
   if (myproc == 0)
     fprintf(stderr,"\nTotal number of leaf blocks = %d\n\n", tot_nblocks);
+#endif
 
   // start and end blocks
   blocks_per_proc = tot_nblocks / nproc;
@@ -395,10 +407,6 @@ int LatticeAMR::AssignContig(int start_time, int end_time,
   *end_block = *start_block + blocks_per_proc - 1;
   if (myproc == nproc - 1)
     *end_block = tot_nblocks - 1;
-
-  // debug
-  fprintf(stderr, "start_block = %d end_block = %d blocks_per_proc = %d\n",
-	  *start_block, *end_block, blocks_per_proc);
 
   return tot_nblocks;
 
@@ -498,8 +506,11 @@ void LatticeAMR::CompleteLevels(int t_interval) {
   for (i=0; i<num_levels; i++)
     for (j=0; j<nblocks[i]; j++)
       if (has_data[i][j]) npart++; 
+
+#ifdef DEBUG
   if (myproc == 0)
     fprintf(stderr,"Before combining any time intervals, npart = %d\n", npart); 
+#endif
 
   // allocate a few data structures for the max number of partitions
   vb_list = new volume_bounds_type_f[npart]; 
@@ -580,8 +591,10 @@ void LatticeAMR::CompleteLevels(int t_interval) {
 
   npart++;
 
+#ifdef DEBUG
   if (myproc == 0)
     fprintf(stderr,"After combining any time intervals, final npart = %d\n", npart); 
+#endif
 
 }
 //----------------------------------------------------------------------------
@@ -1354,6 +1367,23 @@ int LatticeAMR::GetMyNumPartitions(int proc) {
 }
 //---------------------------------------------------------------------------
 //
+// return the number of partitions that are assigned to my proc
+//
+int LatticeAMR::GetMyNumPartitions() {
+
+  int n = 0; 
+  int i;
+
+  for (i = 0; i < npart; i++) {
+    if (part->parts[i].Proc == myproc)
+      n++;
+  }
+
+  return n;
+
+}
+//---------------------------------------------------------------------------
+//
 // gets local subvolume bounds
 //
 // block: local block number (0-nblocks)
@@ -1397,7 +1427,12 @@ void LatticeAMR::GetGlobalVB(int part, float *min_s, float *max_s,
 //---------------------------------------------------------------------------
 //
 // returns neighbor number of neighbor containing point
+//
 // returns -1 if point is not in one of the neighbors
+//
+// this can happen in two cases:
+// the point remained in the current block, or
+// the point left the overall data boundary
 //
 int LatticeAMR::GetNeighbor(int block, float x, float y, float z, float t) {
 
@@ -1405,6 +1440,10 @@ int LatticeAMR::GetNeighbor(int block, float x, float y, float z, float t) {
   int r; // rank of partition containing the point
 
   r = GetRank(x, y, z, t);
+
+  // check if the point never left the current block
+  if (r == block_ranks[block])
+    return -1;
 
   // for all neighbors
   for (n = 0; n < part->parts[block_ranks[block]].NumNeighbors; n++) {
@@ -1989,6 +2028,8 @@ int LatticeAMR::GetComp(int block, int iter) {
 //
 void LatticeAMR::PostPoint(int block, VECTOR4 p) {
   int neighbor = GetNeighbor(block, p[0], p[1], p[2], p[3]);
+  // only post points that move out of the current block and
+  // remain inside the overall domain boundary
   if (neighbor >= 0)
     part->PostPoint(block_ranks[block], p, neighbor); 
 }
@@ -2004,17 +2045,15 @@ void LatticeAMR::PrintPost(int block) {
 void LatticeAMR::PrintRecv(int block) { 
   part->PrintRecv(block_ranks[block]); 
 }
-// //
-// // copies the received points to a list
-// // caller must ensure that ls has enough room for the points
-// //
-// void LatticeAMR::GetRecvPts(int block, VECTOR4 *ls) { 
-//   part->GetRecvPts(block_ranks[block], ls); 
-// }
 //
 // exchanges points with all neighbors
+// returns total number of points received by this process
 //
-void LatticeAMR::ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds) { 
-  part->ExchangeNeighbors(neighbor_ranks, seeds, size_seeds);
+int LatticeAMR::ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds) { 
+  int n;
+  comm_time = MPI_Wtime();
+  n = part->ExchangeNeighbors(neighbor_ranks, seeds, size_seeds);
+  comm_time = MPI_Wtime() - comm_time;
+  return n;
 }
 //---------------------------------------------------------------------------

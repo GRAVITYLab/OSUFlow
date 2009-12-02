@@ -92,6 +92,12 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
 
   }
 
+  // average number of neighbors for each block
+  int tot_neighbors = 0;
+  for (i = 0; i < nb; i++)
+    tot_neighbors += part->parts[i].NumNeighbors;
+  avg_neigh = tot_neighbors / nb;
+
 }
 //---------------------------------------------------------------------------
 //
@@ -457,6 +463,23 @@ int Lattice4D::GetNumPartitions(int proc) {
 }
 //---------------------------------------------------------------------------
 //
+// return the number of partitions that are assigned to my proc
+//
+int Lattice4D::GetMyNumPartitions() {
+
+  int n = 0; 
+  int i;
+
+  for (i = 0; i < npart; i++) {
+    if (part->parts[i].Proc == myproc)
+      n++;
+  }
+
+  return n;
+
+}
+//---------------------------------------------------------------------------
+//
 // query the partitions that are assigned to processor 'proc' 
 // p_list must be allocated large enough prior to calling
 //
@@ -475,31 +498,65 @@ void Lattice4D::GetPartitions(int proc, int*p_list) {
 }
 //---------------------------------------------------------------------------
 //
-// returns neighbor number (0 - MAX_NEIGHBORS) of neighbor containing point
+// returns neighbor number of neighbor containing point
+//
 // returns -1 if point is not in one of the neighbors
 //
-int Lattice4D::GetNeighbor(int myblock, float x, float y, float z, float t) {
+// this can happen in two cases:
+// the point remained in the current block, or
+// the point left the overall data boundary
+//
+int Lattice4D::GetNeighbor(int block, float x, float y, float z, float t) {
 
-  int n; // neighbor number (0 - MAX_NEIGHBORS)
-  int nr; // my neighbor's rank (global partition) number
-  int r; // rank of point
-  int myrank = block_ranks[myblock];
+  int n; // neighbor number
+  int r; // rank of partition containing the point
 
   r = GetRank(x, y, z, t);
-  if (r == -1)
-    return r;
+
+  // check if the point never left the current block
+  if (r == block_ranks[block])
+    return -1;
 
   // for all neighbors
-  for (n = 0; n < part->parts[myrank].NumNeighbors; n++) {
-    if (r == neighbor_ranks[myblock][n])
+  for (n = 0; n < part->parts[block_ranks[block]].NumNeighbors; n++) {
+    if (r == neighbor_ranks[block][n])
       return n;
   }
 
-  assert(n < part->parts[myrank].NumNeighbors);
-  return(-1);
+  return -1;
 
 }
 //---------------------------------------------------------------------------
+//
+// *** DEPRECATED ***
+// *** to be removed ***
+//
+// //
+// // returns neighbor number (0 - MAX_NEIGHBORS) of neighbor containing point
+// // returns -1 if point is not in one of the neighbors
+// //
+// int Lattice4D::GetNeighbor(int myblock, float x, float y, float z, float t) {
+
+//   int n; // neighbor number (0 - MAX_NEIGHBORS)
+//   int nr; // my neighbor's rank (global partition) number
+//   int r; // rank of point
+//   int myrank = block_ranks[myblock];
+
+//   r = GetRank(x, y, z, t);
+//   if (r == -1)
+//     return r;
+
+//   // for all neighbors
+//   for (n = 0; n < part->parts[myrank].NumNeighbors; n++) {
+//     if (r == neighbor_ranks[myblock][n])
+//       return n;
+//   }
+
+//   assert(n < part->parts[myrank].NumNeighbors);
+//   return(-1);
+
+// }
+// //---------------------------------------------------------------------------
 //
 // gets ranks of all neighbors
 // ranks are the global partition numbers for all neighbors
@@ -664,6 +721,8 @@ int Lattice4D::GetComp(int block, int iter) {
 //
 void Lattice4D::PostPoint(int block, VECTOR4 p) {
   int neighbor = GetNeighbor(block, p[0], p[1], p[2], p[3]);
+  // only post points that move out of the current block and
+  // remain inside the overall domain boundary
   if (neighbor >= 0)
     part->PostPoint(block_ranks[block], p, neighbor); 
 }
@@ -679,16 +738,15 @@ void Lattice4D::PrintPost(int block) {
 void Lattice4D::PrintRecv(int block) { 
   part->PrintRecv(block_ranks[block]); 
 }
-// //
-// // copies the received points to a list
-// //
-// void Lattice4D::GetRecvPts(int block, VECTOR4 *ls) { 
-//   part->GetRecvPts(block_ranks[block], ls); 
-// }
 //
 // exchanges points with all neighbors
+// returns total number of points received by this process
 //
-void Lattice4D::ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds) { 
-  part->ExchangeNeighbors(neighbor_ranks, seeds, size_seeds);
+int Lattice4D::ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds) { 
+  int n;
+  comm_time = MPI_Wtime();
+  n = part->ExchangeNeighbors(neighbor_ranks, seeds, size_seeds);
+  comm_time = MPI_Wtime() - comm_time;
+  return n;
 }
 //---------------------------------------------------------------------------

@@ -86,8 +86,12 @@ class  LatticeAMR {
   list<VECTOR4> *seedlists; 
 
   int GetMyNumPartitions(int proc);
+  int GetMyNumPartitions();
   void GetMyPartitions(int proc, int* p_list);
   int GetTotalNumPartitions() { return npart; }
+  int GetMyNumNeighbors() { return avg_neigh; }
+  double GetMyIOTime() { return io_time; }
+  double GetMyCommTime() { return comm_time; }
   void GetVB(int block, float *min_s, float *max_s, 
 	     int *min_t, int *max_t);
   void GetGlobalVB(int part, float *min_s, float *max_s, 
@@ -109,7 +113,7 @@ class  LatticeAMR {
   void PostPoint(int myrank, VECTOR4 p);
   void PrintPost(int myrank);
   void PrintRecv(int myrank);
-  void ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds);
+  int ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds);
 
  private: 
 
@@ -140,7 +144,7 @@ class  LatticeAMR {
   int   *tlength;                     // in all levels (all blocks have the 
                                       // same size in each level)
 
-  int *xres, *yres, *zres, *tres; // the  resolution of data blocks in all levels 
+  int *xres, *yres, *zres, *tres; // resolution of data blocks in all levels 
 
   int *idim, *jdim, *kdim, *ldim; // the lattice resolutions, in all levels 
 
@@ -155,7 +159,9 @@ class  LatticeAMR {
   int* nblocks; // number of blocks in each level (regardless of having data or not) 
 
   int tot_nblocks; // total number of blocks in a time interval
+  int avg_neigh; // average number of neighbors per block in my process
   int npart;   // number of partitions. 
+  double io_time, comm_time; // I/O and communication time for my process
   volume_bounds_type_f *vb_list; // bounds for each partition 
   int *rank_to_index; // from rank to (i,j,k,t, level) indices 
 

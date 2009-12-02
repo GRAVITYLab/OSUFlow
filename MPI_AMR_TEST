@@ -23,8 +23,8 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-#ARCH=LINUX
-ARCH=BGP
+ARCH=LINUX
+#ARCH=BGP
 #ARCH=FD
 #ARCH=EUREKA
 #ARCH=BB
@@ -33,13 +33,18 @@ ARCH=BGP
 nodes=1
 
 # number of procs
-num_procs=1
+num_procs=2
 
 # executable
 exe=./mpiamrtest
 
 # dataset
+if [ "$ARCH" = "LINUX" ]; then
+data=/homes/tpeterka/flash/flash.list
+fi
+if [ "$ARCH" = "BGP" ]; then
 data=/pvfs-surveyor/tpeterka/flash/flash.list
+fi
 
 # data size x y z t
 # use x = y = z = 1 (finds its own spatial size)
@@ -63,7 +68,7 @@ t=1
 p=10
 
 # number of rounds
-r=1
+r=10
 
 # number of threads
 # 1 = each process a single thread

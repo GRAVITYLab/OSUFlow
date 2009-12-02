@@ -55,6 +55,9 @@ class  Lattice4D {
   void GetPartitions(int proc, int*p_list);
   void NeighborIndices(int n, int i, int j, int k, int l, int &in,
 		       int &jn, int &kn, int &ln);
+  int GetMyNumPartitions();
+  int GetMyNumNeighbors() { return avg_neigh; }
+  double GetMyCommTime() { return comm_time; }
   void GetVB(int block, float *min_s, float *max_s, 
 	     int *min_t, int *max_t);
   void GetGlobalVB(int part, float *min_s, float *max_s, 
@@ -69,6 +72,8 @@ class  Lattice4D {
   int *block_ranks; // rank (global partition number) of each of my blocks
   int myproc; // my process or thread number
   int nproc; // number of processes or threads
+  int avg_neigh; // average number of neighbors per block in my process
+  double comm_time; // communication time for my process
   volume_bounds_type *vb_list; 
   class Partition *part;
   int* flowMatrix; 
@@ -92,7 +97,7 @@ class  Lattice4D {
   void PostPoint(int myrank, VECTOR4 p);
   void PrintPost(int myrank);
   void PrintRecv(int myrank);
-  void ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds);
+  int ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds);
 
   list<VECTOR4> *seedlists; 
 

@@ -394,7 +394,9 @@ void Partition::GrowNeighbors(int myrank) {
 // size_seeds: sizes of seed arrays (will be grown automatically if necessary)
 // commm: MPI communicator
 //
-void Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds, MPI_Comm comm) {
+// returns: total number of points received by this process
+//
+int Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds, MPI_Comm comm) {
 
   int nn = 0; // total number of neighbors
   int groupsize; // size of comm
@@ -536,6 +538,8 @@ void Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *si
       j++;
     }
   }
+
+  return npr;
 
 }
 //------------------------------------------------------------------------

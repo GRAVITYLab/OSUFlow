@@ -70,6 +70,18 @@ VECTOR4 *pt; // points in everyone's traces
 int *npt; // everyone's number of points in their traces
 int tot_ntrace; // total number of everyone's traces
 
+// performance stats
+int *block_stats; // block stats
+double *time_stats; // time stats
+int n_block_stats = 4; // number of block stats
+int n_time_stats = 3; // number of time stats
+int TotSeeds = 0; // total number of seeds for all blocks and all rounds
+                  // in this process
+int TotRounds = 0; // total number of rounds this process executed excluding
+                   // idle rounds at the end
+double TotTime = 0.0; // total time
+double TotCompTime = 0.0; // total computation time
+
 // function prototypes
 void GetArgs(int argc, char *argv[]);
 void Init();
@@ -97,6 +109,7 @@ void IOandCompute();
 int ComputeBlocksFit();
 void MultiThreadEvictBlock(int round);
 void SingleThreadEvictBlock();
+void PrintPerf();
 
 // globals
 static char filename[256]; // dataset file name
@@ -122,11 +135,6 @@ int b_mem; // number of blocks to keep in memory
 int max_bt; // max number of time steps in any block
 int tr; // number of time partitions per round
 
-// instrumentation
-double tot_time;
-double io_time;
-double comm_time;
-
 //----------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
@@ -148,6 +156,9 @@ int main(int argc, char *argv[]) {
   }
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+
+  // start the total time
+  TotTime = MPI_Wtime();
 
   Init();
   MPI_Barrier(MPI_COMM_WORLD);
@@ -178,6 +189,11 @@ int main(int argc, char *argv[]) {
   if (threads == 1)
     IOandCompute();
 
+  // stop the total time and print the performance stats
+  MPI_Barrier(MPI_COMM_WORLD);
+  TotTime = MPI_Wtime() - TotTime;
+  PrintPerf();
+
 #ifdef GRAPHICS
 
   // event loop for drawing
@@ -203,6 +219,216 @@ int main(int argc, char *argv[]) {
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Finalize();
 
+
+}
+//-----------------------------------------------------------------------
+//
+// PrintPerf
+//
+void PrintPerf() {
+
+  int nproc;  // mpi groupsize
+  int rank; // mpi rank
+  int *all_block_stats; // gathered block stats
+  double *all_time_stats; // gathered time stats
+  int i;
+
+  int tot_npart = 0; // number of partitions per proc
+  int min_npart;
+  int max_npart;
+  int mean_npart;
+  float var_npart = 0.0;
+  float std_npart;
+
+  int tot_nneigh = 0; // number of neighbors 
+  int min_nneigh;
+  int max_nneigh;
+  int mean_nneigh;
+  float var_nneigh = 0.0;
+  float std_nneigh;
+
+  int tot_nseed = 0; // number of seeds
+  int min_nseed;
+  int max_nseed;
+  int mean_nseed;
+  float var_nseed = 0.0;
+  float std_nseed;
+
+  int tot_nround = 0; // number of rounds before any null rounds at the end
+  int min_nround;
+  int max_nround;
+  int mean_nround;
+  float var_nround = 0.0;
+  float std_nround;
+
+  double tot_iotime = 0.0; // I/O time
+  double min_iotime;
+  double max_iotime;
+  double mean_iotime;
+  double var_iotime = 0.0;
+  double std_iotime;
+
+  double tot_commtime = 0.0; // communication time
+  double min_commtime;
+  double max_commtime;
+  double mean_commtime;
+  double var_commtime = 0.0;
+  double std_commtime;
+
+  double tot_comptime = 0.0; // computation time
+  double min_comptime;
+  double max_comptime;
+  double mean_comptime;
+  double var_comptime = 0.0;
+  double std_comptime;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+
+  // get stats of my process
+  block_stats[0] = lat->GetMyNumPartitions(); // number of blocks
+  block_stats[1] = lat->GetMyNumNeighbors(); // avg number of neighbors
+  block_stats[2] = TotSeeds / TotRounds; // total number of seeds advected
+                                         // per round
+  block_stats[3] = TotRounds; // total number of rounds before any null rounds
+                              // at the end
+  time_stats[0] = lat->GetMyIOTime(); // I/O time
+  time_stats[1] = lat->GetMyCommTime(); // communication time
+  time_stats[2] = TotCompTime; // communication time
+
+  // alloc space and gather the stats
+  assert((all_block_stats = (int *)malloc(n_block_stats * nproc * 
+					  sizeof(int))) != NULL);
+  assert((all_time_stats = (double *)malloc(n_time_stats * nproc * 
+					    sizeof(double))) != NULL);
+  MPI_Gather(block_stats, n_block_stats, MPI_INT, all_block_stats, 
+	     n_block_stats, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Gather(time_stats, n_time_stats, MPI_DOUBLE, all_time_stats, 
+	     n_time_stats, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+  // print the stats
+  if (rank == 0) {
+
+    // totals, mins, maxs
+    for (i = 0; i < nproc; i++) {
+
+      // total
+      tot_npart  += all_block_stats[n_block_stats * i];
+      tot_nneigh += all_block_stats[n_block_stats * i + 1];
+      tot_nseed  += all_block_stats[n_block_stats * i + 2];
+      tot_nround  += all_block_stats[n_block_stats * i + 3];
+      tot_iotime   += all_time_stats[n_time_stats * i];
+      tot_commtime += all_time_stats[n_time_stats * i + 1];
+      tot_comptime += all_time_stats[n_time_stats * i + 2];
+
+      // min, max
+      if (i == 0) {
+	min_npart = max_npart = all_block_stats[n_block_stats * i];
+	min_nneigh = max_nneigh = all_block_stats[n_block_stats * i + 1];
+	min_nseed = max_nseed = all_block_stats[n_block_stats * i + 2];
+	min_nround = max_nround = all_block_stats[n_block_stats * i + 3];
+	min_iotime = max_iotime = all_time_stats[n_time_stats * i];
+	min_commtime = max_commtime = all_time_stats[n_time_stats * i + 1];
+	min_comptime = max_comptime = all_time_stats[n_time_stats * i + 2];
+      }
+      else {
+
+	if (all_block_stats[n_block_stats * i] < min_npart)
+	  min_npart = all_block_stats[n_block_stats * i];
+	if (all_block_stats[n_block_stats * i] > max_npart)
+	  max_npart = all_block_stats[n_block_stats * i];
+
+	if (all_block_stats[n_block_stats * i + 1] < min_nneigh)
+	  min_nneigh = all_block_stats[n_block_stats * i + 1];
+	if (all_block_stats[n_block_stats * i + 1] > max_nneigh)
+	  max_nneigh = all_block_stats[n_block_stats * i + 1];
+
+	if (all_block_stats[n_block_stats * i + 2] < min_nseed)
+	  min_nseed = all_block_stats[n_block_stats * i + 2];
+	if (all_block_stats[n_block_stats * i + 2] > max_nseed)
+	  max_nseed = all_block_stats[n_block_stats * i + 2];
+
+	if (all_block_stats[n_block_stats * i + 3] < min_nround)
+	  min_nround = all_block_stats[n_block_stats * i + 3];
+	if (all_block_stats[n_block_stats * i + 3] > max_nround)
+	  max_nround = all_block_stats[n_block_stats * i + 3];
+
+	if (all_time_stats[n_time_stats * i] < min_iotime)
+	  min_iotime = all_time_stats[n_time_stats * i];
+	if (all_time_stats[n_time_stats * i] > max_iotime)
+	  max_iotime = all_time_stats[n_time_stats * i];
+
+	if (all_time_stats[n_time_stats * i + 1] < min_commtime)
+	  min_commtime = all_time_stats[n_time_stats * i + 1];
+	if (all_time_stats[n_time_stats * i + 1] > max_commtime)
+	  max_commtime = all_time_stats[n_time_stats * i + 1];
+
+	if (all_time_stats[n_time_stats * i + 2] < min_comptime)
+	  min_comptime = all_time_stats[n_time_stats * i + 2];
+	if (all_time_stats[n_time_stats * i + 2] > max_comptime)
+	  max_comptime = all_time_stats[n_time_stats * i + 2];
+
+      }
+    }
+
+    // means
+    mean_npart = tot_npart / nproc;
+    mean_nneigh = tot_nneigh / nproc;
+    mean_nseed = tot_nseed / nproc;
+    mean_nround = tot_nround / nproc;
+    mean_iotime = tot_iotime / nproc;
+    mean_commtime = tot_commtime / nproc;
+    mean_comptime = tot_comptime / nproc;
+
+    // variances
+    for (i = 0; i < nproc; i++) {
+      var_npart += (all_block_stats[n_block_stats * i] - mean_npart) *
+	(all_block_stats[n_block_stats * i] - mean_npart);
+      var_nneigh += (all_block_stats[n_block_stats * i + 1] - mean_nneigh) *
+	(all_block_stats[n_block_stats * i + 1] - mean_nneigh);
+      var_nseed += (all_block_stats[n_block_stats * i + 2] - mean_nseed) *
+	(all_block_stats[n_block_stats * i + 2] - mean_nseed);
+      var_nround += (all_block_stats[n_block_stats * i + 3] - mean_nround) *
+	(all_block_stats[n_block_stats * i + 3] - mean_nround);
+      var_iotime += (all_time_stats[n_time_stats * i] - mean_iotime) *
+	(all_time_stats[n_time_stats * i] - mean_iotime);
+      var_commtime += (all_time_stats[n_time_stats * i + 1] - mean_commtime) *
+	(all_time_stats[n_time_stats * i + 1] - mean_commtime);
+      var_comptime += (all_time_stats[n_time_stats * i + 2] - mean_comptime) *
+	(all_time_stats[n_time_stats * i + 2] - mean_comptime);
+    }
+
+    // standard deviations
+    std_npart = sqrt(var_npart);
+    std_nneigh = sqrt(var_nneigh);
+    std_nseed = sqrt(var_nseed);
+    std_nround = sqrt(var_nround);
+    std_iotime = sqrt(var_iotime);
+    std_commtime = sqrt(var_commtime);
+    std_comptime = sqrt(var_comptime);
+
+    // print results
+    fprintf(stderr, "----- Performance Summary -----\n");
+    fprintf(stderr, "Number of procs = %d\n", nproc);
+    fprintf(stderr, "Total time = %.2lf s\n", TotTime);
+    fprintf(stderr, "Blocks / proc\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_npart, max_npart, mean_npart, 
+	    var_npart, std_npart);
+    fprintf(stderr, "Neighbors / block\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nneigh, max_nneigh, mean_nneigh, 
+	    var_nneigh, std_nneigh);
+    fprintf(stderr, "Particles / proc / round\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nseed, max_nseed, mean_nseed, 
+	    var_nseed, std_nseed);
+    fprintf(stderr, "Rounds / proc\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nround, max_nround, mean_nround, 
+	    var_nround, std_nround);
+    fprintf(stderr, "I/O time / proc\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iotime, max_iotime, mean_iotime, 
+	    var_iotime, std_iotime);
+    fprintf(stderr, "Comp time / proc\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_comptime, max_comptime, mean_comptime, 
+	    var_commtime, std_commtime);
+    fprintf(stderr, "Comm time / proc\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_commtime, max_commtime, mean_commtime, 
+	    var_commtime, std_commtime);
+    fprintf(stderr, "-------------------------------\n");
+
+  } // rank = 0
+
 }
 //-----------------------------------------------------------------------
 //
@@ -219,6 +445,7 @@ void ComputeThread() {
 //   int g; // current group
 //   int sb, eb; // starting and ending block in the current group
 //   int bg; // number of blocks per group, except perhaps last group
+//   int last_round; // last non-null round
 
 //   // init
 //   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -232,21 +459,24 @@ void ComputeThread() {
 //   // for all groups
 //   for (g = 0; g < ngroups; g++) {
 
+// #ifdef DEBUG
 //     if (rank == 0)
 //       fprintf(stderr, "** begin group %d **\n", g);
+// #endif
 
 //     // starting and ending blocks in the group
 //     sb = g * bg;
 //     eb = (g == ngroups - 1 ? nblocks : sb + bg);
 
-//     // debug
-//     fprintf(stderr, "sb = %d eb = %d\n",sb, eb);
+//     last_round = 0;
 
 //     // for all rounds
 //     for (i = 0; i < max_rounds; i++) {
 
+// #ifdef DEBUG
 //       if (rank == 0)
 // 	fprintf(stderr, "begin round %d\n", i);
+// #endif
 
 //       done = 0;
 
@@ -268,7 +498,9 @@ void ComputeThread() {
 // 	  // blocks that are in this group get computed
 // 	  if (!lat->GetComp(j, i) && lat->GetLoad(j)) {
 // 	    ComputeFieldlines(j);
+// #ifdef DEBUG
 // 	    fprintf(stderr, "Computed block %d\n", j);
+// #endif
 // #pragma omp flush
 // 	    lat->SetComp(j, i);
 // #pragma omp flush
@@ -290,17 +522,24 @@ void ComputeThread() {
 
 //       } // for all blocks
 
-//       lat->ExchangeNeighbors(Seeds, SizeSeeds);
+//    if (lat->ExchangeNeighbors(Seeds, SizeSeeds))
+// 	last_round = i;
 
 //     } // for all rounds
 
+//     TotRounds = last_round + 1;
+
+// #ifdef DEBUG
 //     if (rank == 0)
 //       fprintf(stderr, "Completed %d rounds\n", max_rounds);
+// #endif
 
 //   } // for all groups
 
+// #ifdef DEBUG
 //   if (rank == 0)
 //     fprintf(stderr, "Completed %d groups\n", ngroups);
+// #endif
 
 // #ifdef GRAPHICS
 
@@ -362,15 +601,14 @@ void IOThread() {
 //   // for all groups
 //   for (g = 0; g < ngroups; g++) {
 
+// #ifdef DEBUG
 //     if (rank == 0)
 //       fprintf(stderr, "** begin group %d **\n", g);
+// #endif
 
 //     // starting and ending blocks in the group
 //     sb = g * bg;
 //     eb = (g == ngroups - 1 ? nblocks : sb + bg);
-
-//     // debug
-//     fprintf(stderr, "sb = %d eb = %d\n",sb, eb);
 
 //     // for all rounds
 //     for (j = 0; j < max_rounds; j++) {
@@ -394,7 +632,9 @@ void IOThread() {
 // 			     min_t, max_t); 
 
 // 	// update status
+// #ifdef DEBUG
 // 	fprintf(stderr, "Loaded block %d\n", i);
+// #endif
 // #pragma omp flush
 // 	lat->SetLoad(i);
 // #pragma omp flush
@@ -460,12 +700,14 @@ void IOandCompute() {
   int sb, eb; // starting and ending block in the current group
   int bg; // number of blocks per group, except perhaps last group
   float **data; // data (can be time varying, double pointer)
+  int last_round; // last non-null round
   
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   num_loaded = 0; // number of blocks currently loaded
   ngroups = (int)(ceil(ntpart / tr)); // number of groups
   bg = (int)(floor(nblocks / ngroups)); // number of blocks per group, except last
+  TotCompTime = MPI_Wtime();
 
   // init all blocks
   for (i = 0; i < nblocks; i++) {
@@ -496,20 +738,24 @@ void IOandCompute() {
   // for all groups
   for (g = 0; g < ngroups; g++) {
 
-    // debug
+#ifdef DEBUG
     if (rank == 0)
       fprintf(stderr, "** begin group %d **\n", g);
+#endif
 
     // starting and ending blocks in the group
     sb = g * bg;
     eb = (g == ngroups - 1 ? nblocks : sb + bg);
 
+    last_round = 0;
+
     // for all rounds
     for (j = 0; j < max_rounds; j++) {
 
-      // debug
+#ifdef DEBUG
       if (rank == 0)
 	fprintf(stderr, " * begin round %d *\n", j);
+#endif
 
       // for all blocks
       for (i = 0; i < nblocks; i++) {
@@ -549,17 +795,26 @@ void IOandCompute() {
 
       } // for all blocks
 
-      lat->ExchangeNeighbors(Seeds, SizeSeeds);
+      if (lat->ExchangeNeighbors(Seeds, SizeSeeds))
+	last_round = j;
 
     } // for all rounds
 
+    TotRounds = last_round + 1;
+
+#ifdef DEBUG
     if (rank == 0)
       fprintf(stderr, "Completed %d rounds\n", max_rounds);
+#endif
 
   } // for all groups
 
+  TotCompTime = MPI_Wtime() - TotCompTime - lat->GetMyCommTime();
+
+#ifdef DEBUG
   if (rank == 0)
     fprintf(stderr, "Completed %d groups\n", ngroups);
+#endif
 
   // gather pathlines at root for rendering
 #ifdef GRAPHICS
@@ -624,6 +879,8 @@ void ComputeStreamlines(int block_num) {
 
   if (NumSeeds[block_num]) {
 
+    TotSeeds += NumSeeds[block_num];
+
     // start clean
     lat->ResetSeedLists();
 
@@ -684,6 +941,8 @@ void ComputePathlines(int block_num) {
   int i;
 
   if (NumSeeds[block_num]) {
+
+    TotSeeds += NumSeeds[block_num];
 
     // start clean
     lat->ResetSeedLists();
@@ -930,7 +1189,7 @@ void Init() {
   // names of velocity components velx, vely, velz hard-coded
   lat = new LatticeAMR(filename, tsize, (char *)"velx", (char *)"vely", (char *)
 		       "velz", nproc, myproc); 
-  nblocks = lat->GetMyNumPartitions(myproc);
+  nblocks = lat->GetMyNumPartitions();
   nspart = lat->GetTotalNumPartitions(); // all spatial for now
   lat->GetBlockDims(dims);
 
@@ -975,10 +1234,18 @@ void Init() {
   b_size = dims[0] * dims[1] * dims[2] * tsize / ntpart * 4 * sizeof (float);
   b_mem = (int)(avail_mem * 1048576.0f / b_size);
 
-  // print some of the args
+  // performance stats
+  assert((block_stats = (int *)malloc(n_block_stats * 
+				      sizeof(int))) != NULL);
+  assert((time_stats = (double *)malloc(n_time_stats * 
+					sizeof(double))) != NULL);
+
   fflush(stderr);
   fflush(stdout);
   MPI_Barrier(MPI_COMM_WORLD);
+
+#ifdef DEBUG
+  // print some of the args
   if (myproc == 0) {
     fprintf(stderr,"\nVolume size: %d blocks * %d * %d * %d, t %d\n",
 	    nspart, dims[0], dims[1], dims[2], tsize);
@@ -990,6 +1257,7 @@ void Init() {
 	    b_mem);
     fprintf(stderr, "Number of blocks per process %d\n\n", nblocks);
   }
+#endif
 
 }
 //-----------------------------------------------------------------------

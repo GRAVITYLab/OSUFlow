@@ -33,7 +33,7 @@ ARCH=LINUX
 nodes=64
 
 # number of procs
-num_procs=2
+num_procs=1
 
 # executable
 exe=./mpitest
@@ -43,13 +43,13 @@ data=/homes/tpeterka/tornado/tornado.list
 #data=/Users/troot/tornado/tornado.list
 
 # data size x y z t (for steady state flows use t = 1)
-dsize="128 128 128 4"
+dsize="128 128 128 1"
 
 # total number of partitions in the space domain
 sb=4
 
 # total number of partitions in the time domain
-tb=2
+tb=1
 
 # number of time partitions per round
 tr=1
@@ -61,7 +61,7 @@ t=200
 p=200
 
 # number of rounds
-r=2
+r=10
 
 # number of threads
 # 1 = each process a single thread

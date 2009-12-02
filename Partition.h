@@ -67,10 +67,10 @@ class Partition {
   void AddNeighbor(int myrank, int neighblock, int neighrank);
 
 #ifdef _MPI
-  void ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds,
+  int ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds,
 			MPI_Comm comm = MPI_COMM_WORLD);
 #else
-  void ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, 
+  int ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, 
 			int *size_seeds){};
 #endif
 

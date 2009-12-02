@@ -299,12 +299,14 @@ void FlashAMR::LoadHDF5MetaData(float min[3], float max[3]) {
   delete [] init;
   delete [] bounds;
 
+#ifdef DEBUG
   if (myproc == 0) {
     fprintf(stderr,"Number of leaf + nonleaf blocks = %d\n", file_nb); 
     fprintf(stderr,"Number of leaf blocks = %d\n", nb); 
     fprintf(stderr,"Each block is %dx%dx%d cells\n",
 	    block_dims[0], block_dims[1], block_dims[2]);
   }
+#endif
 
 }
 //-----------------------------------------------------------------------
@@ -417,7 +419,7 @@ void FlashAMR::GetLevelBounds(int level, float minB[3], float maxB[3]){
 // fname: file containing list of timestep files
 // min, max: (output) global min, max extent over entire dataset (space+time)
 //
-int TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3],
+void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3],
 				      MPI_Comm comm) {
 
   FILE *fIn; 
@@ -435,8 +437,12 @@ int TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3],
 
     // read
     fscanf(fIn, "%s", filename); 
+
+#ifdef DEBUG
     if (myproc == 0)
       fprintf(stderr,"Reading metadata from %s ...\n\n", filename); 
+#endif
+
     amr_list[i] = new FlashAMR(myproc);
 //     amr_list[i]->ParallelLoadHDF5MetaData(filename, pmin, pmax, comm); 
     amr_list[i]->SerialLoadHDF5MetaData(filename, pmin, pmax); 
@@ -459,9 +465,11 @@ int TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3],
 
   }
 
+#ifdef DEBUG
   if (myproc == 0)
     fprintf(stderr,"Overall volume bounds: min=[%.4e %.4e %.4e]\
    max=[%.4e %.4e %.4e]\n\n", min[0], min[1], min[2], max[0], max[1], max[2]);
+#endif
  
   amr_list[0]->GetDims(block_dims); // assume all time steps are the same 
   level_mapping = new int*[num_timesteps]; 
@@ -500,8 +508,12 @@ void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) 
 
     // read
     fscanf(fIn, "%s", filename); 
+
+#ifdef DEBUG
     if (myproc == 0)
       fprintf(stderr,"Reading metadata from %s ...\n\n", filename); 
+#endif
+
     amr_list[i] = new FlashAMR(myproc);
     amr_list[i]->SerialLoadHDF5MetaData(filename, pmin, pmax); 
 
@@ -523,9 +535,11 @@ void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) 
 
   }
 
+#ifdef DEBUG
   if (myproc == 0)
     fprintf(stderr,"Overall volume bounds: min=[%.4e %.4e %.4e]\
    max=[%.4e %.4e %.4e]\n\n", min[0], min[1], min[2], max[0], max[1], max[2]);
+#endif
  
   amr_list[0]->GetDims(block_dims); // assume all time steps are the same 
   level_mapping = new int*[num_timesteps]; 
@@ -583,8 +597,12 @@ void TimeVaryingFlashAMR::LoadData(char* fname, int start_block, int end_block,
 
     // read the blocks in the current time step
     fscanf(fIn, "%s", filename); 
+
+#ifdef DEBUG
     if (myproc == 0)
       fprintf(stderr,"Reading vector data from %s ...\n\n", filename); 
+#endif
+
     amr_list[i]->LoadHDF5Data(fs, fe, vx, vy, vz);
 
     // update for next time step
@@ -628,8 +646,11 @@ void TimeVaryingFlashAMR::MatchTimestepLevels() {
   
   float_sort_list(sizes, cnt); // cnt will be updated
   num_levels = cnt; // total different levels in all timesteps
+
+#ifdef DEBUG
   if (myproc == 0)
     fprintf(stderr,"There are total %d different levels \n", cnt); 
+#endif
 
   // (re)allocate level size and extents for all levels  
   block_xsize_inLevel = new float[num_levels]; 
