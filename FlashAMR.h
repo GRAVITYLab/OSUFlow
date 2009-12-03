@@ -115,7 +115,7 @@ class TimeVaryingFlashAMR {
 #else
   void LoadMetaData(char *fname, float*, float*); 
 #endif
-  void LoadData(char *fname, int start_block, int end_block, char *vx, char *vy,
+  int LoadData(char *fname, int start_block, int end_block, char *vx, char *vy,
 	       char *vz); 
 
   int GetNumTimeSteps() {return num_timesteps; }

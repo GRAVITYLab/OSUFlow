@@ -24,8 +24,8 @@
 
 #ARCH = MAC_OSX
 #ARCH = MAC_OSX_10_4
-#ARCH = LINUX
-ARCH = BGP
+ARCH = LINUX
+#ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
 #ARCH = BB
@@ -66,7 +66,7 @@ C++   = mpecxx -mpilog
 endif
 THREADS = -fopenmp
 CCFLAGS = -c -DLINUX -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
-CCFLAGS += -DGRAPHICS
+#CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
 INCLUDE = -I/homes/tpeterka/hdf5-install/include

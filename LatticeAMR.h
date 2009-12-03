@@ -90,6 +90,7 @@ class  LatticeAMR {
   void GetMyPartitions(int proc, int* p_list);
   int GetTotalNumPartitions() { return npart; }
   int GetMyNumNeighbors() { return avg_neigh; }
+  int GetMyIOBW() { return io_bw; }
   double GetMyIOTime() { return io_time; }
   double GetMyCommTime() { return comm_time; }
   void GetVB(int block, float *min_s, float *max_s, 
@@ -161,6 +162,7 @@ class  LatticeAMR {
   int tot_nblocks; // total number of blocks in a time interval
   int avg_neigh; // average number of neighbors per block in my process
   int npart;   // number of partitions. 
+  int io_bw; // I/O bandwidth in MB/s
   double io_time, comm_time; // I/O and communication time for my process
   volume_bounds_type_f *vb_list; // bounds for each partition 
   int *rank_to_index; // from rank to (i,j,k,t, level) indices 

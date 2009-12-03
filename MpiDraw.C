@@ -73,11 +73,12 @@ int tot_ntrace; // total number of everyone's traces
 int *block_stats; // block stats
 double *time_stats; // time stats
 int n_block_stats = 4; // number of block stats
-int n_time_stats = 3; // number of time stats
+int n_time_stats = 4; // number of time stats
 int TotSeeds = 0; // total number of seeds for all blocks and all rounds
                   // in this process
 int TotRounds = 0; // total number of rounds this process executed excluding
                    // idle rounds at the end
+double TotIOBW = 0.0; // total IO bandwidth in MB/s
 double TotTime = 0.0; // total time
 double TotIOTime = 0.0; // total IO time
 double TotCompTime = 0.0; // total computation time
@@ -234,6 +235,8 @@ void PrintPerf() {
   int rank; // mpi rank
   int *all_block_stats; // gathered block stats
   double *all_time_stats; // gathered time stats
+  float TotCells; // total number of spatial data cells in billions
+  float TotDataSize; // total size of a time step in GB
   int i;
 
   int tot_npart = 0; // number of partitions per proc
@@ -285,6 +288,13 @@ void PrintPerf() {
   double var_comptime = 0.0;
   double std_comptime;
 
+  double tot_iobw = 0; // I/O bandwidth in MB/s
+  double min_iobw;
+  double max_iobw;
+  double mean_iobw;
+  double var_iobw = 0.0;
+  double std_iobw;
+
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
@@ -298,6 +308,7 @@ void PrintPerf() {
   time_stats[0] = TotIOTime; // I/O time
   time_stats[1] = lat->GetMyCommTime(); // communication time
   time_stats[2] = TotCompTime; // communication time
+  time_stats[3] = TotIOBW; // I/O bandwidth
 
   // alloc space and gather the stats
   assert((all_block_stats = (int *)malloc(n_block_stats * nproc * 
@@ -319,10 +330,11 @@ void PrintPerf() {
       tot_npart  += all_block_stats[n_block_stats * i];
       tot_nneigh += all_block_stats[n_block_stats * i + 1];
       tot_nseed  += all_block_stats[n_block_stats * i + 2];
-      tot_nround  += all_block_stats[n_block_stats * i + 3];
+      tot_nround += all_block_stats[n_block_stats * i + 3];
       tot_iotime   += all_time_stats[n_time_stats * i];
       tot_commtime += all_time_stats[n_time_stats * i + 1];
       tot_comptime += all_time_stats[n_time_stats * i + 2];
+      tot_iobw   += all_time_stats[n_time_stats * i + 3];
 
       // min, max
       if (i == 0) {
@@ -333,6 +345,7 @@ void PrintPerf() {
 	min_iotime = max_iotime = all_time_stats[n_time_stats * i];
 	min_commtime = max_commtime = all_time_stats[n_time_stats * i + 1];
 	min_comptime = max_comptime = all_time_stats[n_time_stats * i + 2];
+	min_iobw = max_iobw = all_time_stats[n_time_stats * i + 3];
       }
       else {
 
@@ -371,6 +384,11 @@ void PrintPerf() {
 	if (all_time_stats[n_time_stats * i + 2] > max_comptime)
 	  max_comptime = all_time_stats[n_time_stats * i + 2];
 
+	if (all_time_stats[n_time_stats * i + 3] < min_iobw)
+	  min_iobw = all_time_stats[n_time_stats * i + 3];
+	if (all_time_stats[n_time_stats * i + 3] > max_iobw)
+	  max_iobw = all_time_stats[n_time_stats * i + 3];
+
       }
     }
 
@@ -382,6 +400,7 @@ void PrintPerf() {
     mean_iotime = tot_iotime / nproc;
     mean_commtime = tot_commtime / nproc;
     mean_comptime = tot_comptime / nproc;
+    mean_iobw = tot_iobw / nproc;
 
     // variances
     for (i = 0; i < nproc; i++) {
@@ -399,6 +418,8 @@ void PrintPerf() {
 	(all_time_stats[n_time_stats * i + 1] - mean_commtime);
       var_comptime += (all_time_stats[n_time_stats * i + 2] - mean_comptime) *
 	(all_time_stats[n_time_stats * i + 2] - mean_comptime);
+      var_iobw += (all_time_stats[n_time_stats * i + 3] - mean_iobw) *
+	(all_time_stats[n_time_stats * i + 3] - mean_iobw);
     }
     var_npart /= nproc;
     var_nneigh /= nproc;
@@ -407,6 +428,7 @@ void PrintPerf() {
     var_iotime /= nproc;
     var_commtime /= nproc;
     var_comptime /= nproc;
+    var_iobw /= nproc;
 
     // standard deviations
     std_npart = sqrt(var_npart);
@@ -416,25 +438,35 @@ void PrintPerf() {
     std_iotime = sqrt(var_iotime);
     std_commtime = sqrt(var_commtime);
     std_comptime = sqrt(var_comptime);
+    std_iobw = sqrt(var_iobw);
+
+    // misc: data size and aggregate bandwidth
+    TotCells = size[0] * size[1] * size[2] / 1.0e6;
+    TotDataSize = size[0] * size[1] * size[2] * 12 / 1048576;
 
     // print results
     fprintf(stderr, "----- Performance Summary -----\n");
     fprintf(stderr, "Number of procs = %d\n", nproc);
     fprintf(stderr, "Total time = %.2lf s\n", TotTime);
-    fprintf(stderr, "Blocks / proc\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_npart, max_npart, mean_npart, 
+    fprintf(stderr, "Total data size = %.2f million cells = %.2f MB\n", TotCells, TotDataSize);
+    fprintf(stderr, "Total particles = %.2f million\n", tot_nseed / 1.0e6);
+    fprintf(stderr, "Aggregate I/O bandwidth = %.0lf MB/s\n", nproc * mean_iobw);
+    fprintf(stderr, "Blocks / proc\t\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_npart, max_npart, mean_npart, 
 	    var_npart, std_npart);
     fprintf(stderr, "Neighbors / block\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nneigh, max_nneigh, mean_nneigh, 
 	    var_nneigh, std_nneigh);
     fprintf(stderr, "Particles / proc / round\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nseed, max_nseed, mean_nseed, 
 	    var_nseed, std_nseed);
-    fprintf(stderr, "Rounds / proc\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nround, max_nround, mean_nround, 
+    fprintf(stderr, "Rounds / proc\t\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nround, max_nround, mean_nround, 
 	    var_nround, std_nround);
-    fprintf(stderr, "I/O time / proc\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iotime, max_iotime, mean_iotime, 
+    fprintf(stderr, "I/O time / proc (s)\t\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iotime, max_iotime, mean_iotime, 
 	    var_iotime, std_iotime);
-    fprintf(stderr, "Comp time / proc\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_comptime, max_comptime, mean_comptime, 
+    fprintf(stderr, "Comp time / proc (s)\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_comptime, max_comptime, mean_comptime, 
 	    var_commtime, std_commtime);
-    fprintf(stderr, "Comm time / proc\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_commtime, max_commtime, mean_commtime, 
+    fprintf(stderr, "Comm time / proc (s)\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_commtime, max_commtime, mean_commtime, 
 	    var_commtime, std_commtime);
+    fprintf(stderr, "IO bw / proc (MB/s)\t\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iobw, max_iobw, mean_iobw, 
+	    var_iobw, std_iobw);
     fprintf(stderr, "-------------------------------\n");
 
   } // rank = 0
@@ -711,6 +743,7 @@ void IOandCompute() {
   int bg; // number of blocks per group, except perhaps last group
   int last_round; // last non-null round
   double t0; // temporary timer
+  float TotDataRead = 0; // total size of data read in MB
 
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -792,6 +825,8 @@ void IOandCompute() {
 	  osuflow[i]->LoadData(filename, false, from, to, size, max_bt,
 			       min_t, max_t); 
 	  TotIOTime += (MPI_Wtime() - t0);
+	  TotDataRead += ((to[0] - from[0] + 1) * (to[1] - from[1] + 1) *
+			  (to[2] - from[2] + 1) * 12); // 3 comps * 4 bytes
 	  lat->SetLoad(i);
 	  num_loaded++;
 #ifdef DEBUG
@@ -825,6 +860,8 @@ void IOandCompute() {
   } // for all groups
 
   TotCompTime = MPI_Wtime() - TotCompTime - lat->GetMyCommTime();
+  TotDataRead /= 1048576; // convert to MB
+  TotIOBW = TotDataRead / TotIOTime;
 
 #ifdef DEBUG
   if (rank == 0)

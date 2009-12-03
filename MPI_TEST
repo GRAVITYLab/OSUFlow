@@ -33,7 +33,7 @@ ARCH=LINUX
 nodes=64
 
 # number of procs
-num_procs=1
+num_procs=16
 
 # executable
 exe=./mpitest
@@ -46,7 +46,7 @@ data=/homes/tpeterka/tornado/tornado.list
 dsize="128 128 128 1"
 
 # total number of partitions in the space domain
-sb=4
+sb=32
 
 # total number of partitions in the time domain
 tb=1

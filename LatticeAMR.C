@@ -153,7 +153,7 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
 
   // read my data blocks
   t0 = MPI_Wtime();
-  tamr->LoadData(filename, start_block, end_block, vx, vy, vz);
+  io_bw = tamr->LoadData(filename, start_block, end_block, vx, vy, vz);
   io_time += (MPI_Wtime() - t0);
 
   // check in actual data into my blocks

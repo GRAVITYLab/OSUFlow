@@ -23,8 +23,8 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-#ARCH=LINUX
-ARCH=BGP
+ARCH=LINUX
+#ARCH=BGP
 #ARCH=FD
 #ARCH=EUREKA
 #ARCH=BB
@@ -33,7 +33,7 @@ ARCH=BGP
 nodes=1
 
 # number of procs
-num_procs=64
+num_procs=1
 
 # executable
 exe=./mpiamrtest
@@ -68,7 +68,7 @@ t=1
 p=10
 
 # number of rounds
-r=10
+r=1
 
 # number of threads
 # 1 = each process a single thread
