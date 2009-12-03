@@ -266,6 +266,8 @@ LatticeAMR::~LatticeAMR()
   if (vb_list!=NULL) delete [] vb_list; 
   if (seedlists!=NULL) delete [] seedlists; 
 
+  delete tamr;
+
 }
 //------------------------------------------------------------------------------
 //

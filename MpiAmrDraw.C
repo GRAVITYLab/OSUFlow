@@ -316,7 +316,7 @@ void PrintPerf() {
       tot_npart  += all_block_stats[n_block_stats * i];
       tot_nneigh += all_block_stats[n_block_stats * i + 1];
       tot_nseed  += all_block_stats[n_block_stats * i + 2];
-      tot_nround  += all_block_stats[n_block_stats * i + 3];
+      tot_nround += all_block_stats[n_block_stats * i + 3];
       tot_iotime   += all_time_stats[n_time_stats * i];
       tot_commtime += all_time_stats[n_time_stats * i + 1];
       tot_comptime += all_time_stats[n_time_stats * i + 2];
@@ -397,6 +397,13 @@ void PrintPerf() {
       var_comptime += (all_time_stats[n_time_stats * i + 2] - mean_comptime) *
 	(all_time_stats[n_time_stats * i + 2] - mean_comptime);
     }
+    var_npart /= nproc;
+    var_nneigh /= nproc;
+    var_nseed /= nproc;
+    var_nround /= nproc;
+    var_iotime /= nproc;
+    var_commtime /= nproc;
+    var_comptime /= nproc;
 
     // standard deviations
     std_npart = sqrt(var_npart);
@@ -411,15 +418,15 @@ void PrintPerf() {
     fprintf(stderr, "----- Performance Summary -----\n");
     fprintf(stderr, "Number of procs = %d\n", nproc);
     fprintf(stderr, "Total time = %.2lf s\n", TotTime);
-    fprintf(stderr, "Blocks / proc\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_npart, max_npart, mean_npart, 
+    fprintf(stderr, "Blocks / proc\t\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_npart, max_npart, mean_npart, 
 	    var_npart, std_npart);
     fprintf(stderr, "Neighbors / block\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nneigh, max_nneigh, mean_nneigh, 
 	    var_nneigh, std_nneigh);
     fprintf(stderr, "Particles / proc / round\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nseed, max_nseed, mean_nseed, 
 	    var_nseed, std_nseed);
-    fprintf(stderr, "Rounds / proc\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nround, max_nround, mean_nround, 
+    fprintf(stderr, "Rounds / proc\t\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nround, max_nround, mean_nround, 
 	    var_nround, std_nround);
-    fprintf(stderr, "I/O time / proc\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iotime, max_iotime, mean_iotime, 
+    fprintf(stderr, "I/O time / proc\t\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iotime, max_iotime, mean_iotime, 
 	    var_iotime, std_iotime);
     fprintf(stderr, "Comp time / proc\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_comptime, max_comptime, mean_comptime, 
 	    var_commtime, std_commtime);

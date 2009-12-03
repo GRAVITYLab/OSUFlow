@@ -400,6 +400,13 @@ void PrintPerf() {
       var_comptime += (all_time_stats[n_time_stats * i + 2] - mean_comptime) *
 	(all_time_stats[n_time_stats * i + 2] - mean_comptime);
     }
+    var_npart /= nproc;
+    var_nneigh /= nproc;
+    var_nseed /= nproc;
+    var_nround /= nproc;
+    var_iotime /= nproc;
+    var_commtime /= nproc;
+    var_comptime /= nproc;
 
     // standard deviations
     std_npart = sqrt(var_npart);

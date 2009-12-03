@@ -64,7 +64,7 @@ class FlashAMR {
   int GetMaxLevelValue() { return max_level_value; };
 
 #ifdef _MPI
-  int ParallelLoadHDF5MetaData(char* fname, float* min, float* max, 
+  void ParallelLoadHDF5MetaData(char* fname, float* min, float* max, 
 			       MPI_Comm comm); 
 #endif
   void SerialLoadHDF5MetaData(char* fname, float* min, float* max); 

@@ -153,7 +153,7 @@ void float_sort_list(float* list, int& cnt)  {
 // min, max: (output) global min, max corners
 // comm: MPI communicator
 //
-int FlashAMR::ParallelLoadHDF5MetaData(char* fname, float min[3], float max[3],
+void FlashAMR::ParallelLoadHDF5MetaData(char* fname, float min[3], float max[3],
 			       MPI_Comm comm) {
 
   fdf = new FlashHDFFile(fname, comm); // flash file object
@@ -365,7 +365,7 @@ int FlashAMR::LoadHDF5Data(int start_block, int end_block,
   }
 
   delete [] comp; 
-
+  fdf->Close();
   return(1); 
 
 }
@@ -444,8 +444,8 @@ void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3],
 #endif
 
     amr_list[i] = new FlashAMR(myproc);
-//     amr_list[i]->ParallelLoadHDF5MetaData(filename, pmin, pmax, comm); 
-    amr_list[i]->SerialLoadHDF5MetaData(filename, pmin, pmax); 
+    amr_list[i]->ParallelLoadHDF5MetaData(filename, pmin, pmax, comm); 
+//     amr_list[i]->SerialLoadHDF5MetaData(filename, pmin, pmax); 
 
     // compute data extents over all the timesteps
     if (i == 0) {

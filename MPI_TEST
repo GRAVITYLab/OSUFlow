@@ -85,6 +85,7 @@ fi
 
 if [ "$ARCH" = "BGP" ]; then
 
+pvfs2-drop-caches -m /pvfs-surveyor
 cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
 fi
@@ -97,6 +98,7 @@ fi
 
 if [ "$ARCH" = "EUREKA" ]; then
 
+pvfs2-drop-caches -m /pvfs-surveyor
 mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $tr $t $p $r $th $m
 
 fi
