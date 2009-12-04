@@ -446,7 +446,7 @@ void PrintPerf() {
     fprintf(stderr, "Total time = %.2lf s\n", TotTime);
     fprintf(stderr, "Total data size = %.2f million cells = %.2f MB\n", TotCells, TotDataSize);
     fprintf(stderr, "Total particles = %.2f million\n", tot_nseed / 1.0e6);
-    fprintf(stderr, "Aggregate I/O bandwidth = %.0lf MB/s\n", nproc * mean_iobw);
+    fprintf(stderr, "Aggregate I/O bandwidth = %.0lf MB/s\n", TotDataSize / mean_iotime);
     fprintf(stderr, "Blocks / proc\t\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_npart, max_npart, mean_npart, 
 	    var_npart, std_npart);
     fprintf(stderr, "Neighbors / block\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nneigh, max_nneigh, mean_nneigh, 
@@ -455,13 +455,13 @@ void PrintPerf() {
 	    var_nseed, std_nseed);
     fprintf(stderr, "Rounds / proc\t\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nround, max_nround, mean_nround, 
 	    var_nround, std_nround);
-    fprintf(stderr, "I/O time / proc (s)\t\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iotime, max_iotime, mean_iotime, 
+    fprintf(stderr, "I/O time / proc (s)\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iotime, max_iotime, mean_iotime, 
 	    var_iotime, std_iotime);
     fprintf(stderr, "Comp time / proc (s)\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_comptime, max_comptime, mean_comptime, 
 	    var_commtime, std_commtime);
     fprintf(stderr, "Comm time / proc (s)\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_commtime, max_commtime, mean_commtime, 
 	    var_commtime, std_commtime);
-    fprintf(stderr, "IO bw / proc (MB/s)\t\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iobw, max_iobw, mean_iobw, 
+    fprintf(stderr, "IO bw / proc (MB/s)\t\tmin = %-8.2lf max = %-8.2lf avg = %-8.2lf var = %-8.2lf std = %-8.2lf\n", min_iobw, max_iobw, mean_iobw, 
 	    var_iobw, std_iobw);
     fprintf(stderr, "-------------------------------\n");
 
@@ -1322,6 +1322,9 @@ void Cleanup() {
 
   delete [] osuflow;
   delete lat;
+
+  H5close(); // required so the HDF5 does not do any MPI commands on exit,
+             // after my MPI_Finalize
 
 }
 //-----------------------------------------------------------------------

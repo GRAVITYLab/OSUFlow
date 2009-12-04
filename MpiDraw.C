@@ -450,7 +450,7 @@ void PrintPerf() {
     fprintf(stderr, "Total time = %.2lf s\n", TotTime);
     fprintf(stderr, "Total data size = %.2f million cells = %.2f MB\n", TotCells, TotDataSize);
     fprintf(stderr, "Total particles = %.2f million\n", tot_nseed / 1.0e6);
-    fprintf(stderr, "Aggregate I/O bandwidth = %.0lf MB/s\n", nproc * mean_iobw);
+    fprintf(stderr, "Aggregate I/O bandwidth = %.0lf MB/s\n", TotDataSize / mean_iotime);
     fprintf(stderr, "Blocks / proc\t\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_npart, max_npart, mean_npart, 
 	    var_npart, std_npart);
     fprintf(stderr, "Neighbors / block\t\tmin = %-8d max = %-8d avg = %-8d var = %-8.0f std = %-8.0f\n", min_nneigh, max_nneigh, mean_nneigh, 

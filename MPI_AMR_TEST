@@ -23,8 +23,8 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-ARCH=LINUX
-#ARCH=BGP
+#ARCH=LINUX
+ARCH=BGP
 #ARCH=FD
 #ARCH=EUREKA
 #ARCH=BB
@@ -68,7 +68,7 @@ t=1
 p=10
 
 # number of rounds
-r=1
+r=10
 
 # number of threads
 # 1 = each process a single thread
