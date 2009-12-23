@@ -23,8 +23,8 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-#ARCH=LINUX
-ARCH=BGP
+ARCH=LINUX
+#ARCH=BGP
 #ARCH=FD
 #ARCH=EUREKA
 #ARCH=BB

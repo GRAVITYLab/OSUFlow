@@ -43,6 +43,9 @@
 #include <OpenGL/gl.h>
 #endif
 
+// whether or not we have opposite endianness in the file
+int swap = 0;
+
 // defines related to drawing
 #define XFORM_NONE    0 
 #define XFORM_ROTATE  1
@@ -83,6 +86,7 @@ void idle();
 void init_scene();
 void draw_cyl(float *p0, float *p1, float *rgb);
 void ReadFieldlines(char *filename);
+void swap4(char *n);
 
 //----------------------------------------------------------------------------
 //
@@ -119,13 +123,19 @@ int main(int argc, char *argv[]) {
 void ReadFieldlines(char *filename) {
 
   FILE *fd;
-  int i, j, n;
+  int i, j, k, n;
 
   assert((fd = fopen(filename, "r")) != NULL);
 
   // extents
   fread(min, sizeof(float), 4, fd);
   fread(max, sizeof(float), 4, fd);
+  if (swap) {
+    for (i = 0; i < 4; i++) {
+      swap4((char *)&min[i]);
+      swap4((char *)&max[i]);
+    }
+  }
   size[0] = max[0] - min[0];
   size[1] = max[1] - min[1];
   size[2] = max[2] - min[2];
@@ -142,6 +152,8 @@ void ReadFieldlines(char *filename) {
       npt_alloc *= 2;
     }
     fread(&npt[i], sizeof(int), 1, fd);
+    if (swap)
+      swap4((char *)&npt[i]);
     if (npt[i] < 0)
       break;
   }
@@ -158,6 +170,10 @@ void ReadFieldlines(char *filename) {
 	pt_alloc *= 2;
       }
       fread(&pt[n * 4], sizeof(float), 4, fd);
+      if (swap) {
+	for (k = 0; k < 4; k++)
+	  swap4((char *)&pt[n * 4 + k]);
+      }
       n++;
     }
   }
@@ -529,3 +545,27 @@ void mykey(unsigned char key, int x, int y) {
 
 }
 //--------------------------------------------------------------------------
+//
+// swap4(n)
+//
+// Swaps 4 bytes from 1-2-3-4 to 4-3-2-1 order.
+// cast the input as a char and use on any 4 byte variable
+//
+void swap4(char *n) {
+
+  char *n1;
+  char c;
+
+  n1 = n + 3;
+  c = *n;
+  *n = *n1;
+  *n1 = c;
+
+  n++;
+  n1--;
+  c = *n;
+  *n = *n1;
+  *n1 = c;
+
+}
+//----------------------------------------------------------------------------
