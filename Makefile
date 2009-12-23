@@ -65,7 +65,7 @@ ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
 endif
 THREADS = -fopenmp
-CCFLAGS = -c -DLINUX -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+	CCFLAGS = -c -DLINUX -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 #CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
@@ -171,7 +171,7 @@ OBJS =  Candidate.o  Grid.o          polynomials.o  TimeVaryingFieldLine.o \
         PathLine.o   Streamline.o    FieldLine.o    Plot3DReader.o \
 	TimeLine.o   OSUFlow.o       FileReader.o   calc_subvolume.o \
 	LatticeAMR.o Partition.o     FlashAMR.o     ComputeFieldLines.o \
-	Lattice4D.o  flashhdf5_float.o \
+	Lattice4D.o  flashhdf5_float.o Draw.o \
 
 
 SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
@@ -181,7 +181,7 @@ SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 	PathLine.C   Streamline.C    FieldLine.C    Plot3DReader.C \
 	TimeLine.C   OSUFlow.C       FileReader.C   calc_subvolume.C \
 	LatticeAMR.C Partition.C     FlashAMR.C     ComputeFieldLines.C \
-	Lattice4D.C  flashhdf5_float.C \
+	Lattice4D.C  flashhdf5_float.C Draw.C\
  
 
 .SUFFIXES: .C
@@ -211,6 +211,9 @@ mpiamrtest: MpiAmrDraw.o lib$(LIBNAME).a
 
 mpitest: MpiDraw.o lib$(LIBNAME).a
 	$(C++) -o mpitest MpiDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
+
+draw: Draw.o
+	$(C++) -o draw Draw.o -L. $(LIBS) 
 
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) $(LIBS) 

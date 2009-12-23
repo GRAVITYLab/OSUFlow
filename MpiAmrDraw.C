@@ -61,13 +61,11 @@ float x_angle = 0.0;
 float y_angle = 0.0;
 float scale_size = 1;
 int xform_mode = 0; 
-bool toggle_draw_streamlines = false; 
-bool toggle_animate_streamlines = false; 
 bool toggle_bounds = true;
 
 // drawing data: only usable at the root process
-VECTOR4 *pt; // points in everyone's traces
-int *npt; // everyone's number of points in their traces
+VECTOR4 *pt = NULL; // points in everyone's traces
+int *npt = NULL; // everyone's number of points in their traces
 int tot_ntrace; // total number of everyone's traces
 
 // performance stats
@@ -91,7 +89,7 @@ void ComputeFieldlines(int block_num);
 void ComputePathlines(int block_num);
 void ComputeStreamlines(int block_num);
 void GatherFieldlines();
-int GatherNumPts(int* &ntrace);
+int GatherNumPts(int* &ntrace, int all);
 void GatherPts(int *ntrace, int mynpt);
 void DrawFieldlines();
 void Cleanup();
@@ -110,6 +108,7 @@ int ComputeBlocksFit();
 void MultiThreadEvictBlock(int round);
 void SingleThreadEvictBlock();
 void PrintPerf();
+void WriteFieldlines(int *ntrace, int mynpt, char *filename);
 
 // globals
 static char filename[256]; // dataset file name
@@ -121,7 +120,7 @@ int *SizeSeeds; // size of seeds list (bytes)
 VECTOR4 **Seeds; // list of seeds lists
 VECTOR3 *seeds; // one temporary list of (3d) seeds
 OSUFlow **osuflow; // one flow object for each block
-list<vtListTimeSeedTrace*> *sl_list; // pathlines list
+list<vtListTimeSeedTrace*> *sl_list = NULL; // pathlines list
 int nspart; // global total number of spatial blocks
 int ntpart; // global total number of temporal blocks
 int nblocks; // my number of blocks
@@ -854,12 +853,8 @@ void IOandCompute() {
     fprintf(stderr, "Completed %d groups\n", ngroups);
 #endif
 
-  // gather pathlines at root for rendering
-#ifdef GRAPHICS
-
+  // gather pathlines for rendering
   GatherFieldlines();
-
-#endif
 
 }
 //-----------------------------------------------------------------------
@@ -1024,25 +1019,124 @@ void GatherFieldlines() {
   int n; // total number of my points
   int i;
 
+#ifdef GRAPHICS
+
   // gather number of points in each trace at the root
-  n = GatherNumPts(ntrace);
+  n = GatherNumPts(ntrace, 0);
   
   // gather the actual points in each trace at the root
   GatherPts(ntrace, n);
+
+#else
+
+  // gather number of points in each trace to everyone
+  n = GatherNumPts(ntrace, 1);
+  
+  // write the traces collectively
+  WriteFieldlines(ntrace, n, (char *)"field_lines.out");
+
+#endif
+
+}
+//-----------------------------------------------------------------------
+//
+// WriteFieldlines
+//
+// writes field lines
+//
+// ntrace: number of traces in each process
+// mynpt: total number of points in my process
+// filename: output file name
+//
+void WriteFieldlines(int *ntrace, int mynpt, char *filename) {
+
+  MPI_File fd;
+  MPI_Status status;
+  int myproc;
+  int ofst; // offset into the file (bytes)
+  int pts_ofst = 0; // number of points before mine
+  float *mypt; // points in my traces
+  VECTOR4 temp; // temporary point
+  std::list<vtListTimeSeedTrace *>::iterator trace_iter; // iterator over traces
+  std::list<VECTOR4 *>::iterator pt_iter; // iterator over points in one trace
+  float min[4], max[4]; // extents
+  int delim = -1; // delimits numbers of points from the points in the file
+  int i, j, n;
+    
+  MPI_Comm_rank(MPI_COMM_WORLD, &myproc);
+
+  assert(MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_CREATE | 
+		       MPI_MODE_WRONLY, MPI_INFO_NULL, &fd) == MPI_SUCCESS);
+
+  if (myproc == 0) {
+
+    // write extents
+    lat->GetExtents(min, max);
+    MPI_File_write(fd, min, 4, MPI_FLOAT, &status);
+    assert(status.count == 4 * sizeof(float)); // bytes
+    MPI_File_write(fd, max, 4, MPI_FLOAT, &status);
+    assert(status.count == 4 * sizeof(float)); // bytes
+	   
+    // write numbers of points in each trace
+    assert(MPI_File_write(fd, npt, tot_ntrace, MPI_INT, 
+			  &status) == MPI_SUCCESS);
+    assert(status.count == tot_ntrace * sizeof(int));
+
+    // write delimiter
+    assert(MPI_File_write(fd, &delim, 1, MPI_INT, &status) == MPI_SUCCESS);
+
+  }
+
+  // set file pointer to start of my points
+  ofst = 8 * sizeof(float) + (tot_ntrace + 1) * sizeof(int);
+  n = 0;
+  for (i = 0; i < myproc; i++) {
+    for (j = 0; j < ntrace[i]; j++)
+      pts_ofst += npt[n++];
+  }
+  ofst += pts_ofst * 4 * sizeof(float); // pts before mine
+
+  // collect my points in a buffer
+  assert((mypt = (float *)malloc(mynpt * 4 * sizeof(float))) != NULL);
+  n = 0;
+  for (i = 0; i < nblocks; i++) {
+    for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
+         trace_iter++) {
+      for (pt_iter = (*trace_iter)->begin(); pt_iter != (*trace_iter)->end(); 
+	   pt_iter++) {
+	temp = **pt_iter;
+	mypt[4 * n]     = temp[0];
+	mypt[4 * n + 1] = temp[1];
+	mypt[4 * n + 2] = temp[2];
+	mypt[4 * n + 3] = temp[3];
+	n++;
+      }
+    }
+  }
+
+  // write my points
+  MPI_File_set_view(fd, ofst, MPI_FLOAT, MPI_FLOAT, (char *)"native", 
+		    MPI_INFO_NULL);
+  assert(MPI_File_write_all(fd, mypt, mynpt * 4, MPI_FLOAT, &status)
+	 == MPI_SUCCESS);
+  assert(status.count == mynpt * 4 * sizeof(float)); // in bytes
+
+  free(mypt);
+  MPI_File_close(&fd);
 
 }
 //-----------------------------------------------------------------------
 //
 // GatherNumPts
 //
-// gathers number of points in each trace to the root
+// gathers number of points in each trace to the root or to all procs
 //
 // ntrace: number of traces in each process (passed by reference)
-// sb, eb: starting and ending blocks
+// all: all = 0 gather to root, all = 1 gather to all
 //
 // returns: total number of points in my process
 //
-int GatherNumPts(int* &ntrace) {
+int GatherNumPts(int* &ntrace, int all) {
 
   int myntrace = 0; // my number of traces
   static int *ofst = NULL; // offsets into ntrace
@@ -1065,8 +1159,11 @@ int GatherNumPts(int* &ntrace) {
   for (i = 0; i < nblocks; i++)
     myntrace += sl_list[i].size();
 
-  // gather number of traces at the root
-  MPI_Gather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  // gather number of traces
+  if (all)
+    MPI_Allgather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, MPI_COMM_WORLD);
+  else
+    MPI_Gather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   // compute number of points in each of my traces
   assert((mynpt = new int[myntrace]) != NULL);
@@ -1083,19 +1180,19 @@ int GatherNumPts(int* &ntrace) {
     }
   }
 
-  // gather number of points in each trace at the root
-  if (rank == 0) {
-
-    tot_ntrace = 0;
-    for (i = 0; i < nproc; i++) {
-      ofst[i] = (i == 0) ? 0 : ofst[i - 1] + ntrace[i - 1];
-      tot_ntrace += ntrace[i];
-    }
-
+  // gather number of points in each trace
+  tot_ntrace = 0;
+  for (i = 0; i < nproc; i++) {
+    ofst[i] = (i == 0) ? 0 : ofst[i - 1] + ntrace[i - 1];
+    tot_ntrace += ntrace[i];
   }
 
-  MPI_Gatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT, 0, 
-	      MPI_COMM_WORLD);
+  if (all)
+    MPI_Allgatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT,
+		   MPI_COMM_WORLD);
+  else
+    MPI_Gatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT, 0, 
+		MPI_COMM_WORLD);
 
   delete[] mynpt;
 
@@ -1256,11 +1353,10 @@ void Init() {
 
   // allocate pts list and number of points list for rendering
   ngr = (int)(ceil(ntpart / tr)); // number of groups
+  nt = nspart * ntpart * tf * max_rounds * ngr; // max total traces
+  assert((npt = new int[nt]) != NULL); // number pts in everyone's traces
   if (myproc == 0) {
-    nt = nspart * ntpart * tf * max_rounds * ngr; // max total traces
     np = nt * pf; // max total points
-    npt = new int[nt]; // number of points in everyone's trace
-    assert(npt != NULL);
     pt = new VECTOR4[np]; // points in everyones traces
     assert(pt != NULL);
   }
@@ -1308,9 +1404,12 @@ void Cleanup() {
 
   int i;
 
-  delete [] pt;
-  delete [] npt;
-  delete [] sl_list;
+  if (pt != NULL)
+    delete [] pt;
+  if (npt != NULL)
+    delete [] npt;
+  if (sl_list != NULL)
+    delete [] sl_list;
 
   for (i = 0; i < nblocks; i++) {
     free(Seeds[i]);

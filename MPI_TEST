@@ -33,7 +33,7 @@ ARCH=LINUX
 nodes=64
 
 # number of procs
-num_procs=16
+num_procs=4
 
 # executable
 exe=./mpitest
@@ -55,10 +55,10 @@ tb=1
 tr=1
 
 # number of traces per block
-t=200
+t=50
 
 # number of points per trace
-p=200
+p=100
 
 # number of rounds
 r=10

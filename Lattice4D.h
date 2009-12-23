@@ -62,11 +62,17 @@ class  Lattice4D {
 	     int *min_t, int *max_t);
   void GetGlobalVB(int part, float *min_s, float *max_s, 
 		   int *min_t, int *max_t);
+  void GetExtents(float *min, float *max);
 
  private: 
 
   int idim, jdim, kdim, tdim; //the lattice range
   int xdim, ydim, zdim, ldim; //the whole data range
+
+  // overall extents of the entire dataset
+  float min_extent[4];
+  float max_extent[4];
+
   int nbhd; // neighborhood size
   int npart; // total number of partitions in the domain
   int *block_ranks; // rank (global partition number) of each of my blocks

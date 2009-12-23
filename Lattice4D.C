@@ -19,10 +19,16 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
   int i, j;
   volume_bounds_type *vbs; 
 
+  // extents
   xdim = xlen; 
   ydim = ylen; 
   zdim = zlen; 
-  ldim = tlen;  // number of time steps
+  ldim = tlen;
+  min_extent[0] = min_extent[1] = min_extent[2] = min_extent[3] = 0.0;
+  max_extent[0] = xlen - 1;
+  max_extent[1] = ylen - 1;
+  max_extent[2] = zlen - 1;
+  max_extent[3] = tlen - 1;
 
   // spatial domain partitioning first 
   vbs = calc_subvolume(xlen, ylen, zlen, ghost, nsp, idim, jdim, kdim); 
@@ -115,6 +121,24 @@ Lattice4D::~Lattice4D()
 
 }
 //---------------------------------------------------------------------------
+//
+// GetExtents
+//
+// overall min, max in x,y,z,t of the entire data
+//
+void Lattice4D::GetExtents(float *min, float *max) {
+
+  min[0] = min_extent[0];
+  min[1] = min_extent[1];
+  min[2] = min_extent[2];
+  min[3] = min_extent[3];
+  max[0] = max_extent[0];
+  max[1] = max_extent[1];
+  max[2] = max_extent[2];
+  max[3] = max_extent[3];
+
+}
+//----------------------------------------------------------------------------
 //
 // assign the partitions to the processors in a round-robin manner 
 //

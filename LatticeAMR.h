@@ -99,6 +99,7 @@ class  LatticeAMR {
 		   int *min_t, int *max_t);
   int GetNeighbor(int myrank, float x, float y, float z, float t);
   void GetNeighborRanks(int block);
+  void GetExtents(float *min, float *max);
 
   // wrappers around partition methods
   float** GetData(int block);
@@ -140,6 +141,10 @@ class  LatticeAMR {
   // the physical bounds of all levels
   float *xmin, *xmax, *ymin, *ymax, *zmin, *zmax; 
   int   *tmin, *tmax; 
+
+  // overall extents of the entire dataset
+  float min_extent[4];
+  float max_extent[4];
 
   float *xlength, *ylength, *zlength; // the physical lengths of blocks 
   int   *tlength;                     // in all levels (all blocks have the 

@@ -67,6 +67,10 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
   tamr->GetDims(block_dims); 
 
   // lattice overall bounds
+  min_extent[0] = min[0]; min_extent[1] = min[1]; min_extent[2] = min[2];
+  min_extent[3] = 0;
+  max_extent[0] = max[0]; max_extent[1] = max[1]; max_extent[2] = max[2];
+  max_extent[3] = tlen - 1;
   xdim = max[0]-min[0]; 
   ydim = max[1]-min[1]; 
   zdim = max[2]-min[2]; 
@@ -597,6 +601,24 @@ void LatticeAMR::CompleteLevels(int t_interval) {
   if (myproc == 0)
     fprintf(stderr,"After combining any time intervals, final npart = %d\n", npart); 
 #endif
+
+}
+//----------------------------------------------------------------------------
+//
+// GetExtents
+//
+// overall min, max in x,y,z,t of the entire data
+//
+void LatticeAMR::GetExtents(float *min, float *max) {
+
+  min[0] = min_extent[0];
+  min[1] = min_extent[1];
+  min[2] = min_extent[2];
+  min[3] = min_extent[3];
+  max[0] = max_extent[0];
+  max[1] = max_extent[1];
+  max[2] = max_extent[2];
+  max[3] = max_extent[3];
 
 }
 //----------------------------------------------------------------------------
