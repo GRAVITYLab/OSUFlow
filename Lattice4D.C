@@ -101,7 +101,7 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
   // average number of neighbors for each block
   int tot_neighbors = 0;
   for (i = 0; i < nb; i++)
-    tot_neighbors += part->parts[i].NumNeighbors;
+    tot_neighbors += part->parts[block_ranks[i]].NumNeighbors;
   avg_neigh = tot_neighbors / nb;
 
 }
@@ -552,36 +552,6 @@ int Lattice4D::GetNeighbor(int block, float x, float y, float z, float t) {
 }
 //---------------------------------------------------------------------------
 //
-// *** DEPRECATED ***
-// *** to be removed ***
-//
-// //
-// // returns neighbor number (0 - MAX_NEIGHBORS) of neighbor containing point
-// // returns -1 if point is not in one of the neighbors
-// //
-// int Lattice4D::GetNeighbor(int myblock, float x, float y, float z, float t) {
-
-//   int n; // neighbor number (0 - MAX_NEIGHBORS)
-//   int nr; // my neighbor's rank (global partition) number
-//   int r; // rank of point
-//   int myrank = block_ranks[myblock];
-
-//   r = GetRank(x, y, z, t);
-//   if (r == -1)
-//     return r;
-
-//   // for all neighbors
-//   for (n = 0; n < part->parts[myrank].NumNeighbors; n++) {
-//     if (r == neighbor_ranks[myblock][n])
-//       return n;
-//   }
-
-//   assert(n < part->parts[myrank].NumNeighbors);
-//   return(-1);
-
-// }
-// //---------------------------------------------------------------------------
-//
 // gets ranks of all neighbors
 // ranks are the global partition numbers for all neighbors
 // the neighbor of an edge gets rank -1
@@ -590,25 +560,23 @@ int Lattice4D::GetNeighbor(int block, float x, float y, float z, float t) {
 //
 void Lattice4D::GetNeighborRanks(int block) {
 
-  int in, jn, kn, ln; // my neighbor's lattice coords
-  int n; // my neighbor number (0-80)
+  int my_i, my_j, my_k, my_l; // my lattice coords
+  int i, j, k, l; // lattice coords offset
   int nr; // my neighbor's rank (global partition) number
   int myrank = block_ranks[block];
 
-  // for all neighbors
-  for (n = 0; n < nbhd; n++) {
+  GetIndices(myrank, my_i, my_j, my_k, my_l);
 
-    // offset my rank to get neighbor's rank
-    nr = myrank + n - (nbhd - 1) / 2;
-
-    // use GetIndices to filter out ranks outside of boundary
-    // then convert the remaining indices back to rank
-    if (GetIndices(nr, in, jn, kn, ln) == 1) {
-      nr = GetRank(in, jn, kn, ln);
-      if (nr >= 0)
-	AddNeighbor(block, nr);
+  for (i = -1; i <= 1; i++) {
+    for (j = -1; j <= 1; j++) {
+      for (k = -1; k <= 1; k++) {
+	for (l = -1; l <= 1; l++) {
+	  nr = GetRank(my_i + i, my_j + j, my_k + k, my_l + l);
+	  if (nr >= 0)
+	    AddNeighbor(block, nr);
+	}
+      }
     }
-
   }
 
 }

@@ -1036,7 +1036,7 @@ void GatherFieldlines() {
   GatherPts(ntrace, n);
 
   // write a file too
-  WriteFieldlinesRoot(ntrace, n, (char *)"field_lines.out");
+  WriteFieldlines(ntrace, n, (char *)"field_lines.out");
 
 #else
 
@@ -1084,10 +1084,7 @@ int GatherNumPts(int* &ntrace, int all) {
     myntrace += sl_list[i].size();
 
   // gather number of traces
-  if (all)
-    MPI_Allgather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, MPI_COMM_WORLD);
-  else
-    MPI_Gather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Allgather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, MPI_COMM_WORLD);
 
   // compute number of points in each of my traces
   assert((mynpt = new int[myntrace]) != NULL);
@@ -1111,12 +1108,8 @@ int GatherNumPts(int* &ntrace, int all) {
     tot_ntrace += ntrace[i];
   }
 
-  if (all)
-    MPI_Allgatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT,
-		   MPI_COMM_WORLD);
-  else
-    MPI_Gatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT, 0, 
-		MPI_COMM_WORLD);
+  MPI_Allgatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT,
+		 MPI_COMM_WORLD);
 
   delete[] mynpt;
 

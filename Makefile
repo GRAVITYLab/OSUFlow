@@ -66,7 +66,7 @@ C++   = mpecxx -mpilog
 endif
 THREADS = -fopenmp
 	CCFLAGS = -c -DLINUX -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
-#CCFLAGS += -DGRAPHICS
+CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
 #CCFLAGS += -Wall -Wextra
 INCLUDE = -I/homes/tpeterka/hdf5-install/include

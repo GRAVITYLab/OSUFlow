@@ -46,7 +46,7 @@ data=/homes/tpeterka/tornado/tornado.list
 dsize="128 128 128 1"
 
 # total number of partitions in the space domain
-sb=32
+sb=16
 
 # total number of partitions in the time domain
 tb=1

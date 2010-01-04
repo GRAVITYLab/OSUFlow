@@ -237,7 +237,7 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
   // average number of neighbors for each block
   int tot_neighbors = 0;
   for (i = 0; i < nb; i++)
-    tot_neighbors += part->parts[i].NumNeighbors;
+    tot_neighbors += part->parts[block_ranks[i]].NumNeighbors;
   avg_neigh = tot_neighbors / nb;
 
 }
