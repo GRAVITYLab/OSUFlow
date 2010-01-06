@@ -8,7 +8,8 @@
 
 // General Headers
 #include <stdlib.h>
-#include <values.h>
+#include <limits.h>
+#include <float.h>
 #include <assert.h>
 
 // use HDF5 version 1.6 API
@@ -1523,8 +1524,8 @@ FlashHDFFile::GetCoordinateRangeEntireDataset(float ranges[6])
     float emin[3];
     float emax[3];
     
-    ranges[0] = ranges[2] = ranges[4] = MAXFLOAT;
-    ranges[1] = ranges[3] = ranges[5] = -MAXFLOAT;
+    ranges[0] = ranges[2] = ranges[4] = FLT_MAX;
+    ranges[1] = ranges[3] = ranges[5] = -FLT_MAX;
     
     for(i=0;i<numberOfBlocks;i++)
     {

@@ -65,9 +65,10 @@ ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
 endif
 THREADS = -fopenmp
-	CCFLAGS = -c -DLINUX -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS = -c -DLINUX 
 CCFLAGS += -DGRAPHICS
 CCFLAGS += -g
+#CCFLAGS += -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 #CCFLAGS += -Wall -Wextra
 INCLUDE = -I/homes/tpeterka/hdf5-install/include
 LIBS = -lm -lglut -lGL -lz \
@@ -191,80 +192,102 @@ SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 
 default: all
 
-all: lib$(LIBNAME).a testmain testmain2 gldraw gldraw2 \
-	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak \
-	gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 \
-	gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline mpitest mpiamrtest
+all: lib$(LIBNAME).a mpiamrtest mpitest sertest draw gldraw # seramrtest
+
+# DEPRECATED - remove enventually
+
+# all: lib$(LIBNAME).a testmain testmain2 gldraw gldraw2 \
+# 	testmainPathline testmainStreak gldrawPathline gldrawPathline2  gldrawStreak \
+# 	gldrawStreak3 gldrawPathline3 gldrawPathline4 gldrawFlash gldrawFlash2 gldrawFlash3 \
+# 	gldrawFlash4 gldrawFlashData gldrawFlashTime gldrawFlashPathline mpitest mpiamrtest
 
 lib$(LIBNAME).a : $(OBJS)
 	$(RM) -f $@
 	$(AR) $@ $(OBJS) 
 
-testmain: testmain.o lib$(LIBNAME).a
-	$(C++) -o testmain testmain.o -L. -l$(LIBNAME) -lm
-
-testmain2: testmain2.o lib$(LIBNAME).a
-	$(C++) -o testmain2 testmain2.o -L. -l$(LIBNAME) -lm
-
+# test of MPI parallel AMR grid
 mpiamrtest: MpiAmrDraw.o lib$(LIBNAME).a
 	$(C++) -o mpiamrtest MpiAmrDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
 
+# test of MPI version of regular grid
 mpitest: MpiDraw.o lib$(LIBNAME).a
 	$(C++) -o mpitest MpiDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
 
+# test of serial version of AMR grid (does not build, source needs updating)
+# seramrtest: SerAmrDraw.o  lib$(LIBNAME).a
+# 	$(C++) -o seramrtest SerAmrDraw.o -L. -l$(LIBNAME) $(LIBS)
+
+#test of serial version of regular grid
+sertest: SerDraw.o lib$(LIBNAME).a
+	$(C++) -o sertest SerDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
+
+# standalone drawing program
 draw: Draw.o
 	$(C++) -o draw Draw.o -L. $(LIBS) 
 
+# original test of osuflow in single domain
 gldraw: gldraw.o  lib$(LIBNAME).a
 	$(C++) -o gldraw gldraw.o -L. -l$(LIBNAME) $(LIBS) 
 
-gldraw2: gldraw2.o  lib$(LIBNAME).a
-	$(C++) -o gldraw2 gldraw2.o -L. -l$(LIBNAME) $(LIBS) 
+#---
 
-testmainPathline: testmainPathline.o  lib$(LIBNAME).a
-	$(C++) -o testmainPathline testmainPathline.o -L. -l$(LIBNAME) -lm 
+# DEPRECATED - remove eventually
 
-testmainStreak: testmainStreak.o  lib$(LIBNAME).a
-	$(C++) -o testmainStreak testmainStreak.o -L. -l$(LIBNAME) -lm
+#testmain: testmain.o lib$(LIBNAME).a
+#	$(C++) -o testmain testmain.o -L. -l$(LIBNAME) -lm
 
-gldrawPathline: gldrawPathline.o  lib$(LIBNAME).a
-	$(C++) -o gldrawPathline gldrawPathline.o -L. -l$(LIBNAME) $(LIBS)
+#testmain2: testmain2.o lib$(LIBNAME).a
+#	$(C++) -o testmain2 testmain2.o -L. -l$(LIBNAME) -lm
 
-gldrawPathline2: gldrawPathline2.o  lib$(LIBNAME).a
-	$(C++) -o gldrawPathline2 gldrawPathline2.o -L. -l$(LIBNAME) $(LIBS)
+#gldrawPathline: gldrawPathline.o  lib$(LIBNAME).a
+#	$(C++) -o gldrawPathline gldrawPathline.o -L. -l$(LIBNAME) $(LIBS)
 
-gldrawPathline3: gldrawPathline3.o  lib$(LIBNAME).a
-	$(C++) -o gldrawPathline3 gldrawPathline3.o -L. -l$(LIBNAME) $(LIBS)
+#gldraw2: gldraw2.o  lib$(LIBNAME).a
+#	$(C++) -o gldraw2 gldraw2.o -L. -l$(LIBNAME) $(LIBS) 
 
-gldrawPathline4: gldrawPathline4.o  lib$(LIBNAME).a
-	$(C++) -o gldrawPathline4 gldrawPathline4.o -L. -l$(LIBNAME) $(LIBS)
+#testmainPathline: testmainPathline.o  lib$(LIBNAME).a
+#	$(C++) -o testmainPathline testmainPathline.o -L. -l$(LIBNAME) -lm 
 
-gldrawFlash: gldrawFlash.o  lib$(LIBNAME).a
-	$(C++) -o gldrawFlash gldrawFlash.o -L. -l$(LIBNAME) $(LIBS)
+#testmainStreak: testmainStreak.o  lib$(LIBNAME).a
+#	$(C++) -o testmainStreak testmainStreak.o -L. -l$(LIBNAME) -lm
 
-gldrawFlash2: gldrawFlash2.o  lib$(LIBNAME).a
-	$(C++) -o gldrawFlash2 gldrawFlash2.o -L. -l$(LIBNAME) $(LIBS)
+# gldrawPathline2: gldrawPathline2.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawPathline2 gldrawPathline2.o -L. -l$(LIBNAME) $(LIBS)
+
+# gldrawPathline3: gldrawPathline3.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawPathline3 gldrawPathline3.o -L. -l$(LIBNAME) $(LIBS)
+
+# gldrawPathline4: gldrawPathline4.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawPathline4 gldrawPathline4.o -L. -l$(LIBNAME) $(LIBS)
+
+# gldrawFlash: gldrawFlash.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawFlash gldrawFlash.o -L. -l$(LIBNAME) $(LIBS)
+
+# gldrawFlash2: gldrawFlash2.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawFlash2 gldrawFlash2.o -L. -l$(LIBNAME) $(LIBS)
 
 gldrawFlash3: gldrawFlash3.o  lib$(LIBNAME).a
 	$(C++) -o gldrawFlash3 gldrawFlash3.o -L. -l$(LIBNAME) $(LIBS)
 
-gldrawFlash4: gldrawFlash4.o  lib$(LIBNAME).a
-	$(C++) -o gldrawFlash4 gldrawFlash4.o -L. -l$(LIBNAME) $(LIBS)
+# gldrawFlash4: gldrawFlash4.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawFlash4 gldrawFlash4.o -L. -l$(LIBNAME) $(LIBS)
 
-gldrawFlashData: gldrawFlashData.o  lib$(LIBNAME).a
-	$(C++) -o gldrawFlashData gldrawFlashData.o -L. -l$(LIBNAME) $(LIBS)
+# gldrawFlashData: gldrawFlashData.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawFlashData gldrawFlashData.o -L. -l$(LIBNAME) $(LIBS)
 
-gldrawFlashTime: gldrawFlashTime.o  lib$(LIBNAME).a
-	$(C++) -o gldrawFlashTime gldrawFlashTime.o -L. -l$(LIBNAME) $(LIBS)
+# gldrawFlashTime: gldrawFlashTime.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawFlashTime gldrawFlashTime.o -L. -l$(LIBNAME) $(LIBS)
 
-gldrawFlashPathline: gldrawFlashPathline.o  lib$(LIBNAME).a
-	$(C++) -o gldrawFlashPathline gldrawFlashPathline.o -L. -l$(LIBNAME) $(LIBS)
+# gldrawFlashPathline: gldrawFlashPathline.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawFlashPathline gldrawFlashPathline.o -L. -l$(LIBNAME) $(LIBS)
 
-gldrawStreak: gldrawStreak.o  lib$(LIBNAME).a
-	$(C++) -o gldrawStreak gldrawStreak.o -L. -l$(LIBNAME) $(LIBS)
+# gldrawStreak: gldrawStreak.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawStreak gldrawStreak.o -L. -l$(LIBNAME) $(LIBS)
 
-gldrawStreak3: gldrawStreak3.o  lib$(LIBNAME).a
-	$(C++) -o gldrawStreak3 gldrawStreak3.o -L. -l$(LIBNAME) $(LIBS)
+# gldrawStreak3: gldrawStreak3.o  lib$(LIBNAME).a
+# 	$(C++) -o gldrawStreak3 gldrawStreak3.o -L. -l$(LIBNAME) $(LIBS)
+
+#---
 
 clean:
 	rm -f *.o *.a

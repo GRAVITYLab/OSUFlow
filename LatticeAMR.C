@@ -60,9 +60,13 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
 
   // init AMR
   tamr = new TimeVaryingFlashAMR(myid);
+#ifdef _MPI
   t0 = MPI_Wtime();
+#endif
   tamr->LoadMetaData(filename, min, max); 
+#ifdef _MPI
   io_time = MPI_Wtime() - t0;
+#endif
   num_levels = tamr->GetNumLevels();
   tamr->GetDims(block_dims); 
 
@@ -156,9 +160,13 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
   part = new Partition(npart, nproc);
 
   // read my data blocks
+#ifdef _MPI
   t0 = MPI_Wtime();
+#endif
   io_bw = tamr->LoadData(filename, start_block, end_block, vx, vy, vz);
+#ifdef _MPI
   io_time += (MPI_Wtime() - t0);
+#endif
 
   // check in actual data into my blocks
   // record partition data struture info for all blocks
@@ -2069,6 +2077,8 @@ void LatticeAMR::PrintPost(int block) {
 void LatticeAMR::PrintRecv(int block) { 
   part->PrintRecv(block_ranks[block]); 
 }
+
+#ifdef _MPI
 //
 // exchanges points with all neighbors
 // returns total number of points received by this process
@@ -2080,4 +2090,6 @@ int LatticeAMR::ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds) {
   comm_time = MPI_Wtime() - comm_time;
   return n;
 }
+#endif
+
 //---------------------------------------------------------------------------

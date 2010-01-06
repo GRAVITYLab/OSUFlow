@@ -51,7 +51,7 @@ float time_incr;
 VECTOR3 lMin, lMax; 
 VECTOR3 gMin, gMax; 
 
-int nsp = 8, ntp = 2;
+int nsp = 8, ntp = 1;
 int lidim, ljdim, lkdim, ltdim; //lattice's i,j,kdims,where lidim*ljdim*lkdim = nsp; 
 int npart; 
 int nproc = 4; 
@@ -508,10 +508,10 @@ int main(int argc, char** argv)
   minLen[0] = minLen[1] = minLen[2] = 0; 
   maxLen[0] = maxLen[1] = maxLen[2] = 127; 
 
-  int ntime = 50; 
+  int ntime = 1; 
   // partition the domain and create a lattice
   lat = new Lattice4D(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
-		      maxLen[2]-minLen[2]+1, 50, 1, 
+		      maxLen[2]-minLen[2]+1, 1, 1, 
 		      nsp, ntp, nproc);  //1 is ghost layer
 
   lat->GetLatticeDims(lidim, ljdim, lkdim, ltdim); 
@@ -554,8 +554,8 @@ int main(int argc, char** argv)
   }
 
   // set up the animation frame time 
-  num_timesteps = 50;  // number of time steps in the data 
-  num_frames = 50;     // number of frames to loop through the data time 
+  num_timesteps = 1;  // number of time steps in the data 
+  num_frames = 1;     // number of frames to loop through the data time 
   time_incr = num_timesteps/(float) num_frames; 
 
   //  osuflow->GetGlobalBounds(gMin, gMax); 

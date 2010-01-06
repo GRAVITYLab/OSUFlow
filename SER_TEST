@@ -1,0 +1,54 @@
+#!/bin/bash
+
+#----------------------------------------------------------------------------
+#
+# serial run script
+#
+# Copyright (c) 2009 Han-Wei Shen and Tom Peterka
+#
+# Contact:
+#
+# Han-Wei Shen
+# The Ohio State University
+# Columbus, OH
+#
+# Tom Peterka
+# MCS Radix Lab
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+# executable
+exe=./sertest
+
+# dataset
+data=/homes/tpeterka/tornado/tornado.list
+
+# data size x y z t (for steady state flows use t = 1)
+dsize="128 128 128 1"
+
+# total number of partitions in the space domain
+sb=32
+
+# total number of partitions in the time domain
+tb=1
+
+# number of traces per block
+t=50
+
+# number of points per trace
+p=100
+
+# number of rounds
+r=10
+
+$exe $data $dsize $sb $tb $t $p $r
+
+#valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $t $p $r
+
+#gdb -x gdb.run $exe $data $dsize $sb $tb $t $p $r

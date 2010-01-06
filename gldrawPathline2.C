@@ -50,7 +50,7 @@ float time_incr;
 VECTOR3 lMin, lMax; 
 VECTOR3 gMin, gMax; 
 
-int nsp = 2, ntp = 2; 
+int nsp = 2, ntp = 1; 
 int npart; 
 int nproc = 4; 
 int total_seeds = 5000; 
@@ -314,10 +314,10 @@ int main(int argc, char** argv)
   minLen[0] = minLen[1] = minLen[2] = 0; 
   maxLen[0] = maxLen[1] = maxLen[2] = 127; 
 
-  int ntime = 50; 
+  int ntime = 1; 
   // partition the domain and create a lattice
   lat = new Lattice4D(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
-		      maxLen[2]-minLen[2]+1, 50, 1, 
+		      maxLen[2]-minLen[2]+1, ntime, 1, 
 		      nsp, ntp, nproc);  //1 is ghost layer
 
   vb_list = lat->GetBoundsList(); 

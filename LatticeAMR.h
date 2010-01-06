@@ -115,7 +115,11 @@ class  LatticeAMR {
   void PostPoint(int myrank, VECTOR4 p);
   void PrintPost(int myrank);
   void PrintRecv(int myrank);
+#ifdef _MPI
   int ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds);
+#else
+  int ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds) { return 0; }
+#endif
 
  private: 
 

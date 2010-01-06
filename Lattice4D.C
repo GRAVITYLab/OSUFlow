@@ -730,6 +730,8 @@ void Lattice4D::PrintPost(int block) {
 void Lattice4D::PrintRecv(int block) { 
   part->PrintRecv(block_ranks[block]); 
 }
+
+#ifdef _MPI
 //
 // exchanges points with all neighbors
 // returns total number of points received by this process
@@ -741,4 +743,6 @@ int Lattice4D::ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds) {
   comm_time = MPI_Wtime() - comm_time;
   return n;
 }
+#endif
+
 //---------------------------------------------------------------------------

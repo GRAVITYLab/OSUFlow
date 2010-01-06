@@ -53,10 +53,10 @@ VECTOR3 lMin, lMax;
 VECTOR3 gMin, gMax; 
 
 // int nsp = 2, ntp = 2;
-int nsp = 1, ntp = 2;
+int nsp = 8, ntp = 1;
 int npart; 
 // int nproc = 4; 
-int nproc = 2;
+int nproc = 8;
 volume_bounds_type *vb_list; 
 
 OSUFlow **osuflow_list; 
@@ -290,7 +290,7 @@ int main(int argc, char** argv)
   minLen[0] = minLen[1] = minLen[2] = 0; 
   maxLen[0] = maxLen[1] = maxLen[2] = 127; 
 
-   int ntime = 50;
+   int ntime = 1;
 
   lat = new Lattice4D(maxLen[0]-minLen[0]+1, maxLen[1]-minLen[1]+1, 
 		      maxLen[2]-minLen[2]+1, ntime, 1, 
