@@ -318,11 +318,12 @@ void FlashAMR::LoadHDF5MetaData(float min[3], float max[3]) {
 //
 // start_block, end_block: contiguous range of blocks to read
 // vx, vy, vz: names of three velocity components in the dataset
+// mpi: whether mpi is enabled
 //
 // returns: I/O bandwidth in MB/s
 //
 int FlashAMR::LoadHDF5Data(int start_block, int end_block,
-				 char * vx, char * vy, char *vz) {
+			   char * vx, char * vy, char *vz, int mpi) {
 
   int size = block_dims[0] * block_dims[1] * block_dims[2]; // total voxels
   float *comp; // one component of vector data
@@ -340,7 +341,10 @@ int FlashAMR::LoadHDF5Data(int start_block, int end_block,
   for (i = 0; i < nb; i++)
     vectors[i] = new float[size * 3];
 
-  t = MPI_Wtime();
+#ifdef _MPI
+  if (mpi)
+    t = MPI_Wtime();
+#endif
 
   // x component
   fdf->GetFloatVolBlocks(vx, start_block, nblocks, block_dims[0], 
@@ -373,8 +377,13 @@ int FlashAMR::LoadHDF5Data(int start_block, int end_block,
   fdf->Close();
 
   // return I/O bandwidth
-  t = MPI_Wtime() - t;
+#ifdef _MPI
+  if(mpi)
+    t = MPI_Wtime() - t;
   return(nblocks * size * 12 / t / 1048576); // 3 components * 4 bytes = 12
+#else
+  return(0); // no bandwidth to report without MPI_Wtime
+#endif
 
 }
 //-----------------------------------------------------------------------
@@ -453,7 +462,6 @@ void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3],
 
     amr_list[i] = new FlashAMR(myproc);
     amr_list[i]->ParallelLoadHDF5MetaData(filename, pmin, pmax, comm); 
-//     amr_list[i]->SerialLoadHDF5MetaData(filename, pmin, pmax); 
 
     // compute data extents over all the timesteps
     if (i == 0) {
@@ -488,18 +496,18 @@ void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3],
 }
 //-----------------------------------------------------------------------
 
-#else
+#endif
 
 //-----------------------------------------------------------------------
 //
-// LoadMetaData
+// SerialLoadMetaData
 //
 // reads metadata independently for a time-varying flash AMR dataset
 //
 // fname: file containing list of timestep files
 // min, max: (output) global min, max extent over entire dataset (space+time)
 //
-void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) {
+void TimeVaryingFlashAMR::SerialLoadMetaData(char* fname, float min[3], float max[3]) {
 
   FILE *fIn; 
   char filename[300]; 
@@ -557,10 +565,6 @@ void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) 
 
 }
 //-----------------------------------------------------------------------
-
-#endif
-
-//-----------------------------------------------------------------------
 //
 // LoadData
 //
@@ -569,11 +573,12 @@ void TimeVaryingFlashAMR::LoadMetaData(char* fname, float min[3], float max[3]) 
 // fname: file containing list of timestep files
 // start_block, end_block: contiguous range of blocks to read
 // vx, vy, vz: names of three velocity components in the dataset
+// mpi: whether mpi is enabled
 //
 // returns: average I/O bandwidth in MB/s across all time steps
 //
 int TimeVaryingFlashAMR::LoadData(char* fname, int start_block, int end_block,
-				  char *vx, char *vy, char *vz) {
+				  char *vx, char *vy, char *vz, int mpi) {
 
   FILE *fIn; 
   char filename[300]; 
@@ -615,7 +620,7 @@ int TimeVaryingFlashAMR::LoadData(char* fname, int start_block, int end_block,
       fprintf(stderr,"Reading vector data from %s ...\n\n", filename); 
 #endif
 
-    io_bw += amr_list[i]->LoadHDF5Data(fs, fe, vx, vy, vz);
+    io_bw += amr_list[i]->LoadHDF5Data(fs, fe, vx, vy, vz, mpi);
     n++;
 
     // update for next time step

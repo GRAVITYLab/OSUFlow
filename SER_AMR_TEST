@@ -24,29 +24,32 @@
 #
 #----------------------------------------------------------------------------
 # executable
-exe=./sertest
+exe=./seramrtest
 
 # dataset
-data=/homes/tpeterka/tornado/tornado.list
+data=/homes/tpeterka/flash/flash.list
 
 # data size x y z t
-# (for static flow use t = 1 and list one time step in the dataset file)
-dsize="128 128 128 1"
+# use x = y = z = 1 (finds its own spatial size)
+# use t = # of timesteps (static flow use t = 1 and list one time step in the 
+# dataset file)
+dsize="1 1 1 1"
 
 # total number of partitions in the space domain
-sb=4
+sb=1
 
 # total number of partitions in the time domain
+# for steady state flows use tb = 1
 tb=1
 
 # number of traces per block
-t=10
+t=1
 
 # number of points per trace
-p=100
+p=10
 
 # number of rounds
-r=2
+r=5
 
 $exe $data $dsize $sb $tb $t $p $r
 

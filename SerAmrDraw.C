@@ -1,412 +1,617 @@
+//------------------------------------------------------------------------------
+//
+// serial AMR test draw
+//
+// Copyright (c) 2009 Han-Wei Shen and Tom Peterka
+//
+// Contact:
+//
+// Han-Wei Shen
+// The Ohio State University
+// Columbus, OH
+//
+// Tom Peterka
+// MCS Radix Lab
+// Argonne National Laboratory
+// 9700 S. Cass Ave.
+// Argonne, IL 60439
+// tpeterka@mcs.anl.gov
+//
+// All rights reserved. May not be used, modified, or copied
+// without permission
+//
+//--------------------------------------------------------------------------
 
 #include <stdio.h>
 #include <stdlib.h> 
+#include <list>
+#include <iterator>
 
 #ifdef MAC_OSX
 #include <GLUT/glut.h> 
 #include <OpenGL/gl.h>
-#else
+#include <OpenGL/glu.h>
+#endif
+
+#ifdef LINUX
 #include <GL/glut.h> 
 #include <GL/gl.h>
-#endif 
+#endif
+
+#ifdef MAC_OSX_10_4
+#include <GLUT/glut.h> 
+#include <OpenGL/gl.h>
+#endif
 
 #include "OSUFlow.h"
-#include "LatticeAMR.h" 
-#include "FlashAMR.h" 
+#include "calc_subvolume.h"
+#include "LatticeAMR.h"
 
-#include <list>
-#include <iterator>
-
-int press_x, press_y; 
-int release_x, release_y; 
-float x_angle = 0.0; 
-float y_angle = 0.0;
-float scale_size = 1; 
-
-int xform_mode = 0; 
-
+// defines related to drawing
 #define XFORM_NONE    0 
 #define XFORM_ROTATE  1
 #define XFORM_SCALE 2 
 
-bool toggle_draw_pathlines = false; 
-bool toggle_animate_pathlines = false; 
+// drawing state
+int press_x, press_y; 
+int release_x, release_y; 
+float x_angle = 0.0; 
+float y_angle = 0.0;
+float scale_size = 1;
+int xform_mode = 0; 
+bool toggle_bounds = true;
 
-//int num_timesteps; 
-int num_frames; 
-int start_time, end_time; 
-int current_frame = 0; 
-float time_incr; 
+// drawing data
+VECTOR4 *pt = NULL; // points in everyone's traces
+int *npt = NULL; // everyone's number of points in their traces
+int tot_ntrace; // total number of everyone's traces
 
-float center[3], len[3]; 
-int first_frame = 1; 
+// function prototypes
+void GetArgs(int argc, char *argv[]);
+void Init();
+void PrintSeeds(int nblocks);
+void ComputePathlines(int block_num);
+void ComputeStreamlines(int block_num);
+void GatherFieldlines();
+void DrawFieldlines();
+void Cleanup();
+void draw_bounds(float *from, float *to);
+void draw_cube(float r, float g, float b);
+void display();
+void timer(int val);
+void mymouse(int button, int state, int x, int y);
+void mymotion(int x, int y);
+void mykey(unsigned char key, int x, int y);
+void idle();
+void Run();
 
-int draw_level=0; 
+// globals
+static char filename[256]; // dataset file name
+int dims[3]; // number of cells in an AMR block (eg 16x16x16)
+VECTOR3 size; // spatial domain size
+static int tsize; // temporal domain size
+int *NumSeeds; // number of seeds
+int *SizeSeeds; // size of seeds list (bytes)
+VECTOR4 **Seeds; // list of seeds lists
+VECTOR3 *seeds; // one temporary list of (3d) seeds
+OSUFlow **osuflow; // one flow object for each block
+list<vtListTimeSeedTrace*> *sl_list = NULL; // pathlines list
+int nspart; // global total number of spatial blocks
+int ntpart; // global total number of temporal blocks
+int nblocks; // my number of blocks
+LatticeAMR* lat; // lattice
+int tf; // max number of traces per block
+int pf; // max number of points per trace
+int max_rounds; // max number of rounds
 
-bool to_draw_bbx = false; 
-bool to_draw_center = false; 
-bool to_draw_vector = false; 
+//----------------------------------------------------------------------------
 
-int current_time = 0; 
+int main(int argc, char *argv[]) {
 
-///////////////////////////////
-//
-// AMR book-keeping variables 
-//
-int num_timesteps;     // number of time steps 
+  char buf[256];
 
-float domain_lengths[3];      // x y z lengths of the entire domain 
+  GetArgs(argc, argv);
+  Init();
+  Run();
 
-float domain_center[3];       // center of the entire domain 
+#ifdef GRAPHICS
 
+  glutInit(&argc, argv); 
+  glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH); 
+  glutInitWindowSize(600,600); 
+  sprintf(buf, "Pathlines");
+  glutCreateWindow(buf); 
+  glutDisplayFunc(display); 
+  glutIdleFunc(idle); 
+  glutTimerFunc(10, timer, 0); 
+  glutMouseFunc(mymouse); 
+  glutMotionFunc(mymotion);
+  glutKeyboardFunc(mykey); 
+  glutMainLoop(); 
 
-//***********************************************
-//    Per time step information 
-//
+#endif
 
-TimeVaryingFlashAMR *tamr; 
-
-int    total_levels;      // how many levels in total across all time steps 
-
-//////////////////////////////////////////////////////
-//  Lattice data structure built on top of the grid 
-
-LatticeAMR * latticeAMR; 
-
-OSUFlow **osuflow_list; 
-volume_bounds_type_f* vb_list; 
-
-list<vtListTimeSeedTrace*> *sl_list; 
-VECTOR4 **osuflow_seeds; 
-int *osuflow_num_seeds; 
-
-
-int total_seeds = 50000; 
-int npart; 
-
-///////////////////////////////////////////////////////////////////////
-//
-//
-void compute_pathlines() {
-
-  float from[3], to[3]; 
-
-  for (int i=0; i<npart; i++) {
-
-    VECTOR3 minB, maxB; 
-    VECTOR3 * seeds; 
-    int num; 
-
-    minB[0] = vb_list[i].xmin;  
-    minB[1] = vb_list[i].ymin;     
-    minB[2] = vb_list[i].zmin; 
-    maxB[0] = vb_list[i].xmax;  
-    maxB[1] = vb_list[i].ymax;     
-    maxB[2] = vb_list[i].zmax; 
-
-    from[0] = minB[0]; to[0] = maxB[0];
-    from[1] = minB[1]; to[1] = maxB[1];
-    from[2] = minB[2]; to[2] = maxB[2]; 
-
-    //    osuflow_list[i]->SetRandomSeedPoints(from, to, total_seeds/npart); 
-    osuflow_list[i]->SetRandomSeedPoints(from, to, 1); 
-    seeds = osuflow_list[i]->GetSeeds(num); // only VECTOR3s are generated 
-    osuflow_num_seeds[i] = num; 
-    osuflow_seeds[i] = new VECTOR4[num];    // now copy and augment to 4D seeds 
-    for (int j=0; j<num; j++)  {
-      osuflow_seeds[i][j][0] = seeds[j][0]; 
-      osuflow_seeds[i][j][1] = seeds[j][1]; 
-      osuflow_seeds[i][j][2] = seeds[j][2]; 
-
-      //      osuflow_seeds[i][j][3] = vb_list[i].tmin; 
-      //      printf(" tmin = %d\n",vb_list[i].tmin); 
-      osuflow_seeds[i][j][3] = vb_list[i].tmin + 0.5; 
-      //            osuflow_seeds[i][j][3] =  0.5; 
-      //      printf(" %f %f %f %f ", osuflow_seeds[i][j][0], 
-      //	     osuflow_seeds[i][j][1], osuflow_seeds[i][j][2], osuflow_seeds[i][j][3]); 
-    }
-    sl_list[i].clear();   // clear the trace 
-  }
-
-  // Now begin to perform pathline tracing in all subdomains if seeds are in 
-  bool has_seeds = true;      // initially we always have seeds
-  int num_seeds_left = total_seeds; 
-
-  while(has_seeds == true && num_seeds_left >50) {  // loop until all particles stop 
-
-    latticeAMR->ResetSeedLists();    // clear up the lattice seed lists
-
-     for (int np=0; np<npart; np++) {
-       int i = np; 
-       if (osuflow_num_seeds[i]==0) {  // domain i is already done. 
-	 //	 printf("skip domain %d \n", i); 
-	 continue; 
-       }
-
-       list<vtListTimeSeedTrace*> list; 
-       osuflow_list[i]->SetIntegrationParams(1, 5); 
-       osuflow_list[i]->GenPathLines(osuflow_seeds[i],list, FORWARD, 
-				     osuflow_num_seeds[i], 50); 
-
-       //       printf("domain %d done integrations", i); 
-       printf(" %d pathlines. \n", list.size()); 
-
-       std::list<vtListTimeSeedTrace*>::iterator pIter; 
-       //------------------------------------------------
-       // looping through the trace points
-       pIter = list.begin(); 
-       for (; pIter!=list.end(); pIter++) {
-	 vtListTimeSeedTrace *trace = *pIter; 
-	 sl_list[i].push_back(trace); 
-       }
-      // now redistributing the boundary pathline points to its neighbors. 
-      pIter = list.begin(); 
-      for (; pIter!=list.end(); pIter++) {
-	vtListTimeSeedTrace *trace = *pIter; 
-	if (trace->size() ==0) continue; 
-	std::list<VECTOR4*>::iterator pnIter; 
-	pnIter = trace->end(); 
-	pnIter--; 
-	VECTOR4 p = **pnIter; 
-	//check p is in which neighbor's domain 
-	int ei, ej, ek, et, el; 
-	int neighbor = latticeAMR->GetNeighbor(i, p[0], p[1], p[2], p[3], ei, 
-					       ej, ek, et, el); 
-
-	if (neighbor!=-1 && neighbor!=i) latticeAMR->InsertSeed(ei, ej, ek, et, el, p); 
-	printf(" insert a seed %f %f %f %f to rank %d \n",
-	       p[0], p[1], p[2], p[3], neighbor); 
-      }
-    }
-    //------------------
-    // now create the seed arrays for the next run
-    has_seeds = false;  
-    num_seeds_left = 0; 
-    for (int i=0; i<npart; i++) {
-      //      if (osuflow_seeds[i]!=NULL) delete [] osuflow_seeds[i]; 
-      osuflow_num_seeds[i] = latticeAMR->seedlists[i].size(); 
-      num_seeds_left += osuflow_num_seeds[i]; 
-      //      printf("seedlists[%d].size() = %d\n", i, osuflow_num_seeds[i]); 
-      if (osuflow_num_seeds[i]!=0) has_seeds = true; 
-      else continue; 
-      osuflow_seeds[i] = new VECTOR4[osuflow_num_seeds[i]]; 
-      std::list<VECTOR4>::iterator seedIter; 
-      seedIter = latticeAMR->seedlists[i].begin(); 
-      int cnt = 0; 
-      for (; seedIter!=latticeAMR->seedlists[i].end(); seedIter++){
-	VECTOR4 p = *seedIter; 
-	osuflow_seeds[i][cnt++] = p; 
-      }
-    }
-  }
+  Cleanup();
 
 }
+//-----------------------------------------------------------------------
+//
+// IOandCompute
+//
+void Run() {
 
-/////////////////////////////////////////////////////////////////////////
-void draw_pathlines() {
+  int min_t, max_t; // subdomain temporal bounds
+  float from[3], to[3]; // seed points limits
+  int i, j, k;
+  float **data; // data (can be time varying, double pointer)
   
-  glPushMatrix(); 
+  // init all blocks
+  for (i = 0; i < nblocks; i++) {
 
-  glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
-   glTranslatef(-center[0], -center[1], -center[2]); 
+    osuflow[i] = new OSUFlow;
+    lat->GetVB(i, from, to, &min_t, &max_t);
 
-  for (int i=0; i<npart; i++) {
+    // init seeds for blocks at t = initial time
+    if (min_t == 0) {
 
-    int nSeeds; 
-    VECTOR3* seeds = osuflow_list[i]->GetSeeds(nSeeds); 
-    glColor3f(1,1,1); 
-    glBegin(GL_POINTS); 
-    //    for (int j=0; j<nSeeds; j++) 
-    //      glVertex3f(seeds[j][0], seeds[j][1], seeds[j][2]); 
-    glEnd(); 
+      osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+      seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
 
-    glColor3f(1,1,0); 
-    std::list<vtListTimeSeedTrace*>::iterator pIter; 
-
-    pIter = sl_list[i].begin(); 
-    for (; pIter!=sl_list[i].end(); pIter++) {
-      vtListTimeSeedTrace *trace = *pIter; 
-      std::list<VECTOR4*>::iterator pnIter; 
-      pnIter = trace->begin(); 
-      glBegin(GL_LINE_STRIP); 
-      for (; pnIter!= trace->end(); pnIter++) {
-	VECTOR4 p = **pnIter; 
-	float x = p[0]; 
-	float y = p[1]; 
-	float z = p[2]; 
-	glVertex3f(x,y,z); 
+      while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
+	Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
+	assert(Seeds[i] != NULL);
+	SizeSeeds[i] *= 2;
       }
-      glEnd(); 
+
+      for (k = 0; k < NumSeeds[i]; k++)
+	Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], min_t);
+
+    } // init seeds
+
+  } // init all blocks
+
+    // for all rounds
+  for (j = 0; j < max_rounds; j++) {
+
+    // for all blocks
+    for (i = 0; i < nblocks; i++) {
+
+      // load block for first round only
+      if (j == 0) {
+	// get the pointer to the data, create flow field
+	// data were read into memory earlier
+	assert((data = lat->GetData(i)) != NULL);
+	lat->GetVB(i, from, to, &min_t, &max_t);
+	osuflow[i]->CreateTimeVaryingFlowField(data, dims[0], dims[1], 
+					       dims[2], from, to, 
+					       min_t, max_t); 
+	osuflow[i]->ScaleField(0.1); // improves visibility
+      }
+	
+      if (tsize > 1)
+	ComputePathlines(i);
+      else
+	ComputeStreamlines(i);
+
+    } // for all blocks
+
+    lat->SerExchangeNeighbors(Seeds, SizeSeeds, NumSeeds);
+
+  } // for all rounds
+
+    // gather pathlines for rendering
+  GatherFieldlines();
+
+}
+//-----------------------------------------------------------------------
+//
+// ComputeStreamlines
+//
+// block_num: local block number (0 to nblocks-1)
+// not global partition number
+//
+void ComputeStreamlines(int block_num) {
+
+  list<vtListSeedTrace*> list3; // 3D list of traces
+  std::list<VECTOR3*>::iterator pt_iter3; // 3D iterator over pts in one trace
+  std::list<vtListSeedTrace*>::iterator trace_iter3; // 3D iter. over traces
+  VECTOR3 *Seeds3; // 3D seeds in current block
+  VECTOR3 p3; // 3D current point
+  VECTOR4 *p; // 4D current point
+  vtListTimeSeedTrace *trace; // 4D single trace
+  int i;
+
+  if (NumSeeds[block_num]) {
+
+    // start clean
+    lat->ResetSeedLists();
+
+    // make VECTOR3s (temporary)
+    assert((Seeds3 = (VECTOR3 *)malloc(NumSeeds[block_num] * sizeof(VECTOR3)))
+	   != NULL);
+    for (i = 0; i < NumSeeds[block_num]; i++) {
+      Seeds3[i][0]= Seeds[block_num][i][0];
+      Seeds3[i][1]= Seeds[block_num][i][1];
+      Seeds3[i][2]= Seeds[block_num][i][2];
+    }
+	  
+    // perform the integration
+    // todo: integrate in both directions
+    osuflow[block_num]->SetIntegrationParams(1, 5); 
+    osuflow[block_num]->GenStreamLines(Seeds3, FORWARD_DIR, 
+				       NumSeeds[block_num], pf, list3); 
+
+    // copy each 3D trace to a 4D trace and then to the streamline list
+    // post end point of each trace to the send list
+    for (trace_iter3 = list3.begin(); trace_iter3 != list3.end(); 
+	 trace_iter3++) {
+
+      if (!(*trace_iter3)->size())
+	continue;
+
+      trace = new vtListTimeSeedTrace;
+      for (pt_iter3 = (*trace_iter3)->begin(); pt_iter3 != 
+	     (*trace_iter3)->end(); pt_iter3++) {
+	p3 = **pt_iter3;
+	p = new VECTOR4;
+	p->Set(p3[0], p3[1], p3[2], 0.0f);
+	trace->push_back(p);
+
+      }
+
+      lat->PostPoint(block_num, *p); // last point only
+      sl_list[block_num].push_back(trace); // for later rendering
+
+    }
+
+  }
+  
+}
+//-----------------------------------------------------------------------
+//
+// ComputePathlines
+//
+// block_num: local block number (0 to nblocks-1)
+// not global partition number
+//
+void ComputePathlines(int block_num) {
+
+  list<vtListTimeSeedTrace*> list; // list of traces
+  std::list<VECTOR4*>::iterator pt_iter; // iterator over pts in one trace
+  std::list<vtListTimeSeedTrace*>::iterator trace_iter; // iter. over traces
+  VECTOR4 p; // current point
+  int i;
+
+  if (NumSeeds[block_num]) {
+
+    // start clean
+    lat->ResetSeedLists();
+	  
+    // perform the integration
+    // todo: integrate in both directions
+    osuflow[block_num]->SetIntegrationParams(1, 5); 
+    osuflow[block_num]->GenPathLines(Seeds[block_num], list, FORWARD, 
+				       NumSeeds[block_num], pf); 
+
+    // copy each trace to the streamline list for later rendering
+    // post end point of each trace to the send list
+    for (trace_iter = list.begin(); trace_iter != list.end(); 
+	 trace_iter++) {
+
+      if (!(*trace_iter)->size())
+	continue;
+
+      // get the end point
+      pt_iter = (*trace_iter)->end();
+      pt_iter--;
+      p = **pt_iter;
+
+      lat->PostPoint(block_num, p); // last point only
+      sl_list[block_num].push_back(*trace_iter); // for later rendering
+
+    }
+
+  }
+  
+}
+//-----------------------------------------------------------------------
+//
+// GatherFieldlines
+//
+// gathers all fieldlines for rendering
+//
+void GatherFieldlines() {
+
+  std::list<vtListTimeSeedTrace *>::iterator trace_iter; // iterator over traces
+  std::list<VECTOR4 *>::iterator pt_iter; // iterator over points in one trace
+  int i, j, k;
+  int tot_npts = 0;
+
+  // compute number of traces and points
+  for (i = 0; i < nblocks; i++) {
+    tot_ntrace += sl_list[i].size();
+    for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
+         trace_iter++)
+      tot_npts += (*trace_iter)->size();
+  }
+
+  // allocate rendering data
+  assert((npt = new int[tot_ntrace]) != NULL);
+  assert((pt = new VECTOR4[tot_npts]) != NULL); // points in everyones traces
+
+  // compute number of points in each trace and collect the points
+  j = 0;
+  k = 0;
+  for (i = 0; i < nblocks; i++) {
+    for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
+         trace_iter++) {
+      for (pt_iter = (*trace_iter)->begin(); pt_iter != (*trace_iter)->end(); 
+         pt_iter++)
+	pt[k++] = **pt_iter;
+      npt[j++] = (*trace_iter)->size();
     }
   }
-  glPopMatrix(); 
+
 }
+//-----------------------------------------------------------------------
+//
+// GetArgs
+//
+// gets command line args
+//
+void GetArgs(int argc, char *argv[]) {
 
-void animate_pathlines() {
- 
-  std::list<vtListTimeSeedTrace*>::iterator pIter; 
-  vtListTimeSeedTrace *trace; 
-  std::list<VECTOR4*>::iterator pnIter; 
+  VECTOR3 minLen, maxLen; // spatial data bounds
+  int minTime, maxTime; // time data bounds
 
-  glPushMatrix(); 
+  assert(argc >= 8);
 
-  glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
-  glTranslatef(-center[0], -center[1], -center[2]); 
+  strncpy(filename,argv[1],sizeof(filename));
 
-  float min_time = current_frame * time_incr; 
-  float max_time = (current_frame+1) * time_incr; 
+  // hard code the minimum corner to be 0,0,0,0
+  // need to allow for variable data origin in the future
+  minLen[0] = minLen[1] = minLen[2] = 0.0;
+  minTime = 0;
 
+  maxLen[0] = atof(argv[2]) - 1.0f;
+  maxLen[1] = atof(argv[3]) - 1.0f;
+  maxLen[2] = atof(argv[4]) - 1.0f;
+  maxTime   = (int)(atof(argv[5]) - 1.0f);
 
-  for (int i=0; i<npart; i++) {
-    pIter = sl_list[i].begin(); 
-    glColor3f(1,1,0); 
-    glBegin(GL_POINTS); 
-    for (; pIter!=sl_list[i].end(); pIter++) {
-      trace = *pIter; 
-      pnIter = trace->begin(); 
-      for (; pnIter!= trace->end(); pnIter++) {
-	VECTOR4 p = **pnIter; 
-	if (p[3]>= min_time && p[3] < max_time) {
-	  float x = p[0]; 
-	  float y = p[1]; 
-	  float z = p[2]; 
-	  glVertex3f(x,y,z); 
-	}
-      }
-    }
-    glEnd(); 
+  size[0] = maxLen[0] - minLen[0] + 1.0f; // data sizes, space and time
+  size[1] = maxLen[1] - minLen[1] + 1.0f;
+  size[2] = maxLen[2] - minLen[2] + 1.0f;
+  tsize   = (int)(maxTime - minTime + 1.0f);
+
+  nspart = atoi(argv[6]); // total space partitions
+  ntpart = atoi(argv[7]); // total time partitions
+
+  tf = atoi(argv[8]); // traces per block
+  pf = atoi(argv[9]); // points per trace
+  max_rounds = atoi(argv[10]); // rounds
+
+}
+//-----------------------------------------------------------------------
+//
+// Init
+//
+// inits the app
+//
+void Init() {
+
+  int nt; // max total number of traces
+  int np; // max total number of points
+  int ghost = 1; // number of ghost cells per spatial edge
+  int i;
+
+  // create the lattice
+  // names of velocity components velx, vely, velz hard-coded
+  lat = new LatticeAMR(filename, tsize, (char *)"velx", (char *)"vely", (char *)
+		       "velz"); 
+  nblocks = lat->GetMyNumPartitions();
+  nspart = lat->GetTotalNumPartitions(); // all spatial for now
+  lat->GetBlockDims(dims);
+
+  // init osuflow
+  osuflow = new OSUFlow*[nblocks];
+  assert(osuflow != NULL);
+  for (i = 0; i < nblocks; i++)
+    osuflow[i] = NULL;
+
+  // init seeds
+  lat->InitSeedLists(); 
+  Seeds = (VECTOR4 **)malloc(nblocks * sizeof(VECTOR4 *));
+  assert(Seeds != NULL);
+  NumSeeds = (int *)malloc(nblocks * sizeof(int));
+  assert(NumSeeds != NULL);
+  SizeSeeds = (int *)malloc(nblocks * sizeof(int));
+  assert(SizeSeeds != NULL);
+  for (i = 0; i < nblocks; i++) {
+    Seeds[i] = (VECTOR4 *)malloc(sizeof(VECTOR4));
+    assert(Seeds[i] != NULL);
+    SizeSeeds[i] = sizeof(VECTOR4);
   }
 
-  glPopMatrix(); 
-  current_frame = (current_frame+1) % num_frames; 
+  // allocate streamline list for each block
+  sl_list = new list<vtListTimeSeedTrace*>[nspart * ntpart];
+
+#ifdef DEBUG
+  // print some of the args
+  if (myproc == 0) {
+    fprintf(stderr,"\nVolume size: %d blocks * %d * %d * %d, t %d\n",
+	    nspart, dims[0], dims[1], dims[2], tsize);
+    fprintf(stderr, "Number of compute rounds: %d\n", max_rounds);
+  }
+#endif
+
 }
+//-----------------------------------------------------------------------
+//
+// Cleanup
+//
+// frees memory and such
+//
+void Cleanup() {
 
-void draw_vector(int t, int i) 
-{
+  int i;
 
-  FlashAMR *amr = tamr->GetTimeStep(t); 
+  if (pt != NULL)
+    delete [] pt;
+  if (npt != NULL)
+    delete [] npt;
+  if (sl_list != NULL)
+    delete [] sl_list;
 
-  glPushMatrix(); 
+  for (i = 0; i < nblocks; i++) {
+    free(Seeds[i]);
+    if (osuflow[i] != NULL)
+      delete osuflow[i];
+  }
+  free(NumSeeds);
+  free(Seeds);
 
-  glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
-  glTranslatef(-center[0], -center[1], -center[2]); 
+  delete [] osuflow;
+  delete lat;
 
-  glBegin(GL_LINES); 
+}
+//-----------------------------------------------------------------------
+//
+// PrintSeeds
+//
+// prints the current seeds
+// (debug)
+//
+void PrintSeeds(int nblocks) {
+
+  int i, j;
+
+  for (i = 0; i < nblocks; i++) {
+    for (j = 0; j < NumSeeds[i]; j++) {
+      fprintf(stderr,"Block %d Seed %d: %.3f\t%.3f\t%.3f\t%.3f\n", i, j, 
+	      Seeds[i][j][0], Seeds[i][j][1], Seeds[i][j][2], Seeds[i][j][3]);
+    }
+  }
+
+  fprintf(stderr,"\n");
+
+
+}
+//--------------------------------------------------------------------------
+
+#ifdef GRAPHICS
+
+//
+void draw_bounds(float *from, float *to) {
+
+  float xmin = from[0];
+  float ymin = from[1];
+  float zmin = from[2];
+  float xmax = to[0];
+  float ymax = to[1];
+  float zmax = to[2];
+
   glColor3f(1,0,0); 
+  glBegin(GL_LINES); 
 
-  float *center = amr->GetBlockCenter(i); 
-  float *vectors = amr->GetDataPtr(i); 
+  // artificial boundary to see only center region
 
-  glVertex3f(center[0], center[1], center[2]); 
-  glColor3f(0,0,1); 
+  if (xmin >= -3.072e8 && xmax <= 3.072e8 && 
+      ymin >= -5.12e7 && ymax <= 5.12e7 && 
+      zmin >= -3.072e8 && zmax <= 3.072e8) {
 
-  glVertex3f(center[0]+ vectors[0]*0.3, 
-	     center[1]+ vectors[1]*0.3, 
-	     center[2]+ vectors[2]*0.3); 
+  glVertex3f(xmin, ymin, zmin); glVertex3f(xmax, ymin, zmin); 
+  glVertex3f(xmax, ymin, zmin); glVertex3f(xmax, ymax, zmin); 
+  glVertex3f(xmax, ymax, zmin); glVertex3f(xmin, ymax, zmin); 
+  glVertex3f(xmin, ymax, zmin); glVertex3f(xmin, ymin, zmin); 
+
+  glVertex3f(xmin, ymin, zmax); glVertex3f(xmax, ymin, zmax); 
+  glVertex3f(xmax, ymin, zmax); glVertex3f(xmax, ymax, zmax); 
+  glVertex3f(xmax, ymax, zmax); glVertex3f(xmin, ymax, zmax); 
+  glVertex3f(xmin, ymax, zmax); glVertex3f(xmin, ymin, zmax); 
+
+  glVertex3f(xmin, ymin, zmin); glVertex3f(xmin, ymin, zmax); 
+  glVertex3f(xmin, ymax, zmax); glVertex3f(xmin, ymax, zmin); 
+
+  glVertex3f(xmax, ymin, zmin); glVertex3f(xmax, ymin, zmax); 
+  glVertex3f(xmax, ymax, zmax); glVertex3f(xmax, ymax, zmin); 
+
+  }
 
   glEnd(); 
 
-  glPopMatrix(); 
-
 }
-
-////////////////////////////////////////////// 
-
-void draw_cube(float r, float g, float b)
-{
-  glColor3f(r, g, b); 
-  glutWireCube(1.0);   // draw a solid cube 
-}
-
-///////////////////////////////////////////////
-
-void draw_bbx(int t, int i) {
-
-  FlashAMR* amr = tamr->GetTimeStep(t); 
-
-  glPushMatrix(); 
-
-  glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
-  glTranslatef(-center[0], -center[1], -center[2]); 
-
-  float xsize, ysize, zsize; 
-
-  int its_level = amr->GetLevel(i); 
-
-  if (its_level%3 == 0) glColor3f(1,0,0); 
-  if (its_level%3 == 1) glColor3f(0,1,0); 
-  if (its_level%3 == 2) glColor3f(0,0,1); 
-
-  float *center = amr->GetBlockCenter(i); 
-  float *length = amr->GetBlockLengths(i); 
-
-  // test the centers
-  glPushMatrix(); 
-  glTranslatef(center[0], center[1], center[2]); 
-  glScalef(length[0], length[1], length[2]); 
-
-  glutWireCube(1.0); 
-  glPopMatrix(); 
-
-  /*
-  // test the volume bounds 
-
-  int rank = latticeAMR->GetRank(center[0], center[1], center[2], t); 
-
-  float xmin = vb_list[rank].xmin; 
-  float ymin = vb_list[rank].ymin; 
-  float zmin = vb_list[rank].zmin; 
-  float xmax = vb_list[rank].xmax; 
-  float ymax = vb_list[rank].ymax; 
-  float zmax = vb_list[rank].zmax; 
+//--------------------------------------------------------------------------
+//
+void DrawFieldlines() {
   
-  glBegin(GL_LINE_STRIP); 
-  glVertex3f(xmin, ymin, zmin); 
-  glVertex3f(xmax, ymin, zmin); 
-  glVertex3f(xmax, ymin, zmax); 
-  glVertex3f(xmin, ymin, zmax); 
-  glVertex3f(xmin, ymin, zmin); 
-  glEnd(); 
-  */
-  glPopMatrix(); 
-}
+  float from[3], to[3]; // subdomain spatial bounds
+  int min_t, max_t; // subdomain temporal bounds (not used)
+  static int step = 0; // timestep number
+  static int frame_num = 0; // number of frames at this timestep
+  static int frames_per_step; // hold each time step for this many frames
+  int i, j, k;
 
-/////////////////////////////////////////////////////
-void draw_center(int t, int i) 
-{
+  // compute hold time
+  frames_per_step = 2000 / tsize;
+
   glPushMatrix(); 
 
-  glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
-  glTranslatef(-center[0], -center[1], -center[2]); 
+  glScalef(1.0f / (float)size[0], 1.0f / (float)size[0], 1.0f / (float)size[0]);
+  glTranslatef(-size[0] / 2.0f, -size[1] / 2.0f, -size[2] / 2.0f); 
+  glColor3f(1.0, 1.0, 0.0); 
 
-  glPointSize(2); 
+  k = 0;
 
-  glColor3f(1,1,1); 
+  // traces
+  for (int i = 0; i < tot_ntrace; i++) {
 
-  FlashAMR *amr = tamr->GetTimeStep(t); 
-  float *center = amr->GetBlockCenter(i); 
+    glBegin(GL_LINE_STRIP); 
+    for (j = 0; j < npt[i]; j++) {
+      if (pt[k][3] <= step) {
 
-  int level = latticeAMR->GetFinestLevel(center[0], center[1], center[2], t); 
+	// artificial boundary to see only center region
+	if (pt[k][0] >= -3.072e8 && pt[k][0] <= 3.072e8 && 
+	pt[k][1] >= -5.12e7 && pt[k][1] <= 5.12e7 && 
+	pt[k][2] >= -3.072e8 && pt[k][2] <= 3.072e8)
 
-  if (level %3 == 0) glColor3f(1,0,0); 
-  if (level %3 == 1) glColor3f(0,1,0); 
-  if (level %3 == 2) glColor3f(0,0,1); 
+	  glVertex3f(pt[k][0], pt[k][1], pt[k][2]);
 
-  glBegin(GL_POINTS); 
-  glVertex3f(center[0], center[1], center[2]); 
-  glEnd(); 
+// 	fprintf(stderr,"%.0f %.0f %.0f\n",pt[k][0],pt[k][1],pt[k][2]);
+
+      }
+      k++;
+    }
+    glEnd();
+
+  }
+
+  // bounds
+  if (toggle_bounds) {
+    for (i = 0; i < nspart * ntpart; i++) {
+      lat->GetGlobalVB(i, from, to, &min_t, &max_t);
+      draw_bounds(from, to);
+    }
+  }
 
   glPopMatrix(); 
+
+  if (frame_num == frames_per_step) {
+    frame_num = 0;
+    if (step == tsize - 1)
+      step = 0;
+    else
+      step++;
+  }
+  else
+    frame_num++;
+
 }
-
-
-//////////////////////////////////////////////////////
-
-void display()
-{
+//-------------------------------------------------------------------------
+//
+void display() {
 
   glEnable(GL_DEPTH_TEST); 
-  glClearColor(0,0,0,1); 
+  glClearColor(0.0, 0.0, 0.0, 1.0); 
   glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); 
 
   glMatrixMode(GL_PROJECTION);
@@ -418,247 +623,115 @@ void display()
   gluLookAt(0,0,5,0,0,0,0,1,0); 
 
   glRotatef(x_angle, 0, 1,0); 
-  glRotatef(y_angle, 1,0,0); 
+  glRotatef(y_angle, 1,0,0);
   glScalef(scale_size, scale_size, scale_size); 
 
-  
+  DrawFieldlines(); 
+
   glPushMatrix(); 
-  glScalef(1.0, len[1]/len[0], len[2]/len[0]); 
-  draw_cube(0,0,1);
+  glScalef(1.0, size[1] / size[0], size[2] / size[0]); 
   glPopMatrix(); 
-
-  if (toggle_draw_pathlines == true)
-    draw_pathlines(); 
-  else if (toggle_animate_pathlines == true)
-    animate_pathlines(); 
-
-  FlashAMR *amr = tamr->GetTimeStep(current_time); 
-  int nb = amr->GetNumBlocks(); 
-  for (int i=0; i<nb; i++) {
-    int blevel = amr->GetLevel(i); 
-    if (blevel>=draw_level) {
-      if (to_draw_bbx) draw_bbx(current_time, i); 
-      if (to_draw_center) draw_center(current_time, i); 
-      if (to_draw_vector) draw_vector(current_time, i); 
-    }
-  }
-    
-  //  glColor3f(1,1,1); 
+  
   glBegin(GL_LINES); 
-  glColor3f(1,0,0); 
+  glColor3f(1,0,0); // red x-axis
   glVertex3f(0,0,0); 
-  glVertex3f(1,0,0); 
-  glColor3f(0,1, 0); 
+  glVertex3f(1,0,0);
+  glColor3f(0,1,0);  // green y-axis
   glVertex3f(0,0,0);
   glVertex3f(0,1,0); 
-  glColor3f(0,0,1); 
+  glColor3f(0,0,1);  // blue z-axis
   glVertex3f(0,0,0); 
   glVertex3f(0,0,1); 
   glEnd(); 
 
   glutSwapBuffers(); 
+
 }
-
-
-///////////////////////////////////////////////////////////
-
-void mymouse(int button, int state, int x, int y)
-{
-  if (state == GLUT_DOWN) {
-    press_x = x; press_y = y; 
-    if (button == GLUT_LEFT_BUTTON)
-      xform_mode = XFORM_ROTATE; 
-	 else if (button == GLUT_RIGHT_BUTTON) 
-      xform_mode = XFORM_SCALE; 
-  }
-  else if (state == GLUT_UP) {
-	  xform_mode = XFORM_NONE; 
-  }
-}
-
-
-/////////////////////////////////////////////////////////
-
-void mymotion(int x, int y)
-{
-    if (xform_mode==XFORM_ROTATE) {
-      x_angle += (x - press_x)/5.0; 
-      if (x_angle > 180) x_angle -= 360; 
-      else if (x_angle <-180) x_angle += 360; 
-      press_x = x; 
-	   
-      y_angle += (y - press_y)/5.0; 
-      if (y_angle > 180) y_angle -= 360; 
-      else if (y_angle <-180) y_angle += 360; 
-      press_y = y; 
-    }
-	else if (xform_mode == XFORM_SCALE){
-      float old_size = scale_size;
-      scale_size *= (1+ (y - press_y)/60.0); 
-      if (scale_size <0) scale_size = old_size; 
-      press_y = y; 
-    }
-	glutPostRedisplay(); 
-}
-
-
-///////////////////////////////////////////////////////////////
-
-void mykey(unsigned char key, int x, int y)
-{
-        switch(key) {
-	case 'q': exit(1);
-	  break; 
-	case 's': 
-	  compute_pathlines(); 
-	  glutPostRedisplay(); 
-	  break; 
-	case 'l': 
-	  draw_level++; 
-	  draw_level = draw_level % (total_levels); 
-	  break; 
-	case 'b':
-	  to_draw_bbx = !to_draw_bbx; 
-	  break; 
-	case 'c': 
-	  to_draw_center = !to_draw_center; 
-	  break; 
-	case 'v': 
-	  to_draw_vector = !to_draw_vector; 
-	  break; 
-	case 't': 
-	  current_time +=1; 
-	  current_time = current_time % num_timesteps; 
-	  break; 
-	case 'd': 
-	  toggle_draw_pathlines = !toggle_draw_pathlines; 
-	  toggle_animate_pathlines = false; 
-	  break; 
-	case'a': 
-	  toggle_animate_pathlines = !toggle_animate_pathlines; 
-	  toggle_draw_pathlines = false; 
-	  first_frame = 1; 
-	}
-	glutPostRedisplay(); 
-}
-
+//--------------------------------------------------------------------------
+//
 void timer(int val) {
-  if (toggle_animate_pathlines == true) {
-    glutPostRedisplay(); 
-  }
-  glutTimerFunc(200, timer, 0); 
-}
-
-
-/////////////////////////////////////////////////////////////////////
-
-main(int argc, char* argv[]) 
-{
-  float min[3], max[3]; 
-  int dims[3]; 
-
-  tamr = new TimeVaryingFlashAMR; 
-  tamr->LoadData(argv[1], min, max); 
-
-  tamr->GetDims(dims); 
-  num_timesteps = tamr->GetNumTimeSteps(); 
-  total_levels = tamr->GetNumLevels(); 
-  
-
-  len[0] = domain_lengths[0] = max[0]-min[0]; 
-  len[1] = domain_lengths[1] = max[1]-min[1]; 
-  len[2] = domain_lengths[2] = max[2]-min[2]; 
-  center[0] = domain_center[0] = (min[0]+max[0])/2.0; 
-  center[1] = domain_center[1] = (min[1]+max[1])/2.0; 
-  center[2] = domain_center[2] = (min[2]+max[2])/2.0; 
-
-  latticeAMR = new LatticeAMR(domain_lengths[0], domain_lengths[1], domain_lengths[2], 
-			      num_timesteps, total_levels); 
-
-  for (int i=0; i<total_levels; i++)  {
-
-    float blockSize[3]; 
-    float levelMinB[3], levelMaxB[3]; 
-
-    tamr->GetLevelBlockSize(i, blockSize); 
-    tamr->GetLevelBounds(i, levelMinB, levelMaxB); 
-
-    printf(" level size: [%f %f %f] min corner [%f %f %f] max corner [%f %f %f]\n", 
-	   blockSize[0], blockSize[1], blockSize[2], 
-	   levelMinB[0], levelMinB[1], levelMinB[2], 
-	   levelMaxB[0], levelMaxB[1], levelMaxB[2]); 
-
-    latticeAMR->CreateLevel(i, blockSize[0], blockSize[1], blockSize[2], 
-			    dims[0], dims[1], dims[2], 
-			    levelMinB[0], levelMaxB[0], levelMinB[1], levelMaxB[1], 
-			    levelMinB[2], levelMaxB[2], 0, num_timesteps-1); 
-  }
-
-  for (int t=0; t<num_timesteps; t++) {
-    FlashAMR * amr = tamr->GetTimeStep(t); 
-    int nb = amr->GetNumBlocks(); 
-
-    for (int i=0; i<nb; i++) {
-
-      float *center = amr->GetBlockCenter(i); 
-
-      latticeAMR->CheckIn(amr->GetLevel(i), center[0], center[1], center[2], t, 
-			  amr->GetDataPtr(i)); 
-    }
-  }
-  latticeAMR->CompleteLevels(2); // this call is very important. It finishes up all the 
-                                 // book-keeping and complete the lattice setup
-  latticeAMR->InitSeedLists(); 
-
-  vb_list = latticeAMR->GetBoundsList(npart); 
-
-  // now initialize one osuflow object for each partition 
-
-  osuflow_list = new OSUFlow*[npart]; 
-
-  sl_list = new list<vtListTimeSeedTrace*>[npart]; // pathline lists,one per partition
-
-  osuflow_seeds = new VECTOR4*[npart]; 
-  osuflow_num_seeds = new int[npart]; 
-
-  for(int i=0; i<npart; i++) {
-
-    osuflow_list[i] = new OSUFlow(); 
-    float **data = latticeAMR->GetDataPtr(i); 
-    if (data == NULL) {
-      printf(" panic\n"); 
-      exit(1); 
-    }
-    float minB[3], maxB[3]; 
-    int min_t, max_t; 
-    minB[0] = vb_list[i].xmin; maxB[0] = vb_list[i].xmax;     
-    minB[1] = vb_list[i].ymin; maxB[1] = vb_list[i].ymax;
-    minB[2] = vb_list[i].zmin; maxB[2] = vb_list[i].zmax;
-    min_t = vb_list[i].tmin; max_t = vb_list[i].tmax; 
-
-    // dims[0/1/2] are the x y z dat dimensions 
-    // minB and maxB are the physical space min/max corners 
-
-    osuflow_list[i]->CreateTimeVaryingFlowField(data, dims[0], dims[1], 
-						dims[2], minB, maxB, 
-						min_t, max_t);     
-    osuflow_list[i]->ScaleField(0.1); 
-  }
-
-  // set up the animation frame time 
-  num_frames = 5;     // number of frames to loop through the data time 
-  time_incr = num_timesteps/(float) num_frames; 
-
-  glutInit(&argc, argv); 
-  glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH); 
-  glutInitWindowSize(600,600); 
-  
-  glutCreateWindow("Display"); 
-  glutDisplayFunc(display); 
 
   glutTimerFunc(10, timer, 0); 
-  glutMouseFunc(mymouse); 
-  glutMotionFunc(mymotion);
-  glutKeyboardFunc(mykey); 
-  glutMainLoop(); 
+
 }
+//--------------------------------------------------------------------------
+//
+void idle() {
+
+  glutPostRedisplay();
+
+}
+//--------------------------------------------------------------------------
+//
+void mymouse(int button, int state, int x, int y) {
+
+  if (state == GLUT_DOWN) {
+
+    press_x = x; press_y = y; 
+    if (button == GLUT_LEFT_BUTTON)
+      xform_mode = XFORM_ROTATE;
+    else if (button == GLUT_RIGHT_BUTTON)
+      xform_mode = XFORM_SCALE; 
+
+  }
+
+  else if (state == GLUT_UP)
+    xform_mode = XFORM_NONE;
+
+}
+//--------------------------------------------------------------------------
+//
+void mymotion(int x, int y) {
+
+  if (xform_mode==XFORM_ROTATE) {
+
+    x_angle += (x - press_x)/5.0; 
+    if (x_angle > 180)
+      x_angle -= 360; 
+    else if (x_angle <-180)
+      x_angle += 360; 
+    press_x = x; 
+	   
+    y_angle += (y - press_y)/5.0; 
+    if (y_angle > 180)
+      y_angle -= 360; 
+    else if (y_angle <-180)
+      y_angle += 360; 
+    press_y = y; 
+
+  }
+
+  else if (xform_mode == XFORM_SCALE){
+
+    float old_size = scale_size;
+    scale_size *= (1+ (y - press_y)/60.0); 
+    if (scale_size <0)
+      scale_size = old_size; 
+    press_y = y; 
+
+  }
+
+  glutPostRedisplay(); 
+
+}
+//--------------------------------------------------------------------------
+//
+void mykey(unsigned char key, int x, int y) {
+
+  switch(key) {
+
+  case 'q':
+    exit(1);
+    break; 
+  case 'b':
+    toggle_bounds = !toggle_bounds;
+    break;
+  default:
+    break;
+
+  }
+
+}
+//--------------------------------------------------------------------------
+
+#endif

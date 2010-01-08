@@ -23,7 +23,7 @@ class  LatticeAMR {
   //x/y/zlen are the physical dimensions in the domain, tlen is the total number of 
   //time steps 
   LatticeAMR(char *filename, int tlen, char * vx, char * vy, char *vz,
-	     int nid = 1, int myid = 0); 
+	     int nid = 1, int myid = 0, int mpi = 0); 
 
   ~LatticeAMR(); 
 
@@ -116,10 +116,9 @@ class  LatticeAMR {
   void PrintPost(int myrank);
   void PrintRecv(int myrank);
 #ifdef _MPI
-  int ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds);
-#else
-  int ExchangeNeighbors(VECTOR4 **seeds, int *num_seeds) { return 0; }
+  int ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds, int *num_seeds);
 #endif
+  int SerExchangeNeighbors(VECTOR4 **seeds, int *size_seeds, int *num_seeds);
 
  private: 
 

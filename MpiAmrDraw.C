@@ -832,7 +832,7 @@ void IOandCompute() {
 
       } // for all blocks
 
-      if (lat->ExchangeNeighbors(Seeds, SizeSeeds))
+      if (lat->ExchangeNeighbors(Seeds, SizeSeeds, NumSeeds))
 	last_round = j;
 
     } // for all rounds
@@ -1186,7 +1186,7 @@ int GatherNumPts(int* &ntrace, int all) {
     ofst[i] = (i == 0) ? 0 : ofst[i - 1] + ntrace[i - 1];
     tot_ntrace += ntrace[i];
   }
-
+  assert((npt = new int[tot_ntrace]) != NULL);
   MPI_Allgatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT,
 		   MPI_COMM_WORLD);
 
@@ -1213,8 +1213,7 @@ void GatherPts(int *ntrace, int mynpt) {
   std::list<VECTOR4 *>::iterator pt_iter; // iterator over points in one trace
   int rank, nproc; // MPI usual
   int i, j, k;
-  static int next_pt = 0; // current next open slot in Pt (all points)
-  static int next_trace = 0; // current next open slot in Npt (all traces)
+  int tot_npt = 0; // total number of points in all traces from everyone
 
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -1248,7 +1247,9 @@ void GatherPts(int *ntrace, int mynpt) {
     }
 
   }
-
+  for(i = 0; i < tot_ntrace; i++)
+    tot_npt += npt[i];
+  assert((pt = new VECTOR4[tot_npt]) != NULL);
   MPI_Gatherv(mypt, mynpt * 4, MPI_FLOAT, pt, nflt, ofst,
 	      MPI_FLOAT, 0, MPI_COMM_WORLD);
 
@@ -1319,7 +1320,7 @@ void Init() {
   // create the lattice
   // names of velocity components velx, vely, velz hard-coded
   lat = new LatticeAMR(filename, tsize, (char *)"velx", (char *)"vely", (char *)
-		       "velz", nproc, myproc); 
+		       "velz", nproc, myproc, 1); 
   nblocks = lat->GetMyNumPartitions();
   nspart = lat->GetTotalNumPartitions(); // all spatial for now
   lat->GetBlockDims(dims);
@@ -1346,16 +1347,6 @@ void Init() {
 
   // allocate streamline list for each block
   sl_list = new list<vtListTimeSeedTrace*>[nspart * ntpart];
-
-  // allocate pts list and number of points list for rendering
-  ngr = (int)(ceil(ntpart / tr)); // number of groups
-  nt = nspart * ntpart * tf * max_rounds * ngr; // max total traces
-  assert((npt = new int[nt]) != NULL); // number pts in everyone's traces
-  if (myproc == 0) {
-    np = nt * pf; // max total points
-    pt = new VECTOR4[np]; // points in everyones traces
-    assert(pt != NULL);
-  }
 
   // max number of time steps in any block
   max_bt = (int)(ceil(tsize / ntpart) + 2 * ghost);

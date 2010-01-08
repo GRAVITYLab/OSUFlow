@@ -81,13 +81,20 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
   fIn = fopen(fname, "r");
   assert(fIn != NULL);
   fscanf(fIn, "%d", &n_timesteps);
+
+#ifdef DEBUG
   printf(" %d time steps to read. \n", n_timesteps); 
+#endif
 
   ppData = new float*[n_timesteps]; 
 
   for (int i=0; i<n_timesteps; i++) {
     fscanf(fIn, "%s", filename);
+
+#ifdef DEBUG
     printf(" to read %s ...\n", filename); 
+#endif
+
     fVecIn = fopen(filename, "rb");
     if (fVecIn==NULL) {
       printf(" problem opening %s. skip\n", filename); 
@@ -121,7 +128,10 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
   fIn = fopen(fname, "r");
   assert(fIn != NULL);
   fscanf(fIn, "%d", &n_timesteps);
+
+#ifdef DEBUG
   printf(" %d time steps to read. \n", n_timesteps); 
+#endif
 
   if (min_t == -1 || max_t == -1)  {
     min_t = 0; 
@@ -136,14 +146,20 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
   lydim = (int)(maxB[1]-minB[1]+1); 
   lzdim = (int)(maxB[2]-minB[2]+1); 
 
+#ifdef DEBUG
   printf(" min max t = %d %d \n", min_t, max_t); 
+#endif
 
   for(int iFor = 0; iFor < n_timesteps; iFor++)
     {
       fscanf(fIn, "%s", filename);
       if (iFor <min_t || iFor >max_t) 
 	continue; 
+
+#ifdef DEBUG
       printf(" to read %s ...\n", filename); 
+#endif
+
       fVecIn = fopen(filename, "rb");
       if (fVecIn==NULL) {
 	printf(" problem opening %s. skip\n", filename); 

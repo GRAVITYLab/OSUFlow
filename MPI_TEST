@@ -42,7 +42,8 @@ exe=./mpitest
 data=/homes/tpeterka/tornado/tornado.list
 #data=/Users/troot/tornado/tornado.list
 
-# data size x y z t (for steady state flows use t = 1)
+# data size x y z t
+# (for static flow use t = 1 and list one time step in the dataset file)
 dsize="128 128 128 1"
 
 # total number of partitions in the space domain
@@ -55,13 +56,13 @@ tb=1
 tr=1
 
 # number of traces per block
-t=50
+t=10
 
 # number of points per trace
 p=100
 
 # number of rounds
-r=10
+r=5
 
 # number of threads
 # 1 = each process a single thread

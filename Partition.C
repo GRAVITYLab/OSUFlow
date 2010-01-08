@@ -378,8 +378,7 @@ void Partition::GrowNeighbors(int myrank) {
 }
 //---------------------------------------------------------------------------
 
-// MPI versions of communication
-// todo: make shared memory versions
+// MPI version of communication
 
 #ifdef _MPI
 
@@ -390,32 +389,37 @@ void Partition::GrowNeighbors(int myrank) {
 // exhanges points with all neighbors
 //
 // neighbor_ranks: ranks (global partition numbers) of all my neighbors
-// seeds: locations to store received points
+// seeds: locations to store received points, indexed by local block number
 // size_seeds: sizes of seed arrays (will be grown automatically if necessary)
+// num_seeds: number of seeds stored for each block
 // commm: MPI communicator
 //
 // returns: total number of points received by this process
 //
-int Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds, MPI_Comm comm) {
+int Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds, int *num_seeds, MPI_Comm comm) {
 
   int nn = 0; // total number of neighbors
   int groupsize; // size of comm
   int *SendCounts, *RecvCounts; // count information
   int *CountSizes; // sizes index into count information
   int *CountDispls; // displacements index into count information
-  int *SendPoints, *RecvPoints; // points
+  float *SendPoints, *RecvPoints; // points
   int *SendPointDispls, *RecvPointDispls; // point displacements
   int *SendPointSizes, *RecvPointSizes; // point sizes
   int p; // process number
   int b; // block number
   int nps, npr; // number of sending and receiving points
-  int rank; // global partition rank
+  int r; // global partition rank
   int myproc; // my MPI process
   int neigh_block; // (my) block number of my neighbor
   int i, j, k, n;
 
   MPI_Comm_size(comm, &groupsize);
   MPI_Comm_rank(comm, &myproc);
+
+  // init num_seeds for my blocks
+  for (i = 0; i < proc_nparts[myproc]; i++)
+    num_seeds[i] = 0;
 
   // allocate count information arrays
   for (i = 0; i < proc_nparts[myproc]; i++)
@@ -431,12 +435,12 @@ int Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *siz
     CountSizes[p] = 0;
     CountDispls[p] = n;
     for (i = 0; i < proc_nparts[myproc]; i++) { // my blocks
-      rank = proc_parts[myproc][i];
+      r = proc_parts[myproc][i]; // rank of my (sending) block
       // blocks belonging to process p that are neighbors of block i
       for (j = 0; j < proc_nneighbors[p][i]; j++) {
 	neigh_block = proc_neighbors[p][i][j];
 	SendCounts[n++] = neighbor_ranks[i][neigh_block];
-	SendCounts[n++] = parts[rank].NumSendPoints[neigh_block];
+	SendCounts[n++] = parts[r].NumSendPoints[neigh_block];
 	CountSizes[p] += 2;
       }				  
     }
@@ -456,12 +460,12 @@ int Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *siz
     npr += RecvCounts[i * 2 + 1];
   }
 
-  assert((SendPoints = (int *)malloc(nps * 4 * sizeof(float))) != NULL);
-  assert((RecvPoints = (int *)malloc(npr * 4 * sizeof(float))) != NULL);
-  assert((SendPointSizes = (int *)malloc(groupsize * sizeof(int))) != NULL);
-  assert((RecvPointSizes = (int *)malloc(groupsize * sizeof(int))) != NULL);
-  assert ((SendPointDispls = (int *)malloc(groupsize * sizeof(int))) != NULL);
-  assert ((RecvPointDispls = (int *)malloc(groupsize * sizeof(int))) != NULL);
+  assert((SendPoints = (float *)malloc(nps * 4 * sizeof(float))) != NULL);
+  assert((RecvPoints = (float *)malloc(npr * 4 * sizeof(float))) != NULL);
+  assert((SendPointSizes  = (int *)malloc(groupsize * sizeof(int))) != NULL);
+  assert((RecvPointSizes  = (int *)malloc(groupsize * sizeof(int))) != NULL);
+  assert((SendPointDispls = (int *)malloc(groupsize * sizeof(int))) != NULL);
+  assert((RecvPointDispls = (int *)malloc(groupsize * sizeof(int))) != NULL);
 
   // get sizes and displacements for points exchange
   SendPointDispls[0] = 0;
@@ -488,20 +492,20 @@ int Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *siz
   n = 0;
   for (p = 0; p < groupsize; p++) { // all processes
     for (i = 0; i < proc_nparts[myproc]; i++) { // my blocks
-      rank = proc_parts[myproc][i];
+      r = proc_parts[myproc][i];
       // blocks belonging to process p that are neighbors of block i
       for (j = 0; j < proc_nneighbors[p][i]; j++) {
 	neigh_block = proc_neighbors[p][i][j];
 	// points going to this neighbor
-	for (k = 0; k < parts[rank].NumSendPoints[neigh_block]; k++) {
+	for (k = 0; k < parts[r].NumSendPoints[neigh_block]; k++) {
 	  SendPoints[n++] =
-	    parts[rank].SendPoints[neigh_block][4 * k + 0];
+	    parts[r].SendPoints[neigh_block][4 * k + 0];
 	  SendPoints[n++] =
-	    parts[rank].SendPoints[neigh_block][4 * k + 1];
+	    parts[r].SendPoints[neigh_block][4 * k + 1];
 	  SendPoints[n++] =
-	    parts[rank].SendPoints[neigh_block][4 * k + 2];
+	    parts[r].SendPoints[neigh_block][4 * k + 2];
 	  SendPoints[n++] =
-	    parts[rank].SendPoints[neigh_block][4 * k + 3];
+	    parts[r].SendPoints[neigh_block][4 * k + 3];
 	}
       }				  
     }
@@ -514,29 +518,35 @@ int Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *siz
   // unpack the received points
   j = 0;
   for (n = 0; n < nn; n++) {
+
     // find my block number from the partition rank
     for (b = 0; b < proc_nparts[myproc]; b++) {
-      if (proc_parts[myproc][b] == RecvCounts[n * 2 + 0])
+      if (proc_parts[myproc][b] == RecvCounts[n * 2])
 	break;
     }
     assert(b < proc_nparts[myproc]);
+
     // grow size of seeds
     if (!size_seeds[b]) {
       assert((seeds[b] = (VECTOR4 *)
-	      malloc(RecvCounts[n * 2 + 1] * sizeof(VECTOR4))) != NULL);
-      size_seeds[b] = RecvCounts[n * 2 + 1] * sizeof(VECTOR4);
+	      malloc((num_seeds[b] + RecvCounts[n * 2 + 1]) * 
+		     sizeof(VECTOR4))) != NULL);
+      size_seeds[b] = (num_seeds[b] + RecvCounts[n * 2 + 1]) * sizeof(VECTOR4);
     }
-    while (size_seeds[b] < RecvCounts[n * 2 + 1] * sizeof(VECTOR4)) {
-      assert((seeds[b] = (VECTOR4 *)realloc(seeds[b], size_seeds[b] * 2))
-	     != NULL);
+    while (size_seeds[b] < (num_seeds[b] + RecvCounts[n * 2 + 1]) *
+	   sizeof(VECTOR4)) {
+      assert((seeds[b] = (VECTOR4 *)realloc(seeds[b], 
+					    size_seeds[b] * 2)) != NULL);
       size_seeds[b] *= 2;
     }
     // copy points to seeds
     for (i = 0; i < RecvCounts[n * 2 + 1]; i++) {
-      seeds[b][i].Set(RecvPoints[4 * j + 0], RecvPoints[4 * j + 1],
-		      RecvPoints[4 * j + 2], RecvPoints[4 * j + 3]);
+      seeds[b][num_seeds[b]].Set(RecvPoints[4 * j + 0], RecvPoints[4 * j + 1],
+				 RecvPoints[4 * j + 2], RecvPoints[4 * j + 3]);
+      num_seeds[b]++;
       j++;
     }
+
   }
 
   return npr;
@@ -545,3 +555,73 @@ int Partition::ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *siz
 //------------------------------------------------------------------------
 
 #endif
+
+// serial version of communication
+
+
+//---------------------------------------------------------------------------
+//
+// SerExchangeNeighbors
+//
+// exhanges points with all neighbors
+//
+// neighbor_ranks: ranks (global partition numbers) of all neighbors
+// seeds: locations to store received points, indexed by global partition rank
+// size_seeds: sizes of seed arrays (will be grown automatically if necessary)
+// num_seeds: number of seeds stored for each partition
+//
+// returns: total number of points exchanged
+//
+int Partition::SerExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds, int *num_seeds) {
+
+  int r; // destination (global) rank
+  int np = 0; // total number of points
+  int n; // number of seeds going from one block to another
+  int i, j, k;
+
+  // init num_seeds
+  for (r = 0; r < npart; r++)
+    num_seeds[r] = 0;
+
+  // i is global rank of partition
+  for (i = 0; i < npart; i++) {
+
+    // j is (local) neighbor number in i's neighbor list
+    for (j = 0; j < parts[i].NumNeighbors; j++) {
+
+      r = neighbor_ranks[i][j]; // global rank of destination
+
+      // number of points going to this neighbor
+      n = parts[i].NumSendPoints[j];
+
+      // grow size of seeds
+      if (!size_seeds[r]) {
+	assert((seeds[r] = (VECTOR4 *)malloc((num_seeds[r] + n) * 
+					     sizeof(VECTOR4))) != NULL);
+	size_seeds[r] = (num_seeds[r] + n) * sizeof(VECTOR4);
+      }
+      while (size_seeds[r] < (num_seeds[r] + n) * sizeof(VECTOR4)) {
+	assert((seeds[r] = (VECTOR4 *)realloc(seeds[r], size_seeds[r] * 2))
+	       != NULL);
+	size_seeds[r] *= 2;
+      }
+
+      // copy points to seeds
+      for (k = 0; k < n; k++) {
+	seeds[r][num_seeds[r]].Set(
+			parts[i].SendPoints[j][4 * k],
+			parts[i].SendPoints[j][4 * k + 1],
+			parts[i].SendPoints[j][4 * k + 2],
+			parts[i].SendPoints[j][4 * k + 3]);
+	num_seeds[r]++;
+	np++;
+      }
+
+    }				  
+
+  }
+
+  return np;
+
+}
+//------------------------------------------------------------------------

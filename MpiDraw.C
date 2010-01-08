@@ -797,6 +797,7 @@ void IOandCompute() {
     for (j = 0; j < max_rounds; j++) {
 
 #ifdef DEBUG
+      PrintSeeds(nblocks);
       if (rank == 0)
 	fprintf(stderr, " * begin round %d *\n", j);
 #endif
@@ -845,7 +846,7 @@ void IOandCompute() {
 
       } // for all blocks
 
-      if (lat->ExchangeNeighbors(Seeds, SizeSeeds))
+      if (lat->ExchangeNeighbors(Seeds, SizeSeeds, NumSeeds))
 	last_round = j;
 
     } // for all rounds
@@ -868,7 +869,7 @@ void IOandCompute() {
     fprintf(stderr, "Completed %d groups\n", ngroups);
 #endif
 
-  // gather pathlines for rendering
+  // gather fieldlines for rendering
   GatherFieldlines();
 
 }
@@ -1107,7 +1108,7 @@ int GatherNumPts(int* &ntrace, int all) {
     ofst[i] = (i == 0) ? 0 : ofst[i - 1] + ntrace[i - 1];
     tot_ntrace += ntrace[i];
   }
-
+  assert((npt = new int[tot_ntrace]) != NULL);
   MPI_Allgatherv(mynpt, myntrace, MPI_INT, npt, ntrace, ofst, MPI_INT,
 		 MPI_COMM_WORLD);
 
@@ -1126,7 +1127,7 @@ int GatherNumPts(int* &ntrace, int all) {
 // mynpt: total number of points in my process
 //
 void GatherPts(int *ntrace, int mynpt) {
-
+  
   static int *nflt = NULL; // number of floats in points from each proc
   static int *ofst = NULL; // offsets into pt
   VECTOR4 *mypt; // points in my traces
@@ -1134,8 +1135,7 @@ void GatherPts(int *ntrace, int mynpt) {
   std::list<VECTOR4 *>::iterator pt_iter; // iterator over points in one trace
   int rank, nproc; // MPI usual
   int i, j, k;
-  static int next_pt = 0; // current next open slot in Pt (all points)
-  static int next_trace = 0; // current next open slot in Npt (all traces)
+  int tot_npt = 0; // total number of points in all traces from everyone
 
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -1169,7 +1169,9 @@ void GatherPts(int *ntrace, int mynpt) {
     }
 
   }
-
+  for(i = 0; i < tot_ntrace; i++)
+    tot_npt += npt[i];
+  assert((pt = new VECTOR4[tot_npt]) != NULL);
   MPI_Gatherv(mypt, mynpt * 4, MPI_FLOAT, pt, nflt, ofst,
 	      MPI_FLOAT, 0, MPI_COMM_WORLD);
 
@@ -1325,7 +1327,6 @@ void Init() {
 
   assert(nspart * ntpart >= nproc);
   assert(tr <= ntpart);
-//   assert(ntpart <= nproc);
 
   // init lattice and osuflow
   lat = new Lattice4D((int)size[0], (int)size[1], (int)size[2], tsize, ghost, nspart, 
@@ -1352,16 +1353,6 @@ void Init() {
 
   // allocate streamline list for each block
   sl_list = new list<vtListTimeSeedTrace*>[nspart * ntpart];
-
-  // allocate pts list and number of points list for rendering
-  ngr = (int)(ceil(ntpart / tr)); // number of groups
-  nt = nspart * ntpart * tf * max_rounds * ngr; // max total traces
-  assert((npt = new int[nt]) != NULL); // number pts in everyone's traces
-  if (myproc == 0) {
-    np = nt * pf; // max total points
-    pt = new VECTOR4[np]; // points in everyones traces
-    assert(pt != NULL);
-  }
 
   // max number of time steps in any block
   max_bt = (int)(ceil(tsize / ntpart) + 2 * ghost);
@@ -1468,6 +1459,7 @@ void draw_bounds(float *from, float *to) {
   glBegin(GL_LINES); 
 
   glVertex3f(xmin, ymin, zmin); glVertex3f(xmax, ymin, zmin); 
+
   glVertex3f(xmax, ymin, zmin); glVertex3f(xmax, ymax, zmin); 
   glVertex3f(xmax, ymax, zmin); glVertex3f(xmin, ymax, zmin); 
   glVertex3f(xmin, ymax, zmin); glVertex3f(xmin, xmin, zmin); 
@@ -1512,6 +1504,7 @@ void DrawFieldlines() {
 
   k = 0;
 
+  // traces
   for (int i = 0; i < tot_ntrace; i++) {
 
     glBegin(GL_LINE_STRIP); 
@@ -1524,12 +1517,22 @@ void DrawFieldlines() {
 
   }
 
+  // bounds
   if (toggle_bounds) {
     for (i = 0; i < nspart * ntpart; i++) {
       lat->GetGlobalVB(i, from, to, &min_t, &max_t);
       draw_bounds(from, to);
     }
   }
+
+#ifdef DEBUG
+  // seeds
+  glPointSize(5);
+  glBegin(GL_POINTS);
+  for (i = 0; i < num_render_seeds; i++)
+    glVertex3f(render_seeds[i][0],render_seeds[i][1],render_seeds[i][2]);
+  glEnd();
+#endif
 
   glPopMatrix(); 
 

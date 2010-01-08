@@ -66,31 +66,13 @@ VECTOR4 *pt; // points in everyone's traces
 int *npt; // everyone's number of points in their traces
 int tot_ntrace; // total number of everyone's traces
 
-// performance stats
-int *block_stats; // block stats
-double *time_stats; // time stats
-int n_block_stats = 4; // number of block stats
-int n_time_stats = 4; // number of time stats
-int TotSeeds = 0; // total number of seeds for all blocks and all rounds
-                  // in this process
-int TotRounds = 0; // total number of rounds this process executed excluding
-                   // idle rounds at the end
-double TotIOBW = 0.0; // total IO bandwidth in MB/s
-double TotTime = 0.0; // total time
-double TotIOTime = 0.0; // total IO time
-double TotCompTime = 0.0; // total computation time
-
 // function prototypes
 void GetArgs(int argc, char *argv[]);
 void Init();
 void PrintSeeds(int nblocks);
-int EndTrace(list<vtListSeedTrace*> &list, VECTOR3 &p, int index);
-void ComputeFieldlines(int block_num);
 void ComputePathlines(int block_num);
 void ComputeStreamlines(int block_num);
 void GatherFieldlines();
-int GatherNumPts(int* &ntrace, int all);
-void GatherPts(int *ntrace, int mynpt);
 void DrawFieldlines();
 void Cleanup();
 void draw_bounds(float *from, float *to);
@@ -101,14 +83,7 @@ void mymouse(int button, int state, int x, int y);
 void mymotion(int x, int y);
 void mykey(unsigned char key, int x, int y);
 void idle();
-void ComputeThread();
-void IOThread();
-void IOandCompute();
-int ComputeBlocksFit();
-void MultiThreadEvictBlock(int round);
-void SingleThreadEvictBlock();
-void PrintPerf();
-void WriteFieldlines(int *ntrace, int mynpt, char *filename);
+void Run();
 
 // globals
 static char filename[256]; // dataset file name
@@ -127,29 +102,20 @@ Lattice4D* lat; // lattice
 int tf; // max number of traces per block
 int pf; // max number of points per trace
 int max_rounds; // max number of rounds
-int threads; // number of threads per process
-int avail_mem; // memory space for dataset (MB)
-int b_mem; // number of blocks to keep in memory
-int max_bt; // max number of time steps in any block
-int tr; // number of time partitions per round
 
 // debug
 #define MAX_RENDER_SEEDS 1000
 VECTOR3 render_seeds[MAX_RENDER_SEEDS]; // seeds for rendering
 int num_render_seeds = 0; // number of seeds for rendering
-#define MAX_RENDER_PTS 20000
-VECTOR3 render_pts[MAX_RENDER_PTS]; // seeds for rendering
-int num_render_pts = 0; // number of seeds for rendering
 //----------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
 
   char buf[256];
-  int i, j;
 
   GetArgs(argc, argv);
-
-  IOandCompute();
+  Init();
+  Run();
 
 #ifdef GRAPHICS
 
@@ -173,22 +139,14 @@ int main(int argc, char *argv[]) {
 }
 //-----------------------------------------------------------------------
 //
-// IOandCompute
+// Run
 //
-void IOandCompute() {
+void Run() {
 
   int min_t, max_t; // subdomain temporal bounds
-  float from[3], to[3]; // seed points limits
-  int num_loaded; // number of blocks loaded into memory so far
-  int rank;
+  float from[3], to[3]; // subdomain spatial bounds
+  VECTOR3 min_s, max_s; // subdomain spatial bounds in VEC3 format
   int i, j, k;
-  int ngroups; // number of groups of blocks
-  int g; // current group
-  int sb, eb; // starting and ending block in the current group
-  int bg; // number of blocks per group, except perhaps last group
-  int last_round; // last non-null round
-  double t0; // temporary timer
-  float TotDataRead = 0; // total size of data read in MB
 
   // init all blocks
   for (i = 0; i < nblocks; i++) {
@@ -215,40 +173,38 @@ void IOandCompute() {
 
   } // init all blocks
 
-    // for all rounds
+  // for all rounds
   for (j = 0; j < max_rounds; j++) {
+
+#ifdef DEBUG
+    PrintSeeds(nblocks);
+#endif
 
     // for all blocks
     for (i = 0; i < nblocks; i++) {
 
-      lat->GetVB(i, from, to, &min_t, &max_t);
-      osuflow[i]->LoadData(filename, false, from, to, size, max_bt,
-			   min_t, max_t); 
-      osuflow[i]->ScaleField(10.0); // improves visibility
+      // load block for first round only
+      if (j == 0) {
+	lat->GetVB(i, from, to, &min_t, &max_t);
+	min_s[0] = from[0]; min_s[1] = from[1]; min_s[2] = from[2];
+	max_s[0] = to[0]; max_s[1] = to[1]; max_s[2] = to[2];
+	osuflow[i]->LoadData(filename, false, min_s, max_s, min_t, max_t); 
+	osuflow[i]->ScaleField(10.0); // improves visibility
+      }
 
-      ComputeFieldlines(i);
+      if (tsize > 1)
+	ComputePathlines(i);
+      else
+	ComputeStreamlines(i);
 
     } // for all blocks
 
-    lat->ExchangeNeighbors(Seeds, SizeSeeds);
+    lat->SerExchangeNeighbors(Seeds, SizeSeeds, NumSeeds);
 
   } // for all rounds
 
-}
-//-----------------------------------------------------------------------
-//
-// ComputeFieldlines
-//
-// block_num: local block number (0 to nblocks-1)
-// not global partition number
-//
-//
-void ComputeFieldlines(int block_num) {
-
-  if (tsize > 1)
-    ComputePathlines(block_num);
-  else
-    ComputeStreamlines(block_num);
+  // gather fieldlines for rendering
+  GatherFieldlines();
 
 }
 //-----------------------------------------------------------------------
@@ -270,8 +226,6 @@ void ComputeStreamlines(int block_num) {
   int i;
 
   if (NumSeeds[block_num]) {
-
-    TotSeeds += NumSeeds[block_num];
 
     // make VECTOR3s (temporary)
     assert((Seeds3 = (VECTOR3 *)malloc(NumSeeds[block_num] * sizeof(VECTOR3)))
@@ -330,8 +284,6 @@ void ComputePathlines(int block_num) {
 
   if (NumSeeds[block_num]) {
 
-    TotSeeds += NumSeeds[block_num];
-
     // perform the integration
     // todo: integrate in both directions
     osuflow[block_num]->SetIntegrationParams(1, 5); 
@@ -358,6 +310,45 @@ void ComputePathlines(int block_num) {
 
   }
   
+}
+//-----------------------------------------------------------------------
+//
+// GatherFieldlines
+//
+// gathers all fieldlines for rendering
+//
+void GatherFieldlines() {
+
+  std::list<vtListTimeSeedTrace *>::iterator trace_iter; // iterator over traces
+  std::list<VECTOR4 *>::iterator pt_iter; // iterator over points in one trace
+  int i, j, k;
+  int tot_npts = 0;
+
+  // compute number of traces and points
+  for (i = 0; i < nblocks; i++) {
+    tot_ntrace += sl_list[i].size();
+    for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
+         trace_iter++)
+      tot_npts += (*trace_iter)->size();
+  }
+
+  // allocate rendering data
+  assert((npt = new int[tot_ntrace]) != NULL);
+  assert((pt = new VECTOR4[tot_npts]) != NULL); // points in everyones traces
+
+  // compute number of points in each trace and collect the points
+  j = 0;
+  k = 0;
+  for (i = 0; i < nblocks; i++) {
+    for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
+         trace_iter++) {
+      for (pt_iter = (*trace_iter)->begin(); pt_iter != (*trace_iter)->end(); 
+         pt_iter++)
+	pt[k++] = **pt_iter;
+      npt[j++] = (*trace_iter)->size();
+    }
+  }
+
 }
 //-----------------------------------------------------------------------
 //
@@ -408,8 +399,6 @@ void Init() {
   int nt; // max total number of traces
   int np; // max total number of points
   int ghost = 1; // number of ghost cells per spatial edge
-  int b_size; // data size in a typical block (Mbytes)
-  int ngr; // number of groups of rounds
   int i;
 
   // init lattice and osuflow
@@ -417,8 +406,7 @@ void Init() {
 		      nspart, ntpart);
   lat->InitSeedLists(); 
   nblocks = nspart * ntpart;
-  osuflow = new OSUFlow*[nblocks];
-  assert(osuflow != NULL);
+  assert((osuflow = new OSUFlow*[nblocks]) != NULL);
   for (i = 0; i < nblocks; i++)
     osuflow[i] = NULL;
 
@@ -438,23 +426,11 @@ void Init() {
   // allocate streamline list for each block
   sl_list = new list<vtListTimeSeedTrace*>[nspart * ntpart];
 
-  // allocate pts list and number of points list for rendering
-  nt = nspart * ntpart * tf * max_rounds; // max total traces
-  assert((npt = new int[nt]) != NULL); // number pts in everyone's traces
-  np = nt * pf; // max total points
-  pt = new VECTOR4[np]; // points in everyones traces
-  assert(pt != NULL);
-
-  // max number of time steps in any block
-  max_bt = (int)(ceil(tsize / ntpart) + 2 * ghost);
-
   // print some of the args
 #ifdef DEBUG
-  if (myproc == 0) {
-    fprintf(stderr,"Volume size: X %.3lf Y %.3lf Z %.3lf t %d\n",
-	    size[0], size[1], size[2], tsize);
-    fprintf(stderr, "Number of compute rounds: %d\n", max_rounds);
-  }
+  fprintf(stderr,"Volume size: X %.3lf Y %.3lf Z %.3lf t %d\n",
+	  size[0], size[1], size[2], tsize);
+  fprintf(stderr, "Number of compute rounds: %d\n", max_rounds);
 #endif
 
 }
@@ -574,6 +550,7 @@ void DrawFieldlines() {
 
   k = 0;
 
+  // traces
   for (int i = 0; i < tot_ntrace; i++) {
 
     glBegin(GL_LINE_STRIP); 
@@ -586,12 +563,22 @@ void DrawFieldlines() {
 
   }
 
+  // bounds
   if (toggle_bounds) {
     for (i = 0; i < nspart * ntpart; i++) {
       lat->GetGlobalVB(i, from, to, &min_t, &max_t);
       draw_bounds(from, to);
     }
   }
+
+#ifdef DEBUG
+  // seeds
+  glPointSize(5);
+  glBegin(GL_POINTS);
+  for (i = 0; i < num_render_seeds; i++)
+    glVertex3f(render_seeds[i][0],render_seeds[i][1],render_seeds[i][2]);
+  glEnd();
+#endif
 
   glPopMatrix(); 
 
@@ -642,13 +629,13 @@ void display() {
   glPopMatrix(); 
   
   glBegin(GL_LINES); 
-  glColor3f(1,0,0); 
+  glColor3f(1,0,0); // red x-axis
   glVertex3f(0,0,0); 
   glVertex3f(1,0,0);
-  glColor3f(0,1,0);  
+  glColor3f(0,1,0); // green y-axis
   glVertex3f(0,0,0);
   glVertex3f(0,1,0); 
-  glColor3f(0,0,1);  
+  glColor3f(0,0,1); // blue z-axis
   glVertex3f(0,0,0); 
   glVertex3f(0,0,1); 
   glEnd(); 

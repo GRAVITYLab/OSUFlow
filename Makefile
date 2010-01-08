@@ -67,8 +67,9 @@ endif
 THREADS = -fopenmp
 CCFLAGS = -c -DLINUX 
 CCFLAGS += -DGRAPHICS
+#CCFLAGS += -DDEBUG
 CCFLAGS += -g
-#CCFLAGS += -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS += -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
 #CCFLAGS += -Wall -Wextra
 INCLUDE = -I/homes/tpeterka/hdf5-install/include
 LIBS = -lm -lglut -lGL -lz \
@@ -192,7 +193,7 @@ SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 
 default: all
 
-all: lib$(LIBNAME).a mpiamrtest mpitest sertest draw gldraw # seramrtest
+all: lib$(LIBNAME).a mpiamrtest mpitest sertest draw gldraw seramrtest
 
 # DEPRECATED - remove enventually
 
@@ -205,17 +206,17 @@ lib$(LIBNAME).a : $(OBJS)
 	$(RM) -f $@
 	$(AR) $@ $(OBJS) 
 
-# test of MPI parallel AMR grid
+# test of MPI version of AMR grid (don't build w/o _MPI defined)
 mpiamrtest: MpiAmrDraw.o lib$(LIBNAME).a
 	$(C++) -o mpiamrtest MpiAmrDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
 
-# test of MPI version of regular grid
+# test of MPI version of regular grid (don't build w/o _MPI defined)
 mpitest: MpiDraw.o lib$(LIBNAME).a
 	$(C++) -o mpitest MpiDraw.o $(THREADS) -L. -l$(LIBNAME) $(LIBS) 
 
-# test of serial version of AMR grid (does not build, source needs updating)
-# seramrtest: SerAmrDraw.o  lib$(LIBNAME).a
-# 	$(C++) -o seramrtest SerAmrDraw.o -L. -l$(LIBNAME) $(LIBS)
+# test of serial version of AMR grid
+seramrtest: SerAmrDraw.o  lib$(LIBNAME).a
+	$(C++) -o seramrtest SerAmrDraw.o -L. -l$(LIBNAME) $(LIBS)
 
 #test of serial version of regular grid
 sertest: SerDraw.o lib$(LIBNAME).a
@@ -266,8 +267,8 @@ gldraw: gldraw.o  lib$(LIBNAME).a
 # gldrawFlash2: gldrawFlash2.o  lib$(LIBNAME).a
 # 	$(C++) -o gldrawFlash2 gldrawFlash2.o -L. -l$(LIBNAME) $(LIBS)
 
-gldrawFlash3: gldrawFlash3.o  lib$(LIBNAME).a
-	$(C++) -o gldrawFlash3 gldrawFlash3.o -L. -l$(LIBNAME) $(LIBS)
+#gldrawFlash3: gldrawFlash3.o  lib$(LIBNAME).a
+#	$(C++) -o gldrawFlash3 gldrawFlash3.o -L. -l$(LIBNAME) $(LIBS)
 
 # gldrawFlash4: gldrawFlash4.o  lib$(LIBNAME).a
 # 	$(C++) -o gldrawFlash4 gldrawFlash4.o -L. -l$(LIBNAME) $(LIBS)

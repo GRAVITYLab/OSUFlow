@@ -48,7 +48,8 @@ fi
 
 # data size x y z t
 # use x = y = z = 1 (finds its own spatial size)
-# use t = # of timesteps (static flow use t = 1)
+# use t = # of timesteps (static flow use t = 1 and list one time step in the 
+# dataset file)
 dsize="1 1 1 1"
 
 # total number of partitions in the space domain
@@ -68,7 +69,7 @@ t=1
 p=10
 
 # number of rounds
-r=10
+r=5
 
 # number of threads
 # 1 = each process a single thread

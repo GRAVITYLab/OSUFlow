@@ -39,9 +39,11 @@
 // default = 1 (can omit if single process sequential program)
 // myid: rank, process number, thread number, identification of the owner
 // default = 0 (can omit if single process sequential program)
+// mpi: whether MPI is enabled
+// default = 0 (can omit if single process sequential program)
 //
 LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
-		       int nid, int myid) {
+		       int nid, int myid, int mpi) {
 
   float min[3], max[3]; // spatial extents
   float blockSize[3]; // physical size of a block
@@ -61,11 +63,18 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
   // init AMR
   tamr = new TimeVaryingFlashAMR(myid);
 #ifdef _MPI
-  t0 = MPI_Wtime();
+  if (mpi) {
+    t0 = MPI_Wtime();
+    tamr->LoadMetaData(filename, min, max); 
+  }
+  else
+    tamr->SerialLoadMetaData(filename, min, max); 
+#else
+  tamr->SerialLoadMetaData(filename, min, max); 
 #endif
-  tamr->LoadMetaData(filename, min, max); 
 #ifdef _MPI
-  io_time = MPI_Wtime() - t0;
+  if (mpi)
+    io_time = MPI_Wtime() - t0;
 #endif
   num_levels = tamr->GetNumLevels();
   tamr->GetDims(block_dims); 
@@ -161,11 +170,13 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
 
   // read my data blocks
 #ifdef _MPI
-  t0 = MPI_Wtime();
+  if (mpi)
+    t0 = MPI_Wtime();
 #endif
-  io_bw = tamr->LoadData(filename, start_block, end_block, vx, vy, vz);
+  io_bw = tamr->LoadData(filename, start_block, end_block, vx, vy, vz, mpi);
 #ifdef _MPI
-  io_time += (MPI_Wtime() - t0);
+  if (mpi)
+    io_time += (MPI_Wtime() - t0);
 #endif
 
   // check in actual data into my blocks
@@ -1460,11 +1471,8 @@ void LatticeAMR::GetGlobalVB(int part, float *min_s, float *max_s,
 //
 // returns neighbor number of neighbor containing point
 //
-// returns -1 if point is not in one of the neighbors
-//
-// this can happen in two cases:
-// the point remained in the current block, or
-// the point left the overall data boundary
+// returns -1 if point is not in one of the neighbors, ie, is out of bounds
+// returns my neighbor number if point stayed in my block (valid)
 //
 int LatticeAMR::GetNeighbor(int block, float x, float y, float z, float t) {
 
@@ -1472,10 +1480,6 @@ int LatticeAMR::GetNeighbor(int block, float x, float y, float z, float t) {
   int r; // rank of partition containing the point
 
   r = GetRank(x, y, z, t);
-
-  // check if the point never left the current block
-  if (r == block_ranks[block])
-    return -1;
 
   // for all neighbors
   for (n = 0; n < part->parts[block_ranks[block]].NumNeighbors; n++) {
@@ -2080,16 +2084,28 @@ void LatticeAMR::PrintRecv(int block) {
 
 #ifdef _MPI
 //
-// exchanges points with all neighbors
+// exchanges points with all neighbors (MPI version)
 // returns total number of points received by this process
 //
-int LatticeAMR::ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds) { 
+int LatticeAMR::ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds,
+				 int *num_seeds) { 
   int n;
   comm_time = MPI_Wtime();
-  n = part->ExchangeNeighbors(neighbor_ranks, seeds, size_seeds);
+  n = part->ExchangeNeighbors(neighbor_ranks, seeds, size_seeds, num_seeds);
   comm_time = MPI_Wtime() - comm_time;
   return n;
 }
 #endif
+//
+// exchanges points with all neighbors (serial version)
+// returns total number of points received by this process
+//
+int LatticeAMR::SerExchangeNeighbors(VECTOR4 **seeds, int *size_seeds, 
+				 int *num_seeds) { 
+  int n;
+  n = part->SerExchangeNeighbors(neighbor_ranks, seeds, size_seeds, num_seeds);
+  return n;
+}
+
 
 //---------------------------------------------------------------------------

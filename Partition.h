@@ -68,11 +68,10 @@ class Partition {
 
 #ifdef _MPI
   int ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds,
-			MPI_Comm comm = MPI_COMM_WORLD);
-#else
-  int ExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, 
-			int *size_seeds){ return 0; };
+			int *num_seeds, MPI_Comm comm = MPI_COMM_WORLD);
 #endif
+  int SerExchangeNeighbors(int **neighbor_ranks, VECTOR4 **seeds, int *size_seeds,
+			int *num_seeds);
 
   // global partition list
   Partition4D *parts;

@@ -104,10 +104,9 @@ class  Lattice4D {
   void PrintPost(int myrank);
   void PrintRecv(int myrank);
 #ifdef _MPI
-  int ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds);
-#else
-  int ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds) { return 0; }
+  int ExchangeNeighbors(VECTOR4 **seeds, int *size_seeds, int *num_seeds);
 #endif
+  int SerExchangeNeighbors(VECTOR4 **seeds, int *size_seeds, int *num_seeds);
 
   list<VECTOR4> *seedlists; 
 
