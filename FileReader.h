@@ -19,3 +19,5 @@ float* ReadStaticDataRaw(char *fname, float *sMin, float* sMax, int* dim);
 
 float** ReadTimeVaryingDataRaw(char *fname, float* sMin, float* sMax, 
 			       int* dim, int bt_max, int t_min, int t_max);
+float** IndepReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax, 
+				    int* dim, int bt_max, int t_min, int t_max);

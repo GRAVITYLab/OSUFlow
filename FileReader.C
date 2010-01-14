@@ -113,10 +113,10 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 //////////////////////////////////////////////////////////
 
 float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps, 
-				     int *dimension, 
-				     float *minB, float *maxB, 
-				     int min_t, int max_t)
-{
+			       int *dimension, 
+			       float *minB, float *maxB, 
+			       int min_t, int max_t) {
+
   FILE *fIn;
   FILE *fVecIn;
   char *filename = new char[100];
@@ -150,39 +150,60 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
   printf(" min max t = %d %d \n", min_t, max_t); 
 #endif
 
-  for(int iFor = 0; iFor < n_timesteps; iFor++)
-    {
-      fscanf(fIn, "%s", filename);
-      if (iFor <min_t || iFor >max_t) 
-	continue; 
+  // for all timesteps
+  for(int iFor = 0; iFor < n_timesteps; iFor++) {
+
+    fscanf(fIn, "%s", filename);
+    if (iFor <min_t || iFor >max_t) 
+      continue; 
 
 #ifdef DEBUG
-      printf(" to read %s ...\n", filename); 
+    printf(" to read %s ...\n", filename); 
 #endif
 
-      fVecIn = fopen(filename, "rb");
-      if (fVecIn==NULL) {
-	printf(" problem opening %s. skip\n", filename); 
-	continue; 
-      }
-      fread(dimension, sizeof(int), 3, fVecIn);
-      totalNum = lxdim*lydim*lzdim; 
-      pData = new float[totalNum * 3];
-
-      float *p = pData; 
-      for (int z = (int)minB[2]; z<=(int)maxB[2]; z++) {
-	for (int y = (int)minB[1]; y<=(int)maxB[1]; y++) {
-	  long offset = (long)(z*dimension[0]*dimension[1]+y*dimension[0]+minB[0])*3*4;
-	  fseek(fVecIn, offset, SEEK_SET);
-	  int size = (int)(maxB[0]-minB[0]+1)*3;
-	  fread(p, sizeof(float), size, fVecIn);
-	  p+=size;
-	}
-      }
-      fclose(fVecIn);
-      ppData[iFor-min_t] = pData; 
+    fVecIn = fopen(filename, "rb");
+    if (fVecIn==NULL) {
+      printf(" problem opening %s. skip\n", filename); 
+      continue; 
     }
+
+//     // read the size at the start of the file
+//     fread(dimension, sizeof(int), 3, fVecIn);
+//     // swap bytes
+// #ifdef BYTE_SWAP
+//     for (i = 0; i < 3; i++)
+//       swap4((char *)&(dimension[i]));
+// #endif
+
+    totalNum = lxdim*lydim*lzdim; 
+    pData = new float[totalNum * 3];
+
+    float *p = pData; 
+    for (int z = (int)minB[2]; z<=(int)maxB[2]; z++) {
+
+      for (int y = (int)minB[1]; y<=(int)maxB[1]; y++) {
+	long offset = (long)(z*dimension[0]*dimension[1]+y*dimension[0]+
+			     minB[0])*3*4;
+	fseek(fVecIn, offset, SEEK_SET);
+	int size = (int)(maxB[0]-minB[0]+1)*3;
+	fread(p, sizeof(float), size, fVecIn);
+	p+=size;
+	// swap bytes
+#ifdef BYTE_SWAP
+	for (i = 0; i < size; i++)
+	  swap4((char *)&(p[i]));
+#endif
+      }
+
+    }
+
+    fclose(fVecIn);
+    ppData[iFor-min_t] = pData; 
+
+  } // for all timesteps
+
   return(ppData); 
+
 }
 //-----------------------------------------------------------------------
 
@@ -379,6 +400,105 @@ float** ReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax,
   // clean up
   if (null_reads)
     MPI_File_close(&fd);
+  fclose(meta);
+
+  return Data;
+
+}
+//--------------------------------------------------------------------------
+//
+// IndepReadTimeVaryingDataRaw
+//
+// Read time-varying subdomain data collectively
+// used MPI-IO independent I/O
+//
+// flowName: dataset name
+// sMin, sMax: corners of subdomain
+// dim: size of total domain
+// bt_max: max number of time steps in any block
+// t_min, t_max: time range of subdomain
+//
+float** IndepReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax, 
+			       int* dim, int bt_max, int t_min, int t_max) {
+
+  float **Data; // the data
+  MPI_File fd;
+  MPI_Datatype filetype;
+  int size[3]; // sizes of entire dataset
+  int subsize[3]; // sizes of my subdomain
+  int start[3]; // starting indices of my subdomain
+  MPI_Status status;
+  int rank;
+  FILE *meta; // metadata file with file names of time step files
+  int timesteps; // number of timesteps in the entire dataset
+  char filename[256]; // individual timestep file name
+  int nflt; // number of floats in my spatial domain (3 * number of points)
+  int nt; // number of time steps in my time-space domain
+  int null_reads; // number of null reads to fill out max number of time steps
+  int i, t;
+  MPI_Comm comm = MPI_COMM_WORLD;
+
+  MPI_Comm_rank(comm, &rank);
+
+  // read metadata
+  meta = fopen(flowName, "r");
+  assert(meta != NULL);
+  fscanf(meta, "%d", &timesteps);
+
+  // set subarray params
+  // reversed orders are intentional: starts and subsizes are [z][y][x]
+  // sMin and sMax are [x][y][z]
+  for (i = 0; i < 3; i++) {
+    size[2 - i] = dim[i];
+    start[2 - i] = (int)sMin[i];
+    subsize[2 - i] = (int)(sMax[i] - sMin[i]) + 1;
+  }
+  size[2] *= 3;
+  start[2] *= 3;
+  subsize[2] *= 3;
+  nflt = subsize[0] * subsize[1] * subsize[2];
+
+  // allocate data space
+  nt = t_max - t_min + 1;
+  assert((Data = new float*[nt]) != NULL);
+  for (i = 0; i < nt; i++)
+    assert((Data[i] = new float[nflt]) != NULL);
+
+  // for all time steps
+  for (t = 0; t < timesteps; t++) {
+
+    fscanf(meta, "%s", filename);
+    if (t < t_min || t > t_max)
+      continue;
+
+    // open the file
+//     if (rank == 0)
+//       fprintf(stderr,"%s\n",filename);
+    assert(MPI_File_open(comm, filename, MPI_MODE_RDONLY,
+			 MPI_INFO_NULL, &fd) == MPI_SUCCESS);
+
+    // do the actual I/O
+    MPI_Type_create_subarray(3, size, subsize, start, MPI_ORDER_C,
+			     MPI_FLOAT, &filetype);
+    MPI_Type_commit(&filetype);
+    MPI_File_set_view(fd, 0, MPI_FLOAT, filetype, (char *)"native", 
+		      MPI_INFO_NULL);
+    assert(MPI_File_read(fd, Data[t - t_min], nflt,
+			     MPI_FLOAT, &status) == MPI_SUCCESS);
+    assert(status.count == sizeof(float) * nflt);
+
+    // clean up
+    MPI_File_close(&fd);
+    MPI_Type_free(&filetype);
+
+    //swap bytes
+#ifdef BYTE_SWAP
+    for (i = 0; i < 3 * npt; i++)
+      swap4((char *)&(Data[i]));
+#endif
+
+  } // for all time steps
+
   fclose(meta);
 
   return Data;

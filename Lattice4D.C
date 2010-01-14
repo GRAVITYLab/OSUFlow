@@ -4,6 +4,7 @@
 //---------------------------------------------------------------------------
 //
 // constructs and initializes the time-varying lattice class
+// using default round robin partitioning
 //
 // xlen, ylen, zlen, tlen: total size of the data
 // ghost: size of ghost layer per side
@@ -14,7 +15,8 @@
 // myid: rank, process number, thread number, identification of the owner
 // default = 0 (can omit if single process sequential program)
 //
-Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, int ntp, int nid, int myid) {
+Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, 
+		     int nsp, int ntp, int nid, int myid) {
 
   int i, j;
   volume_bounds_type *vbs; 
@@ -30,7 +32,7 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
   max_extent[2] = zlen - 1;
   max_extent[3] = tlen - 1;
 
-  // spatial domain partitioning first 
+  // spatial domain partitioning
   vbs = calc_subvolume(xlen, ylen, zlen, ghost, nsp, idim, jdim, kdim); 
   tdim = ntp; 
   npart = nsp * ntp; 
@@ -69,9 +71,6 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
 
   }
 
-  // neighborhood size
-  nbhd = 81;
-
   part = new Partition(nsp * ntp, nid);
   delete [] vbs; 
   myproc = myid;
@@ -103,6 +102,180 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp,
   for (i = 0; i < nb; i++)
     tot_neighbors += part->parts[block_ranks[i]].NumNeighbors;
   avg_neigh = tot_neighbors / nb;
+
+  // more stats
+  tot_pts_send = 0;
+
+}
+//---------------------------------------------------------------------------
+//
+// constructs and initializes the time-varying lattice class
+// using explicit partitioning
+//
+// currently only works for one time-step
+//
+// part_file: partitioning information file
+// xlen, ylen, zlen, tlen: total size of the data
+// ghost: size of ghost layer per side
+// nsp: total (global) number of spatial partitions in the lattice
+// ntp: total (global) number of parition in time 
+// nid: number of processes, threads, owners
+// default = 1 (can omit if single process sequential program)
+// myid: rank, process number, thread number, identification of the owner
+// default = 0 (can omit if single process sequential program)
+//
+Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
+		     int ghost, int nsp, int ntp, int nid, int myid) {
+
+  int nprocs, nblocks; // number of procs, number of blocks
+  int block_size[3]; // block size
+  int *block_procs; // process assigned to each block
+  float *block_extents; // extent of each block
+  FILE *fp;
+  int idx; // block index
+  int i, t;
+
+  // open the partition file
+  assert((fp = fopen(part_file,"rb")) != NULL);
+
+  // global extents
+  fread(&xdim, sizeof(int), 1, fp);
+#ifdef BYTE_SWAP
+  swap4((char *)&xdim);
+#endif
+  assert(xdim == xlen); // size in partition file must match run script
+  fread(&ydim, sizeof(int), 1, fp);
+#ifdef BYTE_SWAP
+  swap4((char *)&ydim);
+#endif
+  assert(ydim == ylen);
+  fread(&zdim, sizeof(int), 1, fp);
+#ifdef BYTE_SWAP
+  swap4((char *)&zdim);
+#endif
+  assert(zdim == zlen);
+  tdim = ldim = tlen;
+  min_extent[0] = min_extent[1] = min_extent[2] = min_extent[3] = 0.0;
+  max_extent[0] = xdim - 1;
+  max_extent[1] = ydim - 1;
+  max_extent[2] = zdim - 1;
+  max_extent[3] = tdim - 1;
+
+  // number of procs, blocks, block size
+  fread(&nprocs, sizeof(int), 1, fp);
+#ifdef BYTE_SWAP
+  swap4((char *)&nprocs);
+#endif
+  fread(&nblocks, sizeof(int), 1, fp);
+#ifdef BYTE_SWAP
+  swap4((char *)&nprocs);
+#endif
+  fread(block_size, sizeof(int), 3, fp);
+#ifdef BYTE_SWAP
+  for (i = 0; i < 3; i++)
+    swap4((char *)block_size[i]);
+#endif
+  assert(nprocs == nid); // # procs in partition file must match run script
+  assert(nblocks == nsp); // # blocks in partition file must match run script
+
+  // process assignment and block extents
+  assert((block_procs = new int[nblocks]) != NULL);
+  assert((block_extents = new float[nblocks * 6]) != NULL);
+  fread(block_procs, sizeof(int), nblocks, fp);
+#ifdef BYTE_SWAP
+  for (i = 0; i < nblocks; i++)
+    swap4((char *)block_procs[i]);
+#endif
+  fread(block_extents, sizeof(float), nblocks * 6, fp);
+#ifdef BYTE_SWAP
+  for (i = 0; i < nblocks * 6; i++)
+    swap4((char *)block_extents[i]);
+#endif
+
+  fclose(fp);
+
+  // add ghost cells
+  for (i = 0; i < nblocks; i++) {
+    if (block_extents[i * 6] > 0)
+      block_extents[i * 6] -= ghost;
+    if (block_extents[i * 6 + 1] > 0)
+      block_extents[i * 6 + 1] -= ghost;
+    if (block_extents[i * 6 + 2] > 0)
+      block_extents[i * 6 + 2] -= ghost;
+    if (block_extents[i * 6 + 3] < xdim)
+      block_extents[i * 6 + 3] += ghost;
+    if (block_extents[i * 6 + 4] < ydim)
+      block_extents[i * 6 + 4] += ghost;
+    if (block_extents[i * 6 + 5] < zdim)
+      block_extents[i * 6 + 5] += ghost;
+  }
+
+  // print contents
+  if (myid == 0) {
+    printf("xdim ydim zdim nprocs nblocks = %d %d %d %d %d\n",
+	   xdim, ydim, zdim, nprocs, nblocks);
+    printf("block size = %d %d %d\n", 
+	   block_size[0], block_size[1], block_size[2]);
+//     for(i = 0; i < nblocks; i++)
+//       printf("block_procs[%d] = %d\n", i, block_procs[i]);
+//     for(i = 0; i < nblocks; i++)
+//       printf("block %d min = [%.0f %.0f %.0f] max = [%.0f %.0f %.0f]\n",
+// 	     i, block_extents[i * 6], block_extents[i * 6 + 1], 
+//           block_extents[i * 6 + 2],
+// 	     block_extents[i * 6 + 3], 
+//           block_extents[i * 6 + 4], block_extents[i * 6 + 5]);
+  }
+
+  // spatial domain partitioning
+  npart = nblocks * ntp; 
+  vb_list = new volume_bounds_type[npart]; 
+  VolumeBounds(block_extents, nblocks, block_size, vb_list, idim, jdim, kdim); 
+
+  // temporal domain partitioning
+  idx = 0;
+  for (t = 0; t < tdim; t++) {
+    vb_list[idx].tmin = tdim / ntp * t - 1; 
+    if (vb_list[idx].tmin < 0)
+      vb_list[idx].tmin = 0; 
+    vb_list[idx].tmax = tdim / ntp * (t + 1) + 1; 
+    if (vb_list[idx].tmax > tdim - 1)
+      vb_list[idx].tmax = tdim - 1; 
+    idx++;
+  }
+
+  part = new Partition(nblocks * ntp, nid);
+  myproc = myid;
+  nproc = nid;
+
+  if (myproc >= 0) {
+
+    // assign partitions
+    Explicit_proc(block_procs);
+    nb = GetNumPartitions(myproc);
+
+    // allocate table of neighbor ranks for one neighbor initially
+    assert((neighbor_ranks = (int **)malloc(nb * sizeof(int *))) != NULL);
+    for (i = 0; i < nb; i++)
+      assert((neighbor_ranks[i] = (int *)malloc(sizeof(int))) != NULL);
+
+    // ranks of my blocks
+    assert((block_ranks = (int *)malloc(nb * sizeof(int))) != NULL);
+    GetPartitions(myproc, block_ranks);
+
+    // learn who my neighbors are
+    for(i = 0; i < nb; i++)
+      GetNeighborRanks(i);
+
+  }
+
+  // average number of neighbors for each block
+  int tot_neighbors = 0;
+  for (i = 0; i < nb; i++)
+    tot_neighbors += part->parts[block_ranks[i]].NumNeighbors;
+  avg_neigh = tot_neighbors / nb;
+
+  // more stats
+  tot_pts_send = 0;
 
 }
 //---------------------------------------------------------------------------
@@ -139,6 +312,61 @@ void Lattice4D::GetExtents(float *min, float *max) {
 
 }
 //----------------------------------------------------------------------------
+//
+// VolumeBounds
+//
+// populate the volume bounds list and determine size in i, j, k
+//
+// block_extents: explicit extents of each block
+// nblocks: total number of blocks
+// block_size: size of block, eg 16x16x16
+// vb_list (output): volume bounds list
+// idim, jdim, kdim (output): index sizes
+//
+void Lattice4D::VolumeBounds(float *block_extents, int nblocks, 
+			     int *block_size, volume_bounds_type *vb_list, 
+			     int &idim, int &jdim, int &kdim){
+  int i;
+
+  for (i = 0; i < nblocks; i++) {
+    vb_list[i].xmin = block_extents[i * 6];
+    vb_list[i].ymin = block_extents[i * 6 + 1];
+    vb_list[i].zmin = block_extents[i * 6 + 2];
+    vb_list[i].xmax = block_extents[i * 6 + 3];
+    vb_list[i].ymax = block_extents[i * 6 + 4];
+    vb_list[i].zmax = block_extents[i * 6 + 5];
+  }
+
+  idim = ceil((float)xdim / (float)block_size[0]);
+  jdim = ceil((float)ydim / (float)block_size[1]);
+  kdim = ceil((float)zdim / (float)block_size[2]);
+
+}
+//----------------------------------------------------------------------------
+//
+// assign the partitions to the processors explicitely
+//
+void Lattice4D::Explicit_proc(int *block_procs) {
+
+  int proc; // process number
+  int n; // index into a row of the process table, local block number
+  int i; // partition rank
+
+  for (i = 0; i < nproc; i++)
+    part->proc_nparts[proc] = 0;
+
+  for (i = 0; i < npart; i++) {
+
+    proc = block_procs[i];
+    n = part->proc_nparts[proc];
+    part->parts[i].Proc = proc; 
+    part->proc_parts[proc][n] = i;
+    part->proc_nparts[proc]++;
+
+  }
+
+}
+//---------------------------------------------------------------------------
 //
 // assign the partitions to the processors in a round-robin manner 
 //
@@ -178,7 +406,7 @@ int Lattice4D::GetProc(int i, int j, int k, int t) {
   else if (t < 0 || t >= tdim)
     return(-1); 
 
-  int idx = t* idim*jdim*kdim + k * idim * jdim + j * idim + i; 
+  int idx = t* idim * jdim * kdim + k * idim * jdim + j * idim + i; 
 
   return (part->parts[idx].Proc); 
 
@@ -706,10 +934,13 @@ int Lattice4D::GetComp(int block, int iter) {
 //
 void Lattice4D::PostPoint(int block, VECTOR4 p) {
   int neighbor = GetNeighbor(block, p[0], p[1], p[2], p[3]);
-  // only post points that move out of the current block and
-  // remain inside the overall domain boundary
-  if (neighbor >= 0)
+  // only post points that remain inside the overall domain boundary
+  if (neighbor >= 0) {
     part->PostPoint(block_ranks[block], p, neighbor); 
+    // for performance stats, only count points that leave my proc
+    if (part->GetProc(neighbor_ranks[block][neighbor]) != myproc)
+      tot_pts_send++;
+  }
 }
 //
 // prints the posted points

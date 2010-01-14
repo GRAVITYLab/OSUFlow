@@ -18,6 +18,9 @@ class  Lattice4D {
   
   Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, int nsp, 
 	    int ntp, int nid = 1, int myid = 0); 
+  Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
+	    int ghost, int nsp, int ntp, int nid, int myid);
+
   ~Lattice4D(); 
   int GetRank(int i, int j, int k, int l);
   int GetRank(float x, float y, float z, float t);
@@ -48,6 +51,7 @@ class  Lattice4D {
   bool InsertSeed(int to_rank, VECTOR4); 
   bool InsertSeed(int from_rank, int to_rank, VECTOR4); 
   void RoundRobin_proc(); 
+  void Explicit_proc(int *block_procs);
   void GetPartitions(int, int**, int&); 
   void ResetFlowMatrix();
   int GetFlowMatrix(int i, int j) {return flowMatrix[i*npart+j];}
@@ -58,6 +62,7 @@ class  Lattice4D {
   int GetMyNumPartitions();
   int GetMyNumNeighbors() { return avg_neigh; }
   double GetMyCommTime() { return comm_time; }
+  int GetMyTotPtsSend() { return tot_pts_send; }
   void GetVB(int block, float *min_s, float *max_s, 
 	     int *min_t, int *max_t);
   void GetGlobalVB(int part, float *min_s, float *max_s, 
@@ -73,13 +78,13 @@ class  Lattice4D {
   float min_extent[4];
   float max_extent[4];
 
-  int nbhd; // neighborhood size
   int npart; // total number of partitions in the domain
   int *block_ranks; // rank (global partition number) of each of my blocks
   int myproc; // my process or thread number
   int nproc; // number of processes or threads
   int avg_neigh; // average number of neighbors per block in my process
   double comm_time; // communication time for my process
+  int tot_pts_send; // total points sent from my process
   volume_bounds_type *vb_list; 
   class Partition *part;
   int* flowMatrix; 
@@ -87,6 +92,9 @@ class  Lattice4D {
   int nb; // number of my blocks
   void GetNeighborRanks(int block);
   void AddNeighbor(int myblock, int neighrank);
+  void VolumeBounds(float *block_extents, int nblocks, int *block_size,
+		    volume_bounds_type *vb_list, int &idim, int &jdim, 
+		    int &kdim);
 
  public:
 

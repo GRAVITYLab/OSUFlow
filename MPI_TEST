@@ -33,21 +33,23 @@ ARCH=LINUX
 nodes=64
 
 # number of procs
-num_procs=4
+num_procs=16
 
 # executable
 exe=./mpitest
 
 # dataset
-data=/homes/tpeterka/tornado/tornado.list
+#data=/homes/tpeterka/tornado/tornado.list
 #data=/Users/troot/tornado/tornado.list
+data=/homes/tpeterka/plume/plume.list
 
 # data size x y z t
 # (for static flow use t = 1 and list one time step in the dataset file)
-dsize="128 128 128 1"
+#dsize="128 128 128 1" # for tornado
+dsize="126 126 512 1" # for plume
 
 # total number of partitions in the space domain
-sb=32
+sb=256
 
 # total number of partitions in the time domain
 tb=1
@@ -56,10 +58,10 @@ tb=1
 tr=1
 
 # number of traces per block
-t=10
+t=5
 
 # number of points per trace
-p=100
+p=10
 
 # number of rounds
 r=5
@@ -72,41 +74,45 @@ th=1
 # available memory space for dataset (MB)
 m=128
 
+# partition file
+pf=/homes/tpeterka/plume/partitions-npart16-blocksize32-15plume3d421.bin
+#pf=! # indicates no partition file
+
 if [ "$ARCH" = "LINUX" ]; then
 
-mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m
+mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
 
-#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $tr $t $p $r $th $m
+#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
 
-#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $tr $t $p $r $th $m
+#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
 
-#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $tr $t $p $r $th $m
+#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
 
 fi
 
 if [ "$ARCH" = "BGP" ]; then
 
 pvfs2-drop-caches -m /pvfs-surveyor
-cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $tr $t $p $r $th $m
+cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
 
 fi
 
 if [ "$ARCH" = "FD" ]; then
 
-srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m
+srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
 
 fi
 
 if [ "$ARCH" = "EUREKA" ]; then
 
 pvfs2-drop-caches -m /pvfs-surveyor
-mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $tr $t $p $r $th $m
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
 
 fi
 
 if [ "$ARCH" = "BB" ]; then
 
-mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m
+mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
 
 #mpiexec -machinefile ./nodes -l -n $num_procs hostname
 

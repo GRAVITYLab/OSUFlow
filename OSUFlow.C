@@ -1028,8 +1028,18 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
   maxB[1] = sMax[1]; 
   maxB[2] = sMax[2]; 
 
-  ppData = ReadTimeVaryingDataRaw(flowName, minB, maxB, dimension, 
-				  bt_max, t_min, t_max); 
+  // collective MPI-IO
+//   ppData = ReadTimeVaryingDataRaw(flowName, minB, maxB, dimension, 
+// 				  bt_max, t_min, t_max); 
+
+  // independent MPI_IO
+//   ppData = IndepReadTimeVaryingDataRaw(flowName, minB, maxB, dimension, 
+// 				  bt_max, t_min, t_max); 
+
+  // posix I/O
+  int unused;
+  ppData = ReadTimeVaryingDataRaw(flowName, unused, dimension, minB, maxB, 
+				  t_min, t_max); 
 
   // update the global bounds of the field
   // Assuming the same for all time steps 
