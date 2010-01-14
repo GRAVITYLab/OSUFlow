@@ -168,13 +168,14 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
 #endif
   fread(&nblocks, sizeof(int), 1, fp);
 #ifdef BYTE_SWAP
-  swap4((char *)&nprocs);
+  swap4((char *)&nblocks);
 #endif
   fread(block_size, sizeof(int), 3, fp);
 #ifdef BYTE_SWAP
   for (i = 0; i < 3; i++)
     swap4((char *)&(block_size[i]));
 #endif
+
   assert(nprocs == nid); // # procs in partition file must match run script
   assert(nblocks == nsp); // # blocks in partition file must match run script
 
@@ -210,21 +211,24 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
       block_extents[i * 6 + 5] += ghost;
   }
 
+#ifdef DEBUG
   // print contents
   if (myid == 0) {
-    printf("xdim ydim zdim nprocs nblocks = %d %d %d %d %d\n",
+    fprintf(stderr, "xdim ydim zdim nprocs nblocks = %d %d %d %d %d\n",
 	   xdim, ydim, zdim, nprocs, nblocks);
-    printf("block size = %d %d %d\n", 
+    fprintf(stderr, "block size = %d %d %d\n", 
 	   block_size[0], block_size[1], block_size[2]);
-//     for(i = 0; i < nblocks; i++)
-//       printf("block_procs[%d] = %d\n", i, block_procs[i]);
-//     for(i = 0; i < nblocks; i++)
-//       printf("block %d min = [%.0f %.0f %.0f] max = [%.0f %.0f %.0f]\n",
-// 	     i, block_extents[i * 6], block_extents[i * 6 + 1], 
-//           block_extents[i * 6 + 2],
-// 	     block_extents[i * 6 + 3], 
-//           block_extents[i * 6 + 4], block_extents[i * 6 + 5]);
+    for(i = 0; i < nblocks; i++)
+      fprintf(stderr, "block_procs[%d] = %d\n", i, block_procs[i]);
+    for(i = 0; i < nblocks; i++)
+      fprintf(stderr, 
+	      "block %d min = [%.0f %.0f %.0f] max = [%.0f %.0f %.0f]\n",
+	     i, block_extents[i * 6], block_extents[i * 6 + 1], 
+          block_extents[i * 6 + 2],
+	     block_extents[i * 6 + 3], 
+          block_extents[i * 6 + 4], block_extents[i * 6 + 5]);
   }
+#endif
 
   // spatial domain partitioning
   npart = nblocks * ntp; 

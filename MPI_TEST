@@ -33,7 +33,7 @@ ARCH=BGP
 nodes=64
 
 # number of procs
-num_procs=64
+num_procs=16
 
 # executable
 exe=./mpitest
@@ -54,7 +54,7 @@ fi
 dsize="126 126 512 1" # for plume
 
 # total number of partitions in the space domain
-sb=2048
+sb=256
 
 # total number of partitions in the time domain
 tb=1
@@ -63,10 +63,10 @@ tb=1
 tr=1
 
 # number of traces per block
-t=1
+t=10
 
 # number of points per trace
-p=10
+p=20
 
 # number of rounds
 r=5
@@ -85,8 +85,8 @@ if [ "$ARCH" = "LINUX" ]; then
 pf=! # indicates no partition file
 fi
 if [ "$ARCH" = "BGP" ]; then
-#pf=/home/tpeterka/plume/partitions-npart16-blocksize32-15plume3d421.bin
-pf=! # indicates no partition file
+pf=/home/tpeterka/plume/partitions-npart16-blocksize32-15plume3d421.bin
+#pf=! # indicates no partition file
 fi
 
 if [ "$ARCH" = "LINUX" ]; then
