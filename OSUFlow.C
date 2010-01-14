@@ -1059,31 +1059,3 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
 }
 #endif
 //--------------------------------------------------------------------------
-
-// utility functions
-
-//---------------------------------------------------------------------------
-//
-// swap4(n)
-//
-// Swaps 4 bytes from 1-2-3-4 to 4-3-2-1 order.
-// cast the input as a char and use on any 4 byte variable
-//
-void swap4(char *n) {
-
-  char *n1;
-  char c;
-
-  n1 = n + 3;
-  c = *n;
-  *n = *n1;
-  *n1 = c;
-
-  n++;
-  n1--;
-  c = *n;
-  *n = *n1;
-  *n1 = c;
-
-}
-//----------------------------------------------------------------------------

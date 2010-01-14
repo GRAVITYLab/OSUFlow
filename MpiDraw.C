@@ -316,7 +316,7 @@ void PrintPerf() {
   block_stats[4] = lat->GetMyTotPtsSend(); // total points sent
   time_stats[0] = TotIOTime; // I/O time
   time_stats[1] = lat->GetMyCommTime(); // communication time
-  time_stats[2] = TotCompTime; // communication time
+  time_stats[2] = TotCompTime; // computation time
   time_stats[3] = TotIOBW; // I/O bandwidth
 
   // alloc space and gather the stats
@@ -820,7 +820,6 @@ void IOandCompute() {
     for (j = 0; j < max_rounds; j++) {
 
 #ifdef DEBUG
-      PrintSeeds(nblocks);
       if (rank == 0)
 	fprintf(stderr, " * begin round %d *\n", j);
 #endif
@@ -883,7 +882,7 @@ void IOandCompute() {
 
   } // for all groups
 
-  TotCompTime = MPI_Wtime() - TotCompTime - lat->GetMyCommTime();
+  TotCompTime = MPI_Wtime() - TotCompTime - TotIOTime - lat->GetMyCommTime();
   TotDataRead /= 1048576; // convert to MB
   TotIOBW = TotDataRead / TotIOTime;
 

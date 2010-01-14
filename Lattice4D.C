@@ -173,7 +173,7 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
   fread(block_size, sizeof(int), 3, fp);
 #ifdef BYTE_SWAP
   for (i = 0; i < 3; i++)
-    swap4((char *)block_size[i]);
+    swap4((char *)&(block_size[i]));
 #endif
   assert(nprocs == nid); // # procs in partition file must match run script
   assert(nblocks == nsp); // # blocks in partition file must match run script
@@ -184,12 +184,12 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
   fread(block_procs, sizeof(int), nblocks, fp);
 #ifdef BYTE_SWAP
   for (i = 0; i < nblocks; i++)
-    swap4((char *)block_procs[i]);
+    swap4((char *)&(block_procs[i]));
 #endif
   fread(block_extents, sizeof(float), nblocks * 6, fp);
 #ifdef BYTE_SWAP
   for (i = 0; i < nblocks * 6; i++)
-    swap4((char *)block_extents[i]);
+    swap4((char *)&(block_extents[i]));
 #endif
 
   fclose(fp);
@@ -353,7 +353,7 @@ void Lattice4D::Explicit_proc(int *block_procs) {
   int i; // partition rank
 
   for (i = 0; i < nproc; i++)
-    part->proc_nparts[proc] = 0;
+    part->proc_nparts[i] = 0;
 
   for (i = 0; i < npart; i++) {
 

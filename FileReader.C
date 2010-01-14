@@ -7,6 +7,8 @@
 #include <mpi.h>
 #endif
 
+#include "FileReader.h"
+
 /////////////////////////////////////////////////////////
 
 float* ReadStaticDataRaw(char* fname, int* dimension) 
@@ -124,6 +126,7 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
   float* pData = NULL;
   float ** ppData = NULL; 
   int lxdim, lydim, lzdim; 
+  int i;
 
   fIn = fopen(fname, "r");
   assert(fIn != NULL);
@@ -187,12 +190,13 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 	fseek(fVecIn, offset, SEEK_SET);
 	int size = (int)(maxB[0]-minB[0]+1)*3;
 	fread(p, sizeof(float), size, fVecIn);
-	p+=size;
+
 	// swap bytes
 #ifdef BYTE_SWAP
 	for (i = 0; i < size; i++)
 	  swap4((char *)&(p[i]));
 #endif
+	p+=size;
       }
 
     }
@@ -274,7 +278,7 @@ float* ReadStaticDataRaw(char *flowName, float *sMin, float *sMax, int *dim) {
   //swap bytes
 #ifdef BYTE_SWAP
   for (i = 0; i < subsize[0] * subsize[1] * subsize[2]; i++)
-    swap4((char *)&(pData[i]));
+    swap4((char *)&(Data[i]));
 #endif
 
   MPI_File_close(&fd);
@@ -370,7 +374,7 @@ float** ReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax,
 
     //swap bytes
 #ifdef BYTE_SWAP
-    for (i = 0; i < 3 * npt; i++)
+    for (i = 0; i < 3 * nflt; i++)
       swap4((char *)&(Data[i]));
 #endif
 
@@ -493,7 +497,7 @@ float** IndepReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax,
 
     //swap bytes
 #ifdef BYTE_SWAP
-    for (i = 0; i < 3 * npt; i++)
+    for (i = 0; i < 3 * nflt; i++)
       swap4((char *)&(Data[i]));
 #endif
 
@@ -507,3 +511,33 @@ float** IndepReadTimeVaryingDataRaw(char *flowName, float* sMin, float* sMax,
 //--------------------------------------------------------------------------
 
 #endif
+
+//---------------------------------------------------------------------------
+
+// utility functions
+
+//---------------------------------------------------------------------------
+//
+// swap4(n)
+//
+// Swaps 4 bytes from 1-2-3-4 to 4-3-2-1 order.
+// cast the input as a char and use on any 4 byte variable
+//
+void swap4(char *n) {
+
+  char *n1;
+  char c;
+
+  n1 = n + 3;
+  c = *n;
+  *n = *n1;
+  *n1 = c;
+
+  n++;
+  n1--;
+  c = *n;
+  *n = *n1;
+  *n1 = c;
+
+}
+//----------------------------------------------------------------------------

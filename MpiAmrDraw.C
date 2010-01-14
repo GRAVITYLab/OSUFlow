@@ -306,10 +306,10 @@ void PrintPerf() {
   block_stats[3] = TotRounds; // total number of rounds before any null rounds
                               // at the end
   block_stats[4] = lat->GetMyTotPtsSend(); // total points sent
-  time_stats[0] = TotIOTime; // I/O time
+  time_stats[0] = lat->GetMyIOTime(); // I/O time
   time_stats[1] = lat->GetMyCommTime(); // communication time
-  time_stats[2] = TotCompTime; // communication time
-  time_stats[3] = TotIOBW; // I/O bandwidth
+  time_stats[2] = TotCompTime; // computation time
+  time_stats[3] = lat->GetMyIOBW(); // I/O bandwidth
 
   // alloc space and gather the stats
   assert((all_block_stats = (int *)malloc(n_block_stats * nproc * 

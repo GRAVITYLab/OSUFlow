@@ -93,6 +93,7 @@ class  LatticeAMR {
   int GetMyIOBW() { return io_bw; }
   double GetMyIOTime() { return io_time; }
   double GetMyCommTime() { return comm_time; }
+  int GetMyTotPtsSend() { return tot_pts_send; }
   void GetVB(int block, float *min_s, float *max_s, 
 	     int *min_t, int *max_t);
   void GetGlobalVB(int part, float *min_s, float *max_s, 
@@ -172,6 +173,7 @@ class  LatticeAMR {
   int npart;   // number of partitions. 
   int io_bw; // I/O bandwidth in MB/s
   double io_time, comm_time; // I/O and communication time for my process
+  int tot_pts_send; // total points sent from my process
   volume_bounds_type_f *vb_list; // bounds for each partition 
   int *rank_to_index; // from rank to (i,j,k,t, level) indices 
 

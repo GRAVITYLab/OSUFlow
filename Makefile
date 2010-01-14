@@ -24,8 +24,8 @@
 
 #ARCH = MAC_OSX
 #ARCH = MAC_OSX_10_4
-ARCH = LINUX
-#ARCH = BGP
+#ARCH = LINUX
+ARCH = BGP
 #ARCH = FD
 #ARCH = EUREKA
 #ARCH = BB
@@ -94,6 +94,8 @@ endif
 THREADS = 
 CCFLAGS += -c -O3 $(THREADS) -qarch=450d -qtune=450
 CCFLAGS += -DBGP -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+CCFLAGS += -DBYTE_SWAP
+#CCFLAGS += -DDEBUG
 ifeq ($(MPE), YES)
 CCFLAGS += -DMPE
 endif
@@ -152,7 +154,8 @@ ifeq ($(MPE), YES)
 C++   = mpecxx -mpilog
 endif
 #CCFLAGS += -g3
-CCFLAGS = -c -DEUREKA -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX# -DGRAPHICS
+CCFLAGS = -c -DEUREKA -D_MPI -DMPICH_IGNORE_CXX_SEEK -DMPICH_SKIP_MPICXX
+# -DGRAPHICS
 CCFLAGS += -O3
 #CCFLAGS += -Wall -Wextra
 ifeq ($(MPE), YES)
@@ -173,7 +176,7 @@ OBJS =  Candidate.o  Grid.o          polynomials.o  TimeVaryingFieldLine.o \
         PathLine.o   Streamline.o    FieldLine.o    Plot3DReader.o \
 	TimeLine.o   OSUFlow.o       FileReader.o   calc_subvolume.o \
 	LatticeAMR.o Partition.o     FlashAMR.o     ComputeFieldLines.o \
-	Lattice4D.o  flashhdf5_float.o Draw.o \
+	Lattice4D.o  flashhdf5_float.o # Draw.o \
 
 
 SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
@@ -183,9 +186,8 @@ SRCS =  Candidate.C  Grid.C          polynomials.C  TimeVaryingFieldLine.C \
 	PathLine.C   Streamline.C    FieldLine.C    Plot3DReader.C \
 	TimeLine.C   OSUFlow.C       FileReader.C   calc_subvolume.C \
 	LatticeAMR.C Partition.C     FlashAMR.C     ComputeFieldLines.C \
-	Lattice4D.C  flashhdf5_float.C Draw.C\
+	Lattice4D.C  flashhdf5_float.C # Draw.C\
  
-
 .SUFFIXES: .C
 
 .C.o:

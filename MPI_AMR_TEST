@@ -33,7 +33,7 @@ ARCH=LINUX
 nodes=1
 
 # number of procs
-num_procs=1
+num_procs=256
 
 # executable
 exe=./mpiamrtest

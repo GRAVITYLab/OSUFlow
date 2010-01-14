@@ -44,7 +44,7 @@
 #endif
 
 // whether or not we have opposite endianness in the file
-int swap = 0;
+int swap;
 
 // defines related to drawing
 #define XFORM_NONE    0 
@@ -98,7 +98,16 @@ int main(int argc, char *argv[]) {
   assert((pt = (float *)malloc(256 * 4 *sizeof(float))) != NULL);
   pt_alloc = 256; // initially allocate 256 points (each x, y, z, t)
 
-  ReadFieldlines((char *)"field_lines.out");
+  if (argc < 2) {
+    fprintf(stderr, "Usage: draw file_name [swap]\n");
+    exit(0);
+  }
+  if (argc > 2)
+    swap = 1;
+  else
+    swap = 0;
+
+  ReadFieldlines(argv[1]);
 
   // event loop for drawing
   glutInit(&argc, argv); 

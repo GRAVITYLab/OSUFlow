@@ -259,6 +259,9 @@ LatticeAMR::LatticeAMR(char *filename, int tlen, char *vx, char *vy, char *vz,
     tot_neighbors += part->parts[block_ranks[i]].NumNeighbors;
   avg_neigh = tot_neighbors / nb;
 
+  // more stats
+  tot_pts_send = 0;
+
 }
 //------------------------------------------------------------------------------
 //
@@ -2064,10 +2067,13 @@ int LatticeAMR::GetComp(int block, int iter) {
 //
 void LatticeAMR::PostPoint(int block, VECTOR4 p) {
   int neighbor = GetNeighbor(block, p[0], p[1], p[2], p[3]);
-  // only post points that move out of the current block and
-  // remain inside the overall domain boundary
-  if (neighbor >= 0)
+  // only post points that remain inside the overall domain boundary
+  if (neighbor >= 0) {
     part->PostPoint(block_ranks[block], p, neighbor); 
+    // for performance stats, only count points that leave my proc
+    if (part->GetProc(neighbor_ranks[block][neighbor]) != myproc)
+      tot_pts_send++;
+  }
 }
 //
 // prints the posted points
