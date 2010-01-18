@@ -353,8 +353,8 @@ void draw_cyl(float *p0, float *p1, float *rgb) {
   zrot = atan2((p1[1] - p0[1]), (p1[0] - p0[0]));
   xrot = xrot * 180.0 / PI - 90.0; // rads
   zrot = zrot * 180.0 / PI - 90.0;
-  rad = (size[0] + size[1] + size[2]) / 3.0 / 7000.0;
-//   rad = (size[0] + size[1] + size[2]) / 3.0 / 700.0;
+//   rad = (size[0] + size[1] + size[2]) / 3.0 / 7000.0;
+  rad = (size[0] + size[1] + size[2]) / 3.0 / 800.0;
   
   glColor3f(rgb[0], rgb[1], rgb[2]);
 

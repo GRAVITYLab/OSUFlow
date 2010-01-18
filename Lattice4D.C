@@ -18,22 +18,21 @@
 Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen, int ghost, 
 		     int nsp, int ntp, int nid, int myid) {
 
+  int lat_dim[3]; // number of blocks in each direction
+  int data_dim[3]; // xlen, ylen, zlen
+  volume_bounds_type *vbs;  // volume bounds
   int i, j;
-  volume_bounds_type *vbs; 
 
   // extents
   xdim = xlen; 
   ydim = ylen; 
   zdim = zlen; 
   ldim = tlen;
-  min_extent[0] = min_extent[1] = min_extent[2] = min_extent[3] = 0.0;
-  max_extent[0] = xlen - 1;
-  max_extent[1] = ylen - 1;
-  max_extent[2] = zlen - 1;
-  max_extent[3] = tlen - 1;
 
   // spatial domain partitioning
-  vbs = calc_subvolume(xlen, ylen, zlen, ghost, nsp, idim, jdim, kdim); 
+  data_dim[0] = xlen; data_dim[1] = ylen; data_dim[2] = zlen;
+  vbs = GetPartition(data_dim, ghost, nsp, lat_dim);
+  idim = lat_dim[0]; jdim = lat_dim[1]; kdim = lat_dim[2];
   tdim = ntp; 
   npart = nsp * ntp; 
   flowMatrix = new int[npart * npart]; 
@@ -155,11 +154,6 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
 #endif
   assert(zdim == zlen);
   tdim = ldim = tlen;
-  min_extent[0] = min_extent[1] = min_extent[2] = min_extent[3] = 0.0;
-  max_extent[0] = xdim - 1;
-  max_extent[1] = ydim - 1;
-  max_extent[2] = zdim - 1;
-  max_extent[3] = tdim - 1;
 
   // number of procs, blocks, block size
   fread(&nprocs, sizeof(int), 1, fp);
@@ -298,24 +292,6 @@ Lattice4D::~Lattice4D()
 
 }
 //---------------------------------------------------------------------------
-//
-// GetExtents
-//
-// overall min, max in x,y,z,t of the entire data
-//
-void Lattice4D::GetExtents(float *min, float *max) {
-
-  min[0] = min_extent[0];
-  min[1] = min_extent[1];
-  min[2] = min_extent[2];
-  min[3] = min_extent[3];
-  max[0] = max_extent[0];
-  max[1] = max_extent[1];
-  max[2] = max_extent[2];
-  max[3] = max_extent[3];
-
-}
-//----------------------------------------------------------------------------
 //
 // VolumeBounds
 //
@@ -869,6 +845,109 @@ void Lattice4D::AddNeighbor(int myblock, int neighrank) {
   neighbor_ranks[myblock][num_neighbors] = neighrank;
 
   part->AddNeighbor(myrank, myblock, neighrank);
+
+}
+//---------------------------------------------------------------------------
+//
+// GetPartition
+// calculates a default partition of the data
+// by factoring the total number of blocks in alternating x, y, z directions
+//
+// data dim: x, y, z data size
+// ghost: ghost layer per side
+// npart: number of partitions
+// lat_dim (output): x, y, z lattice dimensions
+// returns: pointer to volume bounds list
+//
+volume_bounds_type* Lattice4D::GetPartition(int *data_dim, int ghost, int npart,
+			      int *lat_dim) { 
+
+  int n = 1; // number of partitions factored so far
+  int rem = npart; // unfactored remaining portion of npart
+  volume_bounds_type *vb_list; // volume bounds list
+  int d[3]; // delta x, y, z (block size)
+  int i, j, k;
+
+  // init
+  vb_list = new volume_bounds_type[npart]; 
+  for (i = 0; i < 3; i++)
+    lat_dim[i] = 1;
+
+  // compute factorization of data dimensions into lattice dimensions
+  for (k = 0; k < npart; k++) { // npart is max number of attempts
+
+    // division direction (0, 1, 2) = (x, y, z)
+    for (i = 0; i < 3; i++) {
+      // smallest factor remaining gets assigned to this direction
+      for (j = 2; j <= rem; j++) {
+	if (rem % j == 0) {
+	  lat_dim[i] *= j;
+	  rem /= j;
+	  n++;
+	  break;
+	}
+      }
+    }
+
+    if (rem == 1)
+      break;
+
+  }
+
+  if (k == npart)
+    fprintf(stderr,"Unable to partition the volume into %d spatial blocks. Please select a different number of spatial blocks and rerun.\n", npart);
+  assert(k < npart);
+
+  // compute volume bounds in row-major index order
+  n = 0;
+  for(i = 0; i < 3; i++)
+    d[i] = roundf((float)data_dim[i] / (float)lat_dim[i]);
+  for (k = 0; k < lat_dim[2]; k++) {
+    for (j = 0; j < lat_dim[1]; j++) {
+      for (i = 0; i < lat_dim[0]; i++) {
+	vb_list[n].xmin = i * d[0];
+	vb_list[n].xmax = (i == lat_dim[0] - 1 ? data_dim[0]: (i + 1) * d[0]);
+	vb_list[n].ymin = j * d[1];
+	vb_list[n].ymax = (j == lat_dim[1] - 1 ? data_dim[1]: (j + 1) * d[1]);
+	vb_list[n].zmin = k * d[2];
+	vb_list[n].zmax = (k == lat_dim[2] - 1 ? data_dim[2]: (k + 1) * d[2]);
+	n++;
+      }
+    }
+  }
+
+//   // debug: print the lattice dims
+//   fprintf(stderr, "lattice dims %d * %d * %d\n", lat_dim[0], lat_dim[1], lat_dim[2]);
+//   fprintf(stderr, "block sizes %d * %d * %d\n", d[0], d[1], d[2]);
+
+//   // debug: print the vb list
+//   for (i = 0; i < lat_dim[0]; i++) 
+//     fprintf(stderr,"x[%d] = %d %d ", i, vb_list[i].xmin, vb_list[i].xmax); 
+//   fprintf(stderr,"\n"); 
+//   for (j = 0; j < lat_dim[1]; j++)
+//     fprintf(stderr,"y[%d] = %d %d ", j, vb_list[j * lat_dim[0]].ymin, vb_list[j * lat_dim[0]].ymax); 
+//   fprintf(stderr,"\n"); 
+//   for (k = 0; k < lat_dim[2]; k++)
+//     fprintf(stderr,"z[%d] = %d %d ", k, vb_list[k * lat_dim[1] * lat_dim[0]].zmin, vb_list[k * lat_dim[1] * lat_dim[0]].zmax); 
+//   fprintf(stderr,"\n"); 
+
+  // ghost cells
+  for (i = 0; i < npart; i++) {
+    if (vb_list[i].xmin > 0)
+      vb_list[i].xmin -= ghost;
+    if (vb_list[i].ymin > 0)
+      vb_list[i].ymin -= ghost;
+    if (vb_list[i].zmin > 0)
+      vb_list[i].zmin -= ghost;
+    if (vb_list[i].xmax < data_dim[0])
+      vb_list[i].xmax += ghost;
+    if (vb_list[i].ymax < data_dim[1])
+      vb_list[i].ymax += ghost;
+    if (vb_list[i].zmax < data_dim[2])
+      vb_list[i].zmax += ghost;
+  }
+
+  return vb_list;
 
 }
 //---------------------------------------------------------------------------

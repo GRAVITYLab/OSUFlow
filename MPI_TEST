@@ -23,8 +23,8 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-#ARCH=LINUX
-ARCH=BGP
+ARCH=LINUX
+#ARCH=BGP
 #ARCH=FD
 #ARCH=EUREKA
 #ARCH=BB
@@ -33,16 +33,17 @@ ARCH=BGP
 nodes=64
 
 # number of procs
-num_procs=16
+num_procs=2
 
 # executable
 exe=./mpitest
 
 # dataset
 if [ "$ARCH" = "LINUX" ]; then
+#data=/homes/tpeterka/tornado/tornado.list # path on my linux box
+#data=/Users/troot/tornado/tornado.list # path on my mac
 data=/homes/tpeterka/plume/plume.list
-#data=/homes/tpeterka/tornado/tornado.list
-#data=/Users/troot/tornado/tornado.list
+
 fi
 if [ "$ARCH" = "BGP" ]; then
 data=/home/tpeterka/plume/plume.list
@@ -54,7 +55,7 @@ fi
 dsize="126 126 512 1" # for plume
 
 # total number of partitions in the space domain
-sb=256
+sb=2048
 
 # total number of partitions in the time domain
 tb=1
@@ -63,7 +64,7 @@ tb=1
 tr=1
 
 # number of traces per block
-t=10
+t=1
 
 # number of points per trace
 p=20
@@ -89,41 +90,48 @@ pf=/home/tpeterka/plume/partitions-npart16-blocksize32-15plume3d421.bin
 #pf=! # indicates no partition file
 fi
 
+# data mode
+# 0 = raw with no header data
+# 1 = raw with dimensions at start
+# 2 = netCDF
+# 3 = HDF5
+dm=0
+
 if [ "$ARCH" = "LINUX" ]; then
 
-mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
+mpiexec -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf $dm
 
-#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
+#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf $dm
 
-#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
+#mpiexec -l -n $num_procs valgrind -q $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf $dm
 
-#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
+#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf $dm
 
 fi
 
 if [ "$ARCH" = "BGP" ]; then
 
 pvfs2-drop-caches -m /pvfs-surveyor
-cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
+cqsub -n $num_procs -c $num_procs -p UltraVis -t 10 -m smp $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf $dm
 
 fi
 
 if [ "$ARCH" = "FD" ]; then
 
-srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
+srun -l -p scx-comp -N $num_procs -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf $dm
 
 fi
 
 if [ "$ARCH" = "EUREKA" ]; then
 
 pvfs2-drop-caches -m /pvfs-surveyor
-mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf $dm
 
 fi
 
 if [ "$ARCH" = "BB" ]; then
 
-mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf
+mpiexec -machinefile ./nodes -l -n $num_procs $exe $data $dsize $sb $tb $tr $t $p $r $th $m $pf $dm
 
 #mpiexec -machinefile ./nodes -l -n $num_procs hostname
 

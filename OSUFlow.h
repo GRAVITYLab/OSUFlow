@@ -41,6 +41,8 @@ class OSUFlow
   void LoadData(const char* fname, bool bStatic, 
 		float *from, float *to, float *size, int bt_max, 
 		int t_min, int t_max);
+  void LoadData(const char* fname, float *sMin, float *sMax, 
+		float *dim, int min_t, int max_t, int mode);
 
   // create a flow field from input data array 
   CVectorField* CreateStaticFlowField(float*, int xsize, int ysize, int zsize, 
@@ -111,11 +113,14 @@ class OSUFlow
   void InitTimeVaryingFlowField(int min_t, int max_t);
   void InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB); 
   void InitTimeVaryingFlowField(VECTOR3 minb, VECTOR3 maxB, int min_t, int max_t);
-  void InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, 
-			   VECTOR3 dim);
   void InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax, 
 				VECTOR3 dim, int bt_max, int t_min,
 				int t_max);
+  void InitTimeVaryingFlowField(float *sMin, float *sMax, 
+			   float *dim, int t_min, int t_max,
+			   bool read_dims);
+  void InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, 
+			   VECTOR3 dim);
 
 
   bool DeferredLoadData(); 

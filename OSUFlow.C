@@ -142,6 +142,61 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
 	has_data = true; 
 }
 
+//--------------------------------------------------------------------------
+//
+// LoadData
+//
+// Load a partial time-varying data set 
+//
+// fname: dataset file name
+// sMin, sMax: corners of subdomain (inclusive, node-centered)
+// ie, the range [0, 10] contains 10 voxels
+// dim: size of total domain (leave uninitialized of mode == 1)
+// t_min, t_max: temporal extents
+// mode: 0 = raw with no header data
+//       1 = raw with dimensions at start
+//       2 = netCDF
+//       3 = HDF5
+// currently only modes 0 and 1 are implemented
+//
+void OSUFlow::LoadData(const char* fname, float *sMin, float *sMax, 
+		       float *dim, int min_t, int max_t, int mode) {
+  
+  // init
+  flowName = new char[255];
+  strcpy(flowName, fname);
+  bStaticFlow = false;
+  lMin.Set(sMin[0], sMin[1], sMin[2]);
+  lMax.Set(sMax[0], sMax[1], sMax[2]);
+  has_data = false; 
+
+  if (max_t >= min_t) {
+    numTimesteps = max_t-min_t + 1; 
+    MinT = min_t; MaxT = max_t; 
+  }
+  else { // defaults to 1 time step
+    numTimesteps = 1; 
+    MinT = MaxT = min_t; 
+  }
+	  
+  switch (mode) {
+
+  case 0:
+    InitTimeVaryingFlowField(sMin, sMax, dim, min_t, max_t, 0); 
+    break;
+  case 1:
+    InitTimeVaryingFlowField(sMin, sMax, dim, min_t, max_t, 1); 
+    break;
+  default:
+    fprintf(stderr, "Error: LoadData() currently does not support modes other than 0, 1\n");
+    break;
+
+  }
+
+  has_data = true; 
+
+}
+//--------------------------------------------------------------------------
 
 bool OSUFlow::DeferredLoadData() 
 {
@@ -337,6 +392,45 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, i
 
 }
 
+//--------------------------------------------------------------------------
+//
+// InitTimeVaryingFlowField
+//
+// initialize a time-varying flow field object based on my subdomain
+// uses posix independent I/O
+// sMin, sMax: corners of subdomain (inclusive, node-centered)
+// ie, the range [0, 10] contains 10 voxels
+// dim: size of total domain (leave uninitialized if read_dims == true)
+// t_min, t_max: time range of subdomain
+// read_dims: whether to read dimensions from the start of the file
+//            (dim will contain the dimensions read)
+//
+void OSUFlow::InitTimeVaryingFlowField(float *sMin, float *sMax, 
+				       float *dim, int t_min, int t_max,
+				       bool read_dims) {
+
+  float** ppData = NULL;
+
+  // posix I/O
+  ppData = ReadTimeVaryingDataRaw(flowName, dim, sMin, sMax, 
+				  t_min, t_max, read_dims); 
+
+  // update the global bounds of the field (same for all time steps)
+  gMin.Set(0.0,0.0,0.0);
+  gMax.Set(dim[0], dim[1], dim[2]);
+  lMin.Set(sMin[0], sMin[1], sMin[2]);
+  lMax.Set(sMax[0], sMax[1], sMax[2]);
+  MinT = t_min;
+  MaxT = t_max; 
+
+  // create the flow field	
+  flowField = CreateTimeVaryingFlowField(ppData, sMax[0] - sMin[0],
+					 sMax[1] - sMin[1],
+					 sMax[2] - sMin[2],
+					 sMin, sMax, t_min, t_max);  
+
+}
+//--------------------------------------------------------------------------
 
 ///////////////////////////////////////////////
 //
@@ -912,7 +1006,8 @@ void Error(const char *fmt, ...){
 // loads the dataset
 //
 // fname is dataset file name
-// from, to are local subdomain min and max
+// from, to: corners of subdomain (inclusive, node-centered)
+// ie, the range [0, 10] contains 10 voxels
 // size is the total size of the domain
 // bt_max is the max number of time steps in any block
 // t_min, t_max are min and max time steps (ignored if bStatic == true)
@@ -936,72 +1031,28 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
   has_data = false; 
 
   if (max_t >= min_t) {
-    numTimesteps = max_t-min_t+1; 
+    numTimesteps = max_t - min_t + 1; 
     MinT = min_t; MaxT = max_t; 
   }
 
-  else {   //exception. goes back to default 
+  else { // defaults to 1 time step
     numTimesteps = 1; 
     MinT = MaxT = min_t; 
   }
 	  
-  if (bStaticFlow) {  // ignore the time range 
-    numTimesteps = 1; 
-    MinT = MaxT = 0; 
-    InitStaticFlowField(sMin, sMax, dim);
-  }
-
-  else
-    InitTimeVaryingFlowField(sMin, sMax, dim, bt_max, min_t, max_t); 
+  InitTimeVaryingFlowField(sMin, sMax, dim, bt_max, min_t, max_t); 
 
   has_data = true; 
 
 }
 //-----------------------------------------------------------------------
 //
-// InitStaticFlowField
-//
-// initialize a vectorfield object based on my subdomain
-//
-// sMin, sMax: corners of subdomain
-// dim: size of total domain
-//
-void OSUFlow::InitStaticFlowField(VECTOR3 sMin, VECTOR3 sMax, VECTOR3 dim) {
-
-  int totalNum;
-  float* pData = NULL;
-  int lxdim, lydim, lzdim; 
-  float minB[3], maxB[3]; 
-  int dimension[3]; // domain size
-  int sub[3]; // subdomain size
-
-  dimension[0] = (int)dim[0];
-  dimension[1] = (int)dim[1];
-  dimension[2] = (int)dim[2];
-
-  minB[0] = sMin[0]; minB[1] = sMin[1]; minB[2] = sMin[2];
-  maxB[0] = sMax[0]; maxB[1] = sMax[1]; maxB[2] = sMax[2];
-
-  pData = ReadStaticDataRaw(flowName, minB, maxB, dimension); 
-
-  gMin.Set(0.0,0.0,0.0); 
-  gMax.Set(dimension[0] - 1.0f, dimension[1] - 1.0f, dimension[2] - 1.0f);
-  lMin = sMin; lMax = sMax; //local data min/max range
-
-  sub[0] = (int)(maxB[0] - minB[0]+1); 
-  sub[1] = (int)(maxB[1] - minB[1]+1); 
-  sub[2] = (int)(maxB[2] - minB[2]+1); 
-	
-  flowField = CreateStaticFlowField(pData, sub[0], sub[1], sub[2], minB, maxB); 
-
-}
-//--------------------------------------------------------------------------
-//
 // InitTimeVaryingFlowField
 //
 // initialize a time-varying vectorfield object based on my subdomain
 //
-// sMin, sMax: corners of subdomain
+// sMin, sMax: corners of subdomain (inclusive, node-centered)
+// ie, the range [0, 10] contains 10 voxels
 // dim: size of total domain
 // bt_max: max number of time steps in any block
 // t_min, t_max: time range of subdomain
@@ -1014,7 +1065,6 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
   float** ppData = NULL;
   float minB[3], maxB[3]; 
   int dimension[3]; // domain size
-  int sub[3]; // subdomain size
 
   dimension[0] = (int)dim[0];
   dimension[1] = (int)dim[1];
@@ -1029,33 +1079,22 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
   maxB[2] = sMax[2]; 
 
   // collective MPI-IO
-//   ppData = ReadTimeVaryingDataRaw(flowName, minB, maxB, dimension, 
-// 				  bt_max, t_min, t_max); 
-
-  // independent MPI_IO
-//   ppData = IndepReadTimeVaryingDataRaw(flowName, minB, maxB, dimension, 
-// 				  bt_max, t_min, t_max); 
-
-  // posix I/O
-  int unused;
-  ppData = ReadTimeVaryingDataRaw(flowName, unused, dimension, minB, maxB, 
-				  t_min, t_max); 
+  ppData = ReadTimeVaryingDataRaw(flowName, minB, maxB, dimension, 
+				  bt_max, t_min, t_max); 
 
   // update the global bounds of the field
   // Assuming the same for all time steps 
   gMin.Set(0.0,0.0,0.0);   // assume all time steps have the same dims
-  gMax.Set(dimension[0] - 1.0f, dimension[1] - 1.0f, dimension[2] - 1.0f);
+  gMax.Set(dimension[0], dimension[1], dimension[2]);
   lMin = sMin; lMax = sMax; 
   MinT = t_min;
   MaxT = t_max; 
 
-  sub[0] = (int)(maxB[0] - minB[0]+1); 
-  sub[1] = (int)(maxB[1] - minB[1]+1); 
-  sub[2] = (int)(maxB[2] - minB[2]+1); 
-	
-  flowField = CreateTimeVaryingFlowField(ppData, sub[0], sub[1], sub[2], 
+  flowField = CreateTimeVaryingFlowField(ppData, maxB[0] - minB[0],
+					 maxB[1] - minB[1], maxB[2] - minB[2],
 					 minB, maxB, t_min, t_max);  
 
 }
-#endif
 //--------------------------------------------------------------------------
+
+#endif

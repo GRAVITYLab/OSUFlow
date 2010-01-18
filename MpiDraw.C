@@ -136,6 +136,7 @@ int avail_mem; // memory space for dataset (MB)
 int b_mem; // number of blocks to keep in memory
 int max_bt; // max number of time steps in any block
 int tr; // number of time partitions per round
+int data_mode; // data format
 
 // debug
 #define MAX_RENDER_SEEDS 1000
@@ -693,8 +694,8 @@ void IOThread() {
 
 // 	// read the data
 // 	lat->GetVB(i, from, to, &min_t, &max_t);
-// 	osuflow[i]->LoadData(filename, false, from, to, size, max_bt,
-// 			     min_t, max_t); 
+// 	osuflow[i]->LoadData(filename, from, to, size,
+// 			     min_t, max_t, data_mode); 
 
 // 	// update status
 // #ifdef DEBUG
@@ -845,11 +846,11 @@ void IOandCompute() {
 	  // read the data
 	  lat->GetVB(i, from, to, &min_t, &max_t);
 	  t0 = MPI_Wtime();
-	  osuflow[i]->LoadData(filename, false, from, to, size, max_bt,
-			       min_t, max_t); 
+	  osuflow[i]->LoadData(filename, from, to, size,
+			       min_t, max_t, data_mode); 
 	  TotIOTime += (MPI_Wtime() - t0);
-	  TotDataRead += ((to[0] - from[0] + 1) * (to[1] - from[1] + 1) *
-			  (to[2] - from[2] + 1) * 12); // 3 comps * 4 bytes
+	  TotDataRead += ((to[0] - from[0]) * (to[1] - from[1]) *
+			  (to[2] - from[2]) * 12); // 3 comps * 4 bytes
 	  lat->SetLoad(i);
 	  num_loaded++;
 #ifdef DEBUG
@@ -1233,7 +1234,8 @@ void WriteFieldlines(int *ntrace, int mynpt, char *filename) {
   if (myproc == 0) {
 
     // write extents
-    lat->GetExtents(min, max);
+    min[0] = min[1] = min[2] = min[3] = 0.0;
+    max[0] = size[0]; max[1] = size[1]; max[2] = size[2]; max[3] = tsize - 1;
     MPI_File_write(fd, min, 4, MPI_FLOAT, &status);
     assert(status.count == 4 * sizeof(float)); // bytes
     MPI_File_write(fd, max, 4, MPI_FLOAT, &status);
@@ -1295,38 +1297,23 @@ void WriteFieldlines(int *ntrace, int mynpt, char *filename) {
 //
 void GetArgs(int argc, char *argv[]) {
 
-  VECTOR3 minLen, maxLen; // spatial data bounds
-  int minTime, maxTime; // time data bounds
-
-  assert(argc >= 15);
+  assert(argc >= 16);
 
   strncpy(filename,argv[1],sizeof(filename));
-
-  // hard code the minimum corner to be 0,0,0,0
-  // need to allow for variable data origin in the future
-  minLen[0] = minLen[1] = minLen[2] = 0.0;
-  minTime = 0;
-
-  maxLen[0] = atof(argv[2]) - 1.0f;
-  maxLen[1] = atof(argv[3]) - 1.0f;
-  maxLen[2] = atof(argv[4]) - 1.0f;
-  maxTime   = (int)(atof(argv[5]) - 1.0f);
-
-  size[0] = maxLen[0] - minLen[0] + 1.0f; // data sizes, space and time
-  size[1] = maxLen[1] - minLen[1] + 1.0f;
-  size[2] = maxLen[2] - minLen[2] + 1.0f;
-  tsize   = (int)(maxTime - minTime + 1.0f);
-
+  size[0] = atof(argv[2]);
+  size[1] = atof(argv[3]);
+  size[2] = atof(argv[4]);
+  tsize = atoi(argv[5]);
   nspart = atoi(argv[6]); // total space partitions
   ntpart = atoi(argv[7]); // total time partitions
   tr = atoi(argv[8]); // number of time partitions per round
-
   tf = atoi(argv[9]); // traces per block
   pf = atoi(argv[10]); // points per trace
   max_rounds = atoi(argv[11]); // rounds
   threads = atoi(argv[12]) <= 1 ? 1 : 2; // threads per process
   avail_mem = atoi(argv[13]); // memory data size (MB)
   strncpy(part_file, argv[14], sizeof(part_file));
+  data_mode = atoi(argv[15]);
 
 }
 //-----------------------------------------------------------------------

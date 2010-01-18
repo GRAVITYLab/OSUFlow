@@ -102,6 +102,7 @@ Lattice4D* lat; // lattice
 int tf; // max number of traces per block
 int pf; // max number of points per trace
 int max_rounds; // max number of rounds
+int data_mode; // data format
 
 // debug
 #define MAX_RENDER_SEEDS 1000
@@ -145,7 +146,6 @@ void Run() {
 
   int min_t, max_t; // subdomain temporal bounds
   float from[3], to[3]; // subdomain spatial bounds
-  VECTOR3 min_s, max_s; // subdomain spatial bounds in VEC3 format
   int i, j, k;
 
   // init all blocks
@@ -186,9 +186,8 @@ void Run() {
       // load block for first round only
       if (j == 0) {
 	lat->GetVB(i, from, to, &min_t, &max_t);
-	min_s[0] = from[0]; min_s[1] = from[1]; min_s[2] = from[2];
-	max_s[0] = to[0]; max_s[1] = to[1]; max_s[2] = to[2];
-	osuflow[i]->LoadData(filename, false, min_s, max_s, min_t, max_t); 
+	osuflow[i]->LoadData(filename, from, to, size, 
+			     min_t, max_t, data_mode); 
 	osuflow[i]->ScaleField(10.0); // improves visibility
       }
 
@@ -358,34 +357,19 @@ void GatherFieldlines() {
 //
 void GetArgs(int argc, char *argv[]) {
 
-  VECTOR3 minLen, maxLen; // spatial data bounds
-  int minTime, maxTime; // time data bounds
-
-  assert(argc >= 8);
+  assert(argc >= 11);
 
   strncpy(filename,argv[1],sizeof(filename));
-
-  // hard code the minimum corner to be 0,0,0,0
-  // need to allow for variable data origin in the future
-  minLen[0] = minLen[1] = minLen[2] = 0.0;
-  minTime = 0;
-
-  maxLen[0] = atof(argv[2]) - 1.0f;
-  maxLen[1] = atof(argv[3]) - 1.0f;
-  maxLen[2] = atof(argv[4]) - 1.0f;
-  maxTime   = (int)(atof(argv[5]) - 1.0f);
-
-  size[0] = maxLen[0] - minLen[0] + 1.0f; // data sizes, space and time
-  size[1] = maxLen[1] - minLen[1] + 1.0f;
-  size[2] = maxLen[2] - minLen[2] + 1.0f;
-  tsize   = (int)(maxTime - minTime + 1.0f);
-
+  size[0] = atof(argv[2]);
+  size[1] = atof(argv[3]);
+  size[2] = atof(argv[4]);
+  tsize = atoi(argv[5]);
   nspart = atoi(argv[6]); // total space partitions
   ntpart = atoi(argv[7]); // total time partitions
-
   tf = atoi(argv[8]); // traces per block
   pf = atoi(argv[9]); // points per trace
   max_rounds = atoi(argv[10]); // rounds
+  data_mode = atoi(argv[11]);
 
 }
 //-----------------------------------------------------------------------
@@ -428,7 +412,7 @@ void Init() {
 
   // print some of the args
 #ifdef DEBUG
-  fprintf(stderr,"Volume size: X %.3lf Y %.3lf Z %.3lf t %d\n",
+  fprintf(stderr,"Volume size: X %.3f Y %.3f Z %.3f t %d\n",
 	  size[0], size[1], size[2], tsize);
   fprintf(stderr, "Number of compute rounds: %d\n", max_rounds);
 #endif
@@ -544,7 +528,7 @@ void DrawFieldlines() {
 
   glPushMatrix(); 
 
-  glScalef(1.0f / (float)size[0], 1.0f / (float)size[0], 1.0f / (float)size[0]);
+  glScalef(1.0f / size[0], 1.0f / size[0], 1.0f / size[0]);
   glTranslatef(-size[0] / 2.0f, -size[1] / 2.0f, -size[2] / 2.0f); 
   glColor3f(1.0, 1.0, 0.0); 
 
