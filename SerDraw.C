@@ -84,6 +84,8 @@ void mymotion(int x, int y);
 void mykey(unsigned char key, int x, int y);
 void idle();
 void Run();
+int LoadBlock(int grp, int ngrp, int blk);
+void InitBlocks();
 
 // globals
 static char filename[256]; // dataset file name
@@ -102,7 +104,9 @@ Lattice4D* lat; // lattice
 int tf; // max number of traces per block
 int pf; // max number of points per trace
 int max_rounds; // max number of rounds
+int tr; // number of time partitions per time group
 int data_mode; // data format
+int ghost = 1; // number of ghost cells per side
 
 // debug
 #define MAX_RENDER_SEEDS 1000
@@ -144,17 +148,149 @@ int main(int argc, char *argv[]) {
 //
 void Run() {
 
-  int min_t, max_t; // subdomain temporal bounds
-  float from[3], to[3]; // subdomain spatial bounds
+  int rank;
   int i, j, k;
+  int ngroups; // number of groups of blocks
+  int g; // current group
+  int size; // data size of block (bytes)
+  int TotDataRead = 0; // total amount of data read (MB)
+
+  // init
+  ngroups = (int)(ceil(ntpart / tr)); // number of groups
+
+  InitBlocks();
+
+  // for all groups
+  for (g = 0; g < ngroups; g++) {
+
+    // for all rounds
+    for (j = 0; j < max_rounds; j++) {
+
+      PrintSeeds(nblocks);
+
+      // for all blocks
+      for (i = 0; i < nblocks; i++) {
+
+	if ((size = LoadBlock(g, ngroups, i)) > 0)
+	  osuflow[i]->ScaleField(10.0); // improves visibility
+
+	// compute fieldlines
+	if (lat->GetLoad(i)) {
+	  if (tsize > 1)
+	    ComputePathlines(i);
+	  else
+	    ComputeStreamlines(i);
+	}
+
+      } // for all blocks
+
+      lat->SerExchangeNeighbors(Seeds, SizeSeeds, NumSeeds);
+
+    } // for all rounds
+
+#ifdef DEBUG
+    if (rank == 0)
+      fprintf(stderr, "Completed %d rounds\n", max_rounds);
+#endif
+
+  } // for all groups
+
+#ifdef DEBUG
+  if (rank == 0)
+    fprintf(stderr, "Completed %d groups\n", ngroups);
+#endif
+
+  // gather fieldlines for rendering
+  GatherFieldlines();
+
+}
+//-----------------------------------------------------------------------
+//
+// LoadBlock
+//
+// loads new blocks and evicts old blocks
+// new and old are determined by the current group number and block number
+// blocks whose temporal extent covers the current group are loaded if they
+// are not already in memory
+// blocks whose temporal extent does not include the current group are
+// evicted if they are still in memory
+//
+// grp: current group
+// ngrp: total number of groups
+// blk: desired block
+//
+// returns: number of bytes actually loaded
+// 0 if the block is already in memory
+// or its temporal extent does not match the group
+//
+int LoadBlock(int grp, int ngrp, int blk) {
+
+  int i;
+  int s = 0; // data size (bytes)
+  float from[3], to[3]; // block spatial extent
+  int min_t, max_t; // block temporal extent
+  int tg; // number of time steps per group, except perhaps last group
+
+  tg = tsize / ngrp;
+
+  // evict older blocks if necessary
+  for (i = 0; i < blk; i++) {
+
+    if (lat->GetLoad(i)) {
+      lat->GetVB(i, from, to, &min_t, &max_t);
+      if (max_t < grp * tg) {
+	lat->ClearLoad(i);
+	osuflow[i]->DeleteData();
+#ifdef DEBUG
+	fprintf(stderr, "Evicted block %d\n",i);
+#endif
+      }
+    }
+
+  }
+
+  // load the block if necessary
+  if (!lat->GetLoad(blk)) {
+
+    lat->GetVB(blk, from, to, &min_t, &max_t);
+    if (min_t >= grp * tg && min_t <= (grp + 1) * tg || 
+	max_t >= grp * tg && max_t <= (grp + 1) * tg) {
+      osuflow[blk]->LoadData(filename, from, to, size,
+			     min_t, max_t, data_mode); 
+      s = ((to[0] - from[0]) * (to[1] - from[1]) *
+	      (to[2] - from[2]) * 3 * sizeof(float));
+      lat->SetLoad(blk);
+#ifdef DEBUG
+	fprintf(stderr, "Loaded block %d\n", blk);
+#endif
+    }
+
+  }
+
+  return s;
+
+}
+//-----------------------------------------------------------------------
+//
+// InitBlocks
+//
+// initializes blocks and seeds them
+//
+void InitBlocks() {
+
+  int i, j;
+  float from[3], to[3]; // block spatial extent
+  int min_t, max_t; // block temporal extent
 
   // init all blocks
   for (i = 0; i < nblocks; i++) {
 
+    NumSeeds[i] = 0;
+    lat->ClearLoad(i);
     osuflow[i] = new OSUFlow;
     lat->GetVB(i, from, to, &min_t, &max_t);
 
-    // init seeds for blocks at t = initial time
+    // init seeds for blocks starting at t0
     if (min_t == 0) {
 
       osuflow[i]->SetRandomSeedPoints(from, to, tf); 
@@ -166,44 +302,12 @@ void Run() {
 	SizeSeeds[i] *= 2;
       }
 
-      for (k = 0; k < NumSeeds[i]; k++)
-	Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], min_t);
+      for (j = 0; j < NumSeeds[i]; j++)
+	Seeds[i][j].Set(seeds[j][0], seeds[j][1], seeds[j][2], min_t);
 
-    } // init seeds
+    }
 
-  } // init all blocks
-
-  // for all rounds
-  for (j = 0; j < max_rounds; j++) {
-
-#ifdef DEBUG
-    PrintSeeds(nblocks);
-#endif
-
-    // for all blocks
-    for (i = 0; i < nblocks; i++) {
-
-      // load block for first round only
-      if (j == 0) {
-	lat->GetVB(i, from, to, &min_t, &max_t);
-	osuflow[i]->LoadData(filename, from, to, size, 
-			     min_t, max_t, data_mode); 
-	osuflow[i]->ScaleField(10.0); // improves visibility
-      }
-
-      if (tsize > 1)
-	ComputePathlines(i);
-      else
-	ComputeStreamlines(i);
-
-    } // for all blocks
-
-    lat->SerExchangeNeighbors(Seeds, SizeSeeds, NumSeeds);
-
-  } // for all rounds
-
-  // gather fieldlines for rendering
-  GatherFieldlines();
+  }
 
 }
 //-----------------------------------------------------------------------
@@ -357,7 +461,7 @@ void GatherFieldlines() {
 //
 void GetArgs(int argc, char *argv[]) {
 
-  assert(argc >= 11);
+  assert(argc >= 13);
 
   strncpy(filename,argv[1],sizeof(filename));
   size[0] = atof(argv[2]);
@@ -366,10 +470,11 @@ void GetArgs(int argc, char *argv[]) {
   tsize = atoi(argv[5]);
   nspart = atoi(argv[6]); // total space partitions
   ntpart = atoi(argv[7]); // total time partitions
-  tf = atoi(argv[8]); // traces per block
-  pf = atoi(argv[9]); // points per trace
-  max_rounds = atoi(argv[10]); // rounds
-  data_mode = atoi(argv[11]);
+  tr = atoi(argv[8]); // number of time partitions per round
+  tf = atoi(argv[9]); // traces per block
+  pf = atoi(argv[10]); // points per trace
+  max_rounds = atoi(argv[11]); // rounds
+  data_mode = atoi(argv[12]);
 
 }
 //-----------------------------------------------------------------------
@@ -382,8 +487,9 @@ void Init() {
 
   int nt; // max total number of traces
   int np; // max total number of points
-  int ghost = 1; // number of ghost cells per spatial edge
   int i;
+
+  assert(tr <= ntpart);
 
   // init lattice and osuflow
   lat = new Lattice4D((int)size[0], (int)size[1], (int)size[2], tsize, ghost, 
@@ -407,7 +513,7 @@ void Init() {
     SizeSeeds[i] = sizeof(VECTOR4);
   }
 
-  // allocate streamline list for each block
+  // streamline list
   sl_list = new list<vtListTimeSeedTrace*>[nspart * ntpart];
 
   // print some of the args
@@ -539,7 +645,7 @@ void DrawFieldlines() {
 
     glBegin(GL_LINE_STRIP); 
     for (j = 0; j < npt[i]; j++) {
-      if (pt[k][3] <= step)
+//       if (pt[k][3] <= step)
 	glVertex3f(pt[k][0], pt[k][1], pt[k][2]);
       k++;
     }
@@ -555,14 +661,14 @@ void DrawFieldlines() {
     }
   }
 
-#ifdef DEBUG
+// #ifdef DEBUG
   // seeds
   glPointSize(5);
   glBegin(GL_POINTS);
   for (i = 0; i < num_render_seeds; i++)
     glVertex3f(render_seeds[i][0],render_seeds[i][1],render_seeds[i][2]);
   glEnd();
-#endif
+// #endif
 
   glPopMatrix(); 
 

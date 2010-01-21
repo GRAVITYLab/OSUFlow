@@ -33,7 +33,7 @@ ARCH=LINUX
 nodes=1
 
 # number of procs
-num_procs=256
+num_procs=1
 
 # executable
 exe=./mpiamrtest
@@ -59,7 +59,7 @@ sb=1
 # for steady state flows use tb = 1
 tb=1
 
-# number of time partitions per round
+# number of time partitions per time group
 tr=1
 
 # number of traces per block
@@ -68,7 +68,7 @@ t=1
 # number of points per trace
 p=10
 
-# number of rounds
+# number of rounds per time group
 r=5
 
 # number of threads

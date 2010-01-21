@@ -27,19 +27,22 @@
 exe=./sertest
 
 # dataset
-#data=/homes/tpeterka/tornado/tornado.list
-data=/homes/tpeterka/plume/plume.list
+data=/homes/tpeterka/tornado/tornado.list
+#data=/homes/tpeterka/plume/plume.list
 
 # data size x y z t
 # (for static flow use t = 1 and list one time step in the dataset file)
-#dsize="128 128 128 1" #tornado
-dsize="126 126 512 1" #plume
+dsize="128 128 128 32" #tornado
+#dsize="126 126 512 4" #plume
 
 # total number of partitions in the space domain
-sb=2048
+sb=8
 
 # total number of partitions in the time domain
 tb=1
+
+# number of time partitions per time group
+tr=1
 
 # number of traces per block
 t=1
@@ -47,7 +50,7 @@ t=1
 # number of points per trace
 p=50
 
-# number of rounds
+# number of rounds per time group
 r=5
 
 # data mode
@@ -57,10 +60,10 @@ r=5
 # 3 = HDF5
 dm=0
 
-$exe $data $dsize $sb $tb $t $p $r $dm
+$exe $data $dsize $sb $tb $tr $t $p $r $dm
 
-#valgrind -q $exe $data $dsize $sb $tb $t $p $r $dm
+#valgrind -q $exe $data $dsize $sb $tb $tr $t $p $r $dm
 
-#valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $t $p $r $dm
+#valgrind -q --leak-check=yes $exe $data $dsize $sb $tb $tr $t $p $r $dm
 
-#gdb -x gdb.run --args $exe $data $dsize $sb $tb $t $p $r $dm
+#gdb -x gdb.run --args $exe $data $dsize $sb $tb $tr $t $p $r $dm

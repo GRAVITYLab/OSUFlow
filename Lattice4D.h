@@ -90,8 +90,8 @@ class  Lattice4D {
   void VolumeBounds(float *block_extents, int nblocks, int *block_size,
 		    volume_bounds_type *vb_list, int &idim, int &jdim, 
 		    int &kdim);
-  volume_bounds_type* GetPartition(int *data_dim, int ghost, int npart,
-				   int *lat_dim);
+  volume_bounds_type* ComputePartition(int *data_dim, int ghost, 
+				       int nsp, int ntp, int *lat_dim);
 
  public:
 

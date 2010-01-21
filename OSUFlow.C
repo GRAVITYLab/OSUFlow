@@ -152,7 +152,8 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
 // sMin, sMax: corners of subdomain (inclusive, node-centered)
 // ie, the range [0, 10] contains 10 voxels
 // dim: size of total domain (leave uninitialized of mode == 1)
-// t_min, t_max: temporal extents
+// t_min, t_max: temporal extents (inclusive, node-centered)
+// ie, first timestep has extent [0, 1]
 // mode: 0 = raw with no header data
 //       1 = raw with dimensions at start
 //       2 = netCDF
@@ -401,7 +402,8 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, i
 // sMin, sMax: corners of subdomain (inclusive, node-centered)
 // ie, the range [0, 10] contains 10 voxels
 // dim: size of total domain (leave uninitialized if read_dims == true)
-// t_min, t_max: time range of subdomain
+// t_min, t_max: temporal extents (inclusive, node-centered)
+// ie, first timestep has extent [0, 1]
 // read_dims: whether to read dimensions from the start of the file
 //            (dim will contain the dimensions read)
 //
@@ -413,7 +415,7 @@ void OSUFlow::InitTimeVaryingFlowField(float *sMin, float *sMax,
 
   // posix I/O
   ppData = ReadTimeVaryingDataRaw(flowName, dim, sMin, sMax, 
-				  t_min, t_max, read_dims); 
+				  t_min, t_max - 1, read_dims); 
 
   // update the global bounds of the field (same for all time steps)
   gMin.Set(0.0,0.0,0.0);
@@ -427,7 +429,7 @@ void OSUFlow::InitTimeVaryingFlowField(float *sMin, float *sMax,
   flowField = CreateTimeVaryingFlowField(ppData, sMax[0] - sMin[0],
 					 sMax[1] - sMin[1],
 					 sMax[2] - sMin[2],
-					 sMin, sMax, t_min, t_max);  
+					 sMin, sMax, t_min, t_max - 1);  
 
 }
 //--------------------------------------------------------------------------
@@ -1010,7 +1012,9 @@ void Error(const char *fmt, ...){
 // ie, the range [0, 10] contains 10 voxels
 // size is the total size of the domain
 // bt_max is the max number of time steps in any block
-// t_min, t_max are min and max time steps (ignored if bStatic == true)
+// t_min, t_max: temporal extents (inclusive, node-centered)
+// ie, first timestep has extent [0, 1]
+// t_min, t_max are ignored if bStatic == true
 //
 void OSUFlow::LoadData(const char* fname, bool bStatic, 
 		       float *from, float *to, float *size, int bt_max, 
@@ -1055,7 +1059,8 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
 // ie, the range [0, 10] contains 10 voxels
 // dim: size of total domain
 // bt_max: max number of time steps in any block
-// t_min, t_max: time range of subdomain
+// t_min, t_max: temporal extents (inclusive, node-centered)
+// ie, first timestep has extent [0, 1]
 //
 void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax, 
 				       VECTOR3 dim, int bt_max, int t_min,
@@ -1080,7 +1085,7 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
 
   // collective MPI-IO
   ppData = ReadTimeVaryingDataRaw(flowName, minB, maxB, dimension, 
-				  bt_max, t_min, t_max); 
+				  bt_max, t_min, t_max - 1); 
 
   // update the global bounds of the field
   // Assuming the same for all time steps 
@@ -1092,7 +1097,7 @@ void OSUFlow::InitTimeVaryingFlowField(VECTOR3 sMin, VECTOR3 sMax,
 
   flowField = CreateTimeVaryingFlowField(ppData, maxB[0] - minB[0],
 					 maxB[1] - minB[1], maxB[2] - minB[2],
-					 minB, maxB, t_min, t_max);  
+					 minB, maxB, t_min, t_max - 1);  
 
 }
 //--------------------------------------------------------------------------

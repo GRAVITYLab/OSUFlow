@@ -87,7 +87,6 @@ void GetArgs(int argc, char *argv[]);
 void Init();
 void PrintSeeds(int nblocks);
 int EndTrace(list<vtListSeedTrace*> &list, VECTOR3 &p, int index);
-void ComputeFieldlines(int block_num);
 void ComputePathlines(int block_num);
 void ComputeStreamlines(int block_num);
 void GatherFieldlines();
@@ -103,15 +102,11 @@ void mymouse(int button, int state, int x, int y);
 void mymotion(int x, int y);
 void mykey(unsigned char key, int x, int y);
 void idle();
-void ComputeThread();
-void IOThread();
-void IOandCompute();
-int ComputeBlocksFit();
-void MultiThreadEvictBlock(int round);
-void SingleThreadEvictBlock();
+void Run();
+int LoadBlock(int grp, int ngrp, int blk, double *time);
+void InitBlocks();
 void PrintPerf();
 void WriteFieldlines(int *ntrace, int mynpt, char *filename);
-void Partition(char *filename);
 
 // globals
 static char filename[256]; // dataset file name
@@ -133,10 +128,9 @@ int pf; // max number of points per trace
 int max_rounds; // max number of rounds
 int threads; // number of threads per process
 int avail_mem; // memory space for dataset (MB)
-int b_mem; // number of blocks to keep in memory
-int max_bt; // max number of time steps in any block
-int tr; // number of time partitions per round
+int tr; // number of time partitions per time group
 int data_mode; // data format
+int ghost = 1; // number of ghost cells per side
 
 // debug
 #define MAX_RENDER_SEEDS 1000
@@ -155,57 +149,24 @@ int main(int argc, char *argv[]) {
   int mpi_thread_avail; // thread support in mpi implementation
   int i, j;
 
-  // initialize mpi and the app
+  // init
   GetArgs(argc, argv);
-  if (threads == 1)
-    MPI_Init(&argc, &argv);
-  else {
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mpi_thread_avail);
-    if (mpi_thread_avail != MPI_THREAD_MULTIPLE)
-      fprintf(stderr, "MPI thread support level = %d but it should be %d. Program will attempt to run, but results are undefined. Recommend running in single thread mode instead.\n",mpi_thread_avail, MPI_THREAD_MULTIPLE);
-  }
+  MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
-
-  // start the total time
-  TotTime = MPI_Wtime();
-
   Init();
+  TotTime = MPI_Wtime();
   MPI_Barrier(MPI_COMM_WORLD);
 
-#ifndef MAC_OSX_10_4
+  Run();
 
-  // multithread version
-  if (threads == 2) {
-
-    #pragma omp parallel num_threads(2)
-    {
-      // compute (master) thread
-      if (!omp_get_thread_num())
-	ComputeThread();
-
-      // I/O (slave) thread
-      if (omp_get_thread_num())
-	IOThread();
-    }
-
-  }
-
-#endif
-
-  // single thread version
-
-  if (threads == 1)
-    IOandCompute();
-
-  // stop the total time and print the performance stats
+  // print the performance stats
   MPI_Barrier(MPI_COMM_WORLD);
   TotTime = MPI_Wtime() - TotTime;
   PrintPerf();
 
 #ifdef GRAPHICS
 
-  // event loop for drawing
   if (rank == 0) {
     glutInit(&argc, argv); 
     glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH); 
@@ -498,374 +459,51 @@ void PrintPerf() {
 }
 //-----------------------------------------------------------------------
 //
-// ComputeThead
+// Run
 //
-void ComputeThread() {
+void Run() {
 
-//   int i, j;
-//   int done;
-//   int rank;
-//   int first; // first time
-//   int usec; // initial wait time (microseconds)
-//   int ngroups; // number of groups of blocks
-//   int g; // current group
-//   int sb, eb; // starting and ending block in the current group
-//   int bg; // number of blocks per group, except perhaps last group
-//   int last_round; // last non-null round
-
-//   // init
-//   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-//   ngroups = (int)(ceil(ntpart / tr)); // number of groups
-//   bg = (int)(floor(nblocks / ngroups)); // number of blocks per group, except last
-
-//   // clear all blocks' compute status
-//   for (j = 0; j < nblocks; j++)
-//     lat->ClearComp(j);
-
-//   // for all groups
-//   for (g = 0; g < ngroups; g++) {
-
-// #ifdef DEBUG
-//     if (rank == 0)
-//       fprintf(stderr, "** begin group %d **\n", g);
-// #endif
-
-//     // starting and ending blocks in the group
-//     sb = g * bg;
-//     eb = (g == ngroups - 1 ? nblocks : sb + bg);
-
-//     last_round = 0;
-
-//     // for all rounds
-//     for (i = 0; i < max_rounds; i++) {
-
-// #ifdef DEBUG
-//       if (rank == 0)
-// 	fprintf(stderr, "begin round %d\n", i);
-// #endif
-
-//       done = 0;
-
-//       // until all blocks are computed
-//       usec = 1000;
-//       while (!done) {
-
-// 	// for all blocks
-// 	for (j = 0; j < nblocks; j++) {
-
-// // 	  // blocks that are not in this group do a null send to neighbors
-// // 	  if (i < sb || i >= eb) {
-// // 	    lat->SendNeighbors(i);
-// // #pragma omp flush
-// // 	    lat->SetComp(j, i);
-// // #pragma omp flush
-// // 	  }
-
-// 	  // blocks that are in this group get computed
-// 	  if (!lat->GetComp(j, i) && lat->GetLoad(j)) {
-// 	    ComputeFieldlines(j);
-// #ifdef DEBUG
-// 	    fprintf(stderr, "Computed block %d\n", j);
-// #endif
-// #pragma omp flush
-// 	    lat->SetComp(j, i);
-// #pragma omp flush
-// 	  }
-
-// 	} // for all blocks
-
-// 	// check if all done
-// 	done = 1;
-// 	for (j = 0; j < nblocks; j++) {
-// 	  if (!lat->GetComp(j, i))
-// 	    done = 0;
-// 	}
-
-// 	if (!done) {
-// 	  usleep(usec);
-// 	  usec *= 2;
-// 	}
-
-//       } // for all blocks
-
-//     if (lat->ExchangeNeighbors(Seeds, SizeSeeds))
-// 	last_round = i;
-
-//     } // for all rounds
-
-//     TotRounds = last_round + 1;
-
-// #ifdef DEBUG
-//     if (rank == 0)
-//       fprintf(stderr, "Completed %d rounds\n", max_rounds);
-// #endif
-
-//   } // for all groups
-
-// #ifdef DEBUG
-//   if (rank == 0)
-//     fprintf(stderr, "Completed %d groups\n", ngroups);
-// #endif
-
-// #ifdef GRAPHICS
-
-//   GatherFieldlines();
-
-// #endif
-
-}
-//-----------------------------------------------------------------------
-//
-// IOThread
-//
-void IOThread() {
-
-//   int min_t, max_t; // subdomain time bounds
-//   float from[3], to[3]; // seed points limits
-//   int num_loaded; // number of blocks loaded into memory so far
-//   int rank;
-//   int first = 1; // first time
-//   int usec; // wait time in microseconds
-//   int i, j, k;
-//   int ngroups; // number of groups of blocks
-//   int g; // current group
-//   int sb, eb; // starting and ending block in the current group
-//   int bg; // number of blocks per group, except perhaps last group
-
-//   // init
-//   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-//   num_loaded = 0;
-//   ngroups = (int)(ceil(ntpart / tr)); // number of groups
-//   bg = (int)(floor(nblocks / ngroups)); // number of blocks per group, except last
-
-//   // init all blocks
-//   for (i = 0; i < nblocks; i++) {
-
-//     lat->ClearLoad(i);
-//     osuflow[i] = new OSUFlow;
-//     lat->GetVB(i, from, to, &min_t, &max_t);
-
-//     // init seeds for blocks at t = initial time
-//     if (min_t == 0) {
-
-//       osuflow[i]->SetRandomSeedPoints(from, to, tf); 
-//       seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
-
-//       while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
-// 	Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
-// 	assert(Seeds[i] != NULL);
-// 	SizeSeeds[i] *= 2;
-//       }
-
-//       for (k = 0; k < NumSeeds[i]; k++)
-// 	Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], min_t);
-
-//     } // init seeds
-
-//   } // init all blocks
-
-//   // for all groups
-//   for (g = 0; g < ngroups; g++) {
-
-// #ifdef DEBUG
-//     if (rank == 0)
-//       fprintf(stderr, "** begin group %d **\n", g);
-// #endif
-
-//     // starting and ending blocks in the group
-//     sb = g * bg;
-//     eb = (g == ngroups - 1 ? nblocks : sb + bg);
-
-//     // for all rounds
-//     for (j = 0; j < max_rounds; j++) {
-
-//       // for all blocks
-//       for (i = 0; i < nblocks; i++) {
-
-// 	// block is either not in this group or is loaded already
-// 	if (i < sb || i >= eb || lat->GetLoad(i))
-// 	  continue;
-
-// 	// make room for the next block
-// 	if (num_loaded >= b_mem) {
-// 	  MultiThreadEvictBlock(j);
-// 	  num_loaded--;
-// 	}
-
-// 	// read the data
-// 	lat->GetVB(i, from, to, &min_t, &max_t);
-// 	osuflow[i]->LoadData(filename, from, to, size,
-// 			     min_t, max_t, data_mode); 
-
-// 	// update status
-// #ifdef DEBUG
-// 	fprintf(stderr, "Loaded block %d\n", i);
-// #endif
-// #pragma omp flush
-// 	lat->SetLoad(i);
-// #pragma omp flush
-// 	num_loaded++;
-// 	osuflow[i]->ScaleField(10.0); // improves visibility
-
-//       } // for all blocks
-
-//       usleep(1000);
-
-//     } // for all rounds
-
-//   } // for all groups
-
-}
-//-----------------------------------------------------------------------
-//
-// MultiThreadEvictBlock
-//
-// evicts next block from memory (in block number order)
-// multithread version
-//
-// round: round number
-//
-void MultiThreadEvictBlock(int round) {
-
-  static int target = 0; // block to evict
-  int first = 1; // first time
-  int usec = 1000; // initial wait time (microseconds)
-
-  // wait for the block to be computed before evicting
-  while (!lat->GetComp(target, round)) {
-    if (first)
-      fprintf(stderr, "Waiting to evict block %d...\n", target);
-    first = 0;
-    usleep(usec);
-    usec *= 2;
-  }
-
-  // evict it
-  #pragma omp flush
-  lat->ClearLoad(target);
-  #pragma omp flush
-  osuflow[target]->DeleteData();
-  fprintf(stderr, "Evicted block %d\n", target);
-
-  target = (target + 1) % nblocks;
-
-}
-//-----------------------------------------------------------------------
-//
-// IOandCompute
-//
-void IOandCompute() {
-
-  int min_t, max_t; // subdomain temporal bounds
-  float from[3], to[3]; // seed points limits
-  int num_loaded; // number of blocks loaded into memory so far
   int rank;
   int i, j, k;
   int ngroups; // number of groups of blocks
   int g; // current group
-  int sb, eb; // starting and ending block in the current group
-  int bg; // number of blocks per group, except perhaps last group
   int last_round; // last non-null round
-  double t0; // temporary timer
-  float TotDataRead = 0; // total size of data read in MB
+  double time; // time to load a block
+  int size; // data size of block (bytes)
+  int TotDataRead = 0; // total amount of data read (MB)
 
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  num_loaded = 0; // number of blocks currently loaded
   ngroups = (int)(ceil(ntpart / tr)); // number of groups
-  bg = (int)(floor(nblocks / ngroups)); // number of blocks per group, except last
+
+  InitBlocks();
 
   TotCompTime = MPI_Wtime();
 
-  // init all blocks
-  for (i = 0; i < nblocks; i++) {
-
-    lat->ClearLoad(i);
-    osuflow[i] = new OSUFlow;
-    lat->GetVB(i, from, to, &min_t, &max_t);
-
-    // init seeds for blocks at t = initial time
-    if (min_t == 0) {
-
-      osuflow[i]->SetRandomSeedPoints(from, to, tf); 
-      seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
-
-      while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
-	Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
-	assert(Seeds[i] != NULL);
-	SizeSeeds[i] *= 2;
-      }
-
-      for (k = 0; k < NumSeeds[i]; k++)
-	Seeds[i][k].Set(seeds[k][0], seeds[k][1], seeds[k][2], min_t);
-
-    } // init seeds
-
-  } // init all blocks
-
   // for all groups
   for (g = 0; g < ngroups; g++) {
-
-#ifdef DEBUG
-    if (rank == 0)
-      fprintf(stderr, "** begin group %d **\n", g);
-#endif
-
-    // starting and ending blocks in the group
-    sb = g * bg;
-    eb = (g == ngroups - 1 ? nblocks : sb + bg);
 
     last_round = 0;
 
     // for all rounds
     for (j = 0; j < max_rounds; j++) {
 
-#ifdef DEBUG
-      if (rank == 0)
-	fprintf(stderr, " * begin round %d *\n", j);
-#endif
-
       // for all blocks
       for (i = 0; i < nblocks; i++) {
 
-// 	// blocks that are not in this group do a null send to neighbors
-// 	if (i < sb || i >= eb) {
-// 	  lat->SendNeighbors(i);
-// 	  continue;
-// 	}
-
-	// if the block needs to be loaded
-	if (!lat->GetLoad(i)) {
-
-// 	  // make room for the next block
-// 	  if (num_loaded >= b_mem) {
-// 	    SingleThreadEvictBlock();
-// 	    num_loaded--;
-// 	  }
-
-	  // read the data
-	  lat->GetVB(i, from, to, &min_t, &max_t);
-	  t0 = MPI_Wtime();
-	  osuflow[i]->LoadData(filename, from, to, size,
-			       min_t, max_t, data_mode); 
-	  TotIOTime += (MPI_Wtime() - t0);
-	  TotDataRead += ((to[0] - from[0]) * (to[1] - from[1]) *
-			  (to[2] - from[2]) * 12); // 3 comps * 4 bytes
-	  lat->SetLoad(i);
-	  num_loaded++;
-#ifdef DEBUG
-	  fprintf(stderr, "Loaded block %d\n", i);
-#endif
+	if ((size = LoadBlock(g, ngroups, i, &time)) > 0) {
+	  TotIOTime += time;
+	  TotDataRead += size;
 	  osuflow[i]->ScaleField(10.0); // improves visibility
+	}
 
-
-	} // if the block needs to be loaded
-
-	// compute pathlines
-	ComputeFieldlines(i);
-#ifdef DEBUG
-	fprintf(stderr, "Computed block %d\n", i);
-#endif
+	// compute fieldlines
+	if (lat->GetLoad(i)) {
+	  if (tsize > 1)
+	    ComputePathlines(i);
+	  else
+	    ComputeStreamlines(i);
+	}
 
       } // for all blocks
 
@@ -898,37 +536,112 @@ void IOandCompute() {
 }
 //-----------------------------------------------------------------------
 //
-// SingleTheadEvictBlock
+// LoadBlock
 //
-// evicts next block from memory (in block number order)
+// loads new blocks and evicts old blocks
+// new and old are determined by the current group number and block number
+// blocks whose temporal extent covers the current group are loaded if they
+// are not already in memory
+// blocks whose temporal extent does not include the current group are
+// evicted if they are still in memory
 //
-// single thread version
+// grp: current group
+// ngrp: total number of groups
+// blk: desired block
+// time (output): the time it took to load
 //
-void SingleThreadEvictBlock() {
+// returns: number of bytes actually loaded
+// 0 if the block is already in memory
+// or its temporal extent does not match the group
+//
+int LoadBlock(int grp, int ngrp, int blk, double *time) {
 
-  static int target = 0; // block to evict
+  int i;
+  int s = 0; // data size (bytes)
+  float from[3], to[3]; // block spatial extent
+  int min_t, max_t; // block temporal extent
+  int tg; // number of time steps per group, except perhaps last group
 
-  lat->ClearLoad(target);
-  osuflow[target]->DeleteData();
-  fprintf(stderr, "Evicted block %d\n", target);
+  tg = tsize / ngrp;
+  *time = 0.0;
 
-  target = (target + 1) % nblocks;
-  
+  // evict older blocks if necessary
+  for (i = 0; i < blk; i++) {
+
+    if (lat->GetLoad(i)) {
+      lat->GetVB(i, from, to, &min_t, &max_t);
+      if (max_t < grp * tg) {
+	lat->ClearLoad(i);
+	osuflow[i]->DeleteData();
+#ifdef DEBUG
+	fprintf(stderr, "Evicted block %d\n",i);
+#endif
+      }
+    }
+
+  }
+
+  // load the block if necessary
+  if (!lat->GetLoad(blk)) {
+
+    lat->GetVB(blk, from, to, &min_t, &max_t);
+    if (min_t >= grp * tg && min_t <= (grp + 1) * tg || 
+	max_t >= grp * tg && max_t <= (grp + 1) * tg) {
+      *time = MPI_Wtime();
+      osuflow[blk]->LoadData(filename, from, to, size,
+			     min_t, max_t, data_mode); 
+      *time = (MPI_Wtime() - *time);
+      s = ((to[0] - from[0]) * (to[1] - from[1]) *
+	      (to[2] - from[2]) * 3 * sizeof(float));
+      lat->SetLoad(blk);
+#ifdef DEBUG
+	fprintf(stderr, "Loaded block %d\n", blk);
+#endif
+    }
+
+  }
+
+  return s;
+
 }
 //-----------------------------------------------------------------------
 //
-// ComputeFieldlines
+// InitBlocks
 //
-// block_num: local block number (0 to nblocks-1)
-// not global partition number
+// initializes blocks and seeds them
 //
-//
-void ComputeFieldlines(int block_num) {
+void InitBlocks() {
 
-  if (tsize > 1)
-    ComputePathlines(block_num);
-  else
-    ComputeStreamlines(block_num);
+  int i, j;
+  float from[3], to[3]; // block spatial extent
+  int min_t, max_t; // block temporal extent
+
+  // init all blocks
+  for (i = 0; i < nblocks; i++) {
+
+    NumSeeds[i] = 0;
+    lat->ClearLoad(i);
+    osuflow[i] = new OSUFlow;
+    lat->GetVB(i, from, to, &min_t, &max_t);
+
+    // init seeds for blocks starting at t0
+    if (min_t == 0) {
+
+      osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+      seeds = osuflow[i]->GetSeeds(NumSeeds[i]); 
+
+      while (SizeSeeds[i] < NumSeeds[i] * sizeof(VECTOR4)) {
+	Seeds[i] = (VECTOR4 *)realloc(Seeds[i], SizeSeeds[i] * 2);
+	assert(Seeds[i] != NULL);
+	SizeSeeds[i] *= 2;
+      }
+
+      for (j = 0; j < NumSeeds[i]; j++)
+	Seeds[i][j].Set(seeds[j][0], seeds[j][1], seeds[j][2], min_t);
+
+    }
+
+  }
 
 }
 //-----------------------------------------------------------------------
@@ -1327,8 +1040,6 @@ void Init() {
   int myproc, nproc; // usual MPI
   int nt; // max total number of traces
   int np; // max total number of points
-  int ghost = 1; // number of ghost cells per spatial edge
-  int b_size; // data size in a typical block (Mbytes)
   int ngr; // number of groups of rounds
   int i;
 
@@ -1366,16 +1077,8 @@ void Init() {
     SizeSeeds[i] = sizeof(VECTOR4);
   }
 
-  // allocate streamline list for each block
+  // streamline list
   sl_list = new list<vtListTimeSeedTrace*>[nspart * ntpart];
-
-  // max number of time steps in any block
-  max_bt = (int)(ceil(tsize / ntpart) + 2 * ghost);
-
-  // number of blocks to keep in memory
-//   b_size = (int)(size[0] * size[1] / 1048576.0f * size[2] / nspart * 
-// 		 tsize / ntpart * 4 * sizeof (float));
-//   b_mem = avail_mem / b_size;
 
   // performance stats
   assert((block_stats = (int *)malloc(n_block_stats * 
@@ -1392,12 +1095,7 @@ void Init() {
   if (myproc == 0) {
     fprintf(stderr,"Volume size: X %.3lf Y %.3lf Z %.3lf t %d\n",
 	    size[0], size[1], size[2], tsize);
-    fprintf(stderr, "Number of threads per process: %d\n", threads);
     fprintf(stderr, "Number of compute rounds: %d\n", max_rounds);
-    fprintf(stderr, "Available dataset memory per process: %d MB\n", 
-	    avail_mem);
-    fprintf(stderr, "Number of blocks a process can fit in memory: %d\n", 
-	    b_mem);
   }
 #endif
 
@@ -1524,7 +1222,7 @@ void DrawFieldlines() {
 
     glBegin(GL_LINE_STRIP); 
     for (j = 0; j < npt[i]; j++) {
-      if (pt[k][3] <= step)
+//       if (pt[k][3] <= step)
 	glVertex3f(pt[k][0], pt[k][1], pt[k][2]);
       k++;
     }

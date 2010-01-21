@@ -33,7 +33,7 @@ ARCH=LINUX
 nodes=64
 
 # number of procs
-num_procs=2
+num_procs=1
 
 # executable
 exe=./mpitest
@@ -52,24 +52,24 @@ fi
 # data size x y z t
 # (for static flow use t = 1 and list one time step in the dataset file)
 #dsize="128 128 128 1" # for tornado
-dsize="126 126 512 1" # for plume
+dsize="126 126 512 5" # for plume
 
 # total number of partitions in the space domain
-sb=2048
+sb=8
 
 # total number of partitions in the time domain
-tb=1
+tb=5
 
-# number of time partitions per round
+# number of time partitions per time group
 tr=1
 
 # number of traces per block
-t=1
+t=5
 
 # number of points per trace
-p=20
+p=50
 
-# number of rounds
+# number of rounds per time group
 r=5
 
 # number of threads
