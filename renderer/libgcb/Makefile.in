@@ -1,0 +1,94 @@
+# @configure_input@
+
+# the way to use the options set by configure is to include them below
+include ../../config_defs
+
+# otherwise, the way to set user options when configure is not used is to
+# edit user_defs.mk manually and then include it below
+#include user_defs.mk
+
+include ../../system_defs.mk
+
+# only build if graphics are enabled
+
+ifeq ($(GRAPHICS), YES)
+
+ProjectName=libgcb
+
+ifndef CFG
+CFG=libgw - Win32 Release
+endif
+CC=gcc
+CFLAGS=-I ~/lib/include -I ~/lib/include/opencv -I ~/mylib/include -I /usr/local/cuda/include
+CXX=g++
+CXXFLAGS=$(CFLAGS)
+RC=windres -O COFF
+ifeq "$(CFG)"  "libgcb - Win32 Debug"
+CFLAGS+=-g -W -O0 -D_DEBUG -D_LIB -D_CRT_TERMINATE_DEFINED -D_UNICODE
+AR=ar
+TARGET=lib$(ProjectName).a
+ARFLAGS=rus
+else
+ifeq "$(CFG)"  "libgcb - Win32 Release"
+CFLAGS+=-g -W -DNDEBUG -D_LIB -D"_UNICODE" PRECOMP_VC7_TOBEREMOVED
+AR=ar
+TARGET=lib$(ProjectName).a
+ARFLAGS=rus
+endif
+endif
+
+ifndef TARGET
+TARGET=lib$(ProjectName).a
+endif
+
+default: $(TARGET)
+
+Makefile: Makefile.in ../../config.status
+	../../config.status $@
+
+config.status: ../../configure
+	../../config.status --recheck
+
+.PHONY: all
+
+all: $(TARGET)
+
+%.o: %.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(CCFLAGS) $(INCLUDE) -o $@ -c $<
+
+%.o: %.cc
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(CCFLAGS) $(INCLUDE) -o $@ -c $<
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(CCFLAGS) $(INCLUDE) -o $@ -c $<
+
+%.o: %.cxx
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(CCFLAGS) $(INCLUDE) -o $@ -c $<
+
+%.res: %.rc
+	$(RC) $(CPPFLAGS) $(CCFLAGS) $(INCLUDE) -o $@ -i $<
+
+SOURCE_FILES= \
+	gcb.cpp
+
+RESOURCE_FILES=
+
+SRCS=$(SOURCE_FILES) $(HEADER_FILES) $(RESOURCE_FILES)  \
+	ReadMe.txt
+
+OBJS=$(patsubst %.rc,%.res,$(patsubst %.cxx,%.o,$(patsubst %.cpp,%.o,$(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(filter %.c %.cc %.cpp %.cxx %.rc,$(SRCS)))))))
+
+$(TARGET): $(OBJS) $(CUSTOM_OUTPUTS)
+	$(AR) $(ARFLAGS) $@ $(OBJS)
+
+.PHONY: clean
+clean:
+	-rm -f $(OBJS) $(TARGET) $(CUSTOM_OUTPUTS) $(ProjectName).dep
+
+.PHONY: depends
+depends:
+	-$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MM $(filter %.c %.cc %.cpp %.cxx,$(SRCS)) > $(ProjectName).dep
+
+-include $(ProjectName).dep
+
+endif

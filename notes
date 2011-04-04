@@ -1,0 +1,7 @@
+todo:
+
+-diy repartitioning in Regular/Parallel
+-diy AMR parallel and serial
+-currently not using diy for AMR, still using LatticeAMR, but changed Seeds to be a vector, using current API, etc. Parallel AMR crashes and serial AMR never finishes. Need to debug these before changing over to diy, so that a working tests to compare against exists.
+
+-there is a bug when running Regular/Serial/SER_TEST with time-varying and > 1 time block. Never finishes. I did not debug this, leave for OSU students if they are using this (may be an old bug-did not investigate)

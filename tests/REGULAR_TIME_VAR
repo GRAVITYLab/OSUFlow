@@ -1,0 +1,59 @@
+#!/bin/bash
+
+#----------------------------------------------------------------------------
+#
+# mpi run script
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+# number of procs
+num_procs=16
+
+# executable
+exe=../bin/mpitest
+
+# dataset
+data=$HOME/tornado/tornado.list
+
+# number of spatial blocks per process
+bf=4
+
+# total number of temporal blocks
+tb=8
+
+# total number of particles
+t=$[$num_procs * $bf * $tb * 2]
+
+# number of points per trace
+p=1000
+
+# number of rounds per time group
+r=20
+
+# partition file
+pf=! # indicates no partition file
+
+# seed file
+sf=! # indicates no seed file
+
+# data mode
+# 0 = raw with no header data
+# 1 = raw with dimensions at start
+# 2 = netCDF
+# 3 = HDF5 float (32 bit)
+# 4 = HDF5 double (64 bit)
+dm=0
+
+# all program args
+args="$data $bf $tb $t $p $r $pf $dm $sf"
+
+mpiexec -n $num_procs $exe $args
+

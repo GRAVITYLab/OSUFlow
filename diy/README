@@ -1,0 +1,36 @@
+-------------------
+
+Questions / contact info:
+
+Tom Peterka
+Argonne National Laboratory
+9700 S. Cass Ave.
+Argonne, IL 60439
+tpeterka@mcs.anl.gov
+
+-------------------
+
+Building diy:
+
+cd diy
+
+Configure diy:
+If parallel netcdf is not installed on your system
+./configure --disable-pnetcdf
+To configure without BIL:
+./configure --disable-bil
+A full configure
+./configure
+The options for the configure command are available by:
+./configure --help
+
+Build diy:
+make
+
+Install diy:
+make install
+
+
+-------------------
+
+

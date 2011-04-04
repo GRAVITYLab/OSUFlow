@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#----------------------------------------------------------------------------
+#
+# mpi run script
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+# number of procs
+num_procs=16
+
+# executable
+exe=../bin/mpiamrtest
+
+# dataset
+data=$HOME/cosmo/cosmo.list
+
+# total number of temporal blocks
+tb=1
+
+# total number of particles
+t=2048
+
+# number of points per trace
+p=1000
+
+# number of rounds per time group
+r=20
+
+# data mode
+# 0 = raw with no header data
+# 1 = raw with dimensions at start
+# 2 = netCDF
+# 3 = HDF5 float (32 bit)
+# 4 = HDF5 double (64 bit)
+dm=4
+
+# velocity variable names
+vx=velx
+vy=vely
+vz=velz
+
+# all program args
+args="$data $tb $t $p $r $dm $vx $vy $vz"
+
+mpiexec -n $num_procs $exe $args
+

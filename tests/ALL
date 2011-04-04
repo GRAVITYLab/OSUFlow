@@ -1,0 +1,31 @@
+#!/bin/bash
+
+#----------------------------------------------------------------------------
+#
+# all tests script
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+
+# particle tracing tests
+./REGULAR_STATIC
+./REGULAR_TIME_VAR
+./AMR_STATIC
+
+# AMR time-varying is still being developed
+
+# drawing tests (lines)
+../bin/draw $HOME/cosmo/field_lines.out l 0.6 0.75 0.9
+../bin/draw $HOME/flash/field_lines.out l 0.6 0.75 0.9
+
+#drawing tests (tubes, temporarily broken)
+#../bin/draw $HOME/cosmo/field_lines.out t 0.6 0.75 0.9
+#../bin/draw $HOME/flash/field_lines.out t 0.6 0.75 0.9

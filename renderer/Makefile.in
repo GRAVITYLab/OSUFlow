@@ -1,0 +1,77 @@
+#----------------------------------------------------------------------------
+#
+# makefile
+#
+# Copyright (c) 2010 Teng-Yok Lee
+#
+# Contact:
+#
+# Teng-Yok Lee
+# The Ohio State University
+# Columbus, OH
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+# @configure_input@
+
+# the way to use the options set by configure is to include them below
+include ../config_defs
+
+# otherwise, the way to set user options when configure is not used is to
+# edit user_defs.mk manually and then include it below
+#include user_defs.mk
+
+include ../system_defs.mk
+
+# only build if graphics are enabled
+
+ifeq ($(GRAPHICS), YES)
+
+INCLUDE += -I. -I../src
+
+OBJS =  \
+	LineAnimatorInOpenGL.o  PointRendererSplat.o \
+	LineRenderer.o          Renderer.o \
+	LineRendererInOpenGL.o  TimeLineRendererInOpenGL.o \
+	PointRenderer.o         TubeRenderer.o \
+	PointRendererGlyph.o    TubeRendererInOpenGL.o \
+	LineRenderer_ColorScheme.o Draw.o
+
+SRCS =  \
+	LineAnimatorInOpenGL.cpp  PointRendererSplat.cpp \
+	LineRenderer.cpp          Renderer.cpp \
+	LineRendererInOpenGL.cpp  TimeLineRendererInOpenGL.cpp \
+	PointRenderer.cpp         TubeRenderer.cpp \
+	PointRendererGlyph.cpp    TubeRendererInOpenGL.cpp \
+	LineRenderer_ColorScheme.cpp Draw.C
+
+.SUFFIXES: .C,.cpp
+
+default: all
+
+all: librenderer.a
+
+Makefile: Makefile.in ../config.status
+	../config.status $@
+
+config.status: ../configure
+	../config.status --recheck
+
+$(OBJS): *.h
+
+.C.o:
+	$(C++) $(CCFLAGS) $(INCLUDE)  $<
+
+.cpp.o:
+	$(C++) $(CCFLAGS) $(INCLUDE)  $<
+
+librenderer.a : $(OBJS)
+	rm -f $@
+	ar cru $@ $(OBJS) 
+
+clean:
+	rm -f *.o *.a
+
+endif

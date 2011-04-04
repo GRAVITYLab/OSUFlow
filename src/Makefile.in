@@ -1,0 +1,73 @@
+#----------------------------------------------------------------------------
+#
+# Core makefile
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+# @configure_input@
+
+# the way to use the options set by configure is to include them below
+include ../config_defs
+
+# otherwise, the way to set user options when configure is not used is to
+# edit user_defs.mk manually and then include it below
+#include user_defs.mk
+
+include ../system_defs.mk
+
+INCLUDE += -I. -I../renderer -I../renderer/libgcb -I../diy/include \
+	-I../diy/src/bil-0.6.0/src
+
+OBJS =  Grid.o       polynomials.o  TimeVaryingFieldLine.o \
+	eigenvals.o  Interpolator.o  Rake.o	    Topology.o \
+	eigenvecs.o  IsoSurf.o	     Solution.o     triangulator.o \
+	Element.o    StreakLine.o    VectorMatrix.o Field.o \
+        PathLine.o   Streamline.o    FieldLine.o    Plot3DReader.o \
+	TimeLine.o   OSUFlow.o       FileReader.o   calc_subvolume.o \
+	FlashAMR.o   ParFlow.o       flashhdf5_float.o \
+	Repartition.o                ComputeFieldLines.o \
+	Blocks.o     Partition.o     Lattice4D.o    LatticeAMR.o \
+	Plot3DReader.o               CurvilinearGrid.o
+
+SRCS =  Grid.C       polynomials.C  TimeVaryingFieldLine.C \
+	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
+	eigenvecs.C  IsoSurf.C	     Solution.C     triangulator.C \
+	Element.C    StreakLine.C    VectorMatrix.C Field.C \
+	PathLine.C   Streamline.C    FieldLine.C    Plot3DReader.C \
+	TimeLine.C   OSUFlow.C       FileReader.C   calc_subvolume.C \
+	FlashAMR.C   ParFlow.C       flashhdf5_float.C \
+	Repartition.C                ComputeFieldLines.C \
+	Blocks.C     Partition.C     Lattice4D.C    LatticeAMR.C \
+	Plot3DReader.C               CurvilinearGrid.C
+
+.suffixes: .C
+
+default: all
+
+all: libOSUFlow.a
+
+Makefile: Makefile.in ../config.status
+	../config.status $@
+
+config.status: ../configure
+	../config.status --recheck
+
+$(OBJS): *.h
+
+.C.o:
+	$(C++) $(CCFLAGS) $(INCLUDE) $<
+
+libOSUFlow.a : $(OBJS)
+	rm -f $@
+	ar cru $@ $(OBJS) 
+
+clean:
+	rm -f *.o *.a

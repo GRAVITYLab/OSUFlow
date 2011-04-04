@@ -1,0 +1,45 @@
+-------------------
+
+Questions / contact info:
+
+Tom Peterka
+Argonne National Laboratory
+9700 S. Cass Ave.
+Argonne, IL 60439
+tpeterka@mcs.anl.gov
+
+-------------------
+
+Building osuflow:
+
+cd osuflow
+
+1. edit user_defs.mk:
+-set your architecture
+-set your options
+-set your paths
+
+You should not need to edit the other makefiles in this or subdirectories; please let us know if you do so we can add the required options to user_defs.mk
+
+2. make clean (optional); make
+
+3. if using BIL, build according to the README in the bil directory
+
+4. cd to your application directory (eg. Regular/Parallel); make clean (optional); make
+
+-------------------
+
+Notes / caveats:
+
+1. Some configurations don't make sense and will cause the build to fail:
+-Building Regular/Parallel, Regular/Repartition/ AMR/Parallel without MPI set to YES
+-Building Regular/Serial or AMR/Serial with MPI set to YES
+-Building Regular/Repartition without ZOLTAN set to YES
+_Building AMR/Parallel or AMR/Serial without HDF5 set to YES
+-Setting PNETCDF, HDF5, or ZOLTAN to YES without providing paths for their includes and libs
+
+2. HDF_INC, ZOLTAN_INC, NETCDF_INC will be automatically prepended with -I, so don't add the -I in your definition of these variables. Likewise, HDF_LIB, ZOLTAN_LIB, and NETCDF_LIB will be prepended with -L.
+
+3. MISC_INC and MISC_LIB are used verbatim, without extra symbols such as -I, -L, or -l being added automatically. This allows you to add any command to the compile or link, such as explicit static linked library names, etc., but requires you to place symbols such as the above into the definition of MISC_INC and MISC_LIB if you want them.
+
+-------------------

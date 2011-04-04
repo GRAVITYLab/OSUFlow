@@ -1,0 +1,4 @@
+100 100 100 1 # grid size (x, y, z, t; t is number of timesteps)
+1.0 # vector scaling factor
+/Users/tpeterka/osuflow/sample_data/regular/test.raw #list of file names, one per timestep
+
