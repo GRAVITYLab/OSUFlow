@@ -663,14 +663,15 @@ CC
 CFLAGS
 ac_ct_CC
 arch
+enable_mpe
+enable_bil
 enable_graphics
 enable_debug
 enable_byteswap
 enable_warnings
 MPICC
+MPICXX
 with_mpi
-enable_mpe
-enable_bil
 CPP
 GREP
 EGREP
@@ -1269,6 +1270,10 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-mpe            whether to enable mpe profiling for later viewing in
+                          jumpshot
+  --disable-bil           whether to disable bil (block I/O library) from
+                          performing I/O operations (enabled by default)
   --disable-graphics      whether to disable graphics (enabled by default)
   --enable-debug          whether to enable debug mode (numerous verbose
                           printfs)
@@ -1276,10 +1281,6 @@ Optional Features:
                           machine with opposite endianness than the dataset)
   --enable-warnings       whether to enable all warnings during build
   --disable-mpi           whether to disable mpi (build serial mode only)
-  --enable-mpe            whether to enable mpe profiling for later viewing in
-                          jumpshot
-  --disable-bil           whether to disable bil (block I/O library) from
-                          performing I/O operations (enabled by default)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -3080,12 +3081,44 @@ arch=$withval
 
 #---------------------------
 #
+# mpe
+#
+# Check whether --enable-mpe was given.
+if test "${enable_mpe+set}" = set; then
+  enableval=$enable_mpe; if test ${enableval} = "yes" ; then
+  enable_mpe="YES"
+else
+  enable_mpe="NO"
+fi
+else
+  enable_mpe="NO"
+fi
+
+echo "mpe enabled = $enable_mpe"
+
+
+#---------------------------
+#
+# bil
+#
+# Check whether --enable-bil was given.
+if test "${enable_bil+set}" = set; then
+  enableval=$enable_bil; if test ${enableval} = "yes" ; then
+  enable_bil="YES"
+else
+  enable_bil="NO"
+fi
+else
+  enable_bil="YES"
+fi
+
+echo "bil enabled = $enable_bil"
+
+
+#---------------------------
+#
 # graphics
 #
-if test $with_arch = "BGP" || test $with_arch = "EUREKA" ; then
-enable_graphics="NO"
-
-else
 # Check whether --enable-graphics was given.
 if test "${enable_graphics+set}" = set; then
   enableval=$enable_graphics; if test ${enableval} = "yes" ; then
@@ -3095,8 +3128,6 @@ else
 fi
 else
   enable_graphics="YES"
-fi
-
 fi
 
 echo "graphics enabled = $enable_graphics"
@@ -3158,7 +3189,7 @@ echo "warnings enabled = $enable_warnings"
 
 #---------------------------
 #
-# mpi
+# mpi enabled
 #
 # Check whether --enable-mpi was given.
 if test "${enable_mpi+set}" = set; then
@@ -3171,7 +3202,12 @@ else
   with_mpi="YES"
 fi
 
+echo "mpi enabled = $with_mpi"
 
+#---------------------------
+#
+# mpi
+#
 if test $with_mpi = "YES" ; then
 
 if test ! ${MPICC} ; then
@@ -3216,80 +3252,65 @@ echo "${ECHO_T}no" >&6; }
 fi
 
 
+  # Extract the first word of "mpicxx", so it can be a program name with args.
+set dummy mpicxx; ac_word=$2
+{ echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+if test "${ac_cv_path_MPICXX+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $MPICXX in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_MPICXX="$MPICXX" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $with_mpi/bin$PATH_SEPARATOR$PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_path_MPICXX="$as_dir/$ac_word$ac_exec_ext"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_MPICXX" && ac_cv_path_MPICXX="no"
+  ;;
+esac
+fi
+MPICXX=$ac_cv_path_MPICXX
+if test -n "$MPICXX"; then
+  { echo "$as_me:$LINENO: result: $MPICXX" >&5
+echo "${ECHO_T}$MPICXX" >&6; }
+else
+  { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+
+
+
 
 
   if test ${MPICC} = "no" ; then
-    { { echo "$as_me:$LINENO: error: cannot find mpicc: try using the --with-mpi option to specify the base path of your MPI installation. If MPI is not installed, it can be downloaded at http://www.mcs.anl.gov/research/projects/mpich2/. Also, you can set the MPICC environment variable (eg. MPICC=cc) before running configure. This works on Jaguar, where mpicc does not exist. Finally, if you are building a serial-only version, add --disable-mpi to the configure arguments." >&5
-echo "$as_me: error: cannot find mpicc: try using the --with-mpi option to specify the base path of your MPI installation. If MPI is not installed, it can be downloaded at http://www.mcs.anl.gov/research/projects/mpich2/. Also, you can set the MPICC environment variable (eg. MPICC=cc) before running configure. This works on Jaguar, where mpicc does not exist. Finally, if you are building a serial-only version, add --disable-mpi to the configure arguments." >&2;}
+    { { echo "$as_me:$LINENO: error: cannot find mpicc: try using the --with-mpi option to specify the base path of your MPI installation. If MPI is not installed, it can be downloaded at http://www.mcs.anl.gov/research/projects/mpich2/" >&5
+echo "$as_me: error: cannot find mpicc: try using the --with-mpi option to specify the base path of your MPI installation. If MPI is not installed, it can be downloaded at http://www.mcs.anl.gov/research/projects/mpich2/" >&2;}
    { (exit 1); exit 1; }; }
   fi
 fi
 
 fi
 
-echo "mpi enabled = $with_mpi"
-
-
-#---------------------------
-#
-# mpe
-#
-if test $with_mpi = "YES" ; then
-
-# Check whether --enable-mpe was given.
-if test "${enable_mpe+set}" = set; then
-  enableval=$enable_mpe; if test ${enableval} = "yes" ; then
-  enable_mpe="YES"
-else
-  enable_mpe="NO"
-fi
-else
-  enable_mpe="NO"
-fi
-
-
-else
-
-enable_mpe="NO"
-
-fi
-
-echo "mpe enabled = $enable_mpe"
-
-
-#---------------------------
-#
-# bil
-#
-if test $with_mpi = "YES" ; then
-
-# Check whether --enable-bil was given.
-if test "${enable_bil+set}" = set; then
-  enableval=$enable_bil; if test ${enableval} = "yes" ; then
-  enable_bil="YES"
-else
-  enable_bil="NO"
-fi
-else
-  enable_bil="YES"
-fi
-
-
-else
-
-enable_bil="NO"
-
-fi
-
-echo "bil enabled = $enable_bil"
 
 
 #---------------------------
 #
 # pnetcdf
 #
-if test $with_mpi = "YES" ; then
-
 
 # Check whether --with-pnetcdf was given.
 if test "${with_pnetcdf+set}" = set; then
@@ -4250,13 +4271,6 @@ Cannot find parallel netcdf:  the package will be built without parallel netcdf 
 ----------------" >&6;}
 fi
 fi
-
-else
-
-with_pnetcdf="NO"
-
-fi
-
 echo "pnetcdf enabled = $with_pnetcdf"
 
 
@@ -4264,8 +4278,6 @@ echo "pnetcdf enabled = $with_pnetcdf"
 #
 # hdf5
 #
-if test $with_mpi = "YES" ; then
-
 
 # Check whether --with-hdf5 was given.
 if test "${with_hdf5+set}" = set; then
@@ -4589,13 +4601,6 @@ Cannot find parallel hdf5:  the package will be built without parallel hdf5 supp
 ----------------" >&6;}
 fi
 fi
-
-else
-
-with_hdf5="NO"
-
-fi
-
 echo "hdf5 enabled = $with_hdf5"
 
 
@@ -4603,8 +4608,6 @@ echo "hdf5 enabled = $with_hdf5"
 #
 # zoltan
 #
-if test $with_mpi = "YES" ; then
-
 
 # Check whether --with-zoltan was given.
 if test "${with_zoltan+set}" = set; then
@@ -4928,13 +4931,6 @@ Cannot find zoltan:  the package will be built without zoltan support. Otherwise
 ----------------" >&6;}
 fi
 fi
-
-else
-
-with_zoltan="NO"
-
-fi
-
 echo "zoltan enabled = $with_zoltan"
 
 
@@ -6927,14 +6923,15 @@ CC!$CC$ac_delim
 CFLAGS!$CFLAGS$ac_delim
 ac_ct_CC!$ac_ct_CC$ac_delim
 arch!$arch$ac_delim
+enable_mpe!$enable_mpe$ac_delim
+enable_bil!$enable_bil$ac_delim
 enable_graphics!$enable_graphics$ac_delim
 enable_debug!$enable_debug$ac_delim
 enable_byteswap!$enable_byteswap$ac_delim
 enable_warnings!$enable_warnings$ac_delim
 MPICC!$MPICC$ac_delim
+MPICXX!$MPICXX$ac_delim
 with_mpi!$with_mpi$ac_delim
-enable_mpe!$enable_mpe$ac_delim
-enable_bil!$enable_bil$ac_delim
 CPP!$CPP$ac_delim
 GREP!$GREP$ac_delim
 EGREP!$EGREP$ac_delim
@@ -6952,7 +6949,7 @@ subdirs!$subdirs$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 71; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 72; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

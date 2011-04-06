@@ -150,7 +150,9 @@ if test $with_mpi = "YES" ; then
 
 if test ! ${MPICC} ; then
   AC_PATH_PROG([MPICC], [mpicc], [no], [$with_mpi/bin$PATH_SEPARATOR$PATH])
+  AC_PATH_PROG([MPICXX], [mpicxx], [no], [$with_mpi/bin$PATH_SEPARATOR$PATH])
   AC_SUBST(MPICC)
+  AC_SUBST(MPICXX)
 
   if test ${MPICC} = "no" ; then
     AC_MSG_ERROR([cannot find mpicc: try using the --with-mpi option to specify the base path of your MPI installation. If MPI is not installed, it can be downloaded at http://www.mcs.anl.gov/research/projects/mpich2/]) 
