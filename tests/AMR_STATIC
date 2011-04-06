@@ -27,13 +27,10 @@ data=$HOME/cosmo/cosmo.list
 tb=1
 
 # total number of particles
-t=2048
+tp=2048
 
-# number of points per trace
-p=1000
-
-# number of rounds per time group
-r=20
+# final number of steps in each field line
+st=1000
 
 # data mode
 # 0 = raw with no header data
@@ -49,7 +46,7 @@ vy=vely
 vz=velz
 
 # all program args
-args="$data $tb $t $p $r $dm $vx $vy $vz"
+args="$data $tb $tp $st $dm $vx $vy $vz"
 
 mpiexec -n $num_procs $exe $args
 

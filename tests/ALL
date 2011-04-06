@@ -25,7 +25,3 @@
 # drawing tests (lines)
 ../bin/draw $HOME/cosmo/field_lines.out l 0.6 0.75 0.9
 ../bin/draw $HOME/flash/field_lines.out l 0.6 0.75 0.9
-
-#drawing tests (tubes, temporarily broken)
-#../bin/draw $HOME/cosmo/field_lines.out t 0.6 0.75 0.9
-#../bin/draw $HOME/flash/field_lines.out t 0.6 0.75 0.9

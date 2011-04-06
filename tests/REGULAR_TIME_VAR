@@ -30,13 +30,10 @@ bf=4
 tb=8
 
 # total number of particles
-t=$[$num_procs * $bf * $tb * 2]
+tp=$[$num_procs * $bf * $tb * 2]
 
-# number of points per trace
-p=1000
-
-# number of rounds per time group
-r=20
+# final number of steps in each field line
+st=1000
 
 # partition file
 pf=! # indicates no partition file
@@ -53,7 +50,7 @@ sf=! # indicates no seed file
 dm=0
 
 # all program args
-args="$data $bf $tb $t $p $r $pf $dm $sf"
+args="$data $bf $tb $tp $st $pf $dm $sf"
 
 mpiexec -n $num_procs $exe $args
 
