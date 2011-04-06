@@ -36,11 +36,18 @@ To disable BIL
 --disable-bil
 To enable byte swapping between different endianess machines
 --enable-byteswap
+To disable mpi and build a serial-only version
+--disable-mpi --disable-bil
 
-Build diy:
+Build osuflow:
+
+to build the parallel version (mpi was enabled for the configure step)
 make
 
-Install diy:
+to build the serial version (mpi was disabled for the configure step)
+make serial_check
+
+Install osuflow:
 make install
 
 -------------------

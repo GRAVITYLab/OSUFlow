@@ -52,7 +52,7 @@ config.status: ../../configure
 default: all
 
 all: gcbGlyph gcbLineAnimator gcbPathline gcbPoints gcbStreamline gcbTemplate \
-	gcbTube
+	gcbTube gcbStreamlineDynamicColor gcbStreamlineColoringPoints
 
 gcbGlyph: gcbGlyph.o
 	$(C++) -o gcbGlyph gcbGlyph.o -L. $(LIBS) 
@@ -68,6 +68,12 @@ gcbPoints: gcbPoints.o
 
 gcbStreamline: gcbStreamline.o
 	$(C++) -o gcbStreamline gcbStreamline.o -L. $(LIBS) 
+
+gcbStreamlineDynamicColor: gcbStreamlineDynamicColor.o
+	$(C++) -o gcbStreamlineDynamicColor gcbStreamlineDynamicColor.o -L. $(LIBS) 
+
+gcbStreamlineColoringPoints: gcbStreamlineColoringPoints.o
+	$(C++) -o gcbStreamlineColoringPoints gcbStreamlineColoringPoints.o -L. $(LIBS) 
 
 gcbTemplate: gcbTemplate.o
 	$(C++) -o gcbTemplate gcbTemplate.o -L. $(LIBS) 

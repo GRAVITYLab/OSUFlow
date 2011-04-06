@@ -18,10 +18,12 @@
 # particle tracing tests
 ./REGULAR_STATIC
 ./REGULAR_TIME_VAR
-./AMR_STATIC
+
+# AMR still being debugged
+#./AMR_STATIC
 
 # AMR time-varying is still being developed
 
 # drawing tests (lines)
-../bin/draw $HOME/cosmo/field_lines.out l 0.6 0.75 0.9
-../bin/draw $HOME/flash/field_lines.out l 0.6 0.75 0.9
+../bin/draw $HOME/cosmo/field_lines.out l 0
+#../bin/draw $HOME/flash/field_lines.out l 0
