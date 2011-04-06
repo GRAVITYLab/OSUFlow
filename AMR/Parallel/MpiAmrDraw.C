@@ -39,9 +39,7 @@ int tot_ntrace; // total number of everyone's traces
 
 // performance stats
 double TotTime = 0.0; // total time
-double TotIOTime = 0.0; // total IO time
-double TotCommTime = 0.0; // total communication time
-double TotCompTime = 0.0; // total computation time
+double TotInTime = 0.0; // total IO time
 double TotOutTime = 0.0; // total output time
 double TotCompCommTime = 0.0; // comp + comm time
 int TotParticles; // total number of particles in the system
@@ -105,12 +103,11 @@ int main(int argc, char *argv[]) {
   MPI_Barrier(MPI_COMM_WORLD);
   TotTime = MPI_Wtime();
   Run();
-
-  // print the performance stats
   MPI_Barrier(MPI_COMM_WORLD);
   TotTime = MPI_Wtime() - TotTime;
-  TotCommTime = TotTime - TotIOTime - TotCompTime - TotOutTime;
-  parflow->PrintPerf(TotTime, TotIOTime, TotCommTime, TotCompTime, TotOutTime,
+
+  // print the performance stats
+  parflow->PrintPerf(TotTime, TotInTime, TotOutTime,
 		     TotCompCommTime, TotParticles, size);
 
 #ifdef GRAPHICS
@@ -141,6 +138,7 @@ void Run() {
   int i, j, k;
   int g; // current group
   double time; // time to load a block
+  double t0;
 
   // init
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -149,16 +147,20 @@ void Run() {
   // for all groups
   for (g = 0; g < ntpart; g++) {
 
+    // synchronize before I/O
+    MPI_Barrier(MPI_COMM_WORLD);
+    t0 = MPI_Wtime();
+
     if (g > 0) // delete blocks from earlier groups
       blocks->DeleteBlocks(g, tsize, ntpart, nblocks);
 
     // load blocks for this time group
     blocks->LoadBlocksAMR(g, &time, data_mode);
 
-    // start time group synchronized to elimate any I/O skew
+    // synchronize after I/O
     MPI_Barrier(MPI_COMM_WORLD);
-    TotIOTime += time;
-    double t0 = MPI_Wtime();
+    TotInTime += (MPI_Wtime() - t0);
+    t0 = MPI_Wtime();
 
     // scale blocks to improve visibility
     for (i = 0; i < nblocks; i++) {
@@ -177,7 +179,6 @@ void Run() {
 	  parflow->ComputePathlines(Seeds[i], i, pf, end_steps);
 	else
 	  parflow->ComputeStreamlines(Seeds[i], i, pf, end_steps);
-	TotCompTime += parflow->GetMyCompTime();
 
       } // for all blocks
 
@@ -194,9 +195,11 @@ void Run() {
 
   } // for all groups
 
-  // gather fieldlines for rendering
+  // synchronize prior to gathering
   MPI_Barrier(MPI_COMM_WORLD);
   TotOutTime = MPI_Wtime();
+
+  // gather fieldlines for rendering
   parflow->GatherFieldlines(nblocks, size, tsize);
   TotOutTime = MPI_Wtime() - TotOutTime;
 

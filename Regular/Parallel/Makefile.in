@@ -27,7 +27,7 @@ INCLUDE += -I. -I../../src -I../../renderer -I../../renderer/libgcb \
 	-I../../diy/include -I../../diy/src/bil-0.6.0/src
 
 LIBS += -L../../src -L../../renderer -L../../renderer/libgcb -lOSUFlow \
-	-L../../diy/lib -ldiy  -L../../diy/src/bil-0.6.0 -lbil
+	-L../../diy/lib -ldiy -L../../diy/src/bil-0.6.0
 
 
 ifeq ($(GRAPHICS), YES)
@@ -41,6 +41,9 @@ LIBS += -lhdf5
 endif
 ifeq ($(ZOLTAN), YES)
 LIBS += -lzoltan
+endif
+ifeq ($(BIL), YES)
+LIBS += -lbil
 endif
 
 OBJS =  

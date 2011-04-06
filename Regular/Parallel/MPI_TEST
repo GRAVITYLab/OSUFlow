@@ -14,13 +14,13 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-#ARCH=MAC_OSX
+ARCH=MAC_OSX
 #ARCH=LINUX
-ARCH=BGP
+#ARCH=BGP
 #ARCH=EUREKA
 
 # number of procs
-num_procs=2048
+num_procs=8
 
 # number of BG/P nodes for vn mode
 num_nodes=$[$num_procs / 4]
@@ -64,7 +64,7 @@ tb=1
 
 # total number of particles
 #tp=$[$num_procs * $bf * 1]
-tp=131072
+tp=256
 
 # final number of steps in each field line
 st=1000
