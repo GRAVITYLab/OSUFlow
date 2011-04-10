@@ -19,7 +19,9 @@ ifndef CFG
 CFG=libgw - Win32 Release
 endif
 CC=gcc
-CFLAGS=-I ~/lib/include -I ~/lib/include/opencv -I ~/mylib/include -I /usr/local/cuda/include
+# DEL-BY-LEETEN 04/09/2011-BEGIN
+# CFLAGS=-I ~/lib/include -I ~/lib/include/opencv -I ~/mylib/include -I /usr/local/cuda/include
+# DEL-BY-LEETEN 04/09/2011-END
 CXX=g++
 CXXFLAGS=$(CFLAGS)
 RC=windres -O COFF

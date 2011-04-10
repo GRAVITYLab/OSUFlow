@@ -22,7 +22,8 @@ num_procs=4
 exe=../../Regular/Parallel/mpitest
 
 # dataset
-data=$HOME/osuflow/sample_data/regular/test.list
+# data=$HOME/osuflow/sample_data/regular/test.list
+data=test.list
 
 # number of spatial blocks per process
 bf=4
@@ -50,5 +51,8 @@ pf=! # indicates no partition file
 # 4 = HDF5 double (64 bit)
 dm=0
 
-mpiexec -l -n $num_procs $exe $data $bf $tb $t $p $r $pf $dm
-
+# MOD-BY-LEETEN 04/09/2011-FROM:
+	# mpiexec -l -n $num_procs $exe $data $bf $tb $t $p $r $pf $dm
+# TO:
+mpiexec -l -n $num_procs $exe $data $bf $tb $t $p $pf $dm !
+# MOD-BY-LEETEN 04/09/2011-END

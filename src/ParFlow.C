@@ -13,7 +13,13 @@
 //
 //--------------------------------------------------------------------------
 
+// ADD-BY-LEETEN 04/09/2011-BEGIN
+#ifdef _MPI 
+// ADD-BY-LEETEN 04/09/2011-END
 #include <mpi.h>
+// ADD-BY-LEETEN 04/09/2011-BEGIN
+#endif	// #ifdef _MPI 
+// ADD-BY-LEETEN 04/09/2011-END
 #include <stdio.h>
 #include <stdlib.h> 
 #include <list>
@@ -553,6 +559,7 @@ void ParFlow::SerialGatherFieldlines(int nblocks) {
   }
 
 }
+
 //-----------------------------------------------------------------------
 //
 // gathers number of points in each trace to the root
@@ -573,8 +580,15 @@ int ParFlow::GatherNumPts(int* &ntrace, int all, int nblocks) {
   std::list<vtListTimeSeedTrace *>::iterator trace_iter; // iterator over traces
   int i, j;
 
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
+
 
   // allocate memory
   if (ntrace == NULL)
@@ -586,8 +600,15 @@ int ParFlow::GatherNumPts(int* &ntrace, int all, int nblocks) {
   for (i = 0; i < nblocks; i++)
     myntrace += sl_list[i].size();
 
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   // gather number of traces
   MPI_Allgather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, MPI_COMM_WORLD);
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
+
 
   // compute number of points in each of my traces
   assert((mynpt = new int[myntrace]) != NULL);
@@ -608,8 +629,14 @@ int ParFlow::GatherNumPts(int* &ntrace, int all, int nblocks) {
     *tot_ntrace += ntrace[i];
   }
   assert((*npt = new int[*tot_ntrace]) != NULL);
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   MPI_Allgatherv(mynpt, myntrace, MPI_INT, *npt, ntrace, ofst, MPI_INT,
 		 MPI_COMM_WORLD);
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
 
   delete[] mynpt;
 
@@ -636,8 +663,14 @@ void ParFlow::GatherPts(int *ntrace, int mynpt, int nblocks) {
   int i, j, k;
 
   // init
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   if (nflt == NULL)
     assert((nflt = new int[nproc]) != NULL);
   if (ofst == NULL)
@@ -669,14 +702,23 @@ void ParFlow::GatherPts(int *ntrace, int mynpt, int nblocks) {
   }
   for(i = 0; i < *tot_ntrace; i++)
     tot_npt += (*npt)[i];
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   assert((*pt = new VECTOR4[tot_npt]) != NULL);
   MPI_Gatherv(mypt, mynpt * 4, MPI_FLOAT, *pt, nflt, ofst,
 	      MPI_FLOAT, 0, MPI_COMM_WORLD);
 
   delete[] mypt;
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
 
 }
 
+// ADD-BY-LEETEN 04/09/2011-BEGIN
+#ifdef _MPI 
+// ADD-BY-LEETEN 04/09/2011-END
 //-----------------------------------------------------------------------
 //
 // writes field lines keeping the header distributed
@@ -836,6 +878,10 @@ void ParFlow::DistributedWriteFieldlines(char *filename, char *id_filename,
 #endif
 
 }
+// ADD-BY-LEETEN 04/09/2011-BEGIN
+#endif	// #ifdef _MPI 
+// ADD-BY-LEETEN 04/09/2011-END
+
 //-----------------------------------------------------------------------
 //
 // writes field lines
@@ -850,8 +896,16 @@ void ParFlow::DistributedWriteFieldlines(char *filename, char *id_filename,
 void ParFlow::WriteFieldlines(int *ntrace, int mynpt, char *filename,
 			    int nblocks, float *size, int tsize) {
 
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   MPI_File fd;
   MPI_Status status;
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#else	// #ifdef _MPI 
+  FILE *fd;
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   int myproc, nproc;
   int64_t ofst; // offset into the file (bytes)
   int64_t pts_ofst = 0; // number of points before mine
@@ -864,14 +918,22 @@ void ParFlow::WriteFieldlines(int *ntrace, int mynpt, char *filename,
   int i, j, n;
   int totntrace = 0;
 
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   MPI_Comm_rank(MPI_COMM_WORLD, &myproc);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
   assert(MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_CREATE | 
 		       MPI_MODE_WRONLY, MPI_INFO_NULL, &fd) == MPI_SUCCESS);
   MPI_File_set_size(fd, 0); // start with an empty file every time
-
-  if (myproc == 0) {
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#else	// #ifdef _MPI 
+	fd = fopen(filename, "wb");
+	assert(fd);
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
+   if (myproc == 0) {
 
     // write extents (4D case)
     min[0] = min[1] = min[2] = min[3] = 0.0;
@@ -882,6 +944,9 @@ void ParFlow::WriteFieldlines(int *ntrace, int mynpt, char *filename,
       latAMR->GetExtents(min, max);
 #endif
 
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
     assert(MPI_File_write(fd, min, 4, MPI_FLOAT, &status) == MPI_SUCCESS);
     assert(MPI_File_write(fd, max, 4, MPI_FLOAT, &status) == MPI_SUCCESS);
 	   
@@ -892,8 +957,15 @@ void ParFlow::WriteFieldlines(int *ntrace, int mynpt, char *filename,
 
     // write delimiter
     assert(MPI_File_write(fd, &delim, 1, MPI_INT, &status) == MPI_SUCCESS);
-
-  }
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#else	// #ifdef _MPI 
+    fwrite(min, sizeof(min[0]), 4, fd);
+    fwrite(min, sizeof(max[0]), 4, fd);
+    fwrite(*npt, 	sizeof(int), *tot_ntrace, fd);
+    fwrite(&delim, 	sizeof(int), 1, fd);
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
+   }
 
   // find total num traces
   for (i = 0; i < nproc; i++)
@@ -927,16 +999,32 @@ void ParFlow::WriteFieldlines(int *ntrace, int mynpt, char *filename,
   }
 
   // write my points
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   MPI_File_set_view(fd, ofst, MPI_FLOAT, MPI_FLOAT, (char *)"native", 
 		    MPI_INFO_NULL);
   assert(MPI_File_write_all(fd, mypt, mynpt * 4, MPI_FLOAT, &status)
 	 == MPI_SUCCESS);
   assert(status.count == mynpt * 4 * (int)(sizeof(float))); // in bytes
-
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#else	// #ifdef _MPI 
+  fwrite(mypt, sizeof(float)*4, mynpt, fd);
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
+ 
   free(mypt);
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   MPI_File_close(&fd);
-	
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#else	// #ifdef _MPI 
+	fclose(fd);
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
 }
+
 //-----------------------------------------------------------------------
 //
 // todo: not using these for now
@@ -1479,8 +1567,14 @@ void ParFlow::PrintPerf(double TotTime, double TotInTime, double TotOutTime,
   double var_outtime = 0.0;
   double std_outtime;
 
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
 
   // get stats of my process
 #ifdef _MPI
@@ -1503,10 +1597,16 @@ void ParFlow::PrintPerf(double TotTime, double TotInTime, double TotOutTime,
 					  sizeof(int))) != NULL);
   assert((all_time_stats = (double *)malloc(n_time_stats * nproc * 
 					    sizeof(double))) != NULL);
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
   MPI_Gather(block_stats, n_block_stats, MPI_INT, all_block_stats, 
 	     n_block_stats, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Gather(time_stats, n_time_stats, MPI_DOUBLE, all_time_stats, 
 	     n_time_stats, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	// ADD-BY-LEETEN 04/09/2011-BEGIN
+	#endif	// #ifdef _MPI 
+	// ADD-BY-LEETEN 04/09/2011-END
 
   // print the stats
   if (rank == 0) {
