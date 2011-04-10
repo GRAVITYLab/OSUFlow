@@ -110,7 +110,9 @@ ifeq ($(ARCH), LINUX_SERIAL) # linux serial (used by Han-Wei)
 C++ = g++
 CC  = gcc
 CCFLAGS += -DLINUX
-LIBS =
+# DEL-BY-LEETEN 04/09/2011-BEGIN
+	# LIBS =
+# DEL-BY-LEETEN 04/09/2011-END
 endif
 
 ifeq ($(ARCH), LINUX) # linux generic
