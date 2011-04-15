@@ -179,7 +179,10 @@ else
   pnetcdf_lib="$withval/lib"
   CFLAGS="$CFLAGS -I$pnetcdf_inc "
   CPPFLAGS="$CPPFLAGS -I$pnetcdf_inc "
-  AC_CHECK_HEADERS([pnetcdf.h], , [AC_MSG_ERROR([cannot find pnetcdf.h in the location $pnetcdf_inc. Double-check the base path provided in --with_pnetcdf argument? (Don't put /include or /lib at the end)])])
+  saveCC="${CC}"
+  CC=${MPICC}
+  AC_CHECK_HEADERS([pnetcdf.h], [], [AC_MSG_ERROR([cannot find pnetcdf.h in the location $pnetcdf_inc. Double-check the base path provided in --with-pnetcdf argument? (Don't put /include or /lib at the end)])], [#include "mpi.h"])
+  CC="$saveCC"
   AC_SUBST(pnetcdf_inc)
   AC_SUBST(pnetcdf_lib)
 fi
@@ -209,9 +212,12 @@ else
   hdf5_lib="$withval/lib"
   CFLAGS="$CFLAGS -I$hdf5_inc "
   CPPFLAGS="$CPPFLAGS -I$hdf5_inc "
-  AC_CHECK_HEADERS([hdf5.h], , [AC_MSG_ERROR([cannot find hdf5.h in the location $hdf5_inc. Double-check the base path provided in the --with_hdf5 argument? (Don't put /include or /lib at the end)])])
+  saveCC="${CC}"
+  CC=${MPICC}
+  AC_CHECK_HEADERS([hdf5.h], , [AC_MSG_ERROR([cannot find hdf5.h in the location $hdf5_inc. Double-check the base path provided in the --with_hdf5 argument? (Don't put /include or /lib at the end)])], [#include "mpi.h"])
   AC_SUBST(hdf5_inc)
   AC_SUBST(hdf5_lib)
+  CC="$saveCC"
 fi
 if test ${with_hdf5} = "NO" ; then
   AC_MSG_NOTICE([
