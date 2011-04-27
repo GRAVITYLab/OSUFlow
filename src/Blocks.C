@@ -170,6 +170,10 @@ float ***Blocks::BilLoadTimeGroupBlocks(int t_group, int nblocks,
   float ***data = new float**[nblocks];
   int64_t block_min[4], block_size[4]; // block extents
 
+  // account for a header if necessary
+  if(data_mode == RAW_HEADER)
+    BIL_Set_io_header_size(12);  // header is 3 ints
+
   // load blocks for this time block
   for (int i = 0; i < nblocks; i++) { // for all my blocks
     if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
