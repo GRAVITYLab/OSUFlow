@@ -92,8 +92,8 @@ Neighborhoods *nbhds; // neighborhoods class object
 int compute_begin, compute_end; // jumpshot states
 float vec_scale; // vector scaling factor
 char seed_file[256]; // seed file name
-int seed_file_num; // number of seeds read from the seed file
-VECTOR3* seed_file_seeds; // seeds read from the seed file
+int seed_file_num = 0; // number of seeds read from the seed file
+VECTOR3* seed_file_seeds = NULL; // seeds read from the seed file
 float wf = 0.1; // wait factor for nonblocking communication
                 // wait for this portion of messages to arrive each round
 
@@ -430,7 +430,8 @@ void Init() {
 
   assert(nspart * ntpart >= nproc);
   assert(ntpart <= tsize);
-  assert(tf > 0);
+  if(seed_file[0] == '!')
+    assert(tf > 0);
 
   // partition domain
   // todo: don't create partition if there is a part file?
@@ -460,15 +461,10 @@ void Init() {
 
   TotParticles = nspart * tf;
 
-  if(seed_file[0] == '!')
-  {
-    seed_file_num = 0;
-    seed_file_seeds = NULL;
-  }
-  else
-  {
+  if(seed_file[0] != '!') {
     LoadSeedsFromFile();
-    assert(seed_file_num == TotParticles);
+    TotParticles = seed_file_num;
+    assert(seed_file_num > 0);
   }
 
 }
@@ -572,6 +568,7 @@ void Header(char *filename, float *size, int *tsize, float *vec_scale) {
 void LoadSeedsFromFile()
 {
   FILE* fileptr = fopen(seed_file, "r");
+  assert(fileptr != NULL);
 
   // first line is the number of seeds
   fscanf(fileptr, "%i", &seed_file_num);
