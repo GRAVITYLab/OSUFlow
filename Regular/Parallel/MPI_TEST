@@ -14,13 +14,13 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-ARCH=MAC_OSX
+#ARCH=MAC_OSX
 #ARCH=LINUX
-#ARCH=BGP
+ARCH=BGP
 #ARCH=EUREKA
 
 # number of procs
-num_procs=8
+num_procs=16
 
 # number of BG/P nodes for vn mode
 num_nodes=$[$num_procs / 4]
@@ -50,8 +50,9 @@ fi
 if [ "$ARCH" = "BGP" ]; then
 #data=/pvfs-surveyor/tpeterka/plume/plume.list
 #data=/pvfs-surveyor/tpeterka/tornado/tornado.list
+data=/pvfs-surveyor/tpeterka/nek5000/100x100x100/nek5000.list
 #data=/pvfs-surveyor/tpeterka/nek5000/512x512x512/nek5000.list
-data=/pvfs-surveyor/tpeterka/nek5000/1024x1024x1024/nek5000.list
+#data=/pvfs-surveyor/tpeterka/nek5000/1024x1024x1024/nek5000.list
 #data=/pvfs-surveyor/tpeterka/nek5000/2048x2048x2048/nek5000.list
 #data=/pvfs-surveyor/tpeterka/rmi/dd07g/rstrt0193/rmi.list
 fi
@@ -63,8 +64,8 @@ bf=4
 tb=1
 
 # total number of particles
-#tp=$[$num_procs * $bf * 1]
-tp=256
+tp=$[$num_procs * $bf * 8]
+#tp=4096
 
 # final number of steps in each field line
 st=1000

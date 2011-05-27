@@ -72,14 +72,18 @@ AC_SUBST(enable_bil)
 #
 # graphics
 #
-AC_ARG_ENABLE(graphics, [AS_HELP_STRING([--disable-graphics],
-[whether to disable graphics (enabled by default)])],
-[if test ${enableval} = "yes" ; then
-  enable_graphics="YES"
-else
+if test $with_arch = "BGP" ; then
   enable_graphics="NO"
-fi],
-[enable_graphics="YES"])
+else
+  AC_ARG_ENABLE(graphics, [AS_HELP_STRING([--disable-graphics],
+    [whether to disable graphics (enabled by default)])],
+    [if test ${enableval} = "yes" ; then
+    enable_graphics="YES"
+    else
+    enable_graphics="NO"
+    fi],
+    [enable_graphics="YES"])
+fi
 echo "graphics enabled = $enable_graphics"
 AC_SUBST(enable_graphics)
 
