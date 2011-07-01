@@ -33,7 +33,11 @@
 using namespace std;
 
 // ADD-BY-LEETEN 07/01/2011-BEGIN
-#if !defined( WIN32 )
+// MOD-BY-LEETEN 2011/07/01-FROM:
+	// #if !defined( WIN32 )
+// TO:
+#if defined( WIN32 )
+// MOD-BY-LEETEN 2011/07/01-END
 typedef long long int64_t;
 #endif
 // ADD-BY-LEETEN 07/01/2011-END
