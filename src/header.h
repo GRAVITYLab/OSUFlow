@@ -38,6 +38,10 @@ const double	PIBY2 = 1.57079632679489661923;			// PI / 2
 const double	EPS = 1.0E-6;
 const int		OCT = 8;
 
+#if !defined( WIN32 )
+typedef long long int64_t;
+#endif
+
 //#define DEBUG_MODE
 
 #endif

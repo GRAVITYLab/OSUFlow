@@ -963,7 +963,11 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 	// MOD-BY-LEETEN 02/07/2011-FROM:
 		// if (seedPtr!=NULL) delete[] seedPtr; 
 	// TO:
-	if ( seedPtr != seeds )  
+	// MOD-BY-LEETEN 07/01/2011-FROM:
+		// if ( seedPtr != seeds )  
+	// TO:
+	if ( seedPtr != NULL && seedPtr != seeds )  
+	// MOD-BY-LEETEN 07/01/2011-END
 		delete[] seedPtr; 
 	// MOD-BY-LEETEN 02/07/2011-END
 
@@ -1114,7 +1118,13 @@ void Error(const char *fmt, ...){
 
   va_list argp;
   vfprintf(stderr, fmt, argp);
+	// ADD-BY-LEETEN 07/01/2011-FROM:
+	#if	!defined(WIN32)	
+	// ADD-BY-LEETEN 07/01/2011-END
   sleep(5);
+	// ADD-BY-LEETEN 07/01/2011-FROM:
+	#endif	// #if	defined(WIN32)
+	// ADD-BY-LEETEN 07/01/2011-END
   exit(0);
 
 }

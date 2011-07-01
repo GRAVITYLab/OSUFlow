@@ -24,7 +24,13 @@
 #include <vector>
 #include <iterator>
 #include <math.h>
+// ADD-BY-LEETEN 07/01/2011-BEGIN
+#if	!defined(WIN32)	
+// ADD-BY-LEETEN 07/01/2011-END
 #include <sys/resource.h>
+// ADD-BY-LEETEN 07/01/2011-BEGIN
+#endif	// #if	!defined(WIN32)
+// ADD-BY-LEETEN 07/01/2011-END
 #include "Lattice4D.h"
 #include "LatticeAMR.h"
 

@@ -32,6 +32,12 @@
 
 using namespace std;
 
+// ADD-BY-LEETEN 07/01/2011-BEGIN
+#if !defined( WIN32 )
+typedef long long int64_t;
+#endif
+// ADD-BY-LEETEN 07/01/2011-END
+
 /* #define MAX_BLOCK 64 */
 /* #define MAX_NEIGHBORS 64 */
 /* #define MAX_MSG_SIZE 256 */

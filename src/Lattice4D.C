@@ -960,7 +960,11 @@ volume_bounds_t* Lattice4D::ComputePartition(int *data_dim, int ghost,
 
   // deltas
   for(i = 0; i < 3; i++) // x, y, z
-    d[i] = roundf((float)data_dim[i] / (float)lat_dim[i]);
+	// MOD-BY-LEETEN 07/01/2011-FROM:
+		// d[i] = roundf((float)data_dim[i] / (float)lat_dim[i]);
+	// TO:
+    d[i] = floorf(0.5f + (float)data_dim[i] / (float)lat_dim[i]);
+	// MOD-BY-LEETEN 07/01/2011-END
   d[3] = data_dim[3] / ntp; // t
 
   // volume bounds in row-major index order (x, y, z, t)
