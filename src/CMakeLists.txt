@@ -4,25 +4,31 @@
 cmake_minimum_required (VERSION 2.8)
 project (OSUFlow) 
 
-set(MPI FALSE CACHE BOOL "Specify whether MPI is used")
+# DEL-BY-LEETEN 08/17/2011	set(MPI FALSE CACHE BOOL "Specify whether MPI is used")
 
-if( MPI )
+# MOD-BY-LEETEN 08/17/2011-FROM:
+	# if( MPI )
+# TO:
+if( WITH_MPI )
+# MOD-BY-LEETEN 08/17/2011-END
 	# find the mpi package
-	find_package(MPI REQUIRED)
+	# DEL-BY-LEETEN 08/17/2011		find_package(MPI REQUIRED)
 	set(CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS})
 	set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS})
-	include_directories(MPI_INCLUDE_PATH)
+	# DEL-BY-LEETEN 08/17/2011		include_directories(MPI_INCLUDE_PATH)
 
 	# use mpicxx to replace 
 	SET(CMAKE_C_COMPILER mpicc)
 	SET(CMAKE_CXX_COMPILER mpicxx)
 endif( )
 
-# specify the path to the headers
-include_directories(
-		. 
-		../include
-	)
+# DEL-BY-LEETEN 08/17/2011-BEGIN
+	# # specify the path to the headers
+	# include_directories(
+		# . 
+		# ../include
+	# )
+# DEL-BY-LEETEN 08/17/2011-END
 
 # grab all the header files
 file(GLOB HEADER_FILES "*.h" )
@@ -63,6 +69,14 @@ list(APPEND SRC_FILES
 	Plot3DReader.C
 	CurvilinearGrid.C
 	)
+
+# ADD-BY-LEETEN 08/17/2011-BEGIN
+if( WITH_MPI )
+  list(APPEND SRC_FILES
+    Blocks.C
+  )
+endif()
+# ADD-BY-LEETEN 08/17/2011-END
 
 # build the project as a library
 add_library(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
