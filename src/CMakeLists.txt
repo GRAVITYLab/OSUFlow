@@ -81,6 +81,21 @@ endif()
 # build the project as a library
 add_library(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
 
+# ADD-BY-LEETEN 09/01/2011-BEGIN
+set_target_properties(${PROJECT_NAME} PROPERTIES 
+	DEBUG_OUTPUT_NAME "${PROJECT_NAME}_d"
+	RELEASE_OUTPUT_NAME "${PROJECT_NAME}_r"
+	)
+
+install(
+	FILES ${HEADER_FILES}
+	DESTINATION include)
+	
+install(
+	TARGETS ${PROJECT_NAME}
+	DESTINATION lib)
+# ADD-BY-LEETEN 09/01/2011-END
+
 #
 # $Log$
 #

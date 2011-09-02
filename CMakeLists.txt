@@ -28,12 +28,21 @@ add_definitions(
 	)
 
 set(OSUFLOW_DIR 	"${CMAKE_SOURCE_DIR}")
-set(OSUFLOW_INC		"${OSUFLOW_DIR}/src")	
-set(OSUFLOW_LIB		"${OSUFLOW_DIR}/src")	
+# MOD-BY-LEETEN 09/01/2011-FROM:
+	# set(OSUFLOW_INC		"${OSUFLOW_DIR}/src")	
+	# set(OSUFLOW_LIB		"${OSUFLOW_DIR}/src")	
+# MOD-BY-LEETEN 09/01/2011-TO:
+set(OSUFLOW_SRC		"${OSUFLOW_DIR}/src")	
+set(OSUFLOW_LIB		"${OSUFLOW_DIR}/lib")	
+set(OSUFLOW_INC		"${OSUFLOW_DIR}/include")	
+# MOD-BY-LEETEN 09/01/2011-END
 set(RENDERER_DIR	"${OSUFLOW_DIR}/renderer" 	)
 set(GCB_DIR 		"${RENDERER_DIR}/libgcb" 	)
 
 include_directories(
+	# ADD-BY-LEETEN 09/01/2011-BEGIN
+	${OSUFLOW_SRC}
+	# ADD-BY-LEETEN 09/01/2011-END
 	${OSUFLOW_INC}
 )
 
