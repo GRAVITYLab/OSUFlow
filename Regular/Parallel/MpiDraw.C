@@ -519,6 +519,22 @@ void Header(char *filename, float *size, int *tsize, float *vec_scale) {
 
   assert((fp = fopen(filename, "r")) != NULL);
 
+	// ADD-BY-LEETEN 11/19/2011-BEGIN
+  char szPath[1024];
+  strcpy(szPath, filename);
+
+  char *szSeparator;
+  szSeparator = strrchr(szPath, '/');
+        #ifdef WIN32
+  if( !szSeparator )
+    szSeparator = strrchr(szPath, '\\');
+        #endif
+  if( NULL == szSeparator )
+    szSeparator = &szPath[0];
+
+  *szSeparator = '\0';
+	// ADD-BY-LEETEN 11/19/2011-END
+
   while (fgets(line, sizeof(line), fp) != NULL) {
 
     token = strtok(line, delims);
@@ -544,7 +560,17 @@ void Header(char *filename, float *size, int *tsize, float *vec_scale) {
       else if (n >= 5) {
 	if (n - 5 >= *tsize)
 	  break;
-	dataset_files[n - 5] = strdup(token);
+	// MOD-BY-LEETEN 11/19/2011-FROM:
+		// dataset_files[n - 5] = strdup(token);
+	// TO:
+	char *szFilename = strdup(token);
+	dataset_files[n - 5] = (char*)calloc(strlen(szPath) + strlen(szFilename) + 128, 1); // 128: size of a temp buffer
+	if( szFilename[0] != '/' )
+	  sprintf(dataset_files[n - 5], "%s/%s", szPath, szFilename);
+	else
+	  strcpy(dataset_files[n - 5], szFilename);
+	free(szFilename);
+	// MOD-BY-LEETEN 11/19/2011-END
 	assert(dataset_files[n - 5] != NULL);
 	n++;
       }

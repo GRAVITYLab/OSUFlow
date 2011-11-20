@@ -284,7 +284,14 @@ float** ReadData(char *fname, float *dim, float *minB,
 
   FILE *fIn = NULL;
   FILE *fVecIn;
-  char filename[256];
+  // MOD-BY-LEETEN 11/19/2011-FROM:
+  // char filename[256];
+  // TO:
+  char szPath[1024];
+  char filenameonly[1024];
+  char filename[1024];
+  // MOD-BY-LEETEN 11/19/2011-END
+
   float* pData = NULL;
   float ** ppData = NULL; 
   int n_timesteps;
@@ -293,6 +300,24 @@ float** ReadData(char *fname, float *dim, float *minB,
   if (files == NULL) {
     assert((fIn = fopen(fname, "r")) != NULL);
     assert(fscanf(fIn, "%d", &n_timesteps) > 0);
+
+  // ADD-BY-LEETEN 11/19/2011-BEGIN
+  strcpy(szPath, fname);
+
+  char *szSeparator;
+  szSeparator = strrchr(szPath, '/');
+        #ifdef WIN32
+  if( !szSeparator )
+    szSeparator = strrchr(szPath, '\\');
+        #endif
+  if( NULL == szSeparator )
+    szSeparator = &szPath[0];
+
+  printf("%s(%d)\n", __FILE__, __LINE__);
+  *szSeparator = '\0';
+  printf("%s(%d)\n", __FILE__, __LINE__);
+  // ADD-BY-LEETEN 11/19/2011-END
+
   }
 
 #ifdef _MPI
@@ -332,7 +357,27 @@ float** ReadData(char *fname, float *dim, float *minB,
   for(i = 0; i < (files == NULL ? n_timesteps : num_files); i++) {
 
     if (files == NULL)
-      assert(fscanf(fIn, "%s", filename) > 0);
+      // MOD-BY-LEETEN 11/19/2011-FROM:
+      // assert(fscanf(fIn, "%s", filename) > 0);
+      // TO:
+    {
+      fscanf(fIn, "%s", filenameonly);
+
+      if(
+                #ifdef WIN32
+                        filenameonly[1] != ':' &&
+                        filenameonly[0] != '\\' &&
+                #endif
+			filenameonly[0] != '/' )
+        {
+	  sprintf(filename, "%s/%s", szPath, filenameonly);
+        }
+      else
+        {
+	  strcpy(filename, filenameonly);
+        }
+    }
+    // MOD-BY-LEETEN 11/19/2011-END
     else 
       strcpy(filename, files[i]);
 
