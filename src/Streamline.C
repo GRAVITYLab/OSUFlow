@@ -195,13 +195,11 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 	// this is a bug I think ...
 	cell_volume = m_pField->volume_of_cell(seedInfo.inCell);
 	mag = vel.GetMag();
-// 		printf(" **** volume = %f mag = %f  ....", cell_volume, mag); 
 	if(fabs(mag) < 1.0e-6f)
 		dt_estimate = 1.0e-5f;
 	else
 		dt_estimate = pow(cell_volume, (float)0.3333333f) / mag;
-		dt = m_fInitStepSize * dt_estimate;
-		//	printf(" **** dt = %f  ....", dt); 
+	dt = m_fInitStepSize * dt_estimate;
 
 #ifdef DEBUG
 	fprintf(fDebugOut, "****************new particle*****************\n");
@@ -221,16 +219,12 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 
 		if(istat == OUT_OF_BOUND)			// out of boundary
 		  {
-		    //		    printf(" count = %d here out of bound %f %f %f \n", count, 
-		    //			   thisParticle.phyCoord[0], thisParticle.phyCoord[1],
-		    //	  		   thisParticle.phyCoord[2]); 
 		    seedTrace.push_back(new VECTOR3(thisParticle.phyCoord));
 			return OUT_OF_BOUND;
 		  }
 		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, m_fCurrentTime, vel);
 		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
 		  {
-		    //printf(" here critical point.\n");
 			return CRITICAL_POINT;
 		  }
 		else

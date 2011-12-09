@@ -66,11 +66,52 @@ int vtCFieldLine::euler_cauchy(TIME_DIR, TIME_DEP,float*, float)
 // Integrate along a field line using the 2th order Runge-Kutta method.
 // This routine is used for both steady and unsteady vector fields. 
 //////////////////////////////////////////////////////////////////////////
-int vtCFieldLine::runge_kutta2(TIME_DIR time_dir, TIME_DEP time_dep, 
-							   PointInfo& ci, 
-							   float* t, float dt)
+int vtCFieldLine::runge_kutta2(TIME_DIR time_dir, 
+                               TIME_DEP time_dep, 
+                               PointInfo& ci, 
+                               float* t,         // initial time
+                               float dt)         // stepsize
 {
-	int istat = 0;
+	int i, istat;
+	VECTOR3 pt0;
+	VECTOR3 vel;
+	VECTOR3 k1, k2;
+	VECTOR3 pt;
+	int fromCell;
+
+	pt = ci.phyCoord;
+
+	// 1st step of the Runge-Kutta scheme
+	istat = m_pField->at_phys(ci.fromCell, pt, ci, *t, vel);
+	if(istat != 1)
+		return OUT_OF_BOUND;
+
+	for(i=0; i<3; i++)
+	{
+		pt0[i] = pt[i];
+		k1[i] = time_dir*dt*vel[i];
+		pt[i] = pt0[i]+k1[i];    // x0 + k1
+	}
+
+	// 2nd step of the Runge-Kutta scheme
+	fromCell = ci.inCell;
+	if(time_dep  == UNSTEADY)
+		*t += time_dir*dt;    // t + h
+
+	istat = m_pField->at_phys(fromCell, pt, ci, *t, vel);
+	if(istat != 1)
+	{
+		ci.phyCoord = pt;
+		return OUT_OF_BOUND;
+	}
+
+	for( i=0; i<3; i++ )
+	{
+		k2[i] = time_dir*dt*vel[i];
+		pt[i] = pt0[i] + (float)0.5*(k1[i] + k2[i]);  // new point
+	}
+	ci.phyCoord = pt;
+
 
 	return istat;
 }

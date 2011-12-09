@@ -756,7 +756,7 @@ void OSUFlow::SetSeedPoints(VECTOR3* seeds, int num_seeds)
 
 void OSUFlow::SetIntegrationParams(float initStepSize, float maxStepSize)
 {
-	initialStepSize = initStepSize;
+	this->initialStepSize = initStepSize;
 	this->maxStepSize = maxStepSize;
 }
 
