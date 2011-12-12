@@ -114,9 +114,9 @@ class OSUFlow
 		       VECTOR3 sMin, VECTOR3 sMax) ;  //added by lijie
 
 
- protected:
-
  private:
+
+ protected:
 	//used by curvilinear code  
   void InitStaticCurvilinearFlowField(VECTOR3 sMin, VECTOR3 sMax);//added by lijie, for curvilinear grid
   void InitTimeVaryingCurvilinearFlowField(void); //added by lijie, for curvilinear grid

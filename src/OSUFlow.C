@@ -589,6 +589,7 @@ CVectorField* OSUFlow::CreateStaticFlowField(float *pData,
   field = new CVectorField(pRegularCGrid, pSolution, 1);
 
   delete [] ppVector; 
+  delete [] pVector; 
 
   flowField = field; 
   return(field); 
