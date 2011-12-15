@@ -513,8 +513,7 @@ void OSUFlow::InitFlowField(float *sMin, float *sMax,
 //   may not be the max of the entire field 
 //   
 //
-void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB, 
-				  VECTOR3 maxB)
+void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB, VECTOR3 maxB)
 {
 	int dimension[3], totalNum;
 
@@ -542,8 +541,6 @@ void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB,
 	pRegularCGrid->SetBoundary(lMin, lMax);
 	assert(pSolution != NULL && pRegularCGrid != NULL);
 	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
-	if(!flowField->IsNormalized())
-		flowField->NormalizeField(true);
 	delete []pVector; 
 	delete[] ppVector; 
 }
