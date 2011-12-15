@@ -320,9 +320,6 @@ void OSUFlow::InitStaticFlowField(void)
 
   flowField = CreateStaticFlowField(pData, dimension[0], dimension[1], 
 				    dimension[2],  minB, maxB); 
-  
-  if(!flowField->IsNormalized())
-    flowField->NormalizeField(true);
 }
 
 /////////////////////////////////////////////////////////////////
@@ -501,48 +498,6 @@ void OSUFlow::InitFlowField(float *sMin, float *sMax,
 					   (int)(sMax[2] - sMin[2] + 1),
 					   sMin, sMax, t_min, t_max);  
 
-}
-//--------------------------------------------------------------------------
-
-///////////////////////////////////////////////
-//
-//   Create a static flow field 
-//   Input: (float) vector data, minB, maxB
-//   note this flow field can be a subfield so 
-//   minB[0/1/2] may not be zero, and maxB[0/1/2]
-//   may not be the max of the entire field 
-//   
-//
-void OSUFlow::CreateStaticFlowField(float* pData, VECTOR3 minB, VECTOR3 maxB)
-{
-	int dimension[3], totalNum;
-
-	dimension[0] = (int)(maxB[0]-minB[0]+1); 
-	dimension[1] = (int)(maxB[1]-minB[1]+1); 
-	dimension[2] = (int)(maxB[2]-minB[2]+1); 
-
-	totalNum = dimension[0] * dimension[1] * dimension[2];
-
-	// create field object
-	Solution* pSolution;
-	RegularCartesianGrid* pRegularCGrid;
-	VECTOR3* pVector;
-	VECTOR3** ppVector;
-	pVector = new VECTOR3[totalNum];
-
-	for(int iFor = 0; iFor < totalNum; iFor++)
-		pVector[iFor].Set(pData[iFor*3], pData[iFor*3+1], pData[iFor*3+2]);
-	delete [] pData; 
-	ppVector = new VECTOR3*[1];
-	ppVector[0] = pVector;
-	pSolution = new Solution(ppVector, totalNum, 1);
-	pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
-	lMin = minB; lMax = maxB; //local data min/max range
-	pRegularCGrid->SetBoundary(lMin, lMax);
-	assert(pSolution != NULL && pRegularCGrid != NULL);
-	flowField = new CVectorField(pRegularCGrid, pSolution, 1);
-	delete []pVector; 
-	delete[] ppVector; 
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -1196,8 +1151,8 @@ void OSUFlow::InitStaticIrregularFlowField(VECTOR3 sMin, VECTOR3 sMax)
 	delete reader;
 }
 //added by lijie
-void OSUFlow::InitStaticFlowField(Solution* pSolution, Grid* pGrid, VECTOR3 minB, 
-				  VECTOR3 maxB)
+void OSUFlow::InitStaticFlowField(Solution* pSolution, Grid* pGrid, 
+                                  VECTOR3 minB, VECTOR3 maxB)
 {
 	
 	int dimension[3], totalNum;
@@ -1215,8 +1170,6 @@ void OSUFlow::InitStaticFlowField(Solution* pSolution, Grid* pGrid, VECTOR3 minB
 	assert(pSolution != NULL && pGrid != NULL);
 
 	flowField = new CVectorField(pGrid, pSolution, 1);
-	if(!flowField->IsNormalized())
-		flowField->NormalizeField(true);
 }
 //added by lijie 
 void OSUFlow:: InitTimeVaryingCurvilinearFlowField(void)
