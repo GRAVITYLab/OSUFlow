@@ -23,6 +23,15 @@ if(NOT DEFINED WIN32 AND NOT DEFINED MAC_OSX_OMPI AND NOT DEFINED MAC_OSX_MPICH)
 	)
 endif()
 
+# ADD-BY-LEETEN 12/16/2011-BEGIN
+set(WITH_UNISTD FALSE CACHE BOOL "Specify whether unistd.h is included.")
+if( ${WITH_UNISTD} )
+	add_definitions(
+		-DWITH_UNISTD
+	)
+endif()
+# ADD-BY-LEETEN 12/16/2011-END
+
 add_definitions(
 	-D_OSUFLOW
 	)
@@ -76,7 +85,11 @@ if( WITH_MPI )
 		set(PNETCDF_INC "${PNETCDF_PATH}/include") 
 		set(PNETCDF_LIB "${PNETCDF_PATH}/lib") 
 	
-		add_definitions(-IPNETCDF)
+		# MOD-BY-LEETEN 12/16/2011-FROM:
+		  # add_definitions(-IPNETCDF)
+		# TO:
+		add_definitions(-DPNETCDF)
+		# MOD-BY-LEETEN 12/16/2011-END
 		include_directories(
 			${PNETCDF_INC}
 		)
@@ -92,13 +105,27 @@ endif()
 # the project's entire directory structure.
 add_subdirectory (src)
 
+# ADD-BY-LEETEN 12/16/2011-BEGIN
+set(WITH_EXAMPLE  TRUE CACHE BOOL "Specify whether sample programs should be built as well.")
+set(WITH_GRAPHICS TRUE CACHE BOOL "Specify whether Graphics-related libraries should be built.")
+if( ${WITH_GRAPHICS} )
+# ADD-BY-LEETEN 12/16/2011-END
+
 add_subdirectory (renderer)
 add_subdirectory (renderer/libgcb)
-add_subdirectory (renderer/examples)
+		 if( ${WITH_EXAMPLES} ) # ADD-BY-LEETEN 12/16/2011
+		     add_subdirectory (renderer/examples)
+
+# ADD-BY-LEETEN 12/16/2011-BEGIN
+		 endif() 
+endif() 
+# ADD-BY-LEETEN 12/16/2011-END
 
 # ADD-BY-LEETEN 08/17/2011-BEGIN
-if( WITH_MPI )
+if( ${WITH_MPI} ) # MOD-BY-LEETEN 12/16/2011-FROM: if( WITH_MPI )
+    if( ${WITH_EXAMPLES} ) # ADD-BY-LEETEN 12/16/2011
 	add_subdirectory (Regular/Parallel)
+    endif() # ADD-BY-LEETEN 12/16/2011
 endif()
 # ADD-BY-LEETEN 08/17/2011-END
 

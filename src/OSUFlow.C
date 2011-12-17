@@ -1,3 +1,9 @@
+// ADD-BY-LEETEN 12/16/2011-BEGIN
+#if WITH_UNISTD
+#include <unistd.h>
+#endif // #if WITH_UNISTD
+// ADD-BY-LEETEN 12/16/2011-END
+
 #include "CurvilinearGrid.h" //added by lijie
 #include "OSUFlow.h"
 #include "Plot3DReader.h" //added by lijie

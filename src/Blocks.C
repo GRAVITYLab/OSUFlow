@@ -19,6 +19,12 @@
 #include "bil.h"
 #endif
 
+// ADD-BY-LEETEN 12/16/2011-BEGIN
+#if WITH_UNISTD
+#include <unistd.h>
+#endif // #if WITH_UNISTD
+// ADD-BY-LEETEN 12/16/2011-END
+
 #include <stdio.h>
 #include <stdlib.h> 
 #include <list>
