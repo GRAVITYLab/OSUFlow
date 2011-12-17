@@ -106,7 +106,7 @@ endif()
 add_subdirectory (src)
 
 # ADD-BY-LEETEN 12/16/2011-BEGIN
-set(WITH_EXAMPLE  TRUE CACHE BOOL "Specify whether sample programs should be built as well.")
+set(WITH_EXAMPLES  TRUE CACHE BOOL "Specify whether sample programs should be built as well.") # MOD-BY-LEETEN 12/16/2011-FROM: set(WITH_EXAMPLE  TRUE CACHE BOOL "Specify whether sample programs should be built as well.")
 set(WITH_GRAPHICS TRUE CACHE BOOL "Specify whether Graphics-related libraries should be built.")
 if( ${WITH_GRAPHICS} )
 # ADD-BY-LEETEN 12/16/2011-END
