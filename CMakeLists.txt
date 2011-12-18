@@ -12,6 +12,8 @@ project (osuflow)
 # ADD-BY-LEETEN 08/17/2011-BEGIN
 set(WITH_MPI FALSE CACHE BOOL "Specify whether MPI is used")
 set(DIY_DIR "/usr" CACHE PATH "The installed path of DIY")
+
+set(WITH_BIL	FALSE CACHE BOOL "Specify whether BIL is used.")	# ADD-BY-LEETEN 12/17/2011
 set(BIL_DIR "/usr" CACHE PATH "The installed path of BIL")
 
 set(WITH_PNETCDF FALSE CACHE BOOL "Specify whether PNETCDF is used")
@@ -128,6 +130,45 @@ if( ${WITH_MPI} ) # MOD-BY-LEETEN 12/16/2011-FROM: if( WITH_MPI )
     endif() # ADD-BY-LEETEN 12/16/2011
 endif()
 # ADD-BY-LEETEN 08/17/2011-END
+
+# ADD-BY-LEETEN 12/17/2011-BEGIN
+set(ARCH	 "LINUX" CACHE STRING	"Specify the architecture.")
+set(WITH_MPE FALSE CACHE BOOL "Specify whether MPE is used.")
+
+set(WITH_ZOLTAN FALSE CACHE BOOL "Specify whether Zoltabn is used.")
+set(ZOLTAN_DIR 	"/usr" CACHE PATH "The installed path of Zoltan.")
+
+set(WITH_HDF5 	FALSE CACHE BOOL "Specify whether HDF5 is used.")
+set(HDF5_DIR 	"/usr" CACHE PATH "The installed path of HDF5.")
+
+set(IS_DEBUG 	FALSE CACHE BOOL "Specify whether DEBUG mode is on.")
+set(IS_BYTE_SWAP 	FALSE CACHE BOOL "Specify whether the byte should be swapped.")
+set(IS_WARNING 		FALSE CACHE BOOL "Specify whether the warning message should be dumpped.")
+
+# write a macro to create new variables whose name begins with "FLAG_"
+macro(BECOME_FLAG	VAR)
+	set(FLAG_${VAR}	NO)
+	if( ${VAR} )
+		set(FLAG_${VAR}	YES)
+	endif()
+endmacro(BECOME_FLAG) 
+
+BECOME_FLAG(WITH_MPI)
+BECOME_FLAG(WITH_MPE)
+BECOME_FLAG(WITH_BIL)
+BECOME_FLAG(WITH_PNETCDF)
+BECOME_FLAG(WITH_HDF5)
+BECOME_FLAG(WITH_GRAPHICS)
+BECOME_FLAG(WITH_ZOLTAN)
+BECOME_FLAG(IS_DEBUG)
+BECOME_FLAG(IS_BYTE_SWAP)
+BECOME_FLAG(IS_WARNING)
+
+configure_file (
+  "${PROJECT_SOURCE_DIR}/user_defs.mk.in"
+  "${PROJECT_SOURCE_DIR}/user_defs.mk"
+  )
+# ADD-BY-LEETEN 12/17/2011-END
 
 #
 # $Log$
