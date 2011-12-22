@@ -79,6 +79,113 @@ float* ReadStaticDataRaw(char *fname, int* dimension,
 
 ///////////////////////////////////////////////////////////////
 
+// ADD-BY-LEETEN 12/22/2011-BEGIN
+void
+ReadTimeVaryingDataHeader
+(
+	char* szHeaderFilePath,
+	int *piNrOfTimeSteps,
+	int piSize[],
+	int *piFileType,
+	char** *ppszFilePaths)
+{
+	char** pszFilePaths;
+
+	// keep only the path by removing the filename
+	char *szPath;
+	szPath = strdup(szHeaderFilePath);
+
+	char *szSeparator;
+	szSeparator = strrchr(szPath, '/');
+	#ifdef WIN32
+		if( !szSeparator )
+			szSeparator = strrchr(szPath, '\\');
+	#endif
+	if( NULL == szSeparator )
+		szSeparator = &szPath[0];
+	*szSeparator = '\0';
+
+	// open the file
+	FILE *fpIn = fopen(szHeaderFilePath, "r");
+	assert(fpIn != NULL);
+
+	//
+	int iNrOfLines = 0;
+	while( !feof(fpIn) )
+	{
+		// read the line
+		char szLine[2048];
+		fgets(szLine, sizeof(szLine), fpIn);
+
+		// remove the comment part
+		char *pbCommentStart = strchr(szLine, '#');
+		if( pbCommentStart )
+			pbCommentStart = '\0';
+
+		// skip this line if it empty
+		if( !strlen(szLine) )
+			continue;
+
+		if( !iNrOfLines )
+		{
+			static char *szDelim = " \t";
+			int iNrOfTokens = 0;
+			for(char*
+					szToken = strtok(szLine, szDelim);
+				szToken;
+				szToken = strtok(NULL, szDelim), iNrOfTokens++
+				)
+				if( !iNrOfTokens )
+					*piNrOfTimeSteps = atoi(szToken);
+				else
+					piSize[iNrOfTokens - 1] = atoi(szToken);
+
+			if( iNrOfTokens > 0)
+			{
+				// if the dimension has been specified, the file type
+				*piFileType = ( 4 == iNrOfTokens )?RAW:RAW_HEADER;
+
+				// allocate space to read the file paths
+				pszFilePaths = (char**)calloc(sizeof(char*), *piNrOfTimeSteps);
+			}
+		}
+		else
+		{
+			// allocate space to store the file path. 16 extra bytes are allocated for the separators
+			char* szFilePath = (char*)calloc(sizeof(szPath[0]), strlen(szPath) + strlen(szLine) + 16);
+
+			// check whether the file path is an absolute path.
+			if(
+				#ifdef WIN32
+					szLine[0] != '\\' &&
+				#endif
+				!strchr(szLine, ':') &&
+				szLine[0] != '/'
+			)
+				sprintf(szFilePath, "%s/%s", szPath, szLine);
+			else
+				strcpy(szFilePath, szLine);
+
+			// remove the newlines
+			static char pbNewLines[] = {'\r', '\n'};
+			int iNrOfNewLines = sizeof(pbNewLines);
+			for(int in = 0; in < iNrOfNewLines; in++)
+			{
+				char chNewLine = pbNewLines[in];
+				for(char *szNewLine = strchr(szFilePath, chNewLine);
+					szNewLine;
+					szNewLine = strchr(szFilePath, chNewLine) )
+					*szNewLine = '\0';
+			}
+			pszFilePaths[iNrOfLines - 1] = szFilePath;
+		}
+		iNrOfLines++;
+	}
+	*ppszFilePaths = pszFilePaths;
+	fclose(fpIn);
+}
+// ADD-BY-LEETEN 12/22/2011-END
+
 float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps, 
 				     int *dimension)
 {
@@ -112,6 +219,7 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 
   fIn = fopen(fname, "r");
   assert(fIn != NULL);
+
   fscanf(fIn, "%d", &n_timesteps);
 
 #ifdef DEBUG

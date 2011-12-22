@@ -65,6 +65,14 @@ foreach(SAMPLE_NAME
 		renderer
 		gcb
 	) 
+
+      # ADD-BY-LEETEN 12/20/2011-BEGIN
+      if( ${WITH_PNETCDF} )
+	target_link_libraries(${SAMPLE_NAME} 
+	  pnetcdf
+	  ) 
+      endif()
+      # ADD-BY-LEETEN 12/20/2011-END
 	
 	# ADD-BY-LEETEN 08/17/2011-BEGIN
 	if( WITH_MPI )

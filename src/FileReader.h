@@ -46,4 +46,15 @@ void PosixReadDataRaw(FILE *f, float *dim, float *minB,
 		      float *maxB, float *p, DataMode dm);
 void swap4(char *n);
 
+// ADD-BY-LEETEN 12/22/2011-BEGIN
+void
+ReadTimeVaryingDataHeader
+(
+	char* szHeaderFilePath,
+	int *piNrOfTimesteps,
+	int piSize[],
+	int *piFileType,
+	char** *ppszFilePaths);
+// ADD-BY-LEETEN 12/22/2011-END
+
 #endif

@@ -1,5 +1,4 @@
 # 1. Set your architecture here
-
 ARCH = @ARCH@
 
 # 2. Set your options here
@@ -18,10 +17,12 @@ WARNINGS = @FLAG_IS_WARNING@
 HDF_INC = @HDF5_DIR@/include
 ZOLTAN_INC = @ZOLTAN_DIR@/include
 NETCDF_INC = @PNETCDF_PATH@/include
+BIL_INC = @BIL_INC@ # ADD-BY-LEETEN 12/22/2011
 MISC_INC = 
 
 HDF_LIB = @HDF5_DIR@/lib
 ZOLTAN_LIB = @ZOLTAN_DIR@/lib
 NETCDF_LIB = @PNETCDF_PATH@/lib
+BIL_LIB = @BIL_LIB@ # ADD-BY-LEETEN 12/22/2011
 MISC_LIB = 
 
