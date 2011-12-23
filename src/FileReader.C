@@ -120,7 +120,21 @@ ReadTimeVaryingDataHeader
 		// remove the comment part
 		char *pbCommentStart = strchr(szLine, '#');
 		if( pbCommentStart )
-			pbCommentStart = '\0';
+			*pbCommentStart = '\0';
+
+		// ADD-BY-LEETEN 12/23/2011-BEGIN
+		// remove the newlines
+		static char pbNewLines[] = {'\r', '\n'};
+		int iNrOfNewLines = sizeof(pbNewLines);
+		for(int in = 0; in < iNrOfNewLines; in++)
+		  {
+		    char chNewLine = pbNewLines[in];
+		    for(char *szNewLine = strchr(szLine, chNewLine);
+			szNewLine;
+			szNewLine = strchr(szLine, chNewLine) )
+		      *szNewLine = '\0';
+		  }
+		// ADD-BY-LEETEN 12/23/2011-END
 
 		// skip this line if it empty
 		if( !strlen(szLine) )
@@ -166,6 +180,7 @@ ReadTimeVaryingDataHeader
 			else
 				strcpy(szFilePath, szLine);
 
+                        #if 0 	// DEL-BY-LEETEN 12/23/2011-BEGIN
 			// remove the newlines
 			static char pbNewLines[] = {'\r', '\n'};
 			int iNrOfNewLines = sizeof(pbNewLines);
@@ -177,10 +192,31 @@ ReadTimeVaryingDataHeader
 					szNewLine = strchr(szFilePath, chNewLine) )
 					*szNewLine = '\0';
 			}
+                        #endif	// DEL-BY-LEETEN 12/23/2011-END
+
 			pszFilePaths[iNrOfLines - 1] = szFilePath;
 		}
 		iNrOfLines++;
+
+		// ADD-BY-LEETEN 12/23/2011-BEGIN
+		// break if all time steps have been specified
+		if( iNrOfLines - 1 == *piNrOfTimeSteps )
+		  break;
+		// ADD-BY-LEETEN 12/23/2011-END
 	}
+	// ADD-BY-LEETEN 12/23/2011-BEGIN
+	switch(*piFileType)
+	  {
+	  case RAW_HEADER:
+	    {
+	    FILE* fp=fopen(pszFilePaths[0],"rb");
+	    assert(fp);
+	    fread(piSize,sizeof(piSize[0]),3,fp);
+	    fclose(fp);
+	    }
+	    break;
+	  }
+	// ADD-BY-LEETEN 12/23/2011-END
 	*ppszFilePaths = pszFilePaths;
 	fclose(fpIn);
 }
