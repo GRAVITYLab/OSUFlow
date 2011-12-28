@@ -50,6 +50,21 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 	target_link_libraries(${SAMPLE_NAME} 
 		OSUFlow
 	) 
+
+      # ADD-BY-LEETEN 12/28/2011-BEGIN
+      if( ${WITH_PNETCDF} )
+	target_link_libraries(${SAMPLE_NAME} 
+	  pnetcdf
+	  ) 
+      endif()
+
+      if( WITH_MPI )
+	target_link_libraries(${SAMPLE_NAME} 
+	  mpich
+	  ) 
+      endif( )
+      # ADD-BY-LEETEN 12/28/2011-END
+
 endforeach(SAMPLE_NAME)
 
 #
