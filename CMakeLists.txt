@@ -123,6 +123,12 @@ add_subdirectory (renderer/libgcb)
 endif() 
 # ADD-BY-LEETEN 12/16/2011-END
 
+# ADD-BY-LEETEN 12/23/2011-BEGIN
+if( ${WITH_EXAMPLES} ) 
+	add_subdirectory (Regular/Serial)
+endif()
+# ADD-BY-LEETEN 12/23/2011-END
+ 
 # ADD-BY-LEETEN 08/17/2011-BEGIN
 if( ${WITH_MPI} ) # MOD-BY-LEETEN 12/16/2011-FROM: if( WITH_MPI )
     if( ${WITH_EXAMPLES} ) # ADD-BY-LEETEN 12/16/2011

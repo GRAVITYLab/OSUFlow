@@ -18,6 +18,12 @@
 #include <GL/gl.h>
 #endif
 
+// ADD-BY-LEETEN 12/20/2011-BEGIN
+#ifdef	WIN32
+#include <windows.h>
+#endif	// #ifdef WIN32
+// ADD-BY-LEETEN 12/20/2011-END
+
 #include "OSUFlow.h"
 
 #include <list>
@@ -156,7 +162,15 @@ void animate_streamlines() {
   glPopMatrix(); 
   frame++; 
   if (first_frame == 1) first_frame = 0; 
-  sleep(.5); 
+	// ADD-BY-LEETEN 12/20/2011-BEGIN
+	#ifdef	WIN32
+	Sleep(500); 
+	#else
+	// ADD-BY-LEETEN 12/20/2011-END
+	sleep(.5); 
+	// ADD-BY-LEETEN 12/20/2011-BEGIN
+	#endif	// #ifdef	WIN32
+	// ADD-BY-LEETEN 12/20/2011-END
 }
 
 ////////////////////////////////////////////// 

@@ -7,6 +7,7 @@
 #include <list>
 #include <iterator>
 
+int	// ADD-BY-LEETEN 12/20/2011
 main(int argc, char**argv) {
 
   VECTOR3 minLen, maxLen; 
@@ -53,4 +54,5 @@ main(int argc, char**argv) {
     }
 
   }
+  return 0;	// ADD-BY-LEETEN 12/20/2011
 }
