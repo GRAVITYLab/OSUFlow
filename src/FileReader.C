@@ -83,16 +83,30 @@ float* ReadStaticDataRaw(char *fname, int* dimension,
 void
 ReadTimeVaryingDataHeader
 (
-	char* szHeaderFilePath,
+	// MOD-BY-LEETEN 12/30/2011-FROM:		char* szHeaderFilePath,
+	// TO:
+	const char* szHeaderFilePath,
+	// MOD-BY-LEETEN 12/30/2011-END
 	int *piNrOfTimeSteps,
 	int piSize[],
 	int *piFileType,
-	char** *ppszFilePaths)
+	// MOD-BY-LEETEN 12/30/2011-FROM:		char** *ppszFilePaths)
+	// TO:
+	char** *ppszFilePaths,
+	const char* szVectorDirPath
+	)
+	// MOD-BY-LEETEN 12/30/2011-END
 {
 	char** pszFilePaths;
 
 	// keep only the path by removing the filename
 	char *szPath;
+	// ADD-BY-LEETEN 12/30/2011-BEGIN
+	if( szVectorDirPath )
+		szPath = strdup(szVectorDirPath);
+	else
+	{
+	// ADD-BY-LEETEN 12/30/2011-END
 	szPath = strdup(szHeaderFilePath);
 
 	char *szSeparator;
@@ -104,7 +118,7 @@ ReadTimeVaryingDataHeader
 	if( NULL == szSeparator )
 		szSeparator = &szPath[0];
 	*szSeparator = '\0';
-
+	}	// ADD-BY-LEETEN 12/31/2011
 	// open the file
 	FILE *fpIn = fopen(szHeaderFilePath, "r");
 	assert(fpIn != NULL);

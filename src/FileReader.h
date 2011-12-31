@@ -50,11 +50,19 @@ void swap4(char *n);
 void
 ReadTimeVaryingDataHeader
 (
-	char* szHeaderFilePath,
+	// MOD-BY-LEETEN 12/30/2011-FROM:		char* szHeaderFilePath,
+	// TO:
+	const char* szHeaderFilePath,
+	// MOD-BY-LEETEN 12/30/2011-END
 	int *piNrOfTimesteps,
 	int piSize[],
 	int *piFileType,
-	char** *ppszFilePaths);
+	// MOD-BY-LEETEN 12/30/2011-FROM:		char** *ppszFilePaths);
+	// TO:
+	char** *ppszFilePaths,
+	const char* szVectorDirPath = NULL
+	);
+	// MOD-BY-LEETEN 12/30/2011-END
 // ADD-BY-LEETEN 12/22/2011-END
 
 #endif
