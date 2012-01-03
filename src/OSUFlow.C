@@ -713,10 +713,23 @@ void OSUFlow::SetSeedPoints(VECTOR3* seeds, int num_seeds)
   }
 }
 
-void OSUFlow::SetIntegrationParams(float initStepSize, float maxStepSize)
+void OSUFlow::SetIntegrationParams(float initStepSize, float minStepSize,
+                                   float maxStepSize)
 {
 	this->initialStepSize = initStepSize;
+	this->minStepSize = minStepSize;
 	this->maxStepSize = maxStepSize;
+}
+
+void OSUFlow::SetIntegrationParams(float initStepSize, float maxStepSize)
+{
+	this->SetIntegrationParams(initStepSize, maxStepSize * 0.0001f,
+	                           maxStepSize);
+}
+
+void OSUFlow::SetMaxError(float maxError)
+{
+	this->maxError = maxError;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -764,6 +777,7 @@ bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces,
 		break;
 	}
 	pStreamLine->SetLowerUpperAngle(3.0, 15.0);
+	pStreamLine->SetMaxError(maxError);
 	pStreamLine->setMaxPoints(maxPoints);
 	pStreamLine->setSeedPoints(seedPtr, nSeeds, currentT);
 	pStreamLine->SetInitStepSize(initialStepSize);
@@ -815,9 +829,11 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 		break;
 	}
 	pStreamLine->SetLowerUpperAngle(3.0, 15.0);
+	pStreamLine->SetMaxError(maxError);
 	pStreamLine->setMaxPoints(maxPoints);
 	pStreamLine->setSeedPoints(seedPtr, nSeeds, currentT, seedIds);
 	pStreamLine->SetInitStepSize(initialStepSize);
+	pStreamLine->SetMinStepSize(minStepSize);
 	pStreamLine->SetMaxStepSize(maxStepSize);
 	pStreamLine->setIntegrationOrder(FOURTH);
 	pStreamLine->execute((void *)&currentT, listSeedTraces, listSeedIds);
@@ -857,6 +873,7 @@ bool OSUFlow::GenPathLines(list<vtListTimeSeedTrace*>& listSeedTraces,
 	pPathLine->SetTimeDir(dir); 
 
 	pPathLine->SetLowerUpperAngle(3.0, 15.0);
+	pPathLine->SetMaxError(maxError);
 	pPathLine->setMaxPoints(maxPoints);
 	pPathLine->setSeedPoints(seedPtr, nSeeds, currentT);
 	pPathLine->SetInitStepSize(initialStepSize);
@@ -894,6 +911,7 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 	pPathLine->SetTimeDir(dir); 
 
 	pPathLine->SetLowerUpperAngle(3.0, 15.0);
+	pPathLine->SetMaxError(maxError);
 	pPathLine->setMaxPoints(maxPoints);
 	pPathLine->setSeedPoints(seedPtr, nSeeds, currentT);
 	pPathLine->SetInitStepSize(initialStepSize);
@@ -943,6 +961,7 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 
 	pPathLine->SetTimeDir(dir); 
 	pPathLine->SetLowerUpperAngle(3.0, 15.0);
+	pPathLine->SetMaxError(maxError);
 	pPathLine->setMaxPoints(maxPoints);
 	pPathLine->setSeedPoints(seedPtr, nSeeds, tarray);
 	pPathLine->SetInitStepSize(initialStepSize);
@@ -994,6 +1013,7 @@ bool OSUFlow::GenPathLines(VECTOR4* seeds,
   pPathLine = new vtCPathLine(flowField);
   pPathLine->SetTimeDir(dir); 
   pPathLine->SetLowerUpperAngle(3.0, 15.0);
+  pPathLine->SetMaxError(maxError);
   pPathLine->setMaxPoints(maxPoints);
   pPathLine->setSeedPoints(seeds, nSeeds, seedIds);
   pPathLine->SetInitStepSize(initialStepSize);
@@ -1031,6 +1051,7 @@ bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir,
   
   pStreakLine->SetTimeDir(dir); 
   pStreakLine->SetLowerUpperAngle(3.0, 15.0);
+  pStreakLine->SetMaxError(maxError);
   pStreakLine->setSeedPoints(seedPtr, nSeeds, currentT);
   pStreakLine->SetInitStepSize(initialStepSize);
   pStreakLine->SetMaxStepSize(maxStepSize);
@@ -1057,6 +1078,7 @@ bool OSUFlow::GenStreakLines(VECTOR3* seeds, vtStreakTraces& streakTraces, TIME_
   
   pStreakLine->SetTimeDir(dir); 
   pStreakLine->SetLowerUpperAngle(3.0, 15.0);
+  pStreakLine->SetMaxError(maxError);
   pStreakLine->setSeedPoints(seedPtr, nSeeds, currentT);
   pStreakLine->SetInitStepSize(initialStepSize);
   pStreakLine->SetMaxStepSize(maxStepSize);

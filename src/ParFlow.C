@@ -305,7 +305,8 @@ void ParFlow::ComputeStreamlines(vector<Particle> seeds, int block_num, int pf,
     }
 	  
     // perform the integration
-    osuflow[block_num]->SetIntegrationParams(1, 5);
+    osuflow[block_num]->SetMaxError(0.0001);
+    osuflow[block_num]->SetIntegrationParams(1, 0.001, 5);
     osuflow[block_num]->GenStreamLines(temp_seeds, FORWARD_DIR, nseeds, pf, 
 				       list3); 
 
@@ -409,7 +410,8 @@ void ParFlow::ComputePathlines(vector<Particle> seeds, int block_num, int pf,
     }
 	  
     // perform the integration
-    osuflow[block_num]->SetIntegrationParams(1, 5); 
+    osuflow[block_num]->SetMaxError(0.0001);
+    osuflow[block_num]->SetIntegrationParams(1, 0.001, 5);
     osuflow[block_num]->GenPathLines(temp_seeds, list, FORWARD, 
 				     nseeds, pf); 
 
@@ -460,7 +462,7 @@ void ParFlow::ComputePathlines(vector<Particle> seeds, int block_num, int pf,
 
   }
 
-  // recirculate seeds to myself if the block is not laoded yet
+  // recirculate seeds to myself if the block is not loaded yet
   if (!loaded) {
 
     for (int i = 0; i < nseeds; i++) {

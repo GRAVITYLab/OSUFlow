@@ -80,7 +80,7 @@ int nspart; // global total number of spatial blocks
 int ntpart; // global total number of temporal blocks
 int nblocks; // my number of blocks
 int tf; // max number of traces per block
-const int pf = 1000; // max number of points per trace in each round
+int pf = 1000; // max number of points per trace in each round
 const int max_rounds = 100; // max number of rounds
 int end_steps; // final number of points each particle should travel
 DataMode data_mode; // data format
@@ -407,6 +407,8 @@ void GetArgs(int argc, char *argv[]) {
     break;
   }
   strncpy(seed_file, argv[8], sizeof(seed_file));
+
+  pf = end_steps;
 
 }
 //-----------------------------------------------------------------------

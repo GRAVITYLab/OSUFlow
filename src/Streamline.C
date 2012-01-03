@@ -116,33 +116,27 @@ void vtCStreamLine::execute(const void* userData,
 }
 
 void vtCStreamLine::computeStreamLine(const void* userData,
-				      list<vtListSeedTrace*>& listSeedTraces,
-							list<int64_t> *listSeedIds)
+                                      list<vtListSeedTrace*>& listSeedTraces,
+                                      list<int64_t> *listSeedIds)
 {
 
 	vtListParticleIter sIter;
 	list<int64_t>::iterator sIdIter;
 
-	#if	0	// MOD-BY-LEETEN 02/07/2011-FROM:
-	for(sIter = m_lSeeds.begin(), sIdIter = m_lSeedIds.begin(); 
-			sIter != m_lSeeds.end(); ++sIter, ++sIdIter)
-	#else	// MOD-BY-LEETEN 02/07/2011-TO:
 	if( !m_lSeedIds.empty() ) 
-			sIdIter = m_lSeedIds.begin();
+		sIdIter = m_lSeedIds.begin();
+
 	for(sIter = m_lSeeds.begin(); sIter != m_lSeeds.end(); ++sIter)
-	#endif	// MOD-BY-LEETEN 02/07/2011-END
 	{
-
 		vtParticleInfo* thisSeed = *sIter;
-
 		if(thisSeed->itsValidFlag == 1)			// valid seed
 		{
-
 			if(m_itsTraceDir & BACKWARD_DIR)
 			{
 				vtListSeedTrace* backTrace;
 				backTrace = new vtListSeedTrace;
-				computeFieldLine(BACKWARD,m_integrationOrder, STEADY, *backTrace, thisSeed->m_pointInfo);
+				computeFieldLine(BACKWARD,m_integrationOrder, STEADY, 
+				                 *backTrace, thisSeed->m_pointInfo);
 				listSeedTraces.push_back(backTrace);
 				if (listSeedIds != NULL)
 					(*listSeedIds).push_back(*sIdIter);
@@ -151,24 +145,23 @@ void vtCStreamLine::computeStreamLine(const void* userData,
 			{
 				vtListSeedTrace* forwardTrace;
 				forwardTrace = new vtListSeedTrace;
-				computeFieldLine(FORWARD,m_integrationOrder, STEADY, *forwardTrace, thisSeed->m_pointInfo);
+				computeFieldLine(FORWARD, m_integrationOrder, STEADY,
+								 *forwardTrace, thisSeed->m_pointInfo);
 				listSeedTraces.push_back(forwardTrace);
 				if (listSeedIds != NULL)
 					(*listSeedIds).push_back(*sIdIter);
 			}
 		}
-		// ADD-BY-LEETEN 02/07/2011-BEGIN
 		if( !m_lSeedIds.empty() ) 
 			sIdIter++;
-		// ADD-BY-LEETEN 02/07/2011-END
 	}
 }
 
-int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
-									 INTEG_ORD integ_ord,
-									 TIME_DEP time_dep, 
-									 vtListSeedTrace& seedTrace,
-									 PointInfo& seedInfo)
+int vtCStreamLine::computeFieldLine(TIME_DIR time_dir,
+                                    INTEG_ORD integ_ord,
+                                    TIME_DEP time_dep, 
+                                    vtListSeedTrace& seedTrace,
+                                    PointInfo& seedInfo)
 {
 	int count = 0, istat;
 	PointInfo thisParticle, prevParticle, second_prevParticle;
@@ -176,12 +169,15 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 	VECTOR3 vel;
 	float cell_volume;
 
-	// the first particle
-	istat = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, m_fCurrentTime, vel);
+	// the first point
+	istat = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, 
+	                          m_fCurrentTime, vel);
 	if(istat == OUT_OF_BOUND)  {
 		return OUT_OF_BOUND;
 	}
-	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff)) {
+	if((fabs(vel[0]) < m_fStationaryCutoff) && 
+	   (fabs(vel[1]) < m_fStationaryCutoff) && 
+	   (fabs(vel[2]) < m_fStationaryCutoff)) {
 		return CRITICAL_POINT;
 	}
 
@@ -192,7 +188,8 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 	count++;
 
 	// get the initial stepsize
-	// this is a bug I think ...
+	// this method was taken from the paper "Interactive Time-Dependent
+	// Particle Tracing Using Tetrahedral Decomposition", by Kenwright and Lane
 	cell_volume = m_pField->volume_of_cell(seedInfo.inCell);
 	mag = vel.GetMag();
 	if(fabs(mag) < 1.0e-6f)
@@ -203,7 +200,8 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 
 #ifdef DEBUG
 	fprintf(fDebugOut, "****************new particle*****************\n");
-	fprintf(fDebugOut, "seed: %f, %f, %f with step size %f\n", seedInfo.phyCoord[0], seedInfo.phyCoord[1], seedInfo.phyCoord[2], dt);
+	fprintf(fDebugOut, "seed: %f, %f, %f with step size %f\n", 
+	        seedInfo.phyCoord[0],seedInfo.phyCoord[1],seedInfo.phyCoord[2],dt);
 #endif
 
 	// start to advect
@@ -212,49 +210,49 @@ int vtCStreamLine::computeFieldLine( TIME_DIR time_dir,
 		second_prevParticle = prevParticle;
 		prevParticle = thisParticle;
 
-		if(integ_ord == SECOND)
-			istat = runge_kutta2(time_dir, time_dep, thisParticle, &curTime, dt);
-		else
-			istat = runge_kutta4(time_dir, time_dep, thisParticle, &curTime, dt);
+		// take a proper step, also calculates a new step size for the next step
+		if(integ_ord == SECOND || integ_ord == FOURTH)
+			istat = oneStepGeometric(integ_ord, time_dir, time_dep,
+			                         thisParticle, prevParticle, 
+			                         second_prevParticle, &curTime, &dt, count);
+		else if(integ_ord == RK45)
+			istat = oneStepEmbedded(integ_ord, time_dir, time_dep,
+			                        thisParticle, &curTime, &dt);
 
-		if(istat == OUT_OF_BOUND)			// out of boundary
-		  {
-		    seedTrace.push_back(new VECTOR3(thisParticle.phyCoord));
-			return OUT_OF_BOUND;
-		  }
-		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, m_fCurrentTime, vel);
-		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
-		  {
-			return CRITICAL_POINT;
-		  }
-		else
+#ifdef DEBUG
+		fprintf(fDebugOut, "point: %f, %f, %f with step size %f\n", 
+		        thisParticle.phyCoord[0], thisParticle.phyCoord[1], 
+		        thisParticle.phyCoord[2], dt);
+#endif
+
+		seedTrace.push_back(new VECTOR3(thisParticle.phyCoord));
+		count++;
+
+		if(istat == OUT_OF_BOUND)
 		{
-		  //#ifdef DEBUG
-		  //			fprintf(fDebugOut, "point: %f, %f, %f with step size %f\n", thisParticle.phyCoord[0], thisParticle.phyCoord[1], thisParticle.phyCoord[2], dt);
-		  //		  printf("point: %f, %f, %f with step size %f\n", thisParticle.phyCoord[0], thisParticle.phyCoord[1], thisParticle.phyCoord[2], dt);
-			//#endif
-			seedTrace.push_back(new VECTOR3(thisParticle.phyCoord));
-			count++;
+			return OUT_OF_BOUND;
 		}
 
-		if(count > 2)
+		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, 
+		                  thisParticle, m_fCurrentTime, vel);
+		if((fabs(vel[0]) < m_fStationaryCutoff) && 
+		   (fabs(vel[1]) < m_fStationaryCutoff) && 
+		   (fabs(vel[2]) < m_fStationaryCutoff))
 		{
-			float tempt;
-			tempt = dt;
-			adapt_step(second_prevParticle.phyCoord, prevParticle.phyCoord, thisParticle.phyCoord, dt_estimate, &dt);
+			return CRITICAL_POINT;
 		}
 	}
 
 	return OKAY;
 }
 
-// streamline advects as far as possible till the boundary or terminates at critical points
-// only two cases will happen: OUT_OF_BOUNDARY & CRITICAL_POINT
+// streamline advects as far as possible till the boundary or terminates at
+// critical points. only two cases will happen: OUT_OF_BOUND & CRITICAL_POINT
 int vtCStreamLine::executeInfiniteAdvection(TIME_DIR time_dir,
-											TIME_DEP time_dep,
-											vtListSeedTrace& seedTrace,
-											float& totalStepsize,
-											vector<float>* vStepsize)
+                                            TIME_DEP time_dep,
+                                            vtListSeedTrace& seedTrace,
+                                            float& totalStepsize,
+                                            vector<float>* vStepsize)
 {
 	int istat;
 	vtParticleInfo* thisSeed;
@@ -272,10 +270,13 @@ int vtCStreamLine::executeInfiniteAdvection(TIME_DIR time_dir,
 	seedTrace.clear();
 	totalStepsize = 0.0;
 
-	// the first particle
+	// the first point
 	seedTrace.push_back(new VECTOR3(seedInfo.phyCoord));
-	istat = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, m_fCurrentTime, vel);
-	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+	istat = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, 
+	                          m_fCurrentTime, vel);
+	if((fabs(vel[0]) < m_fStationaryCutoff) && 
+	   (fabs(vel[1]) < m_fStationaryCutoff) && 
+	   (fabs(vel[2]) < m_fStationaryCutoff))
 		return CRITICAL_POINT;
 
 	thisParticle = seedInfo;
@@ -284,12 +285,16 @@ int vtCStreamLine::executeInfiniteAdvection(TIME_DIR time_dir,
 	// get the initial stepsize
 	cell_volume = m_pField->volume_of_cell(seedInfo.inCell);
 	mag = vel.GetMag();
-	dt_estimate = pow(cell_volume, (float)0.3333333f) / mag;
+	if(fabs(mag) < 1.0e-6f)
+		dt_estimate = 1.0e-5f;
+	else
+		dt_estimate = pow(cell_volume, (float)0.3333333f) / mag;
 	dt = m_fInitStepSize * dt_estimate;
 
 #ifdef DEBUG
 	fprintf(fDebugOut, "****************new particle*****************\n");
-	fprintf(fDebugOut, "seed: %f, %f, %f with step size %f\n", seedInfo.phyCoord[0], seedInfo.phyCoord[1], seedInfo.phyCoord[2], dt);
+	fprintf(fDebugOut, "seed: %f, %f, %f with step size %f\n", 
+	        seedInfo.phyCoord[0],seedInfo.phyCoord[1],seedInfo.phyCoord[2],dt);
 #endif
 
 	// start to advect
@@ -298,10 +303,18 @@ int vtCStreamLine::executeInfiniteAdvection(TIME_DIR time_dir,
 		second_prevParticle = prevParticle;
 		prevParticle = thisParticle;
 
-		if(integ_ord == SECOND)
-			istat = runge_kutta2(time_dir, time_dep, thisParticle, &curTime, dt);
+		// take a proper step, also calculates a new step size for the next step
+		if(integ_ord == SECOND || integ_ord == FOURTH)
+			istat = oneStepGeometric(integ_ord, time_dir, time_dep,
+			                         thisParticle, prevParticle, 
+			                         second_prevParticle, &curTime, &dt, 
+			                         seedTrace.size());
+		else if(integ_ord == RK45)
+			istat = oneStepEmbedded(integ_ord, time_dir, time_dep,
+			                        thisParticle, &curTime, &dt);
 		else
-			istat = runge_kutta4(time_dir, time_dep, thisParticle, &curTime, dt);
+			return OUT_OF_BOUND;
+
 
 		if(istat == OUT_OF_BOUND)			// out of boundary
 		{
@@ -311,7 +324,8 @@ int vtCStreamLine::executeInfiniteAdvection(TIME_DIR time_dir,
 			oldStepsize = stepSize = dt;
 			startP = prevParticle.phyCoord;
 			endP = thisParticle.phyCoord;
-			m_pField->BoundaryIntersection(intersectP, startP, endP, &stepSize, oldStepsize);
+			m_pField->BoundaryIntersection(intersectP, startP, endP, &stepSize,
+			                               oldStepsize);
 			totalStepsize += stepSize;
 			seedTrace.push_back(new VECTOR3(intersectP));
 			if(vStepsize != NULL)
@@ -329,14 +343,15 @@ int vtCStreamLine::executeInfiniteAdvection(TIME_DIR time_dir,
 				return CRITICAL_POINT;
 		}
 
-		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, m_fCurrentTime, vel);
+		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, 
+		                  thisParticle, m_fCurrentTime, vel);
 		seedTrace.push_back(new VECTOR3(thisParticle.phyCoord));
 		if(vStepsize != NULL)
 			vStepsize->push_back(dt);
 		totalStepsize += dt;
 
 #ifdef DEBUG
-		fprintf(fDebugOut, "****************advected particle*****************\n");
+		fprintf(fDebugOut, "***************advected particle***************\n");
 		fprintf(fDebugOut, "pos = (%f, %f, %f), vel = (%f, %f, %f) with step size %f, total step size %f\n", thisParticle.phyCoord[0], thisParticle.phyCoord[1], thisParticle.phyCoord[2], vel[0], vel[1], vel[2], dt, totalStepsize);
 #endif
 
@@ -346,20 +361,23 @@ int vtCStreamLine::executeInfiniteAdvection(TIME_DIR time_dir,
 			vel.Set(0.0, 0.0, 0.0);
 		}
 
-		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+		if((fabs(vel[0]) < m_fStationaryCutoff) && 
+		   (fabs(vel[1]) < m_fStationaryCutoff) && 
+		   (fabs(vel[2]) < m_fStationaryCutoff))
 			return CRITICAL_POINT;
 		if((int)seedTrace.size() > 2)
-			adapt_step(second_prevParticle.phyCoord, prevParticle.phyCoord, thisParticle.phyCoord, dt_estimate, &dt);
+			adapt_step(second_prevParticle.phyCoord, prevParticle.phyCoord, 
+			           thisParticle.phyCoord, &dt);
 	}
 
 	return OUT_OF_BOUND;
 }
 
 int vtCStreamLine::AdvectOneStep(TIME_DIR time_dir,
-								 INTEG_ORD integ_ord,
-								 TIME_DEP time_dep,
-								 PointInfo& seedInfo,
-								 VECTOR3& finalP)
+                                 INTEG_ORD integ_ord,
+                                 TIME_DEP time_dep,
+                                 PointInfo& seedInfo,
+                                 VECTOR3& finalP)
 {
 	int istat;
 	PointInfo thisParticle;
@@ -369,24 +387,38 @@ int vtCStreamLine::AdvectOneStep(TIME_DIR time_dir,
 
 	finalP.Set(-1, -1, -1);
 	thisParticle = seedInfo;
-	
-	// the first particle
-	istat = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, m_fCurrentTime, vel);
+
+	// the first point
+	istat = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, 
+	                          seedInfo, m_fCurrentTime, vel);
 	if(istat == OUT_OF_BOUND)
 		return OUT_OF_BOUND;
-	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+	if((fabs(vel[0]) < m_fStationaryCutoff) && 
+	   (fabs(vel[1]) < m_fStationaryCutoff) && 
+	   (fabs(vel[2]) < m_fStationaryCutoff))
 		return CRITICAL_POINT;
+
+	float error;
 	if(integ_ord == SECOND)
 		istat = runge_kutta2(time_dir, time_dep, thisParticle, &curTime, dt);
-	else
+	else if(integ_ord == FOURTH)
 		istat = runge_kutta4(time_dir, time_dep, thisParticle, &curTime, dt);
+	else if(integ_ord == RK45)
+		istat = runge_kutta45(time_dir, time_dep, thisParticle, &curTime, dt, 
+		                      &error);
+	else 
+		return OUT_OF_BOUND;
 
 	if(istat == OUT_OF_BOUND)			// out of boundary
 			return OUT_OF_BOUND;
-	m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, m_fCurrentTime, vel);
-	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+	m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, 
+	                  thisParticle, m_fCurrentTime, vel);
+	if((fabs(vel[0]) < m_fStationaryCutoff) && 
+	   (fabs(vel[1]) < m_fStationaryCutoff) && 
+	   (fabs(vel[2]) < m_fStationaryCutoff))
 		return CRITICAL_POINT;
 	else
 		finalP = thisParticle.phyCoord;
+
 	return OKAY;
 }

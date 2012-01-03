@@ -24,11 +24,11 @@
 const float STREAM_ACCURACY = EPS;
 #define INFINITE_LINE -1				// advect fieldlines as far as possible
 
-enum INTEG_ORD{ SECOND = 2, FOURTH = 4};		// integration order
+enum INTEG_ORD{ SECOND, FOURTH, RK45};		// integration order
 enum TIME_DIR{ BACKWARD = -1, FORWARD = 1};		// advection direction
 enum TIME_DEP{ STEADY=0,UNSTEADY=1 };	
-enum TRACE_DIR{OFF=0, BACKWARD_DIR=1, FORWARD_DIR=2, BACKWARD_AND_FORWARD=3};
-enum ADVECT_STATUS{NONE = -2, OUT_OF_BOUND = -1, CRITICAL_POINT = 0, OKAY = 1};
+enum TRACE_DIR{ OFF=0, BACKWARD_DIR=1, FORWARD_DIR=2, BACKWARD_AND_FORWARD=3};
+enum ADVECT_STATUS{ NONE = -2, OUT_OF_BOUND = -1, CRITICAL_POINT = 0, OKAY = 1};
 
 //////////////////////////////////////////////////////////////////////////
 // information about particles
@@ -90,8 +90,10 @@ protected:
 	float m_fStepTime;
 	float m_fInitStepSize;	 // initial advection step size of particle
 	float m_fDurationTime;
+	float m_fMaxError;	// for adaptive stepsize and embedded integrations
 	float m_fLowerAngleAccuracy;	// for adaptive stepsize 
 	float m_fUpperAngleAccuracy;
+	float m_fMinStepSize;	        // minimal advection stepsize
 	float m_fMaxStepSize;	        // maximal advection stepsize
 	int m_nMaxsize;		// maximal number of particles this line advects
 	vtListParticle m_lSeeds;	// list of seeds
@@ -110,19 +112,40 @@ public:
 	void setIntegrationOrder(INTEG_ORD ord) { m_integrationOrder = ord; }
 	int  getMaxPoints(void){ return m_nMaxsize; }
 	INTEG_ORD getIntegrationOrder(void){ return m_integrationOrder; }
+	void SetMinStepSize(float stepsize) {m_fMinStepSize = stepsize;}
 	void SetMaxStepSize(float stepsize) {m_fMaxStepSize = stepsize;}
+	float GetMinStepSize(void) {return m_fMinStepSize;}
 	float GetMaxStepSize(void) {return m_fMaxStepSize;}
 	void SetInitStepSize(float initStep) { m_fInitStepSize = initStep; }
 	float GetInitStepSize(void) { return m_fInitStepSize; }
+	void SetMaxError(float maxError) { m_fMaxError = maxError; }
+	float GetMaxError(void) { return m_fMaxError; }
 	void SetLowerUpperAngle(float lowerAngle, float upperAngle) {m_fLowerAngleAccuracy = lowerAngle; m_fUpperAngleAccuracy = upperAngle;}
 	void SetStationaryCutoff(float cutoff) {m_fStationaryCutoff = cutoff;}
+
+	int oneStepGeometric(INTEG_ORD integ_ord, TIME_DIR time_dir, 
+	                     TIME_DEP time_dep, PointInfo& thisParticle, 
+	                     PointInfo prevParticle, PointInfo second_prevParticle,
+	                     float* curTime, float* dt, int count);
+	int oneStepEmbedded(INTEG_ORD integ_ord, TIME_DIR time_dir, 
+	                    TIME_DEP time_dep, PointInfo& thisParticle, 
+	                    float* curTime, float* dt);
 
 protected:
 	void releaseSeedMemory(void);
 	int euler_cauchy(TIME_DIR, TIME_DEP,float*, float);
 	int runge_kutta4(TIME_DIR, TIME_DEP, PointInfo&, float*, float);
+
+	// embedded runge-kutta of order 4 and 5 with error estimation
+	int runge_kutta45(TIME_DIR time_dir,
+	                  TIME_DEP time_dep, 
+	                  PointInfo& ci,
+	                  float* t,
+	                  float dt,
+	                  float* error);
+
 	int runge_kutta2(TIME_DIR, TIME_DEP, PointInfo&, float*, float);
-	int adapt_step(const VECTOR3& p2, const VECTOR3& p1, const VECTOR3& p0, float dt_estimate,float* dt);
+	int adapt_step(const VECTOR3& p2, const VECTOR3& p1, const VECTOR3& p0, float* dt);
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -289,7 +312,8 @@ public:
 
 protected:
 	void computeStreamLine(const void* userData, list<vtListSeedTrace*>& listSeedTraces, list<int64_t> *listSeedIds = NULL);
-	int computeFieldLine(TIME_DIR, INTEG_ORD, TIME_DEP, vtListSeedTrace&, PointInfo&);
+	int computeFieldLine(TIME_DIR, INTEG_ORD, TIME_DEP, vtListSeedTrace&, 
+	                     PointInfo&);
 
 	TRACE_DIR m_itsTraceDir;
 	float m_fPsuedoTime;

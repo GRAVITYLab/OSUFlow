@@ -86,12 +86,17 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 
 	while(curTime < finalTime)
 	{
+		float error;
 		if(int_order == SECOND)
 			istat = runge_kutta2(m_timeDir, UNSTEADY, pt, &curTime, dt);
-		else
+		else if(int_order == FOURTH)
 			istat = runge_kutta4(m_timeDir, UNSTEADY, pt, &curTime, dt);
+		else if(int_order == RK45)
+			istat = runge_kutta45(m_timeDir, UNSTEADY, pt, &curTime,dt,&error);
+		else
+			return OUT_OF_BOUND;
 
-		if(istat != 1)
+		if(istat != OKAY)
 			return istat;
 	}
 
@@ -104,12 +109,11 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 // return back the track of advection
 //////////////////////////////////////////////////////////////////////////
 int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order, 
-					    vtParticleInfo& initialPoint,
-					    float initialTime,
-					    float finalTime,
-					    vtListSeedTrace& seedTrace)
+                                            vtParticleInfo& initialPoint,
+                                            float initialTime,
+                                            float finalTime,
+                                            vtListSeedTrace& seedTrace)
 {  
-  printf(" hello!\n"); 
 	int count = 0, istat, res;
 	PointInfo seedInfo;
 	PointInfo thisParticle, prevParticle, second_prevParticle;
@@ -118,11 +122,14 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 
 	// the first particle
 	seedInfo = initialPoint.m_pointInfo;
-	res = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, initialTime, vel);
+	res = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, 
+	                        initialTime, vel);
 	if(res == OUT_OF_BOUND){
 		return OUT_OF_BOUND;
 	}
-	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff)) {
+	if((fabs(vel[0]) < m_fStationaryCutoff) && 
+	   (fabs(vel[1]) < m_fStationaryCutoff) && 
+	   (fabs(vel[2]) < m_fStationaryCutoff)) {
 	  return CRITICAL_POINT;
 	}
 
@@ -158,37 +165,37 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 		second_prevParticle = prevParticle;
 		prevParticle = thisParticle;
 
-		if(int_order == SECOND)
-			istat = runge_kutta2(m_timeDir, UNSTEADY, thisParticle, &curTime, dt);
+		if(int_order == SECOND || int_order == FOURTH)
+			istat = oneStepGeometric(int_order, m_timeDir, UNSTEADY,
+			                         thisParticle, prevParticle, 
+			                         second_prevParticle, &curTime, &dt, count);
+		else if(int_order == RK45)
+			istat = oneStepEmbedded(int_order, m_timeDir, UNSTEADY,
+			                        thisParticle, &curTime, &dt);
 		else
-			istat = runge_kutta4(m_timeDir, UNSTEADY, thisParticle, &curTime, dt);
+			return OUT_OF_BOUND;
 
 		if(istat == OUT_OF_BOUND)  {			// out of boundary
-		  printf(" foul!  "); 
 			return OUT_OF_BOUND;
 		}
 
-		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, curTime, vel);
-		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff)) {
-		  printf("trap!! "); 
+		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, 
+		                  thisParticle, curTime, vel);
+		if((fabs(vel[0]) < m_fStationaryCutoff) && 
+		   (fabs(vel[1]) < m_fStationaryCutoff) && 
+		   (fabs(vel[2]) < m_fStationaryCutoff)) {
 			return CRITICAL_POINT;			// arrives at a critical point
 		}
-			
 		else
 		{
 			seedTrace.push_back(new VECTOR3(thisParticle.phyCoord));
 			count++;
-			printf(" count %d  ", count); 
 		}
 
-		if((curTime < m_pField->GetMinTimeStep()) || (curTime > (float)(m_pField->GetMaxTimeStep()))) {
-		  printf("out!  "); 
-			return -1;
+		if((curTime < m_pField->GetMinTimeStep()) || 
+		   (curTime > m_pField->GetMaxTimeStep())) {
+			return OUT_OF_BOUND;
 		}
-
-		//---> temporary turn off function of adaptive stepsize
-		//if(count > 2)
-		//	adapt_step(second_prevParticle.phyCoord, prevParticle.phyCoord, thisParticle.phyCoord, dt_estimate, &dt);
 	}
 
 	return OKAY;
@@ -256,52 +263,39 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 		second_prevParticle = prevParticle;
 		prevParticle = thisParticle;
 
-		if(int_order == SECOND)
-			istat = runge_kutta2(m_timeDir, UNSTEADY, thisParticle, &curTime, dt);
-		else
-			istat = runge_kutta4(m_timeDir, UNSTEADY, thisParticle, &curTime, dt);
+		if(int_order == SECOND || int_order == FOURTH)
+			istat = oneStepGeometric(int_order, m_timeDir, UNSTEADY,
+									 thisParticle, prevParticle,
+			                         second_prevParticle, &curTime, &dt, count);
+		else if(int_order == RK45)
+			istat = oneStepEmbedded(int_order, m_timeDir, UNSTEADY,
+			                        thisParticle, &curTime, &dt);
 		
-		{
-		  VECTOR4 *p = new VECTOR4; 
-		  (*p)[0] = thisParticle.phyCoord[0]; 
-		  (*p)[1] = thisParticle.phyCoord[1]; 
-		  (*p)[2] = thisParticle.phyCoord[2]; 
-		  (*p)[3] = curTime; 
-		  seedTrace.push_back(p); 
-		  count++;
-		}
-		
+		VECTOR4 *p = new VECTOR4; 
+		(*p)[0] = thisParticle.phyCoord[0]; 
+		(*p)[1] = thisParticle.phyCoord[1]; 
+		(*p)[2] = thisParticle.phyCoord[2]; 
+		(*p)[3] = curTime; 
+		seedTrace.push_back(p); 
+		count++;
 
 		if(istat == OUT_OF_BOUND)			// out of boundary
 			return OUT_OF_BOUND;
 
-		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, thisParticle, curTime, vel);
-		if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff))
+		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, 
+		                  thisParticle, curTime, vel);
+		if((fabs(vel[0]) < m_fStationaryCutoff) && 
+		   (fabs(vel[1]) < m_fStationaryCutoff) && 
+		   (fabs(vel[2]) < m_fStationaryCutoff))
 			return CRITICAL_POINT;			// arrives at a critical point
-		/*
-		else
+
+		if((curTime < m_pField->GetMinTimeStep()) || 
+		   (curTime > m_pField->GetMaxTimeStep()))
 		{
-		  VECTOR4 *p = new VECTOR4; 
-		  (*p)[0] = thisParticle.phyCoord[0]; 
-		  (*p)[1] = thisParticle.phyCoord[1]; 
-		  (*p)[2] = thisParticle.phyCoord[2]; 
-		  (*p)[3] = curTime; 
-		  seedTrace.push_back(p); 
-		  count++;
+			printf("**** time out  "); 
+			return OUT_OF_BOUND;
 		}
-		*/
-
-		if((curTime < m_pField->GetMinTimeStep()) || (curTime > (float)(m_pField->GetMaxTimeStep()))) {
-		  printf("**** time out  "); 
-			return -1;
-		}
-
-		//---> temporary turn off function of adaptive stepsize
-		//if(count > 2)
-		//	adapt_step(second_prevParticle.phyCoord, prevParticle.phyCoord, thisParticle.phyCoord, dt_estimate, &dt);
 	}
 
 	return OKAY;
 }
-
-

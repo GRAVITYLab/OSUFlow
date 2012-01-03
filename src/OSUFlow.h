@@ -97,6 +97,9 @@ class OSUFlow
   void SetRegularSeedPoints(const float min[3], const float max[3], const size_t numSeeds[3]);
   void SetSeedPoints(VECTOR3* seeds, int num_seeds);
   void SetIntegrationParams(float initStepSize, float maxStepSize);
+  void SetIntegrationParams(float initStepSize, float minStepSize,
+                            float maxStepSize);
+  void SetMaxError(float maxError);
 
   void NormalizeField(bool bLocal) {flowField->NormalizeField(bLocal);}
   void ScaleField(float scaleF) {flowField->ScaleField(scaleF); }
@@ -126,7 +129,6 @@ class OSUFlow
 
   void InitStaticFlowField(void);
   void InitStaticFlowField(VECTOR3 minb, VECTOR3 maxB); 
-  void CreateStaticFlowField(float*, VECTOR3 minb, VECTOR3 maxB); 
 
   void InitTimeVaryingFlowField(void); 
   void InitTimeVaryingFlowField(int min_t, int max_t);
@@ -157,6 +159,8 @@ class OSUFlow
   int num_dataset_files; // number of timestep files
   float initialStepSize; // for integration
   float maxStepSize;
+  float minStepSize;
+  float maxError;   // max amount of error allowed
   VECTOR3 gMin, gMax; // global min/max range 
   VECTOR3 lMin, lMax; // local min/max range
   int MinT, MaxT; //local time range 
