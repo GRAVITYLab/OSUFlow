@@ -13,6 +13,11 @@
 //
 //--------------------------------------------------------------------------
 
+// ADD-BY-LEETEN 01/06/2012-BEGIN
+#include <vector>
+using namespace std;
+// ADD-BY-LEETEN 01/06/2012-END
+
 #include <stdio.h>
 #include <stdlib.h> 
 #include <assert.h>
@@ -30,6 +35,7 @@
 #endif
 
 #include "Draw.h"
+#include "leeten_Draw.h"	// ADD-BY-LEETEN 01/06/2012
 
 // whether or not we have opposite endianness in the file
 int byte_swap;

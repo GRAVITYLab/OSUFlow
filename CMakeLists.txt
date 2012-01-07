@@ -113,6 +113,8 @@ set(WITH_GRAPHICS TRUE CACHE BOOL "Specify whether Graphics-related libraries sh
 if( ${WITH_GRAPHICS} )
 # ADD-BY-LEETEN 12/16/2011-END
 
+add_definitions(-DGRAPHICS)	# ADD-BY-LEETEN 01/06/2012-BEGIN
+
 add_subdirectory (renderer)
 add_subdirectory (renderer/libgcb)
 		 if( ${WITH_EXAMPLES} ) # ADD-BY-LEETEN 12/16/2011

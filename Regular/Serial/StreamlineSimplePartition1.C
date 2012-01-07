@@ -17,13 +17,19 @@
 
 #define MAX_ITERATIONS 10
 
+int	// ADD-BY-LEETEN 01/06/2012
 main(int argc, void *argv[]) {
 
 
   int nproc = 32;   // number of subdomains we will create 
   OSUFlow **osuflow_list = new OSUFlow*[nproc];  
-  VECTOR3 *osuflow_seeds[nproc]; 
-  int osuflow_num_seeds[nproc]; 
+	#if	0	// MOD-BY-LEETEN 01/06/2012-FROM:
+	  VECTOR3 *osuflow_seeds[nproc]; 
+	  int osuflow_num_seeds[nproc]; 
+	#else	// MOD-BY-LEETEN 01/06/2012-TO:
+  VECTOR3* *osuflow_seeds = new VECTOR3*[nproc]; 
+  int *osuflow_num_seeds = new int[nproc]; 
+	#endif	// MOD-BY-LEETEN 01/06/2012-END
   VECTOR3 minLen, maxLen; 
   volume_bounds_type *vb_list; 
   int num_seeds_left=0; 
@@ -166,5 +172,10 @@ main(int argc, void *argv[]) {
       printf(" *** Iteration %d done. \n", counter); 
     }
 
+	// ADD-BY-LEETEN 01/06/2012-BEGIN
+  delete [] osuflow_seeds; 
+  delete [] osuflow_num_seeds; 
+	// ADD-BY-LEETEN 01/06/2012-END
 
+	return 0;	// ADD-BY-LEETEN 01/06/2012
 }

@@ -26,6 +26,10 @@ include_directories(
 file(GLOB HEADER_FILES "*.h" )
 
 list(APPEND SRC_FILES
+	# ADD-BY-LEETEN 01/06/2012-BEGIN
+	Draw.C			
+	leeten_Draw.C
+	# ADD-BY-LEETEN 01/06/2012-END
 	Renderer.cpp
 	LineAnimatorInOpenGL.cpp       
 	LineRenderer.cpp

@@ -8,20 +8,40 @@ find_package(GLUT)
 # specify the path to the headers
 include_directories(
 		. 
+		# ADD-BY-LEETEN 01/06/2012-BEGIN
+		${RENDERER_DIR}
+		${GCB_DIR}
+		# ADD-BY-LEETEN 01/06/2012-END
 )
 
 # specify the path to the libraries
 link_directories(
+		# ADD-BY-LEETEN 01/06/2012-BEGIN
+		${RENDERER_DIR}
+		${GCB_DIR}
+		# ADD-BY-LEETEN 01/06/2012-END
 )
 
 list(APPEND SRC_FILES
 	StreamlineSimple 
 	StreamlineSimplePartition 
+	# ADD-BY-LEETEN 01/06/2012-BEGIN
+	# Incompatible w/ Lattice4D: StreamlineSimplePartition1
+	# Incompatible w/ Lattice4D: StreamlineSimplePartition2
+	# ADD-BY-LEETEN 01/06/2012-END
 	)
 
 if( ${WITH_GRAPHICS} )
 list(APPEND SRC_FILES
 	glStreamlineSimple 
+	# ADD-BY-LEETEN 01/06/2012-BEGIN
+	FileDraw
+	SerDraw
+	glPathlineSimple
+	# Incompatible w/ Lattice4D: glPathlinePartition1
+	# Incompatible w/ Lattice4D: glPathlinePartition2
+	# Incompatible w/ Lattice4D: glPathlinePartitionSimple
+	# ADD-BY-LEETEN 01/06/2012-END
 	)
 endif()
 
@@ -46,6 +66,12 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 				glut
 			)
 		endif()
+		# ADD-BY-LEETEN 01/06/2012-BEGIN
+		target_link_libraries(${SAMPLE_NAME} 
+			gcb
+			renderer
+		)
+		# ADD-BY-LEETEN 01/06/2012-END
 	endif()
 	target_link_libraries(${SAMPLE_NAME} 
 		OSUFlow
