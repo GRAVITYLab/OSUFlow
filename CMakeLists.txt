@@ -62,7 +62,12 @@ link_directories(
 )
 
 if( WITH_MPI )
-	find_package(MPI REQUIRED)
+   find_package(MPI REQUIRED) 
+   # ADD-BY-LEETEN 01/07/2011-BEGIN
+	set(CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS})
+	set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS})
+	include_directories(MPI_INCLUDE_PATH)
+	# ADD-BY-LEETEN 01/07/2011-END
 	
 	set(DIY_INC "${DIY_DIR}/include")
 	set(DIY_LIB "${DIY_DIR}/lib")

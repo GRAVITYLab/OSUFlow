@@ -68,8 +68,9 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 		endif()
 		# ADD-BY-LEETEN 01/06/2012-BEGIN
 		target_link_libraries(${SAMPLE_NAME} 
+		  renderer # ADD-BY-LEETEN 01/07/2011
 			gcb
-			renderer
+			# DEL-BY-LEETEN 01/07/2011: renderer
 		)
 		# ADD-BY-LEETEN 01/06/2012-END
 	endif()
@@ -87,6 +88,7 @@ foreach(SAMPLE_NAME ${SRC_FILES}
       if( WITH_MPI )
 	target_link_libraries(${SAMPLE_NAME} 
 	  mpich
+	  diy # ADD-BY-LEETEN 01/07/2011
 	  ) 
       endif( )
       # ADD-BY-LEETEN 12/28/2011-END

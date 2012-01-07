@@ -6,21 +6,23 @@ project (OSUFlow)
 
 # DEL-BY-LEETEN 08/17/2011	set(MPI FALSE CACHE BOOL "Specify whether MPI is used")
 
-# MOD-BY-LEETEN 08/17/2011-FROM:
-	# if( MPI )
-# TO:
-if( WITH_MPI )
-# MOD-BY-LEETEN 08/17/2011-END
-	# find the mpi package
-	# DEL-BY-LEETEN 08/17/2011		find_package(MPI REQUIRED)
-	set(CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS})
-	set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS})
-	# DEL-BY-LEETEN 08/17/2011		include_directories(MPI_INCLUDE_PATH)
+# DEL-BY-LEETEN 01/07/2012-BEGIN
+# # MOD-BY-LEETEN 08/17/2011-FROM:
+# 	# if( MPI )
+# # TO:
+# if( WITH_MPI )
+# # MOD-BY-LEETEN 08/17/2011-END
+# 	# find the mpi package
+# 	# DEL-BY-LEETEN 08/17/2011		find_package(MPI REQUIRED)
+# 	set(CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS})
+# 	set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS})
+# 	# DEL-BY-LEETEN 08/17/2011		include_directories(MPI_INCLUDE_PATH)
 
-	# use mpicxx to replace 
-	SET(CMAKE_C_COMPILER mpicc)
-	SET(CMAKE_CXX_COMPILER mpicxx)
-endif( )
+# 	# use mpicxx to replace 
+# 	SET(CMAKE_C_COMPILER mpicc)
+# 	SET(CMAKE_CXX_COMPILER mpicxx)
+# endif( )
+# DEL-BY-LEETEN 01/07/2012-BEGIN
 
 # DEL-BY-LEETEN 08/17/2011-BEGIN
 	# # specify the path to the headers
