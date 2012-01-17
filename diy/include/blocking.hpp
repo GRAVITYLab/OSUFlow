@@ -29,13 +29,21 @@ class Blocking {
  public:
 
   Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
-	   int ghost, int ghost_dir, int64_t *given, Assignment *assignment, 
+	   int ghost, int ghost_dir, int64_t *given, Assignment *assignment,
 	   MPI_Comm comm);
+  Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
+	   int ghost, int* ghost_dir, int* ghost_dim, int64_t *given, 
+	   Assignment *assignment, MPI_Comm comm);
   ~Blocking();
 
-  void ComputeBlocking(bool share_face, int ghost, int ghost_dir, 
-		       int64_t *given);
+  void Init(int dim, int tot_b, int64_t *data_size, bool share_face,
+	    int ghost, int* ghost_dir, int* ghost_dim, int64_t *given,
+	    Assignment *assignment, MPI_Comm comm);
+  void ComputeBlocking(bool share_face, int ghost, int* ghost_dir, 
+		       int* ghost_dim, int64_t *given);
   int64_t *GetBlockSizes() { return block_size; }
+  void GetBlockBounds(int lid, int64_t* from, int64_t* to);
+  void GetRealBlockBounds(int lid, int64_t* from, int64_t* to);
   int64_t *GetLatSizes() { return lat_size; }
   int64_t BlockStartsSizes(int lid, int64_t *starts, int64_t *sizes);
   int64_t BlockSizes(int lid, int64_t *sizes);
@@ -52,14 +60,20 @@ class Blocking {
   bool IsIn(float *pt, int *bi, int ghost, int ghost_dir);
   bool InTimeBlock(int g, int lid, int tsize, int tb);
 
+  bb_t *bb_list;  // block bounds list, includes ghost cells, only local blocks
+  bb_t *rbb_list; // real block bounds list, does not include ghost cells.
+		  // currently stores all blocks.
+
+  Assignment *assign; // assignment class
+  int64_t* time_starts;  // the starting time for each different time block
+
 private:
 
   void FactorDims(int64_t *given);
-  void ApplyGhost(int ghost, int ghost_dir);
+  void ApplyGhost(int ghost, int* ghost_dir, int* ghost_dim);
 
   int dim; // number of dimensions
   int tot_b; // total number of blocks in the domain
-  bb_t *bb_list; // block bounds list
   int nb; // my local number of blocks
   int rank; // my MPI process rank
   int groupsize; // MPI groupsize
@@ -67,7 +81,7 @@ private:
   int64_t lat_size[MAX_DIM]; // number of blocks in each dimension
   int64_t block_size[MAX_DIM]; //  size of blocks in each dimension
   MPI_Comm comm; // MPI communicator
-  Assignment *assign; // assignment class
+
 
 };
 

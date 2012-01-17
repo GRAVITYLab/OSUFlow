@@ -25,10 +25,14 @@
 // share_face: whether neighboring blocks share a common face or are
 //  separated by a gap of one unit
 // ghost: ghost layer per side
-// ghost_dir: 
+// ghost_dir: where to apply ghost cells, for each dimension
 // -1 = apply ghost layer to minimum sides of block only,
 //  1 = apply ghost layer to maximum sides of block only,
 //  0 = apply ghost layer equally to all sides of block
+// ghost_dim: 
+//  which dimensions to apply a ghost layer. a 1 means to apply a ghost layer
+//  to that dimension, while a 0 means do not apply a ghost layer in that
+//  dimension
 // given: constraints on the blocking entered as an array where
 //   0 implies no constraint in that direction and some value n > 0 is a given
 //   number of blocks in a given direction
@@ -37,25 +41,53 @@
 // comm: MPI communicator
 //
 Blocking::Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
+		   int ghost, int* ghost_dir, int* ghost_dim, int64_t *given, 
+		   Assignment *assignment, MPI_Comm comm) {
+
+  Init(dim, tot_b, data_size, share_face, ghost, ghost_dir, ghost_dim, given,
+       assignment, comm);
+}
+
+Blocking::Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
 		   int ghost, int ghost_dir, int64_t *given, 
 		   Assignment *assignment, MPI_Comm comm) {
 
+  // assume ghost cells are applied to all dimensions.
+  // assume use the same ghost_dir for all dimensions.
+  int ghost_dim[4];
+  int ghost_dir2[4];
+  for(int i=0; i<dim; i++) {
+    ghost_dim[i] = 1;
+    ghost_dir2[i] = ghost_dir;
+  }
+
+  Init(dim, tot_b, data_size, share_face, ghost, ghost_dir2, ghost_dim, given,
+       assignment, comm);
+
+}
+
+// initialize the object. common constructor code.
+void Blocking::Init(int dim, int tot_b, int64_t *data_size, bool share_face,
+		   int ghost, int* ghost_dir, int* ghost_dim, int64_t *given, 
+		   Assignment *assignment, MPI_Comm comm) {
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &groupsize);
 
   this->dim = dim;
   this->tot_b = tot_b;
   this->comm = comm;
-  assign = assignment;
+  this->assign = assignment;
   nb = assign->NumBlks();
+  this->time_starts = NULL;
 
   for (int i = 0; i < dim; i++)
     (this->data_size)[i] = data_size[i];
 
   bb_list = new bb_t[nb];
-  ComputeBlocking(share_face, ghost, ghost_dir, given);
-
+  rbb_list = new bb_t[tot_b];
+  ComputeBlocking(share_face, ghost, ghost_dir, ghost_dim, given);
 }
+
 //----------------------------------------------------------------------------
 //
 // destructor
@@ -63,6 +95,7 @@ Blocking::Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
 Blocking::~Blocking() {
 
   delete[] bb_list;
+  delete[] rbb_list;
 
 }
 //----------------------------------------------------------------------------
@@ -87,6 +120,40 @@ int64_t Blocking::BlockStartsSizes(int lid, int64_t *starts, int64_t *sizes) {
 
   return tot_size;
 
+}
+//----------------------------------------------------------------------------
+//
+// get the block bounds given the local block id
+//
+// lid: local block id
+// from: the lower bounds of the block (output)
+// to: the upper bounds of the block (output)
+//
+void Blocking::GetBlockBounds(int lid, int64_t* from, int64_t* to) {
+
+  for(int i=0; i<dim; i++)
+  {
+    from[i] = bb_list[lid].min[i];
+    to[i] = bb_list[lid].max[i];
+  }
+}
+//----------------------------------------------------------------------------
+//
+// get the real block bounds given the local block id
+// the real block bounds are the ones not counting ghost cells
+//
+// lid: local block id
+// from: the lower bounds of the block (output)
+// to: the upper bounds of the block (output)
+//
+void Blocking::GetRealBlockBounds(int lid, int64_t* from, int64_t* to) {
+
+  int gid = assign->RoundRobin_lid2gid(lid);
+  for(int i=0; i<dim; i++)
+  {
+    from[i] = rbb_list[gid].min[i];
+    to[i] = rbb_list[gid].max[i];
+  }
 }
 //--------------------------------------------------------------------------
 //
@@ -149,7 +216,7 @@ int64_t Blocking::TotalBlockSize(int lid) {
 // share_face: whether neighboring blocks share a common face or are
 //  separated by a gap of one unit
 // ghost: ghost layer per side
-// ghost_dir: 
+// ghost_dir: where to apply ghost cells, for each dimension
 // -1 = apply ghost layer to minimum sides of block only,
 //  1 = apply ghost layer to maximum sides of block only,
 //  0 = apply ghost layer equally to all sides of block
@@ -158,13 +225,20 @@ int64_t Blocking::TotalBlockSize(int lid) {
 //   number of blocks in a given direction
 //   eg., {0, 0, 0, t} would result in t blocks in the 4th dimension
 //
-// side effects: allocates bb_list
 //
-void Blocking::ComputeBlocking(bool share_face, int ghost, int ghost_dir,
-			       int64_t *given) {
+void Blocking::ComputeBlocking(bool share_face, int ghost, int* ghost_dir, 
+			       int* ghost_dim, int64_t *given) {
 
   // factor data dimensions
   FactorDims(given);
+
+  if(time_starts != NULL)
+  {
+    delete time_starts;
+    time_starts = NULL;
+  }
+  time_starts = new int64_t[lat_size[3]];
+  int time_index = 0;
 
   // volume bounds in row-major index order (x, y, z)
   // x changes fastest, z slowest
@@ -196,13 +270,24 @@ void Blocking::ComputeBlocking(bool share_face, int ghost, int ghost_dir,
 	  else
 	    d[0] = block_size[0];
 
-	  // only store my local blocks
+	  // store all blocks in rbb_list
+	  rbb_list[gid].min[0] = cur[0];
+	  if (i == (int)lat_size[0] - 1) {
+	    rbb_list[gid].max[0] = data_size[0] - 1;
+	  }
+	  else {
+	    rbb_list[gid].max[0] = cur[0] + d[0] - gap;
+	  }
+
+	  // only store my local blocks in bb_list
 	  if (assign->RoundRobin_gid2proc(gid) == rank) {
 	    bb_list[lid].min[0] = cur[0];
-	    if (i == (int)lat_size[0] - 1)
+	    if (i == (int)lat_size[0] - 1) {
 	      bb_list[lid].max[0] = data_size[0] - 1;
-	    else
+	    }
+	    else {
 	      bb_list[lid].max[0] = cur[0] + d[0] - gap;
+	    }
 	  }
 
 	  // y
@@ -214,12 +299,22 @@ void Blocking::ComputeBlocking(bool share_face, int ghost, int ghost_dir,
 	  else
 	    d[1] = block_size[1];
 
+	  rbb_list[gid].min[1] = cur[1];
+	  if (j == (int)lat_size[1] - 1) {
+	    rbb_list[gid].max[1] = data_size[1] - 1;
+	  }
+	  else {
+	    rbb_list[gid].max[1] = cur[1] + d[1] - gap;
+	  }
+
 	  if (assign->RoundRobin_gid2proc(gid) == rank) {
 	    bb_list[lid].min[1] = cur[1];
-	    if (j == (int)lat_size[1] - 1)
+	    if (j == (int)lat_size[1] - 1) {
 	      bb_list[lid].max[1] = data_size[1] - 1;
-	    else
+	    }
+	    else {
 	      bb_list[lid].max[1] = cur[1] + d[1] - gap;
+	    }
 	  }
 
 	  // z
@@ -232,12 +327,22 @@ void Blocking::ComputeBlocking(bool share_face, int ghost, int ghost_dir,
 	    else
 	      d[2] = block_size[2];
 
+	    rbb_list[gid].min[2] = cur[2];
+	    if (k == (int)lat_size[2] - 1) {
+	      rbb_list[gid].max[2] = data_size[2] - 1;
+	    }
+	    else {
+	      rbb_list[gid].max[2] = cur[2] + d[2] - gap;
+	    }
+
 	    if (assign->RoundRobin_gid2proc(gid) == rank) {
 	      bb_list[lid].min[2] = cur[2];
-	      if (k == (int)lat_size[2] - 1)
+	      if (k == (int)lat_size[2] - 1) {
 		bb_list[lid].max[2] = data_size[2] - 1;
-	      else
+	      }
+	      else {
 		bb_list[lid].max[2] = cur[2] + d[2] - gap;
+	      }
 	    }
 	  }
 
@@ -251,15 +356,30 @@ void Blocking::ComputeBlocking(bool share_face, int ghost, int ghost_dir,
 	    else
 	      d[3] = block_size[3];
 
+	    rbb_list[gid].min[3] = cur[3];
+	    if (l == (int)lat_size[3] - 1) {
+	      rbb_list[gid].max[3] = data_size[3] - 1;
+	    }
+	    else {
+	      rbb_list[gid].max[3] = cur[3] + d[3] - gap;
+	    }
+	    if (data_size[3] == 1) { // special case for 4D but static
+	      rbb_list[gid].max[3] = 0;
+	    }
+
 	    if (assign->RoundRobin_gid2proc(gid) == rank) {
 	      bb_list[lid].min[3] = cur[3];
-	      if (l == (int)lat_size[3] - 1)
+	      if (l == (int)lat_size[3] - 1) {
 		bb_list[lid].max[3] = data_size[3] - 1;
-	      else
+	      }
+	      else {
 		bb_list[lid].max[3] = cur[3] + d[3] - gap;
-	      if (data_size[3] == 1) // special case for 4D but static
+	      }
+	      if (data_size[3] == 1) { // special case for 4D but static
 		bb_list[lid].max[3] = 0;
+	      }
 	    }
+	    time_starts[time_index] = rbb_list[gid].min[3];
 	  }
 
 	  if (assign->RoundRobin_gid2proc(gid) == rank)
@@ -272,21 +392,37 @@ void Blocking::ComputeBlocking(bool share_face, int ghost, int ghost_dir,
       cur[2] += d[2];
     }
     cur[3] += d[3];
+    time_index++;
   }
 
   // ghost cells
   if (ghost > 0)
-    ApplyGhost(ghost, ghost_dir);
+    ApplyGhost(ghost, ghost_dir, ghost_dim);
 
-  // debug: print the bb list
-//   for (int i = 0; i < nb; i++) {
-//     gid = assign->RoundRobin_lid2gid(i);
-//     fprintf(stderr, "bb_list[%d] gid = %d  min = [%lld %lld %lld %lld] "
-// 	    "max = [%lld %lld %lld %lld]\n", 
-// 	    i, gid, bb_list[i].min[0], bb_list[i].min[1], bb_list[i].min[2],
-// 	    bb_list[i].min[3], bb_list[i].max[0], bb_list[i].max[1], 
-// 	    bb_list[i].max[2], bb_list[i].max[3]);
-//   }
+  // debug: print the bb and rbb list
+#if 0
+   int rank;
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+   if(rank == 0)
+   {
+     for (int i = 0; i < tot_b; i++) {
+       gid = i;
+       fprintf(stderr, "proc[%i] rbb_list[%d] gid = %d  "
+	       "min = [%lld %lld %lld %lld] max = [%lld %lld %lld %lld]\n",
+	       rank, i, gid, rbb_list[i].min[0], rbb_list[i].min[1],
+	       rbb_list[i].min[2], rbb_list[i].min[3], rbb_list[i].max[0],
+	       rbb_list[i].max[1], rbb_list[i].max[2], rbb_list[i].max[3]);
+     }
+   }
+   for (int i = 0; i < nb; i++) {
+     gid = assign->RoundRobin_lid2gid(i);
+     fprintf(stderr, "proc[%i] bb_list[%d] gid = %d  "
+	     "min = [%lld %lld %lld %lld] max = [%lld %lld %lld %lld]\n", rank,
+ 	     i, gid, bb_list[i].min[0], bb_list[i].min[1], bb_list[i].min[2],
+ 	     bb_list[i].min[3], bb_list[i].max[0], bb_list[i].max[1], 
+ 	     bb_list[i].max[2], bb_list[i].max[3]);
+   }
+#endif
 
 }
 //---------------------------------------------------------------------------
@@ -313,7 +449,7 @@ void Blocking::FactorDims(int64_t *given) {
     else {
       lat_size[i] = given[i];
       if (rem % given[i])
-	fprintf(stderr,"Unable to block the volume with given[%d] = %lld "
+	fprintf(stderr,"Unable to block the volume with given[%d] = %ld "
 		"dimension. Please provide different 'given' constraints and "
 		"rerun.\n", i, given[i]);
       assert(rem % given[i] == 0);
@@ -367,39 +503,35 @@ void Blocking::FactorDims(int64_t *given) {
 // adds the ghost layer to the block bounds
 //
 // ghost: ghost layer per side
-// ghost_dir: 
+// ghost_dir: where to apply ghost cells, one int per dimension
 // -1 = apply ghost layer to minimum sides of block only,
 //  1 = apply ghost layer to maximum sides of block only,
 //  0 = apply ghost layer equally to all sides of block
+// ghost_dim: 
+//  which dimensions to apply a ghost layer. a 1 means to apply a ghost layer
+//  to that dimension, while a 0 means do not apply a ghost layer in that
+//  dimension
 //
-void Blocking::ApplyGhost(int ghost, int ghost_dir) {
+void Blocking::ApplyGhost(int ghost, int* ghost_dir, int* ghost_dim) {
 
-  for (int i = 0; i < nb; i++) {
+  for (int i = 0; i < nb; i++)  // for each block
+  {
+    for(int j=0; j<4; j++)      // for each dimension
+    {
+      if(dim > j)
+      {
+	if (ghost_dim[j] == 1)
+	{
 
-    if (ghost_dir < 1) {
-      if (bb_list[i].min[0] > 0)
-	bb_list[i].min[0] -= ghost;
-      if (dim > 1 && bb_list[i].min[1] > 0)
-	bb_list[i].min[1] -= ghost;
-      if (dim > 2 && bb_list[i].min[2] > 0)
-	bb_list[i].min[2] -= ghost;
-      if (dim > 3 && bb_list[i].min[3] > 0)
-	bb_list[i].min[3] -= ghost;
+	  if (ghost_dir[j] < 1)
+	    bb_list[i].min[j] = max(bb_list[i].min[j] - ghost, (int64_t)0);
+
+	  if (ghost_dir[j] > -1)
+	    bb_list[i].max[j] = min(bb_list[i].max[j] + ghost, data_size[j]-1);
+	}
+      }
     }
-
-    if (ghost_dir > -1) {
-      if (bb_list[i].max[0] < data_size[0] - ghost)
-	bb_list[i].max[0] += ghost;
-      if (dim > 1 && bb_list[i].max[1] < data_size[1] - ghost)
-	bb_list[i].max[1] += ghost;
-      if (dim > 2 && bb_list[i].max[2] < data_size[2] - ghost)
-	bb_list[i].max[2] += ghost;
-      if (dim > 3 && bb_list[i].max[3] < data_size[3] - ghost)
-	bb_list[i].max[3] += ghost;
-    }
-
   }
-
 }
 //---------------------------------------------------------------------------
 //
@@ -640,14 +772,24 @@ bool Blocking::IsIn(float *pt, int *bi, int ghost, int ghost_dir) {
   if (ghost_dir == 1)
     lghost = 0;
 
+  // find the global id of the block being tested
+  int gid;
+  if (dim > 3)
+    gid = Indices2Gid(bi[0], bi[1], bi[2], bi[3]);
+  else if (dim > 2)
+    gid = Indices2Gid(bi[0], bi[1], bi[2]);
+  else
+    gid = Indices2Gid(bi[0], bi[1]);
+
+  // the bounds of the block (not counting ghost cells)
+  bb_t* bounds = &(rbb_list[gid]);
+
   for (int i = 0; i < dim; i++) {
-    if (pt[i] < 0 || pt[i] >= data_size[i])
+    if (pt[i] < 0 || pt[i] > data_size[i]-1)
       return false;
     if (bi[i] < 0 || bi[i] >= (int)lat_size[i])
       return false;
-    // cast to int64_t needed so that expression is signed, not unsigned
-    if (pt[i] < bi[i] * (int64_t)block_size[i] - lghost || 
-	pt[i] >= (bi[i] + 1) * (int64_t)block_size[i] + rghost)
+    if(pt[i] < bounds->min[i] || pt[i] > bounds->max[i])
       return false;
   }
 
@@ -668,7 +810,7 @@ bool Blocking::InTimeBlock(int g, int lid, int tsize, int tb) {
   int64_t starts[4]; // block starts
 
   BlockStarts(lid, starts);
-  if (tsize == 1 || tb == 1 || starts[3] == g * tsize / tb)
+  if (tsize == 1 || tb == 1 || starts[3] == time_starts[g])
     return true;
 
   return false;

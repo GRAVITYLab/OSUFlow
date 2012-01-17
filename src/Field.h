@@ -71,6 +71,8 @@ public:
 	{ m_pGrid->BoundaryIntersection(intersectP, startP, endP, stepSize, oldStepSize); }
 	void GenerateVortField(int t, bool bToNormalize, VECTOR3* pVort);
 	void GenerateLapField(int t, bool bToNormalize, VECTOR3* pLap);
+	bool IsInRealBoundaries(PointInfo& p);
+	bool IsInRealBoundaries(PointInfo& p, float time);
 
 protected:
 	// reset

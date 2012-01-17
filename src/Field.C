@@ -1356,3 +1356,11 @@ void CVectorField::GenerateLapField(int t, bool bToNormalize, VECTOR3* pLap)
 			}
 }
 
+bool CVectorField::IsInRealBoundaries(PointInfo& p)
+{
+  return m_pGrid->isInRealBBox(p.phyCoord);
+}
+bool CVectorField::IsInRealBoundaries(PointInfo& p, float time)
+{
+  return m_pGrid->isInRealBBox(p.phyCoord, time);
+}

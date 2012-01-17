@@ -22,20 +22,21 @@ ARCH=MAC_OSX
 #ARCH=LINUX
 
 # executable
-exe=./sertest
+exe=./SerDraw
 
 # dataset
-data=$HOME/tornado/tornado.list
+#data=$HOME/tornado/tornado.list
 #data=$HOME/plume/plume.list
+data=$HOME/flow/osuflow/data/plume.5.list
 
 # total number of spatial blocks
-sb=64
+sb=4
 
 # total number of temporal blocks
-tb=1
+tb=4
 
 # total number of particles
-tp=256
+tp=128
 
 # data mode
 # 0 = raw with no header data
@@ -43,7 +44,7 @@ tp=256
 # 2 = netCDF
 # 3 = HDF5 float (32 bit)
 # 4 = HDF5 double (64 bit)
-dm=0
+dm=1
 
 # all program args
 args="$data $sb $tb $tp $dm"

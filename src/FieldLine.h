@@ -26,9 +26,9 @@ const float STREAM_ACCURACY = EPS;
 
 enum INTEG_ORD{ SECOND, FOURTH, RK45};		// integration order
 enum TIME_DIR{ BACKWARD = -1, FORWARD = 1};		// advection direction
-enum TIME_DEP{ STEADY=0,UNSTEADY=1 };	
+enum TIME_DEP{ STEADY=0, UNSTEADY=1 };	
 enum TRACE_DIR{ OFF=0, BACKWARD_DIR=1, FORWARD_DIR=2, BACKWARD_AND_FORWARD=3};
-enum ADVECT_STATUS{ NONE = -2, OUT_OF_BOUND = -1, CRITICAL_POINT = 0, OKAY = 1};
+enum ADVECT_STATUS{ FAIL = -3, NONE = -2, OUT_OF_BOUND = -1, CRITICAL_POINT = 0, OKAY = 1};
 
 //////////////////////////////////////////////////////////////////////////
 // information about particles
@@ -88,11 +88,12 @@ protected:
 	TIME_DEP m_itsTimeDep;
 	float m_fInitTime;
 	float m_fStepTime;
-	float m_fInitStepSize;	 // initial advection step size of particle
 	float m_fDurationTime;
 	float m_fMaxError;	// for adaptive stepsize and embedded integrations
+	bool m_adaptStepSize;           // change step size or not
 	float m_fLowerAngleAccuracy;	// for adaptive stepsize 
-	float m_fUpperAngleAccuracy;
+	float m_fUpperAngleAccuracy;    // for adaptive stepsize
+	float m_fInitialStepSize;       // initial advection stepsize
 	float m_fMinStepSize;	        // minimal advection stepsize
 	float m_fMaxStepSize;	        // maximal advection stepsize
 	int m_nMaxsize;		// maximal number of particles this line advects
@@ -108,25 +109,30 @@ public:
 	void setSeedPoints(VECTOR3* points, int numPoints, float t, int64_t *seedIds = NULL); 
 	void setSeedPoints(VECTOR3* points, int numPoints, float* tarray);
 	void setSeedPoints(VECTOR4* points, int numPoints, int64_t *seedIds = NULL);
-	void setMaxPoints(int val) { m_nMaxsize = val; }
 	void setIntegrationOrder(INTEG_ORD ord) { m_integrationOrder = ord; }
-	int  getMaxPoints(void){ return m_nMaxsize; }
 	INTEG_ORD getIntegrationOrder(void){ return m_integrationOrder; }
+	void setMaxPoints(int val) { m_nMaxsize = val; }
+	int  getMaxPoints(void){ return m_nMaxsize; }
 	void SetMinStepSize(float stepsize) {m_fMinStepSize = stepsize;}
 	void SetMaxStepSize(float stepsize) {m_fMaxStepSize = stepsize;}
 	float GetMinStepSize(void) {return m_fMinStepSize;}
 	float GetMaxStepSize(void) {return m_fMaxStepSize;}
-	void SetInitStepSize(float initStep) { m_fInitStepSize = initStep; }
-	float GetInitStepSize(void) { return m_fInitStepSize; }
+	void SetInitialStepSize(float initStep) {m_fInitialStepSize = initStep;}
+	float GetInitialStepSize(void) { return m_fInitialStepSize; }
 	void SetMaxError(float maxError) { m_fMaxError = maxError; }
 	float GetMaxError(void) { return m_fMaxError; }
-	void SetLowerUpperAngle(float lowerAngle, float upperAngle) {m_fLowerAngleAccuracy = lowerAngle; m_fUpperAngleAccuracy = upperAngle;}
+	void SetLowerUpperAngle(float lowerAngle, float upperAngle);
+	void GetLowerUpperAngle(float* lowerAngle, float* upperAngle);
 	void SetStationaryCutoff(float cutoff) {m_fStationaryCutoff = cutoff;}
+	float GetStationaryCutoff(void) {return m_fStationaryCutoff;}
+	void SetUseAdaptiveStepSize(bool adapt) {m_adaptStepSize = adapt;}
+	bool GetUseAdaptiveStepSize() {return m_adaptStepSize;}
 
 	int oneStepGeometric(INTEG_ORD integ_ord, TIME_DIR time_dir, 
 	                     TIME_DEP time_dep, PointInfo& thisParticle, 
-	                     PointInfo prevParticle, PointInfo second_prevParticle,
-	                     float* curTime, float* dt, int count);
+	                     PointInfo prevParticle, 
+	                     PointInfo second_prevParticle, float* curTime,
+	                     float* dt, int count);
 	int oneStepEmbedded(INTEG_ORD integ_ord, TIME_DIR time_dir, 
 	                    TIME_DEP time_dep, PointInfo& thisParticle, 
 	                    float* curTime, float* dt);

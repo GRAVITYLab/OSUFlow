@@ -44,6 +44,10 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen,
   int data_dim[4]; // xlen, ylen, zlen
   int i, j;
 
+  myproc = myid;
+  tdim = *ntp; 
+  npart = nsp * tdim; 
+
   // extents
   xdim = xlen; 
   ydim = ylen; 
@@ -57,17 +61,14 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen,
   // compute partitions
   data_dim[0] = xlen; data_dim[1] = ylen; 
   data_dim[2] = zlen; data_dim[3] = tlen;
-  vb_list = ComputePartition(data_dim, ghost, nsp, *ntp, lat_dim);
+  ComputePartition(data_dim, ghost, nsp, *ntp, lat_dim);
   idim = lat_dim[0]; jdim = lat_dim[1]; kdim = lat_dim[2];
 
   // for time-varying flow, number time blocks must be < number time steps
   if (tlen > 1 && *ntp >= tlen)
     *ntp = tlen - 1;
 
-  tdim = *ntp; 
-  npart = nsp * tdim; 
   part = new Partition(npart, nid, myid, track_ids);
-  myproc = myid;
   nproc = nid;
 
   // partition
@@ -257,44 +258,22 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
 
   // volume and time bounds
   vb_list = new volume_bounds_t[npart]; // volume bounds w/ ghost cells
-  tb_list = new time_bounds_t[npart]; // time bounds w/o ghost
   for (i = 0; i < npart; i++) {
-    vb_list[i].xmin = block_extents[i * 8];
-    vb_list[i].ymin = block_extents[i * 8 + 1];
-    vb_list[i].zmin = block_extents[i * 8 + 2];
-    vb_list[i].tmin = block_extents[i * 8 + 3];
-    vb_list[i].xmax = block_extents[i * 8 + 4];
-    vb_list[i].ymax = block_extents[i * 8 + 5];
-    vb_list[i].zmax = block_extents[i * 8 + 6];
-    vb_list[i].tmax = block_extents[i * 8 + 7];
-
-    tb_list[i].tmin = vb_list[i].tmin;
-    tb_list[i].tmax = vb_list[i].tmax;
+    vbr_list[i].xmin = vb_list[i].xmin = block_extents[i * 8];
+    vbr_list[i].ymin = vb_list[i].ymin = block_extents[i * 8 + 1];
+    vbr_list[i].zmin = vb_list[i].zmin = block_extents[i * 8 + 2];
+    vbr_list[i].tmin = vb_list[i].tmin = block_extents[i * 8 + 3];
+    vbr_list[i].xmax = vb_list[i].xmax = block_extents[i * 8 + 4];
+    vbr_list[i].ymax = vb_list[i].ymax = block_extents[i * 8 + 5];
+    vbr_list[i].zmax = vb_list[i].zmax = block_extents[i * 8 + 6];
+    vbr_list[i].tmax = vb_list[i].tmax = block_extents[i * 8 + 7];
   }
 
   idim = ceil((float)xdim / (float)block_size[0]);
   jdim = ceil((float)ydim / (float)block_size[1]);
   kdim = ceil((float)zdim / (float)block_size[2]);
 
-  // ghost cells
-  for (i = 0; i < npart; i++) {
-    if (vb_list[i].xmin > 0)
-      vb_list[i].xmin -= ghost;
-    if (vb_list[i].ymin > 0)
-      vb_list[i].ymin -= ghost;
-    if (vb_list[i].zmin > 0)
-      vb_list[i].zmin -= ghost;
-    if (vb_list[i].tmin > 0)
-      vb_list[i].tmin -= ghost;
-    if (vb_list[i].xmax < xdim)
-      vb_list[i].xmax += ghost;
-    if (vb_list[i].ymax < ydim)
-      vb_list[i].ymax += ghost;
-    if (vb_list[i].zmax < zdim)
-      vb_list[i].zmax += ghost;
-    if (vb_list[i].tmax < tdim)
-      vb_list[i].tmax += ghost;
-  }
+  ApplyGhost(ghost);
 
   part = new Partition(npart, nid, myid, track_ids);
 
@@ -515,6 +494,7 @@ int Lattice4D::GetRank(int i, int j, int k, int t) {
 //----------------------------------------------------------------------------
 //
 // Find the subdomain that contains the physical location (x,y,z) 
+// Takes into account ghost cells
 //
 int Lattice4D::GetRank(float x, float y, float z, float t) {
   
@@ -527,6 +507,30 @@ int Lattice4D::GetRank(float x, float y, float z, float t) {
     else if (vb_list[i].zmin > z || vb_list[i].zmax < z) 
       continue; 
     else if (vb_list[i].tmin > t || vb_list[i].tmax < t) 
+      continue; 
+    return(i); 
+ 
+ }
+
+  return(-1); 
+
+}
+//----------------------------------------------------------------------------
+//
+// Find the subdomain that contains the physical location (x,y,z) 
+// Does not take into account ghost cells
+//
+int Lattice4D::GetRealRank(float x, float y, float z, float t) {
+  
+  for (int i = 0; i < npart; i++) {
+
+    if (vbr_list[i].xmin > x || vbr_list[i].xmax < x) 
+      continue; 
+    else if (vbr_list[i].ymin > y || vbr_list[i].ymax < y) 
+      continue; 
+    else if (vbr_list[i].zmin > z || vbr_list[i].zmax < z) 
+      continue; 
+    else if (vbr_list[i].tmin > t || vbr_list[i].tmax < t) 
       continue; 
     return(i); 
  
@@ -553,7 +557,7 @@ int Lattice4D::MyGetRank(float x, float y, float z, float t) {
 
     // time is a bit of a hack
     // using original volume bounds without ghost (vo_list instead of vb_list)
-    else if (tb_list[i].tmin > t || tb_list[i].tmax < t) 
+    else if (vbr_list[i].tmin > t || vbr_list[i].tmax < t) 
       continue; 
 
     return(i); 
@@ -778,10 +782,8 @@ int Lattice4D::GetNeighbor(int block, float x, float y, float z, float t) {
   int n; // neighbor number
   int r; // rank of partition containing the point
 
-  // hack here: using my GetRank instead of the normal one
-  r = MyGetRank(x, y, z, t);
-
-//   r = GetRank(x, y, z, t);
+  // do not include ghost cells
+  r = GetRealRank(x, y, z, t);
 
   // for all neighbors
   for (n = 0; n < part->parts[block_ranks[block]].NumNeighbors; n++) {
@@ -826,7 +828,7 @@ void Lattice4D::GetNeighborRanks(int block) {
 }
 //---------------------------------------------------------------------------
 //
-// gets local subvolume bounds
+// gets local subvolume bounds (counting ghost cells)
 //
 // block: local block number (0-nblocks)
 // min_s, max_s: (output) spatial min and max bounds
@@ -843,7 +845,26 @@ void Lattice4D::GetVB(int block, float *min_s, float *max_s,
   max_s[2] = vb_list[block_ranks[block]].zmax;
   *min_t = vb_list[block_ranks[block]].tmin;
   *max_t = vb_list[block_ranks[block]].tmax;
+}
+//---------------------------------------------------------------------------
+//
+// gets local subvolume bounds (not counting ghost cells)
+//
+// block: local block number (0-nblocks)
+// min_s, max_s: (output) spatial min and max bounds
+// min_t, max_t: (output) temporal min and max bounds
+//
+void Lattice4D::GetRealVB(int block, float *min_s, float *max_s, 
+			  int *min_t, int *max_t) {
 
+  min_s[0] = vbr_list[block_ranks[block]].xmin;
+  min_s[1] = vbr_list[block_ranks[block]].ymin;
+  min_s[2] = vbr_list[block_ranks[block]].zmin;
+  max_s[0] = vbr_list[block_ranks[block]].xmax;
+  max_s[1] = vbr_list[block_ranks[block]].ymax;
+  max_s[2] = vbr_list[block_ranks[block]].zmax;
+  *min_t = vbr_list[block_ranks[block]].tmin;
+  *max_t = vbr_list[block_ranks[block]].tmax;
 }
 //---------------------------------------------------------------------------
 //
@@ -854,8 +875,8 @@ void Lattice4D::GetVB(int block, float *min_s, float *max_s,
 //
 void Lattice4D::GetTB(int block, int *min_t, int *max_t) {
 
-  *min_t = tb_list[block_ranks[block]].tmin;
-  *max_t = tb_list[block_ranks[block]].tmax;
+  *min_t = vbr_list[block_ranks[block]].tmin;
+  *max_t = vbr_list[block_ranks[block]].tmax;
 
 }
 //---------------------------------------------------------------------------
@@ -907,20 +928,19 @@ void Lattice4D::GetExtents(float *min, float *max) {
 // lat_dim (output): x, y, z lattice dimensions
 // returns: pointer to volume bounds list
 //
-volume_bounds_t* Lattice4D::ComputePartition(int *data_dim, int ghost, 
-						int nsp, int ntp, 
-						int *lat_dim) { 
+void Lattice4D::ComputePartition(int *data_dim, int ghost, 
+				 int nsp, int ntp, int *lat_dim) { 
 
   int rem = nsp; // unfactored remaining portion of nsp
   int block_dim[3]; // current block size
-  volume_bounds_t *vb_list; // volume bounds list w/ ghost
   int d[4]; // delta x, y, z, t (block size)
   int i, j, k, l, n;
-  int max; // longest remaining direction (0, 1, 2)
+  int max_dir; // longest remaining direction (0, 1, 2)
 
   // init
-  vb_list = new volume_bounds_t[nsp * ntp]; // volume bounds w/ ghost
-  tb_list = new time_bounds_t[nsp * ntp]; // time bounds w/o ghost
+  vbr_list = new volume_bounds_t[nsp * ntp]; // volume bounds w/o ghost
+  vb_list = new volume_bounds_t[nsp * ntp];  // volume bounds w/ ghost
+  tb_list = new time_bounds_t[ntp];          // time partition bounds w/ ghost
   for (i = 0; i < 3; i++) {
     lat_dim[i] = 1;
     block_dim[i] = data_dim[i];
@@ -929,18 +949,18 @@ volume_bounds_t* Lattice4D::ComputePartition(int *data_dim, int ghost,
   // compute factorization of data dimensions into lattice dimensions
   while (1) {
 
-    // find longest division direction max = 0, 1, or 2 (x, y, or z)
-    max = 0;
+    // find longest division direction max_dir = 0, 1, or 2 (x, y, or z)
+    max_dir = 0;
     for(i = 1; i < 3; i++) {
-      if (block_dim[i] > block_dim[max])
-	max = i;
+      if (block_dim[i] > block_dim[max_dir])
+	max_dir = i;
     }
 
     // smallest factor remaining gets assigned to this direction
     for (j = 2; j <= rem; j++) {
       if (rem % j == 0) {
-	lat_dim[max] *= j;
-	block_dim[max] /= j;
+	lat_dim[max_dir] *= j;
+	block_dim[max_dir] /= j;
 	rem /= j;
 	break;
       }
@@ -975,59 +995,73 @@ volume_bounds_t* Lattice4D::ComputePartition(int *data_dim, int ghost,
       for (j = 0; j < lat_dim[1]; j++) {
 	for (i = 0; i < lat_dim[0]; i++) {
 
-	  vb_list[n].xmin = i * d[0];
-	  vb_list[n].xmax = (i == lat_dim[0] - 1 ? data_dim[0] - 1 : 
+	  vbr_list[n].xmin = i * d[0];
+	  vbr_list[n].xmax = (i == lat_dim[0] - 1 ? data_dim[0] - 1 : 
 			     (i + 1) * d[0]);
-	  vb_list[n].ymin = j * d[1];
-	  vb_list[n].ymax = (j == lat_dim[1] - 1 ? data_dim[1] - 1 : 
+	  vbr_list[n].ymin = j * d[1];
+	  vbr_list[n].ymax = (j == lat_dim[1] - 1 ? data_dim[1] - 1 : 
 			     (j + 1) * d[1]);
-	  vb_list[n].zmin = k * d[2];
-	  vb_list[n].zmax = (k == lat_dim[2] - 1 ? data_dim[2] - 1 : 
+	  vbr_list[n].zmin = k * d[2];
+	  vbr_list[n].zmax = (k == lat_dim[2] - 1 ? data_dim[2] - 1 : 
 			     (k + 1) * d[2]);
-	  vb_list[n].tmin = l * d[3];
-	  vb_list[n].tmax = (l == ntp - 1 ? data_dim[3] - 1 : 
+	  vbr_list[n].tmin = l * d[3];
+	  vbr_list[n].tmax = (l == ntp - 1 ? data_dim[3] - 1 : 
 			     (l + 1) * d[3]);
 	  if (data_dim[3] == 1) // static case
-	    vb_list[n].tmax = 0;
+	    vbr_list[n].tmax = 0;
 
-	  tb_list[n].tmin = vb_list[n].tmin;
-	  tb_list[n].tmax = vb_list[n].tmax;
+	  vb_list[n].xmin = vbr_list[n].xmin;
+	  vb_list[n].xmax = vbr_list[n].xmax;
+	  vb_list[n].ymin = vbr_list[n].ymin;
+	  vb_list[n].ymax = vbr_list[n].ymax;
+	  vb_list[n].zmin = vbr_list[n].zmin;
+	  vb_list[n].zmax = vbr_list[n].zmax;
+	  vb_list[n].tmin = vbr_list[n].tmin;
+	  vb_list[n].tmax = vbr_list[n].tmax;
+
 
 	  n++;
 
 	}
       }
     }
+    tb_list[l].tmin = vb_list[n-1].tmin;
+    tb_list[l].tmax = vb_list[n-1].tmax;
   }
 
-  // ghost cells
-  for (i = 0; i < nsp * ntp; i++) {
-    if (vb_list[i].xmin > 0)
-      vb_list[i].xmin -= ghost;
-    if (vb_list[i].ymin > 0)
-      vb_list[i].ymin -= ghost;
-    if (vb_list[i].zmin > 0)
-      vb_list[i].zmin -= ghost;
-    if (vb_list[i].tmin > 0)
-      vb_list[i].tmin -= ghost;
-    if (vb_list[i].xmax < data_dim[0] - ghost)
-      vb_list[i].xmax += ghost;
-    if (vb_list[i].ymax < data_dim[1] - ghost)
-      vb_list[i].ymax += ghost;
-    if (vb_list[i].zmax < data_dim[2] - ghost)
-      vb_list[i].zmax += ghost;
-    if (data_dim[3] > 1 && vb_list[i].tmax < data_dim[3] - ghost)
-      vb_list[i].tmax += ghost;
+  ApplyGhost(ghost);
+
+  // debug: print the vb list
+#if 0
+  if (myproc == 0) {
+    for (i = 0; i < nsp * ntp; i++)
+      fprintf(stderr, "vbr_list[%d] min = [%d %d %d %d] max = [%d %d %d %d]\n", i, vbr_list[i].xmin, vbr_list[i].ymin, vbr_list[i].zmin, vbr_list[i].tmin, vbr_list[i].xmax, vbr_list[i].ymax, vbr_list[i].zmax, vbr_list[i].tmax);
+    for (i = 0; i < nsp * ntp; i++)
+      fprintf(stderr, "vb_list[%d] min = [%d %d %d %d] max = [%d %d %d %d]\n", i, vb_list[i].xmin, vb_list[i].ymin, vb_list[i].zmin, vb_list[i].tmin, vb_list[i].xmax, vb_list[i].ymax, vb_list[i].zmax, vb_list[i].tmax);
+ }
+#endif
+
+}
+//----------------------------------------------------------------------------
+//
+// adds ghost cell layers to block boundaries
+//
+// ghost: ghost layer per side
+void Lattice4D::ApplyGhost(int ghost)
+{
+  for (int i = 0; i < npart; i++) {
+    // Note: adding ghost cells to tmin is never necessary
+    vb_list[i].xmin = max(vbr_list[i].xmin - ghost, 0);
+    vb_list[i].ymin = max(vbr_list[i].ymin - ghost, 0);
+    vb_list[i].zmin = max(vbr_list[i].zmin - ghost, 0);
+
+    vb_list[i].xmax = min(vbr_list[i].xmax + ghost, xdim - 1);
+    vb_list[i].ymax = min(vbr_list[i].ymax + ghost, ydim - 1);
+    vb_list[i].zmax = min(vbr_list[i].zmax + ghost, zdim - 1);
+
+    if(ldim != 1)  // don't add ghost cells when doing streamlines
+      vb_list[i].tmax = min(vbr_list[i].tmax + ghost, ldim - 1);
   }
-
-//   // debug: print the vb list
-//   if (myproc == 0) {
-//   for (i = 0; i < nsp * ntp; i++)
-//     fprintf(stderr, "vb_list[%d] min = [%d %d %d %d] max = [%d %d %d %d]\n", i, vb_list[i].xmin, vb_list[i].ymin, vb_list[i].zmin, vb_list[i].tmin, vb_list[i].xmax, vb_list[i].ymax, vb_list[i].zmax, vb_list[i].tmax);
-//   }
-
-  return vb_list;
-
 }
 //---------------------------------------------------------------------------
 //

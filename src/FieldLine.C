@@ -17,7 +17,7 @@
 //////////////////////////////////////////////////////////////////////////
 vtCFieldLine::vtCFieldLine(CVectorField* pField):
 m_nNumSeeds(0),
-m_integrationOrder(FOURTH),
+m_integrationOrder(RK45),
 m_timeDir(FORWARD),
 m_fInitTime((float)0.0),
 m_fStepTime((float)0.0),
@@ -26,7 +26,11 @@ m_fLowerAngleAccuracy((float)0.99),
 m_fUpperAngleAccuracy((float)0.999),
 m_fStationaryCutoff((float)0.00001), 
 m_nMaxsize(MAX_LENGTH),
-m_fInitStepSize(1.0),
+m_fInitialStepSize(1.0),
+m_fMinStepSize(0.01),
+m_fMaxStepSize(5.0),
+m_fMaxError(0.01),
+m_adaptStepSize(true),
 m_pField(pField)
 {
 }
@@ -53,9 +57,30 @@ void vtCFieldLine::releaseSeedMemory(void)
 }
 
 //////////////////////////////////////////////////////////////////////////
+// set the lower and upper angle (used for adaptive step size)
+//////////////////////////////////////////////////////////////////////////
+void vtCFieldLine::SetLowerUpperAngle(float lowerAngle, float upperAngle)
+{
+  m_fLowerAngleAccuracy = lowerAngle;
+  m_fUpperAngleAccuracy = upperAngle;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// get the lower and upper angle (used for adaptive step size)
+//////////////////////////////////////////////////////////////////////////
+void vtCFieldLine::GetLowerUpperAngle(float* lowerAngle, float* upperAngle)
+{
+  *lowerAngle = m_fLowerAngleAccuracy;
+  *upperAngle = m_fUpperAngleAccuracy;
+}
+
+//////////////////////////////////////////////////////////////////////////
 // Perform one proper integration step, taking into account error metrics. This
 // is used for integration methods that rely on a geometric error analysis
 // based on the angle greated by the new step.
+//
+// return FAIL or OKAY
+//
 //////////////////////////////////////////////////////////////////////////
 int vtCFieldLine::oneStepGeometric(INTEG_ORD integ_ord, TIME_DIR time_dir, 
                                    TIME_DEP time_dep, PointInfo& thisParticle,
@@ -77,6 +102,9 @@ int vtCFieldLine::oneStepGeometric(INTEG_ORD integ_ord, TIME_DIR time_dir,
 		else
 			return OUT_OF_BOUND;
 
+		if(istat == FAIL)
+		  return FAIL;
+
 		if(count >= 2)
 		{
 			pass = adapt_step(second_prevParticle.phyCoord,
@@ -95,8 +123,7 @@ int vtCFieldLine::oneStepGeometric(INTEG_ORD integ_ord, TIME_DIR time_dir,
 		}
 	}
 
-
-	return istat;
+	return OKAY;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -105,6 +132,9 @@ int vtCFieldLine::oneStepGeometric(INTEG_ORD integ_ord, TIME_DIR time_dir,
 // method, and uses it to derive its error value. For an explanation of how the
 // step size is increase or decreased, please see the book 
 // "Numerical Recipes".
+//
+// return FAIL or OKAY
+//
 //////////////////////////////////////////////////////////////////////////
 int vtCFieldLine::oneStepEmbedded(INTEG_ORD integ_ord, TIME_DIR time_dir, 
                                   TIME_DEP time_dep, PointInfo& thisParticle, 
@@ -132,6 +162,9 @@ int vtCFieldLine::oneStepEmbedded(INTEG_ORD integ_ord, TIME_DIR time_dir,
 								  curTime, h, &errmax);
 		else
 			return OUT_OF_BOUND;
+
+		if(istat == FAIL)
+		  return FAIL;
 
 		// convert errmax to a ratio to see how close it is to our maximum
 		// allowed error
@@ -177,9 +210,11 @@ int vtCFieldLine::oneStepEmbedded(INTEG_ORD integ_ord, TIME_DIR time_dir,
 	}
 
 	// get variables ready for next step
+	hnext = max(hnext, m_fMinStepSize);
+	hnext = min(hnext, m_fMaxStepSize);
 	*dt = hnext;
 
-	return istat;
+	return OKAY;
 }
 
 
@@ -201,8 +236,11 @@ int vtCFieldLine::euler_cauchy(TIME_DIR, TIME_DEP,float*, float)
 // time_dep: boolean indicating whether doing time dependent integration
 // ci: the current point. will hold the new point at end of the function.
 // t: the initial time. will be modified to be the correct time by the end of
-//    the integration
+//    the integration.
 // dt: the step size
+//
+// returns FAIL or OKAY
+//
 //////////////////////////////////////////////////////////////////////////
 int vtCFieldLine::runge_kutta2(TIME_DIR time_dir, 
                                TIME_DEP time_dep, 
@@ -221,8 +259,8 @@ int vtCFieldLine::runge_kutta2(TIME_DIR time_dir,
 
 	// 1st step of the Runge-Kutta scheme
 	istat = m_pField->at_phys(ci.fromCell, pt, ci, *t, vel);
-	if(istat != 1)
-		return OUT_OF_BOUND;
+	if(istat != OKAY)
+		return FAIL;
 
 	for(i=0; i<3; i++)
 	{
@@ -237,10 +275,10 @@ int vtCFieldLine::runge_kutta2(TIME_DIR time_dir,
 		*t += time_dir*dt;    // t + h
 
 	istat = m_pField->at_phys(fromCell, pt, ci, *t, vel);
-	if(istat != 1)
+	if(istat != OKAY)
 	{
 		ci.phyCoord = pt;
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 
 	for( i=0; i<3; i++ )
@@ -250,8 +288,7 @@ int vtCFieldLine::runge_kutta2(TIME_DIR time_dir,
 	}
 	ci.phyCoord = pt;
 
-
-	return istat;
+	return OKAY;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -262,8 +299,11 @@ int vtCFieldLine::runge_kutta2(TIME_DIR time_dir,
 // time_dep: boolean indicating whether doing time dependent integration
 // ci: the current point. will hold the new point at end of the function.
 // t: the initial time. will be modified to be the correct time by the end of
-//    the integration
+//    the integration.
 // dt: the step size
+//
+// returns FAIL or OKAY
+//
 //////////////////////////////////////////////////////////////////////////
 int vtCFieldLine::runge_kutta4(TIME_DIR time_dir, 
 							   TIME_DEP time_dep, 
@@ -282,7 +322,7 @@ int vtCFieldLine::runge_kutta4(TIME_DIR time_dir,
 	// 1st step of the Runge-Kutta scheme
 	istat = m_pField->at_phys(ci.fromCell, pt, ci, *t, vel);
 	if ( istat != 1 )
-		return OUT_OF_BOUND;
+		return FAIL;
 
 	for( i=0; i<3; i++ )
 	{
@@ -300,7 +340,7 @@ int vtCFieldLine::runge_kutta4(TIME_DIR time_dir,
 	if ( istat!= 1 )
 	{
 		ci.phyCoord = pt;
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 	
 	for( i=0; i<3; i++ )
@@ -315,7 +355,7 @@ int vtCFieldLine::runge_kutta4(TIME_DIR time_dir,
 	if ( istat != 1 )
 	{
 		ci.phyCoord = pt;
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 	
 	for( i=0; i<3; i++ )
@@ -333,7 +373,7 @@ int vtCFieldLine::runge_kutta4(TIME_DIR time_dir,
 	if ( istat != 1 )
 	{
 		ci.phyCoord = pt;
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 	
 	for( i=0; i<3; i++ )
@@ -342,7 +382,7 @@ int vtCFieldLine::runge_kutta4(TIME_DIR time_dir,
 	}
 	ci.phyCoord = pt;
 
-	return( istat );
+	return OKAY;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -355,9 +395,12 @@ int vtCFieldLine::runge_kutta4(TIME_DIR time_dir,
 // time_dep: boolean indicating whether doing time dependent integration
 // ci: the current point. will hold the new point at end of the function.
 // t: the initial time. will be modified to be the correct time by the end of
-//    the integration
+//    the integration.
 // dt: the step size
-// error: will hold the calculated error at the end of the function
+// error: will hold the calculated error at the end of the function (output)
+//
+// returns FAIL or OKAY
+//
 //////////////////////////////////////////////////////////////////////////
 int vtCFieldLine::runge_kutta45(TIME_DIR time_dir,
                                 TIME_DEP time_dep,
@@ -395,7 +438,7 @@ int vtCFieldLine::runge_kutta45(TIME_DIR time_dir,
 	// 1st step
 	istat = m_pField->at_phys(ci.fromCell, pt, ci, *t, vel);
 	if ( istat != 1 ) {
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 	for( i=0; i<3; i++ ) {
 		k1[i] = time_dir*dt*vel[i];
@@ -412,7 +455,7 @@ int vtCFieldLine::runge_kutta45(TIME_DIR time_dir,
 	istat = m_pField->at_phys(fromCell, pt, ci, t_tmp, vel);
 	if ( istat!= 1 ) {
 		ci.phyCoord = pt;
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 	for( i=0; i<3; i++ ) {
 		k2[i] = time_dir*dt*vel[i];
@@ -429,7 +472,7 @@ int vtCFieldLine::runge_kutta45(TIME_DIR time_dir,
 	istat = m_pField->at_phys(fromCell, pt, ci, t_tmp, vel);
 	if ( istat != 1 ) {
 		ci.phyCoord = pt;
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 	for( i=0; i<3; i++ ) {
 		k3[i] = time_dir*dt*vel[i];
@@ -446,7 +489,7 @@ int vtCFieldLine::runge_kutta45(TIME_DIR time_dir,
 	istat = m_pField->at_phys(fromCell, pt, ci, t_tmp, vel);
 	if ( istat != 1 ) {
 		ci.phyCoord = pt;
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 	for( i=0; i<3; i++ ) {
 		k4[i] = time_dir*dt*vel[i];
@@ -463,7 +506,7 @@ int vtCFieldLine::runge_kutta45(TIME_DIR time_dir,
 	istat = m_pField->at_phys(fromCell, pt, ci, t_tmp, vel);
 	if ( istat != 1 ) {
 		ci.phyCoord = pt;
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 	for( i=0; i<3; i++ ) {
 		k5[i] = time_dir*dt*vel[i];
@@ -481,7 +524,7 @@ int vtCFieldLine::runge_kutta45(TIME_DIR time_dir,
 	istat = m_pField->at_phys(fromCell, pt, ci, t_tmp, vel);
 	if ( istat != 1 ) {
 		ci.phyCoord = pt;
-		return OUT_OF_BOUND;
+		return FAIL;
 	}
 	for( i=0; i<3; i++ ) {
 		k6[i] = time_dir*dt*vel[i];
@@ -506,7 +549,7 @@ int vtCFieldLine::runge_kutta45(TIME_DIR time_dir,
 		*t += dt;
 
 	ci.phyCoord = pt;
-	return( istat );
+	return OKAY;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -749,3 +792,4 @@ void vtCFieldLine::setSeedPoints(VECTOR4* points, int numPoints,
 
 	m_nNumSeeds = numPoints;
 }
+

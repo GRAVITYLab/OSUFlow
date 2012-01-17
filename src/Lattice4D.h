@@ -61,6 +61,7 @@ class  Lattice4D {
   int GetRank(float x, float y, float z, float t);
   int MyGetRank(float x, float y, float z, float t);
   int GetRank(int i);
+  int GetRealRank(float x, float y, float z, float t);
   int GetIndices(int rank, int &i, int &j, int&k, int&t);
   int GetIndices(int rank, int &i, int &j, int&k);
   int GetIndices(float x, float y, float z, float t, int& iidx, int &jidx, 
@@ -92,8 +93,8 @@ class  Lattice4D {
   int GetMyNumNeighbors() { return avg_neigh; }
   double GetMyCommTime() { return comm_time; }
   int GetMyTotPtsSend() { return tot_pts_send; }
-  void GetVB(int block, float *min_s, float *max_s, 
-	     int *min_t, int *max_t);
+  void GetVB(int block, float *min_s, float *max_s, int *min_t, int *max_t);
+  void GetRealVB(int block, float *min_s, float *max_s, int *min_t, int *max_t);
   void GetTB(int block, int *min_t, int *max_t);
   void GetGlobalVB(int part, float *min_s, float *max_s, 
 		   int *min_t, int *max_t);
@@ -133,20 +134,22 @@ class  Lattice4D {
   int *alloc_neighbors; // allocated size of neighbor_ranks, neighbor_procs
   int alloc_blocks; // allocated number of blocks
   int *block_ranks; // rank (global partition number) of each of my blocks
+  time_bounds_t * tb_list;   // time bounds for each time block w/ ghost cells
 
  private: 
 
   int myproc; // my process or thread number
   int nproc; // number of processes or threads
-  volume_bounds_t *vb_list; // volume bounds w/ ghost
-  time_bounds_t *tb_list; // time bounds w/o ghost
+  volume_bounds_t *vbr_list; // real volume bounds w/o ghost
+  volume_bounds_t *vb_list;  // volume bounds w/ ghost
   int* flowMatrix; 
   void GetNeighborRanks(int block);
   void VolumeBounds(float *block_extents, int nblocks, int *block_size,
 		    volume_bounds_t *vb_list, int &idim, int &jdim, 
 		    int &kdim);
-  volume_bounds_t* ComputePartition(int *data_dim, int ghost, 
-				       int nsp, int ntp, int *lat_dim);
+  void ComputePartition(int *data_dim, int ghost, 
+				    int nsp, int ntp, int *lat_dim);
+  void ApplyGhost(int ghost);
   int GetNumPartitions(int proc);
 
   // overall extents of the entire dataset

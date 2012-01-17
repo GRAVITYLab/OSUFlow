@@ -56,6 +56,19 @@ DataMode data_mode; // data format
 Blocks *blocks; // blocks class object
 ParFlow *parflow; // parallel flow class object
 float vec_scale; // vector scaling factor
+const int ghost = 1;  // ghost cells. need at least 1 layer for correct
+		      // advection between blocks.
+
+// integration parameters
+const float maxError = 0.0001;
+const float initialStepSize = 1.0;
+const float minStepSize = 0.01;
+const float maxStepSize = 5.0;
+const float lowerAngleAccuracy = 3.0;
+const float upperAngleAccuracy = 15.0;
+
+const INTEG_ORD integrationOrder = RK45;
+const bool useAdaptiveStepSize = true;
 
 //----------------------------------------------------------------------------
 
@@ -65,10 +78,6 @@ int main(int argc, char *argv[]) {
 
   GetArgs(argc, argv);
   Init();
-  blocks = new Blocks(lat, (void *)osuflow, OSUFLOW, dataset_files, 
-		    num_dataset_files, data_mode);
-  parflow = new ParFlow(lat, osuflow, sl_list, &pt, &npt,
-		    &tot_ntrace, nblocks);
   Run();
 
 #ifdef GRAPHICS
@@ -106,8 +115,9 @@ void Run() {
 
     // scale blocks to improve visibility
     for (i = 0; i < nblocks; i++) {
-      if (lat->GetLoad(i))
+      if (lat->GetLoad(i)) {
         osuflow[i]->ScaleField(vec_scale);
+      }
     }
 
     // for all rounds
@@ -117,10 +127,12 @@ void Run() {
       for (i = 0; i < nblocks; i++) {
 
 	// compute fieldlines
-	if (tsize > 1)
+	if (tsize > 1) {
 	  parflow->ComputePathlines(Seeds[i], i, pf, end_steps);
-	else
+	}
+	else {
 	  parflow->ComputeStreamlines(Seeds[i], i, pf, end_steps);
+	}
 
       } // for all blocks
 
@@ -131,7 +143,7 @@ void Run() {
   } // for all groups
 
   // gather fieldlines for rendering
-  parflow->SerialGatherFieldlines(nblocks);
+  parflow->SerialGatherFieldlines(nblocks, size, tsize);
 
 }
 //-----------------------------------------------------------------------
@@ -187,7 +199,7 @@ void Init() {
 
   // init lattice and osuflow
   lat = new Lattice4D((int)size[0], (int)size[1], (int)size[2], tsize, 
-		      nspart, &ntpart);
+		      nspart, &ntpart, 1, 0, false, ghost);
 
   nblocks = nspart * ntpart;
   assert((osuflow = new OSUFlow*[nblocks]) != NULL);
@@ -197,6 +209,18 @@ void Init() {
   // seeds and fieldline list
   Seeds.resize(nblocks);
   sl_list = new list<vtListTimeSeedTrace*>[nspart * ntpart];
+
+  blocks = new Blocks(lat, (void *)osuflow, OSUFLOW, dataset_files, 
+		      num_dataset_files, data_mode);
+  parflow = new ParFlow(lat, osuflow, sl_list, &pt, &npt, &tot_ntrace, nblocks);
+  parflow->SetMaxError(maxError);
+  parflow->SetInitialStepSize(initialStepSize);
+  parflow->SetMinStepSize(minStepSize);
+  parflow->SetMaxStepSize(maxStepSize);
+  parflow->SetLowerAngleAccuracy(lowerAngleAccuracy);
+  parflow->SetUpperAngleAccuracy(upperAngleAccuracy);
+  parflow->SetIntegrationOrder(integrationOrder);
+  parflow->SetUseAdaptiveStepSize(useAdaptiveStepSize);
 
 }
 //-----------------------------------------------------------------------

@@ -78,14 +78,17 @@ public:
 	// boundary intersection
 	virtual void BoundaryIntersection(VECTOR3& intersectP, VECTOR3& startP, 
 					  VECTOR3& endP,float* stepSize, float oldStepSize) = 0;
+	// whether the point is in the bounding box
+	virtual bool isInBBox(VECTOR3& pos) = 0;
+	// whether the point is in the bounding box not counting ghost cells
+	virtual bool isInRealBBox(VECTOR3& p) = 0;
+	virtual bool isInRealBBox(VECTOR3& pos, float t) = 0;
 
 protected:
 	// reset parameters
 	virtual void Reset(void) = 0;
 	// compute bounding box
 	virtual void ComputeBBox(void) = 0;
-	// whether the point is in the bounding box
-	virtual bool isInBBox(VECTOR3& pos) = 0;
 	// whether in a cell
 	virtual bool isInCell(PointInfo& pInfo, const int cellId) = 0;
 };
@@ -122,8 +125,10 @@ public:
 	virtual CellType GetCellType(void) = 0; 
 	// get min and maximal boundary
 	virtual void Boundary(VECTOR3& minB, VECTOR3& maxB) = 0; 
-	// set bounding box
+	// set bounding box (includes ghost cells)
 	virtual void SetBoundary(VECTOR3& minB, VECTOR3& maxB) = 0; 
+	// set bounding box (does not include ghost cells)
+	virtual void SetRealBoundary(VECTOR4& minB, VECTOR4& maxB) = 0;
 	// get grid spacing in x,y,z dimensions
 	virtual void GetGridSpacing(int cellId, float& xspace, float& yspace, float& zspace) = 0; 
 	// boundary intersection
@@ -143,7 +148,12 @@ protected:
 	inline int zcelldim(void) {return (m_nDimension[2] - 1);}
 
 	int m_nDimension[3];				// dimension
-	VECTOR3 m_vMinBound, m_vMaxBound;	// min and maximal boundary
+
+	// min and maximal boundary (includes ghost cells)
+	VECTOR3 m_vMinBound, m_vMaxBound;
+
+	// min and maximal boundary (does not include ghost cells)
+	VECTOR4 m_vMinRealBound, m_vMaxRealBound;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -183,21 +193,26 @@ public:
 	float cellVolume(int cellId);
 	// cell type
 	CellType GetCellType(void) {return CUBE;}
-	// set bounding box
+	// set bounding box (includes ghost cells)
 	void SetBoundary(VECTOR3& minB, VECTOR3& maxB);
+	// set bounding box (does not include ghost cells)
+	void SetRealBoundary(VECTOR4& minB, VECTOR4& maxB);
 	// get min and maximal boundary
 	void Boundary(VECTOR3& minB, VECTOR3& maxB);
 	// get grid spacing in x,y,z dimensions
 	void GetGridSpacing(int cellId, float& xspace, float& yspace, float& zspace) 
 	{ xspace = oneOvermappingFactorX; yspace = oneOvermappingFactorY; zspace = oneOvermappingFactorZ; }
 	void BoundaryIntersection(VECTOR3&, VECTOR3&, VECTOR3&, float*, float);
+	// whether the point is in the bounding box
+	bool isInBBox(VECTOR3& pos);
+	// whether the point is in the bounding box (not counting ghost cells)
+	bool isInRealBBox(VECTOR3& pos);
+	bool isInRealBBox(VECTOR3& pos, float t);
 
 protected:
 	void Reset(void);
 	// compute bounding box
 	void ComputeBBox(void);
-	// whether the point is in the bounding box
-	bool isInBBox(VECTOR3& pos);
 	// whether in a cell
 	bool isInCell(PointInfo& pInfo, const int cellId);
 };
@@ -284,6 +299,8 @@ public:
 	void SetBoundary(VECTOR3& minB, VECTOR3& maxB);
 	void Boundary(VECTOR3& minB, VECTOR3& maxB);
 	bool isInBBox(VECTOR3& pos);
+	bool isInRealBBox(VECTOR3& pos);
+	bool isInRealBBox(VECTOR3& pos, float t);
 
 	// irregular specific functions
 	void SetTetraInfoInit(bool bInit);

@@ -239,18 +239,24 @@ int Blocks::IsBlockInTimeGroup(int g, int b, int tsize, int tb) {
 
   int64_t starts[4]; // block starts
   int min_t, max_t; // time range of the block
+  int time_group_start;
 
 #ifdef _MPI
   blocking->BlockStarts(b, starts);
   min_t = starts[3];
+  time_group_start = blocking->time_starts[g];
 #else
-  if (lat4D)
+  if (lat4D) {
     lat4D->GetTB(b, &min_t, &max_t);
-  else
+    time_group_start = lat4D->tb_list[g].tmin;
+  }
+  else {
     latAMR->GetTB(b, &min_t, &max_t);
+    time_group_start = g * tsize / tb;
+  }
 #endif
 
-  if (tsize == 1 || tb == 1 || min_t == g * tsize / tb)
+  if (tsize == 1 || tb == 1 || min_t == time_group_start)
     return 1;
 
   return 0;
@@ -347,22 +353,47 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
 		     starts[2] + sizes[2] - 1};
       min_t = starts[3];
       max_t = starts[3] + sizes[3] - 1;
+
+      // get the real bounds (not including ghost cells)
+      int real_from[4];
+      int real_to[4];
+      int gid = blocking->assign->RoundRobin_lid2gid(i); // global id of block
+      for(int j=0; j<4; j++)
+      {
+	real_from[j] = blocking->rbb_list[gid].min[j];
+	real_to[j] = blocking->rbb_list[gid].max[j];
+      }
+
       t0 = MPI_Wtime();
 #else // serial version
-      float from[3], to[3]; // block spatial extent
+      float from[3], to[3]; // bounds with ghost
+      float r_from[3], r_to[3];  // bounds w/o ghost, in float format
+      int real_from[4];  // bounds w/o ghost, int format
+      int real_to[4];    // bounds w/o ghost, int format
+
       lat4D->GetVB(i, from, to, &min_t, &max_t);
+      lat4D->GetRealVB(i, r_from, r_to, &real_from[3], &real_to[3]);
+
+      // convert from float to int
+      real_from[0] = r_from[0];
+      real_from[1] = r_from[1];
+      real_from[2] = r_from[2];
+      real_to[0] = r_to[0];
+      real_to[1] = r_to[1];
+      real_to[2] = r_to[2];
 #endif
 
       // load the block
       switch (compute_type) {
       case OSUFLOW:
 	if(data == NULL)
-	  block_osuflow[i]->LoadData(dataset_files, num_dataset_files,
-				     from, to, size, min_t, max_t, data_mode);
+	  block_osuflow[i]->LoadData(dataset_files, num_dataset_files, from, 
+				     to, real_from, real_to, size, min_t,
+				     max_t, data_mode);
 	else
 	  block_osuflow[i]->LoadData(dataset_files, num_dataset_files, from, 
-				     to, size, min_t, max_t, data_mode, 
-				     data[i]); 
+				     to, real_from, real_to, size, min_t,
+				     max_t, data_mode, data[i]); 
 	break;
       default:
 	break;

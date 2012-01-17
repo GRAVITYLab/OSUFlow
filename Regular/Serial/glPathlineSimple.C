@@ -60,7 +60,7 @@ void compute_pathlines() {
   to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
 
   printf("generating seeds...\n"); 
-  osuflow->SetRandomSeedPoints(from, to, 1000); 
+  osuflow->SetRandomSeedPoints(from, to, 128); 
   int nSeeds; 
   VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
   for (int i=0; i<nSeeds; i++) 
@@ -74,7 +74,7 @@ void compute_pathlines() {
     tarray[i] = (float)(i % num_timesteps); 
 
   printf("compute streamlines..\n"); 
-  osuflow->SetIntegrationParams(1, 5); 
+  osuflow->SetIntegrationParams(1, 5);
   //  osuflow->GenPathLines(seeds, sl_list , FORWARD, nSeeds, 5000); 
   osuflow->GenPathLines(seeds, sl_list , FORWARD, nSeeds, 5000, tarray); 
   printf(" done integrations\n"); 
@@ -297,7 +297,10 @@ int main(int argc, char** argv)
   time_incr = num_timesteps/(float) num_frames; 
 
   //  osuflow->NormalizeField(true); 
-  osuflow->ScaleField(50.0); 
+  osuflow->SetIntegrationParams(1, 5);
+  osuflow->ScaleField(30.0);
+  osuflow->SetMaxError(0.0001);
+  osuflow->SetIntegrationParams(1, 0.01, 5);
 
   center[0] = (minLen[0]+maxLen[0])/2.0; 
   center[1] = (minLen[1]+maxLen[1])/2.0; 

@@ -137,7 +137,7 @@ void Run() {
   } // for all groups
 
   // gather fieldlines for rendering
-  parflow->SerialGatherFieldlines(nblocks);
+  parflow->SerialGatherFieldlines(nblocks, size, tsize);
 
 }
 //-----------------------------------------------------------------------

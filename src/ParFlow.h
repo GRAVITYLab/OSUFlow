@@ -67,7 +67,7 @@ class ParFlow {
   void ComputeStreamlines(vector<Particle> seeds, int block_num, int pf, 
 			  int end_steps, int *w = NULL);
   void GatherFieldlines(int nblocks, float *size, int tsize);
-  void SerialGatherFieldlines(int nblocks);
+  void SerialGatherFieldlines(int nblocks, float* size, int tsize);
   int GatherNumPts(int* &ntrace, int all, int nblocks);
   void GatherPts(int *ntrace, int mynpt, int nblocks);
   void PrintPerf(double TotTime, double TotInTime, double TotOutTime, 
@@ -86,7 +86,7 @@ class ParFlow {
   int FlushNeighbors(vector< vector<Particle> >& seeds);
   double GetMyCompTime() { return comp_time; }
   void SetSeeds(OSUFlow* osuflow, float* from, float* to, 
-		VECTOR3* specific_seeds, int num_specific_seeds);
+		VECTOR3* specific_seeds, int num_specific_seeds, bool* isUsed);
 
   // seed list management
   void InitSeedLists4D(); 
@@ -110,6 +110,18 @@ class ParFlow {
   list<VECTOR3> *seedlists3D; 
   list<VECTOR4> *seedlists4D; 
 
+  // integration parameters
+  void SetMaxError(float maxError) {this->maxError = maxError;}
+  void SetInitialStepSize(float step) {this->initialStepSize = step;}
+  void SetMinStepSize(float step) {this->minStepSize = step;}
+  void SetMaxStepSize(float step) {this->maxStepSize = step;}
+  void SetLowerAngleAccuracy(float angle) {this->lowerAngleAccuracy = angle;}
+  void SetUpperAngleAccuracy(float angle) {this->upperAngleAccuracy = angle;}
+  void SetIntegrationOrder(INTEG_ORD order) {this->integrationOrder = order;}
+  void SetUseAdaptiveStepSize(bool adapt) {this->useAdaptiveStepSize = adapt;}
+
+  void SetIntegrationParams(OSUFlow* osuflow);
+
   int* flowMatrix; 
 
 #ifdef ZOLTAN
@@ -130,7 +142,7 @@ class ParFlow {
   int n_block_stats;// number of block stats
   int n_time_stats; // number of time stats
   int TotSeeds; // total number of seeds for all blocks and all rounds
-  int TotSteps; // total number of integration stpes for all seeds,
+  int TotSteps; // total number of integration steps for all seeds,
                 // for all blocks and all rounds in this process
   OSUFlow **osuflow;
   Lattice4D *lat4D;
@@ -149,6 +161,16 @@ class ParFlow {
   Blocks *blocks; // blocks object
   double comp_time; // computation time for my process
   double comm_time1, comm_time2, comm_time3;
+
+  // integration parameters
+  float initialStepSize;
+  float minStepSize;
+  float maxStepSize;
+  float maxError;
+  float lowerAngleAccuracy;
+  float upperAngleAccuracy;
+  INTEG_ORD integrationOrder;
+  bool useAdaptiveStepSize;
 
 };
 

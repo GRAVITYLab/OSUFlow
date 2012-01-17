@@ -230,7 +230,7 @@ void Neighborhoods::PostMessages(MPI_Datatype* (*SendItemDtype)(int *,
     if (!pi->posted) {
 
       // counts-sends
-      MPI_Isend(&(pi->c)[0], (pi->c)[0] * (nhdr + 2) + 1, MPI_INT, pi->proc, 
+      MPI_Isend(&((pi->c)[0]), (pi->c)[0] * (nhdr + 2) + 1, MPI_INT, pi->proc, 
 		tag * 2, comm, &req);
       pi->posted = true;
       ct.req = req;
@@ -330,10 +330,13 @@ void Neighborhoods::TestMessages(float wf,
 	  }
 	  ct_it->done = true;
 	  ct_it->tag = stats[i].MPI_TAG;
+
 	  // count number of items expected
 	  npr = 0;
 	  for (k = 0; k < (ct_it->c)[0]; k++)
+	  {
 	    npr += (ct_it->c)[k * (nhdr + 2) + 2];
+	  }
 	  // post payload-receive
 	  if (npr > 0) { // at least one point is expected
 	    p = ct_it->proc;

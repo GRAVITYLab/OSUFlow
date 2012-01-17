@@ -165,7 +165,8 @@ int vtCStreamLine::computeFieldLine(TIME_DIR time_dir,
 {
 	int count = 0, istat;
 	PointInfo thisParticle, prevParticle, second_prevParticle;
-	float dt, dt_estimate, mag, curTime;
+	PointInfo third_prevParticle;
+	float dt, dt_estimate, dt_attempt, mag, curTime, prevCurTime;
 	VECTOR3 vel;
 	float cell_volume;
 
@@ -190,13 +191,17 @@ int vtCStreamLine::computeFieldLine(TIME_DIR time_dir,
 	// get the initial stepsize
 	// this method was taken from the paper "Interactive Time-Dependent
 	// Particle Tracing Using Tetrahedral Decomposition", by Kenwright and Lane
-	cell_volume = m_pField->volume_of_cell(seedInfo.inCell);
-	mag = vel.GetMag();
-	if(fabs(mag) < 1.0e-6f)
-		dt_estimate = 1.0e-5f;
-	else
-		dt_estimate = pow(cell_volume, (float)0.3333333f) / mag;
-	dt = m_fInitStepSize * dt_estimate;
+	dt = m_fInitialStepSize;
+	if(m_adaptStepSize)
+	{
+		cell_volume = m_pField->volume_of_cell(seedInfo.inCell);
+		mag = vel.GetMag();
+		if(fabs(mag) < 1.0e-6f)
+			dt_estimate = 1.0e-5f;
+		else
+			dt_estimate = pow(cell_volume, (float)0.3333333f) / mag;
+		dt = m_fInitialStepSize * dt_estimate;
+	}
 
 #ifdef DEBUG
 	fprintf(fDebugOut, "****************new particle*****************\n");
@@ -207,8 +212,11 @@ int vtCStreamLine::computeFieldLine(TIME_DIR time_dir,
 	// start to advect
 	while(count < m_nMaxsize)
 	{
+		third_prevParticle = second_prevParticle;
 		second_prevParticle = prevParticle;
 		prevParticle = thisParticle;
+		prevCurTime = curTime;
+		dt_attempt = dt;
 
 		// take a proper step, also calculates a new step size for the next step
 		if(integ_ord == SECOND || integ_ord == FOURTH)
@@ -225,14 +233,52 @@ int vtCStreamLine::computeFieldLine(TIME_DIR time_dir,
 		        thisParticle.phyCoord[2], dt);
 #endif
 
+		// check if the step failed
+		if(istat == FAIL)
+		{
+			if(!m_adaptStepSize)
+			{
+				// can't change the step size, so advection just ends
+				return OKAY;
+			}
+			else if(dt_attempt == m_fMinStepSize)
+			{
+				// tried to take a step with the min step size, 
+				// can't go any further
+				return OKAY;
+			}
+			else
+			{
+				// try to retake the step with a smaller step size
+				dt = dt_attempt*0.1;
+				if(dt < m_fMinStepSize)
+					dt = m_fMinStepSize;
+				thisParticle = prevParticle;
+				prevParticle = second_prevParticle;
+				second_prevParticle = third_prevParticle;
+				curTime = prevCurTime;
+				continue;
+			}
+		}
+
 		seedTrace.push_back(new VECTOR3(thisParticle.phyCoord));
 		count++;
 
-		if(istat == OUT_OF_BOUND)
+		if(!m_adaptStepSize)
+		{
+			// change step size to prevously used, since the oneStep methods
+			// will change the value of dt
+			dt = dt_attempt;
+		}
+
+		// check if point is outside real bounds 
+		// (bounds not counting ghost cells)
+		if(!m_pField->IsInRealBoundaries(thisParticle))
 		{
 			return OUT_OF_BOUND;
 		}
 
+		// check if point is at critical point
 		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, 
 		                  thisParticle, m_fCurrentTime, vel);
 		if((fabs(vel[0]) < m_fStationaryCutoff) && 
@@ -289,7 +335,7 @@ int vtCStreamLine::executeInfiniteAdvection(TIME_DIR time_dir,
 		dt_estimate = 1.0e-5f;
 	else
 		dt_estimate = pow(cell_volume, (float)0.3333333f) / mag;
-	dt = m_fInitStepSize * dt_estimate;
+	dt = m_fInitialStepSize * dt_estimate;
 
 #ifdef DEBUG
 	fprintf(fDebugOut, "****************new particle*****************\n");
@@ -383,7 +429,7 @@ int vtCStreamLine::AdvectOneStep(TIME_DIR time_dir,
 	PointInfo thisParticle;
 	VECTOR3 vel;
 	float curTime = m_fCurrentTime;
-	float dt = m_fInitStepSize;
+	float dt = m_fInitialStepSize;
 
 	finalP.Set(-1, -1, -1);
 	thisParticle = seedInfo;

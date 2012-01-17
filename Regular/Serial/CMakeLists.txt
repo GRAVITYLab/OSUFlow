@@ -25,6 +25,7 @@ link_directories(
 list(APPEND SRC_FILES
 	StreamlineSimple 
 	StreamlineSimplePartition 
+	PathlineSimple
 	# ADD-BY-LEETEN 01/06/2012-BEGIN
 	# Incompatible w/ Lattice4D: StreamlineSimplePartition1
 	# Incompatible w/ Lattice4D: StreamlineSimplePartition2

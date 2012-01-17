@@ -142,7 +142,7 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 	switch(m_pField->GetCellType())
 	{
 	case CUBE:
-		dt = dt_estimate = m_fInitStepSize;
+		dt = dt_estimate = m_fInitialStepSize;
 		break;
 
 	case TETRAHEDRON:
@@ -213,16 +213,20 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 	int count = 0, istat, res;
 	PointInfo seedInfo;
 	PointInfo thisParticle, prevParticle, second_prevParticle;
-	float dt, dt_estimate, cell_volume, mag, curTime;
+	PointInfo third_prevParticle;
+	float dt, dt_attempt, dt_estimate, cell_volume, mag, curTime, prevCurTime;
 	VECTOR3 vel;
 
 	// the first particle
 	seedInfo = initialPoint.m_pointInfo;
-	res = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo, initialTime, vel);
+	res = m_pField->at_phys(seedInfo.fromCell, seedInfo.phyCoord, seedInfo,
+	                        initialTime, vel);
 	if(res == OUT_OF_BOUND)  {
 		return OUT_OF_BOUND;
 	}
-	if((fabs(vel[0]) < m_fStationaryCutoff) && (fabs(vel[1]) < m_fStationaryCutoff) && (fabs(vel[2]) < m_fStationaryCutoff)) {
+	if((fabs(vel[0]) < m_fStationaryCutoff) && 
+	   (fabs(vel[1]) < m_fStationaryCutoff) &&
+	   (fabs(vel[2]) < m_fStationaryCutoff)) {
 		return CRITICAL_POINT;
 	}
 
@@ -237,31 +241,38 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 	count++;
 
 	// get the initial stepsize
-	switch(m_pField->GetCellType())
+	dt = m_fInitialStepSize;
+	if(m_adaptStepSize)
 	{
-	case CUBE:
-		dt = dt_estimate = m_fInitStepSize;
-		break;
+		switch(m_pField->GetCellType())
+		{
+		case CUBE:
+			dt = dt_estimate = m_fInitialStepSize;
+			break;
 
-	case TETRAHEDRON:
-		cell_volume = m_pField->volume_of_cell(seedInfo.inCell);
-		mag = vel.GetMag();
-		if(fabs(mag) < 1.0e-6f)
-			dt_estimate = 1.0e-5f;
-		else
-			dt_estimate = pow(cell_volume, (float)0.3333333f) / mag;
-		dt = dt_estimate;
-		break;
+		case TETRAHEDRON:
+			cell_volume = m_pField->volume_of_cell(seedInfo.inCell);
+			mag = vel.GetMag();
+			if(fabs(mag) < 1.0e-6f)
+				dt_estimate = 1.0e-5f;
+			else
+				dt_estimate = pow(cell_volume, (float)0.3333333f) / mag;
+			dt = dt_estimate;
+			break;
 
-	default:
-		break;
+		default:
+			break;
+		}
 	}
 
 	// start to advect
 	while(count < m_nMaxsize)
 	{
+		third_prevParticle = second_prevParticle;
 		second_prevParticle = prevParticle;
 		prevParticle = thisParticle;
+		prevCurTime = curTime;
+		dt_attempt = dt;
 
 		if(int_order == SECOND || int_order == FOURTH)
 			istat = oneStepGeometric(int_order, m_timeDir, UNSTEADY,
@@ -271,6 +282,34 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 			istat = oneStepEmbedded(int_order, m_timeDir, UNSTEADY,
 			                        thisParticle, &curTime, &dt);
 		
+		// check if the step failed
+		if(istat == FAIL)
+		{
+			if(!m_adaptStepSize)
+			{
+				// can't change the step size, so advection just ends
+				return OKAY;
+			}
+			if(dt_attempt == m_fMinStepSize)
+			{
+				// tried to take a step with the min step size, but failed,
+				// can't go any further
+				return OKAY;
+			}
+			else
+			{
+				// try to retake the step with a smaller step size
+				dt = dt_attempt * 0.1;
+				if(dt < m_fMinStepSize)
+					dt = m_fMinStepSize;
+				thisParticle = prevParticle;
+				prevParticle = second_prevParticle;
+				second_prevParticle = third_prevParticle;
+				curTime = prevCurTime;
+				continue;
+			}
+		}
+
 		VECTOR4 *p = new VECTOR4; 
 		(*p)[0] = thisParticle.phyCoord[0]; 
 		(*p)[1] = thisParticle.phyCoord[1]; 
@@ -279,22 +318,27 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 		seedTrace.push_back(p); 
 		count++;
 
-		if(istat == OUT_OF_BOUND)			// out of boundary
-			return OUT_OF_BOUND;
+		if(!m_adaptStepSize)
+		{
+			// change step size to prevously used, since the oneStep methods
+			// will change the value of dt
+			dt = dt_attempt;
+		}
 
+		// check if point is outside real bounds 
+		// (bounds not counting ghost cells)
+		if(!m_pField->IsInRealBoundaries(thisParticle, curTime))
+		{
+			return OUT_OF_BOUND;
+		}
+
+		// check if point is at critical point
 		m_pField->at_phys(thisParticle.fromCell, thisParticle.phyCoord, 
 		                  thisParticle, curTime, vel);
 		if((fabs(vel[0]) < m_fStationaryCutoff) && 
 		   (fabs(vel[1]) < m_fStationaryCutoff) && 
 		   (fabs(vel[2]) < m_fStationaryCutoff))
-			return CRITICAL_POINT;			// arrives at a critical point
-
-		if((curTime < m_pField->GetMinTimeStep()) || 
-		   (curTime > m_pField->GetMaxTimeStep()))
-		{
-			printf("**** time out  "); 
-			return OUT_OF_BOUND;
-		}
+			return CRITICAL_POINT;
 	}
 
 	return OKAY;

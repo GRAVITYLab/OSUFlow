@@ -21,9 +21,18 @@ OSUFlow::OSUFlow()
   seedPtr = NULL; 
   seedTimeArray = NULL; 
   nSeeds = 0; 
-  pStreakLine = NULL; 
   has_data = false; 
   deferred_load_case = -1; 
+
+  maxError = 0.01;
+  initialStepSize = 1.0;
+  minStepSize = 0.01;
+  maxStepSize = 5;
+  lowerAngleAccuracy = 3.0;
+  upperAngleAccuracy = 15.0;
+
+  integrationOrder = RK45;
+  useAdaptiveStepSize = true;
 }
 
 OSUFlow::~OSUFlow()
@@ -190,13 +199,21 @@ void OSUFlow::LoadData(const char* fname, float *sMin, float *sMax,
     numTimesteps = 1; 
     MinT = MaxT = min_t; 
   }
+
+  int sRealMin[4];
+  int sRealMax[4];
+  for(int i=0; i<4; i++)
+  {
+    sRealMin[i] = sMin[i];
+    sRealMax[i] = sMax[i];
+  }
 	  
   switch (mode) {
 
   case 0:
   case 1:
   case 2:
-    InitFlowField(sMin, sMax, dim, min_t, max_t, mode, data); 
+    InitFlowField(sMin, sMax, sRealMin, sRealMax, dim, min_t, max_t, mode,data);
     break;
   default:
     fprintf(stderr, "Error: LoadData() currently does not support modes other than 0, 1, and 2\n");
@@ -229,6 +246,47 @@ void OSUFlow::LoadData(const char* fname, float *sMin, float *sMax,
 void OSUFlow::LoadData(char **dataset_files, int num_dataset_files,
 		       float *sMin, float *sMax, float *dim, int min_t, 
 		       int max_t, DataMode mode, float **data) {
+
+  // set the real boundaries equal to the given boundaries, then continue
+  // normally. the real boundaries are ones not counting ghost cells.
+  int sRealMin[4];
+  int sRealMax[4];
+  for(int i=0; i<4; i++)
+  {
+    sRealMin[i] = sMin[i];
+    sRealMax[i] = sMax[i];
+  }
+  LoadData(dataset_files, num_dataset_files, sMin, sMax, sRealMin, sRealMax,
+           dim, min_t, max_t, mode, data);
+}
+//--------------------------------------------------------------------------
+//
+// Load a static or time-varying data set 
+//
+// dataset_files: dataset timestep files
+// num_dataset_files: number of timestep files
+// sMin, sMax: corners of subdomain (inclusive, node-centered, 
+//                                   includes ghost cells)
+// sRealMin, sRealMax: corners of subdomain (inclusive, node-centered, 
+//                                           includes time dimension,
+//                                           does not include ghost cells)
+// ie, the range [0, 10] contains 10 voxels
+// dim: size of total domain (leave uninitialized of mode == 1)
+// t_min, t_max: temporal extents (inclusive, node-centered)
+// ie, first timestep has extent [0, 1]
+// t_min + 1 = tmax for static, tmin + 1 < tmax for time-varying
+// mode: 0 = raw with no header data
+//       1 = raw with dimensions at start
+//       2 = netCDF
+//       3 = HDF5
+// data: data that has already been read in (defaults to NULL)
+// currently only modes 0, 1, and 2 are implemented
+//
+void OSUFlow::LoadData(char **dataset_files, int num_dataset_files,
+		       float *sMin, float *sMax, int* sRealMin, int* sRealMax,
+		       float *dim, int min_t, int max_t, DataMode mode,
+		       float **data)
+{
   
   // init
   this->dataset_files = dataset_files;
@@ -246,13 +304,13 @@ void OSUFlow::LoadData(char **dataset_files, int num_dataset_files,
     numTimesteps = 1; 
     MinT = MaxT = min_t; 
   }
-	  
+
   switch (mode) {
 
   case 0:
   case 1:
   case 2:
-    InitFlowField(sMin, sMax, dim, min_t, max_t, mode, data); 
+    InitFlowField(sMin, sMax, sRealMin, sRealMax, dim, min_t, max_t, mode,data);
     break;
   default:
     fprintf(stderr, "Error: LoadData() currently does not support modes other than 0, 1, and 2\n");
@@ -469,9 +527,9 @@ void OSUFlow:: InitTimeVaryingFlowField(VECTOR3 minB, VECTOR3 maxB, int min_t, i
 // dm: data mode
 // data: data that has already been loaded (defaults to NULL)
 //
-void OSUFlow::InitFlowField(float *sMin, float *sMax, 
-				       float *dim, int t_min, int t_max,
-				       DataMode dm, float **data) {
+void OSUFlow::InitFlowField(float *sMin, float *sMax, int* sRealMin,
+			    int* sRealMax, float *dim, int t_min, int t_max,
+			    DataMode dm, float **data) {
 
   float** ppData = NULL;
 
@@ -496,13 +554,14 @@ void OSUFlow::InitFlowField(float *sMin, float *sMax,
 				      (int)(sMax[0] - sMin[0] + 1),
 				      (int)(sMax[1] - sMin[1] + 1),
 				      (int)(sMax[2] - sMin[2] + 1),
-				      sMin, sMax);  
+				      sMin, sMax, sRealMin, sRealMax);  
   else
     flowField = CreateTimeVaryingFlowField(ppData, 
 					   (int)(sMax[0] - sMin[0] + 1),
 					   (int)(sMax[1] - sMin[1] + 1),
 					   (int)(sMax[2] - sMin[2] + 1),
-					   sMin, sMax, t_min, t_max);  
+					   sMin, sMax, sRealMin, sRealMax,
+					   t_min, t_max);  
 
 }
 
@@ -517,12 +576,28 @@ CVectorField* OSUFlow::CreateStaticFlowField(float *pData,
 				    int xdim, int ydim, int zdim, 
 				    float* minB, float* maxB) 
 {
+  int minRealB[4];
+  int maxRealB[4];
+  for(int i=0; i<4; i++)
+  {
+    minRealB[i] = minB[i];
+    maxRealB[i] = maxB[i];
+  }
+  CreateStaticFlowField(pData, xdim, ydim, zdim, minB, maxB,minRealB,maxRealB);
+}
+
+CVectorField* OSUFlow::CreateStaticFlowField(float *pData, 
+					     int xdim, int ydim, int zdim, 
+					     float* minB, float* maxB,
+					     int* minRealB, int* maxRealB) 
+{
   CVectorField* field; 
   Solution* pSolution;
   RegularCartesianGrid* pRegularCGrid;
   VECTOR3* pVector;
   VECTOR3** ppVector;
   VECTOR3 min_b, max_b; 
+  VECTOR4 realMin_b, realMax_b; 
 
   int totalNum = xdim*ydim*zdim; 
   pVector = new VECTOR3[totalNum]; 
@@ -539,8 +614,13 @@ CVectorField* OSUFlow::CreateStaticFlowField(float *pData,
 
   min_b[0] = minB[0]; min_b[1] = minB[1]; min_b[2] = minB[2]; 
   max_b[0] = maxB[0]; max_b[1] = maxB[1]; max_b[2] = maxB[2]; 
+  realMin_b[0] = minRealB[0]; realMin_b[1] = minRealB[1]; 
+  realMin_b[2] = minRealB[2]; realMin_b[3] = minRealB[3]; 
+  realMax_b[0] = maxRealB[0]; realMax_b[1] = maxRealB[1]; 
+  realMax_b[2] = maxRealB[2]; realMax_b[3] = maxRealB[3]; 
 
   pRegularCGrid->SetBoundary(min_b, max_b);
+  pRegularCGrid->SetRealBoundary(realMin_b, realMax_b);
 
   assert(pSolution != NULL && pRegularCGrid != NULL);
   
@@ -567,12 +647,39 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
 						  float* minB, float* maxB, 
 						  int min_t, int max_t) 
 {
+  int minRealB[4];
+  int maxRealB[4];
+  for(int i=0; i<4; i++)
+  {
+    minRealB[i] = minB[i];
+    maxRealB[i] = maxB[i];
+  }
+  CreateTimeVaryingFlowField(ppData, xdim, ydim, zdim, minB, maxB, minRealB,
+			     maxRealB, min_t, max_t);
+}
+
+//////////////////////////////////////////////////////////////////
+//
+//   ppData are assumed to contain the vector data of 
+//   max_t-min_t+1 time steps 
+//
+//   xdim, ydim, zdim are the resolutions of the data block
+//   minB and maxB specify the actual physical bounds of the block 
+//   min_t and max_t are the time interval that this block represents 
+//
+CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData, 
+						  int xdim, int ydim, int zdim, 
+						  float* minB, float* maxB, 
+						  int* minRealB, int* maxRealB,
+						  int min_t, int max_t) 
+{
   CVectorField* field; 
   Solution* pSolution;
   RegularCartesianGrid* pRegularCGrid;
   VECTOR3* pVector;
   VECTOR3** ppVector;
   VECTOR3 min_b, max_b; 
+  VECTOR4 realMin_b, realMax_b; 
   
   int totalNum = xdim*ydim*zdim; 
 
@@ -602,11 +709,17 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
 #endif
   min_b[0] = minB[0]; min_b[1] = minB[1]; min_b[2] = minB[2]; 
   max_b[0] = maxB[0]; max_b[1] = maxB[1]; max_b[2] = maxB[2]; 
+  realMin_b[0] = minRealB[0]; realMin_b[1] = minRealB[1]; 
+  realMin_b[2] = minRealB[2]; realMin_b[3] = minRealB[3]; 
+  realMax_b[0] = maxRealB[0]; realMax_b[1] = maxRealB[1]; 
+  realMax_b[2] = maxRealB[2]; realMax_b[3] = maxRealB[3]; 
+
   // create the flow field now 
   pSolution = new Solution(ppVector, totalNum, numTimesteps, min_t, max_t);
   pRegularCGrid = new RegularCartesianGrid(xdim, ydim, zdim); 			
 
   pRegularCGrid->SetBoundary(min_b, max_b);
+  pRegularCGrid->SetRealBoundary(realMin_b, realMax_b);
 
   assert(pSolution != NULL && pRegularCGrid != NULL);
   field = new CVectorField(pRegularCGrid, pSolution, numTimesteps, min_t);
@@ -727,9 +840,23 @@ void OSUFlow::SetIntegrationParams(float initStepSize, float maxStepSize)
 	                           maxStepSize);
 }
 
-void OSUFlow::SetMaxError(float maxError)
+//--------------------------------------------------------------------------
+//
+// Initialize a field line class (streamline, pathlines, streakline, etc.)
+//
+// sets all the integration parameters
+//
+//
+void OSUFlow::InitFieldLine(vtCFieldLine* fieldline, int maxPoints)
 {
-	this->maxError = maxError;
+  fieldline->SetMaxError(maxError);
+  fieldline->SetInitialStepSize(initialStepSize);
+  fieldline->SetMinStepSize(minStepSize);
+  fieldline->SetMaxStepSize(maxStepSize);
+  fieldline->SetLowerUpperAngle(lowerAngleAccuracy, upperAngleAccuracy);
+  fieldline->setMaxPoints(maxPoints);
+  fieldline->setIntegrationOrder(integrationOrder);
+  fieldline->SetUseAdaptiveStepSize(useAdaptiveStepSize);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -776,13 +903,8 @@ bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces,
 	case BACKWARD_AND_FORWARD:
 		break;
 	}
-	pStreamLine->SetLowerUpperAngle(3.0, 15.0);
-	pStreamLine->SetMaxError(maxError);
-	pStreamLine->setMaxPoints(maxPoints);
+	InitFieldLine(pStreamLine, maxPoints);
 	pStreamLine->setSeedPoints(seedPtr, nSeeds, currentT);
-	pStreamLine->SetInitStepSize(initialStepSize);
-	pStreamLine->SetMaxStepSize(maxStepSize);
-	pStreamLine->setIntegrationOrder(FOURTH);
 	pStreamLine->execute((void *)&currentT, listSeedTraces);
 	// release resource
 	delete pStreamLine;
@@ -799,8 +921,8 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 			     const int seedNum,
 			     const int maxPoints, 
 			     list<vtListSeedTrace*>& listSeedTraces,
-           int64_t *seedIds,
-           list<int64_t> *listSeedIds)
+			     int64_t *seedIds,
+			     list<int64_t> *listSeedIds)
 {
 
   if (has_data == false) DeferredLoadData(); 
@@ -828,15 +950,10 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 	case BACKWARD_AND_FORWARD:
 		break;
 	}
-	pStreamLine->SetLowerUpperAngle(3.0, 15.0);
-	pStreamLine->SetMaxError(maxError);
-	pStreamLine->setMaxPoints(maxPoints);
+	InitFieldLine(pStreamLine, maxPoints);
 	pStreamLine->setSeedPoints(seedPtr, nSeeds, currentT, seedIds);
-	pStreamLine->SetInitStepSize(initialStepSize);
-	pStreamLine->SetMinStepSize(minStepSize);
-	pStreamLine->SetMaxStepSize(maxStepSize);
-	pStreamLine->setIntegrationOrder(FOURTH);
 	pStreamLine->execute((void *)&currentT, listSeedTraces, listSeedIds);
+
 	// release resource
 	delete pStreamLine;
 	return true;
@@ -870,16 +987,11 @@ bool OSUFlow::GenPathLines(list<vtListTimeSeedTrace*>& listSeedTraces,
 
 	pPathLine = new vtCPathLine(flowField);
 
+	InitFieldLine(pPathLine, maxPoints);
 	pPathLine->SetTimeDir(dir); 
-
-	pPathLine->SetLowerUpperAngle(3.0, 15.0);
-	pPathLine->SetMaxError(maxError);
-	pPathLine->setMaxPoints(maxPoints);
 	pPathLine->setSeedPoints(seedPtr, nSeeds, currentT);
-	pPathLine->SetInitStepSize(initialStepSize);
-	pPathLine->SetMaxStepSize(maxStepSize);
-	pPathLine->setIntegrationOrder(FOURTH);
 	pPathLine->execute(listSeedTraces);
+
 	// release resource
 	delete pPathLine;
 	return true;
@@ -908,16 +1020,11 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 
 	pPathLine = new vtCPathLine(flowField);
 
+	InitFieldLine(pPathLine, maxPoints);
 	pPathLine->SetTimeDir(dir); 
-
-	pPathLine->SetLowerUpperAngle(3.0, 15.0);
-	pPathLine->SetMaxError(maxError);
-	pPathLine->setMaxPoints(maxPoints);
 	pPathLine->setSeedPoints(seedPtr, nSeeds, currentT);
-	pPathLine->SetInitStepSize(initialStepSize);
-	pPathLine->SetMaxStepSize(maxStepSize);
-	pPathLine->setIntegrationOrder(FOURTH);
 	pPathLine->execute(listSeedTraces);
+
 	// release resource
 	delete pPathLine;
 	return true;
@@ -959,15 +1066,11 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 
 	pPathLine = new vtCPathLine(flowField);
 
+	InitFieldLine(pPathLine, maxPoints);
 	pPathLine->SetTimeDir(dir); 
-	pPathLine->SetLowerUpperAngle(3.0, 15.0);
-	pPathLine->SetMaxError(maxError);
-	pPathLine->setMaxPoints(maxPoints);
 	pPathLine->setSeedPoints(seedPtr, nSeeds, tarray);
-	pPathLine->SetInitStepSize(initialStepSize);
-	pPathLine->SetMaxStepSize(maxStepSize);
-	pPathLine->setIntegrationOrder(FOURTH);
 	pPathLine->execute(listSeedTraces);
+
 	// release resource
 	delete pPathLine;
 	return true;
@@ -1008,18 +1111,13 @@ bool OSUFlow::GenPathLines(VECTOR4* seeds,
   listSeedTraces.clear();
 
   // execute streamline
-  vtCPathLine* pPathLine;
-
-  pPathLine = new vtCPathLine(flowField);
+  vtCPathLine* pPathLine = new vtCPathLine(flowField);
+  
+  InitFieldLine(pPathLine, maxPoints);
   pPathLine->SetTimeDir(dir); 
-  pPathLine->SetLowerUpperAngle(3.0, 15.0);
-  pPathLine->SetMaxError(maxError);
-  pPathLine->setMaxPoints(maxPoints);
   pPathLine->setSeedPoints(seeds, nSeeds, seedIds);
-  pPathLine->SetInitStepSize(initialStepSize);
-  pPathLine->SetMaxStepSize(maxStepSize);
-  pPathLine->setIntegrationOrder(FOURTH);
   pPathLine->execute(listSeedTraces, listSeedIds);
+
   // release resource
   delete pPathLine;
   return true;
@@ -1045,18 +1143,15 @@ bool OSUFlow::GenStreakLines(vtStreakTraces& streakTraces, TIME_DIR dir,
     delete pSeedGenerator;
   }
 
-  pStreakLine = new vtCStreakLine(flowField); 
+  vtCStreakLine* pStreakLine = new vtCStreakLine(flowField); 
 
   float currentT = current_time; 
   
+  InitFieldLine(pStreakLine, 1000);
   pStreakLine->SetTimeDir(dir); 
-  pStreakLine->SetLowerUpperAngle(3.0, 15.0);
-  pStreakLine->SetMaxError(maxError);
   pStreakLine->setSeedPoints(seedPtr, nSeeds, currentT);
-  pStreakLine->SetInitStepSize(initialStepSize);
-  pStreakLine->SetMaxStepSize(maxStepSize);
-  pStreakLine->setIntegrationOrder(FOURTH);
   pStreakLine->execute((void*) &currentT, streakTraces); 
+
   delete pStreakLine; 
   return true; 
 } 
@@ -1071,20 +1166,16 @@ bool OSUFlow::GenStreakLines(VECTOR3* seeds, vtStreakTraces& streakTraces, TIME_
   nSeeds = num_seeds; 
   seedPtr = seeds; 
 
-  pStreakLine = new vtCStreakLine(flowField); 
+  vtCStreakLine* pStreakLine = new vtCStreakLine(flowField); 
 
   //otherwise one sterakline has already been created before 
   float currentT = current_time; 
   
+  InitFieldLine(pStreakLine, 1000);
   pStreakLine->SetTimeDir(dir); 
-  pStreakLine->SetLowerUpperAngle(3.0, 15.0);
-  pStreakLine->SetMaxError(maxError);
   pStreakLine->setSeedPoints(seedPtr, nSeeds, currentT);
-  pStreakLine->SetInitStepSize(initialStepSize);
-  pStreakLine->SetMaxStepSize(maxStepSize);
-  pStreakLine->setIntegrationOrder(FOURTH);
-
   pStreakLine->execute((void*) &currentT, streakTraces); 
+
   delete pStreakLine; 
   return true; 
 } 
@@ -1248,7 +1339,3 @@ void OSUFlow::UserPickedSeedPoints(VECTOR3* ptr, int num)
 	this->numSeeds[1] = 1;
 	this->numSeeds[2] = 1;
 }
-#ifdef _MPI
-//-----------------------------------------------------------------------
-
-#endif

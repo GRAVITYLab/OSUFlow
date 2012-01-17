@@ -53,12 +53,22 @@ ParFlow::ParFlow(Blocking *blocking, Assignment *assignment, Blocks *blocks,
   this->nb = nb;
   this->blocks = blocks;
   this->blocking = blocking;
-  assign = assignment;
+  this->assign = assignment;
 
   nbhds = new Neighborhoods(blocking, assign, MPI_COMM_WORLD);
 
   TotSeeds = 0;
   TotSteps = 0;
+
+  // integration parameters
+  initialStepSize = 1.0;
+  minStepSize = 0.01;
+  maxStepSize = 5;
+  maxError = 0.01;
+  lowerAngleAccuracy = 3.0;
+  upperAngleAccuracy = 15.0;
+  integrationOrder = RK45;
+  useAdaptiveStepSize = true;
 
   // performance stats
   n_block_stats = 5;
@@ -182,24 +192,47 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
   VECTOR3 *seeds; // 3D seeds for one block
   int nseeds; // number of seeds
 
+  // if specific seeds are used, an array indicating if that seed has been
+  // placed in a block or not. true if it has been placed, false otherwise.
+  bool* isUsed = NULL;
+  if(num_specific_seeds > 0)
+  {
+    isUsed = new bool[num_specific_seeds];
+    for(i=0; i<num_specific_seeds; i++)
+    {
+      isUsed[i] = false;
+    }
+  }
+
   // init all blocks
   for (i = 0; i < nblocks; i++) {
 
 #ifdef _MPI // parallel version
     blocks->ClearLoad(i);
-    blocking->BlockStartsSizes(i, starts, sizes);
-    float from[3] = {starts[0], starts[1], starts[2]};
-    float to[3] = {starts[0] + sizes[0] - 1, starts[1] + sizes[1] - 1,
-		   starts[2] + sizes[2] - 1};
-    int min_t = starts[3];
-    int max_t = starts[3] + sizes[3] - 1;
+    int64_t from64[4];
+    int64_t to64[4];
+    float from[3];
+    float to[3];
+
+    blocking->GetRealBlockBounds(i, from64, to64);
+    from[0] = from64[0];
+    from[1] = from64[1];
+    from[2] = from64[2];
+    to[0] = to64[0];
+    to[1] = to64[1];
+    to[2] = to64[2];
+    int min_t = from64[3];
+    int max_t = from64[3];
+    int gid = blocking->assign->RoundRobin_lid2gid(i);
 #else // serial version
     if (lat4D) {
       lat4D->ClearLoad(i);
-      lat4D->GetVB(i, from, to, &min_t, &max_t);
+      lat4D->GetRealVB(i, from, to, &min_t, &max_t);
     }
     else {
       latAMR->ClearLoad(i);
+      // TODO: get the bounds without ghost cells, this currently includes
+      // ghost cells
       latAMR->GetVB(i, from, to, &min_t, &max_t);
     }
 #endif
@@ -208,7 +241,7 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
     if (tsize == 1 || tblocks == 1 || min_t == 0) {
 
       if(num_specific_seeds > 0)
-	SetSeeds(osuflow[i], from, to, specific_seeds, num_specific_seeds);
+	SetSeeds(osuflow[i], from, to, specific_seeds, num_specific_seeds, isUsed);
       else
 	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
       seeds = osuflow[i]->GetSeeds(nseeds); 
@@ -223,17 +256,23 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
 
   }
 
+  if(isUsed != NULL)
+  {
+    delete isUsed;
+  }
+
 }
 //-----------------------------------------------------------------------
 //
-// Setseeds
+// SetSeeds
 //
 // given a list of specific seeds to use, find the subset that is inside a
 // given block, and set those seeds as the seeds for that block
 //
 //
 void ParFlow::SetSeeds(OSUFlow* osuflow, float* from, float* to, 
-		     VECTOR3* specific_seeds, int num_specific_seeds) {
+                       VECTOR3* specific_seeds, int num_specific_seeds, 
+                       bool* isUsed) {
 
   // first find the indices of the seeds which are in this block, then copy
   // those seeds over
@@ -241,14 +280,18 @@ void ParFlow::SetSeeds(OSUFlow* osuflow, float* from, float* to,
   float x, y, z;
   for(int i=0; i<num_specific_seeds; i++)
   {
-    x = specific_seeds[i][0];
-    y = specific_seeds[i][1];
-    z = specific_seeds[i][2];
-    if(x >= from[0] && x <= to[0] &&
-       y >= from[1] && y <= to[1] &&
-       z >= from[2] && z <= to[2])
+    if(!isUsed[i])
     {
-      indices.push_back(i);
+      x = specific_seeds[i][0];
+      y = specific_seeds[i][1];
+      z = specific_seeds[i][2];
+      if(x >= from[0] && x <= to[0] &&
+	 y >= from[1] && y <= to[1] &&
+	 z >= from[2] && z <= to[2])
+      {
+	indices.push_back(i);
+	isUsed[i] = true;
+      }
     }
   }
 
@@ -266,6 +309,22 @@ void ParFlow::SetSeeds(OSUFlow* osuflow, float* from, float* to,
   osuflow->SetSeedPoints(block_seeds, num_seeds);
   delete [] block_seeds;
 
+}
+//-----------------------------------------------------------------------
+//
+// set all the integration parameters for an osuflow object
+//
+// osuflow: pointer to osuflow object
+//
+void ParFlow::SetIntegrationParams(OSUFlow* osuflow) {
+  osuflow->SetMaxError(maxError);
+  osuflow->SetInitialStepSize(initialStepSize);
+  osuflow->SetMinStepSize(minStepSize);
+  osuflow->SetMaxStepSize(maxStepSize);
+  osuflow->SetLowerAngleAccuracy(lowerAngleAccuracy);
+  osuflow->SetUpperAngleAccuracy(upperAngleAccuracy);
+  osuflow->SetIntegrationOrder(integrationOrder);
+  osuflow->SetUseAdaptiveStepSize(useAdaptiveStepSize);
 }
 //-----------------------------------------------------------------------
 //
@@ -305,8 +364,7 @@ void ParFlow::ComputeStreamlines(vector<Particle> seeds, int block_num, int pf,
     }
 	  
     // perform the integration
-    osuflow[block_num]->SetMaxError(0.0001);
-    osuflow[block_num]->SetIntegrationParams(1, 0.001, 5);
+    SetIntegrationParams(osuflow[block_num]);
     osuflow[block_num]->GenStreamLines(temp_seeds, FORWARD_DIR, nseeds, pf, 
 				       list3); 
 
@@ -410,10 +468,8 @@ void ParFlow::ComputePathlines(vector<Particle> seeds, int block_num, int pf,
     }
 	  
     // perform the integration
-    osuflow[block_num]->SetMaxError(0.0001);
-    osuflow[block_num]->SetIntegrationParams(1, 0.001, 5);
-    osuflow[block_num]->GenPathLines(temp_seeds, list, FORWARD, 
-				     nseeds, pf); 
+    SetIntegrationParams(osuflow[block_num]);
+    osuflow[block_num]->GenPathLines(temp_seeds, list, FORWARD, nseeds, pf); 
 
     // copy each trace to the streamline list for later rendering
     // post end point of each trace to the send list
@@ -505,9 +561,8 @@ void ParFlow::GatherFieldlines(int nblocks, float *size, int tsize) {
   // write a file too
   WriteFieldlines(ntrace, n, (char *)"field_lines.out", nblocks, size, tsize);
 
-#else
-
-#ifdef TRACK_SEED_ID
+#elif defined TRACK_SEED_ID
+//#ifdef TRACK_SEED_ID
   DistributedWriteFieldlines((char *)"field_lines.out",
 			     (char *)"field_line_ids.out", nblocks, size,
 			     tsize);
@@ -519,16 +574,16 @@ void ParFlow::GatherFieldlines(int nblocks, float *size, int tsize) {
   WriteFieldlines(ntrace, n, (char *)"field_lines.out", nblocks, size, tsize);
 #endif
 
-#endif
-
 }
 //-----------------------------------------------------------------------
 //
 // gathers all fieldlines for rendering, serial version
 //
 // nblocks: local number of blocks
+// size: spatial data size
+// tsize: temporal data size
 //
-void ParFlow::SerialGatherFieldlines(int nblocks) {
+void ParFlow::SerialGatherFieldlines(int nblocks, float* size, int tsize) {
 
   std::list<vtListTimeSeedTrace *>::iterator trace_iter; // iterator over traces
   std::list<VECTOR4 *>::iterator pt_iter; // iterator over points in one trace
@@ -554,12 +609,14 @@ void ParFlow::SerialGatherFieldlines(int nblocks) {
     for (trace_iter = sl_list[i].begin(); trace_iter != sl_list[i].end(); 
          trace_iter++) {
       for (pt_iter = (*trace_iter)->begin(); pt_iter != (*trace_iter)->end(); 
-         pt_iter++)
+           pt_iter++)
 	(*pt)[k++] = **pt_iter;
       (*npt)[j++] = (*trace_iter)->size();
     }
   }
 
+  WriteFieldlines(tot_ntrace, tot_npts, (char *)"field_lines.out", nblocks,
+		  size, tsize);
 }
 
 //-----------------------------------------------------------------------
@@ -896,7 +953,7 @@ void ParFlow::DistributedWriteFieldlines(char *filename, char *id_filename,
 // tsize: temporal data size
 //
 void ParFlow::WriteFieldlines(int *ntrace, int mynpt, char *filename,
-			    int nblocks, float *size, int tsize) {
+	  		      int nblocks, float *size, int tsize) {
 
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 
@@ -908,7 +965,8 @@ void ParFlow::WriteFieldlines(int *ntrace, int mynpt, char *filename,
   FILE *fd;
 	#endif	// #ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
-  int myproc, nproc;
+  int myproc = 0;
+  int nproc = 1;
   int64_t ofst; // offset into the file (bytes)
   int64_t pts_ofst = 0; // number of points before mine
   float *mypt; // points in my traces
@@ -962,7 +1020,7 @@ void ParFlow::WriteFieldlines(int *ntrace, int mynpt, char *filename,
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#else	// #ifdef _MPI 
     fwrite(min, sizeof(min[0]), 4, fd);
-    fwrite(min, sizeof(max[0]), 4, fd);
+    fwrite(max, sizeof(max[0]), 4, fd);
     fwrite(*npt, 	sizeof(int), *tot_ntrace, fd);
     fwrite(&delim, 	sizeof(int), 1, fd);
 	#endif	// #ifdef _MPI 
@@ -1355,6 +1413,11 @@ int ParFlow::SerExchangeNeighbors(vector< vector<Particle> >& seeds) {
   Partition4D *parts; // pointer to partition data structure
   int **neighbor_ranks; // ranks of neighbors of my blocks
   Particle seed; // one 4d seed
+
+  // clear old seeds
+  for(int i=0; i<seeds.size(); i++) {
+    seeds[i].clear();
+  }
 
   if (lat4D != NULL) {
     neighbor_ranks = lat4D->neighbor_ranks;
@@ -1827,10 +1890,17 @@ void ParFlow::PostPoint(int lid, Item *item, int recirc, int end_steps) {
 #ifdef _MPI
 
   int gid = assign->RoundRobin_lid2gid(lid);
+
+  // Note that the ghost cell argument is 0, even though ghost cells were used
+  // when loading the data. This is because we want boundaries not including
+  // ghost cells to be considered when finding which block the particle is now
+  // in.
   int neigh_gid = blocking->Pt2NeighGid(gid, item->pt, 0, 0);
   if (item->steps < end_steps && neigh_gid >= 0 && 
       (recirc || neigh_gid != gid))
+  {
     nbhds->EnqueueItem(lid, (char *)item, sizeof(Item), neigh_gid);
+  }
 
 #else
 

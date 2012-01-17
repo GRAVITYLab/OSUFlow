@@ -96,6 +96,19 @@ int seed_file_num = 0; // number of seeds read from the seed file
 VECTOR3* seed_file_seeds = NULL; // seeds read from the seed file
 float wf = 0.1; // wait factor for nonblocking communication
                 // wait for this portion of messages to arrive each round
+const int ghost = 1;  // a ghost layer of at least 1 is required for correct
+		      // advection between blocks
+
+// integration parameters
+const float maxError = 0.001;
+const float initialStepSize = 1.0;
+const float minStepSize = 0.01;
+const float maxStepSize = 5.0;
+const float lowerAngleAccuracy = 3.0;
+const float upperAngleAccuracy = 15.0;
+
+const INTEG_ORD integrationOrder = RK45;
+const bool useAdaptiveStepSize = true;
 
 //----------------------------------------------------------------------------
 
@@ -169,7 +182,7 @@ void Run() {
 #endif
 
   parflow->InitTraces(Seeds, tf, nblocks, tsize, ntpart, seed_file_seeds, 
-		    seed_file_num);
+		      seed_file_num);
 
 #ifdef USE_BIL
   float ***bil_data = NULL;
@@ -441,8 +454,27 @@ void Init() {
   int maxb; // unused
   int64_t given[4] = {0, 0, 0, ntpart};
   assign = new Assignment(nspart * ntpart, nblocks, maxb, MPI_COMM_WORLD);
-  blocking = new Blocking(4, nspart * ntpart, data_size, 1, 0, 0, given, 
-			  assign, MPI_COMM_WORLD);
+
+  // which dimensions to apply ghost cells in
+  int ghost_dim[4] = {1, 1, 1, 1};
+
+  // which directions to apply ghost cells, for each dimension, 
+  // minimum sides only (-1), maximum sides only (1), 
+  // or all sides equally (0)
+  int ghost_dir[4] = {0, 0, 0, 0};
+
+  // if computing streamlines, then the time dimension needs to be restricted
+  // so that a ghost cell layer is not added on. if computing pathlines, only
+  // add a ghost layer to the maximum side in the time dimension
+  if(tsize == 1) {
+    ghost_dim[3] = 0;
+  }
+  else {
+    ghost_dir[3] = 1;
+  }
+
+  blocking = new Blocking(4, nspart * ntpart, data_size, 1, ghost, ghost_dir,
+			  ghost_dim, given, assign, MPI_COMM_WORLD); 
 
   // create osuflow object for each block
   // todo: switch to vectors and get rid of memory management
@@ -457,9 +489,17 @@ void Init() {
   // create remaining classes
   // todo: rename
   blocks = new Blocks(blocking, assign, (void *)osuflow, OSUFLOW, 
-		      dataset_files, num_dataset_files, data_mode);
+		      dataset_files, num_dataset_files, data_mode, ghost);
   parflow = new ParFlow(blocking, assign, blocks, osuflow, sl_list, 
-		    &pt, &npt, &tot_ntrace, nblocks, 0);
+			&pt, &npt, &tot_ntrace, nblocks, 0);
+  parflow->SetMaxError(maxError);
+  parflow->SetInitialStepSize(initialStepSize);
+  parflow->SetMinStepSize(minStepSize);
+  parflow->SetMaxStepSize(maxStepSize);
+  parflow->SetLowerAngleAccuracy(lowerAngleAccuracy);
+  parflow->SetUpperAngleAccuracy(upperAngleAccuracy);
+  parflow->SetIntegrationOrder(integrationOrder);
+  parflow->SetUseAdaptiveStepSize(useAdaptiveStepSize);
 
   TotParticles = nspart * tf;
 

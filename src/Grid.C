@@ -42,32 +42,8 @@ void CartesianGrid::Reset()
   m_nDimension[0] = m_nDimension[1] = m_nDimension[2] = 0;
   m_vMinBound.Zero();
   m_vMaxBound.Zero();
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-// set bounding box
-//////////////////////////////////////////////////////////////////////////
-void RegularCartesianGrid::SetBoundary(VECTOR3& minB, VECTOR3& maxB)
-{
-  m_vMinBound = minB;
-  m_vMaxBound = maxB;
-  mappingFactorX = (float)(xdim()-1)/(m_vMaxBound[0] - m_vMinBound[0]);
-  mappingFactorY = (float)(ydim()-1)/(m_vMaxBound[1] - m_vMinBound[1]);
-  mappingFactorZ = (float)(zdim()-1)/(m_vMaxBound[2] - m_vMinBound[2]);
-  oneOvermappingFactorX = (m_vMaxBound[0] - m_vMinBound[0])/(float)(xdim()-1);
-  oneOvermappingFactorY = (m_vMaxBound[1] - m_vMinBound[1])/(float)(ydim()-1);
-  oneOvermappingFactorZ = (m_vMaxBound[2] - m_vMinBound[2])/(float)(zdim()-1);
-
-  /*
-  printf(" 1/p ****** %f %f %f *****\n", 
-	 oneOvermappingFactorX,	 oneOvermappingFactorY, 
-	 oneOvermappingFactorZ); 
-  */
- 
-  // grid spacing
-  gridSpacing = min(min(oneOvermappingFactorX, oneOvermappingFactorY), 
-		    oneOvermappingFactorZ);
+  m_vMinRealBound.Zero();
+  m_vMaxRealBound.Zero();
 }
 
 
@@ -110,20 +86,70 @@ void RegularCartesianGrid::Boundary(VECTOR3& minB, VECTOR3& maxB)
 }
 
 //////////////////////////////////////////////////////////////////////////
-// whether the physical point pos is in bounding box
+// set bounding box
+//////////////////////////////////////////////////////////////////////////
+void RegularCartesianGrid::SetBoundary(VECTOR3& minB, VECTOR3& maxB)
+{
+  m_vMinBound = minB;
+  m_vMaxBound = maxB;
+  m_vMinRealBound.Set(m_vMinBound[0], m_vMinBound[1], m_vMinBound[2], 0.0);
+  m_vMaxRealBound.Set(m_vMaxBound[0], m_vMaxBound[1], m_vMaxBound[2], 0.0);
+  mappingFactorX = (float)(xdim()-1)/(m_vMaxBound[0] - m_vMinBound[0]);
+  mappingFactorY = (float)(ydim()-1)/(m_vMaxBound[1] - m_vMinBound[1]);
+  mappingFactorZ = (float)(zdim()-1)/(m_vMaxBound[2] - m_vMinBound[2]);
+  oneOvermappingFactorX = (m_vMaxBound[0] - m_vMinBound[0])/(float)(xdim()-1);
+  oneOvermappingFactorY = (m_vMaxBound[1] - m_vMinBound[1])/(float)(ydim()-1);
+  oneOvermappingFactorZ = (m_vMaxBound[2] - m_vMinBound[2])/(float)(zdim()-1);
+ 
+  // grid spacing
+  gridSpacing = min(min(oneOvermappingFactorX, oneOvermappingFactorY), 
+		    oneOvermappingFactorZ);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// set real bounding box (does not include ghost cells)
+//////////////////////////////////////////////////////////////////////////
+void RegularCartesianGrid::SetRealBoundary(VECTOR4& minB, VECTOR4& maxB)
+{
+  m_vMinRealBound = minB;
+  m_vMaxRealBound = maxB;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// whether the physical point pos is in bounding box (counting ghost cells)
 //////////////////////////////////////////////////////////////////////////
 bool RegularCartesianGrid::isInBBox(VECTOR3& pos)
 {
-
-
-
   if( (pos[0] >= m_vMinBound[0]) && (pos[0] <= m_vMaxBound[0]) &&
       (pos[1] >= m_vMinBound[1]) && (pos[1] <= m_vMaxBound[1]) &&
       (pos[2] >= m_vMinBound[2]) && (pos[2] <= m_vMaxBound[2]))
     return true;
-  else {
+  else
     return false;
-  }
+}
+
+//////////////////////////////////////////////////////////////////////////
+// whether the physical point pos is in bounding box (not counting ghost cells)
+//////////////////////////////////////////////////////////////////////////
+bool RegularCartesianGrid::isInRealBBox(VECTOR3& pos)
+{
+  if( (pos[0] >= m_vMinRealBound[0]) && (pos[0] <= m_vMaxRealBound[0]) &&
+      (pos[1] >= m_vMinRealBound[1]) && (pos[1] <= m_vMaxRealBound[1]) &&
+      (pos[2] >= m_vMinRealBound[2]) && (pos[2] <= m_vMaxRealBound[2]))
+    return true;
+  else
+    return false;
+}
+
+bool RegularCartesianGrid::isInRealBBox(VECTOR3& pos, float t)
+{
+  if( (pos[0] >= m_vMinRealBound[0]) && (pos[0] <= m_vMaxRealBound[0]) &&
+      (pos[1] >= m_vMinRealBound[1]) && (pos[1] <= m_vMaxRealBound[1]) &&
+      (pos[2] >= m_vMinRealBound[2]) && (pos[2] <= m_vMaxRealBound[2]) &&
+	  (     t >= m_vMinRealBound[3]) && (     t <= m_vMaxRealBound[3]) )
+    return true;
+  else
+    return false;
 }
 
 // compute a default boundary 
@@ -646,16 +672,35 @@ void IrregularGrid::Boundary(VECTOR3& minB, VECTOR3& maxB)
 //////////////////////////////////////////////////////////////////////////
 bool IrregularGrid::isInBBox(VECTOR3& pos)
 {
-
-
-
 	if( (pos[0] >= m_vMinBound[0]) && (pos[0] <= m_vMaxBound[0]) &&
 		(pos[1] >= m_vMinBound[1]) && (pos[1] <= m_vMaxBound[1]) &&
 		(pos[2] >= m_vMinBound[2]) && (pos[2] <= m_vMaxBound[2]))
 		return true;
-	else{
+	else
 		return false;
-	}
+}
+
+bool IrregularGrid::isInRealBBox(VECTOR3& pos)
+{
+  if( (pos[0] >= m_vMinBound[0]) && (pos[0] <= m_vMaxBound[0]) &&
+      (pos[1] >= m_vMinBound[1]) && (pos[1] <= m_vMaxBound[1]) &&
+      (pos[2] >= m_vMinBound[2]) && (pos[2] <= m_vMaxBound[2]))
+    return true;
+  else {
+    return false;
+  }
+}
+
+bool IrregularGrid::isInRealBBox(VECTOR3& pos, float t)
+{
+  if( (pos[0] >= m_vMinBound[0]) && (pos[0] <= m_vMaxBound[0]) &&
+      (pos[1] >= m_vMinBound[1]) && (pos[1] <= m_vMaxBound[1]) &&
+      (pos[2] >= m_vMinBound[2]) && (pos[2] <= m_vMaxBound[2]) &&
+	  (     t >= m_vMinBound[3]) && (     t <= m_vMaxBound[3]) )
+    return true;
+  else {
+    return false;
+  }
 }
 
 void IrregularGrid::ComputeBBox(void)
