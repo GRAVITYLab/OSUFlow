@@ -583,7 +583,9 @@ CVectorField* OSUFlow::CreateStaticFlowField(float *pData,
     minRealB[i] = minB[i];
     maxRealB[i] = maxB[i];
   }
-  CreateStaticFlowField(pData, xdim, ydim, zdim, minB, maxB,minRealB,maxRealB);
+  // MOD-BY-LEETEN 01/17/2012-FROM:  CreateStaticFlowField(pData, xdim, ydim, zdim, minB, maxB,minRealB,maxRealB);
+  return CreateStaticFlowField(pData, xdim, ydim, zdim, minB, maxB,minRealB,maxRealB);
+  // MOD-BY-LEETEN 01/17/2012-END
 }
 
 CVectorField* OSUFlow::CreateStaticFlowField(float *pData, 
@@ -654,8 +656,13 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
     minRealB[i] = minB[i];
     maxRealB[i] = maxB[i];
   }
+  #if 0 // MOD-BY-LEETEN 01/17/2012-FROM:
   CreateTimeVaryingFlowField(ppData, xdim, ydim, zdim, minB, maxB, minRealB,
 			     maxRealB, min_t, max_t);
+  #else // MOD-BY-LEETEN 01/17/2012-TO:
+  return CreateTimeVaryingFlowField(ppData, xdim, ydim, zdim, minB, maxB, minRealB,
+			     maxRealB, min_t, max_t);
+  #endif // MOD-BY-LEETEN 01/17/2012-END
 }
 
 //////////////////////////////////////////////////////////////////

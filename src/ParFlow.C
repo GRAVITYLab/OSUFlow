@@ -336,8 +336,13 @@ void ParFlow::SetIntegrationParams(OSUFlow* osuflow) {
 // end_steps: number of steps a particle must travel before stopping
 // w: weight of this block (output) (optional)
 //
+#if 0 // MOD-BY-LEETEN 01/17/2012-FROM:
 void ParFlow::ComputeStreamlines(vector<Particle> seeds, int block_num, int pf, 
 				 int end_steps, int *w) {
+#else // MOD-BY-LEETEN 01/17/2012-TO:
+void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num, int pf, 
+				 int end_steps, int *w) {
+#endif // MOD-BY-LEETEN 01/17/2012-END
 
   list<vtListSeedTrace*> list3; // 3D list of traces
   std::list<VECTOR3*>::iterator pt_iter3; // 3D iterator over pts in one trace
@@ -434,8 +439,13 @@ void ParFlow::ComputeStreamlines(vector<Particle> seeds, int block_num, int pf,
 // end_steps: number of steps a particle must travel before stopping
 // w: weight of this block (output) (optional)
 //
+#if 0 // MOD-BY-LEETEN 01/17/2012-FROM:
 void ParFlow::ComputePathlines(vector<Particle> seeds, int block_num, int pf, 
 			       int end_steps, int *w) {
+#else // MOD-BY-LEETEN 01/17/2012-TO:
+void ParFlow::ComputePathlines(const vector<Particle>& seeds, int block_num, int pf, 
+			       int end_steps, int *w) {
+#endif // MOD-BY-LEETEN 01/17/2012-END
 
   list<vtListTimeSeedTrace*> list; // list of traces
   std::list<VECTOR4*>::iterator pt_iter; // iterator over pts in one trace

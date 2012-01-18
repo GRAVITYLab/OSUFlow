@@ -62,10 +62,17 @@ class ParFlow {
 	  int **npt, int *tot_ntrace, int nb, int track_seed_id = 0);
   ~ParFlow();
   void UpdateOSUFlow(OSUFlow **osuflow);
+#if 0 // MOD-BY-LEETEN 01/17/2012-FROM:
   void ComputePathlines(vector<Particle> seeds, int block_num, int pf, 
 			int end_steps, int *w = NULL);
   void ComputeStreamlines(vector<Particle> seeds, int block_num, int pf, 
 			  int end_steps, int *w = NULL);
+#else // MOD-BY-LEETEN 01/17/2012-TO:
+  void ComputePathlines(const vector<Particle>& seeds, int block_num, int pf, 
+			int end_steps, int *w = NULL);
+  void ComputeStreamlines(const vector<Particle>& seeds, int block_num, int pf, 
+			  int end_steps, int *w = NULL);
+#endif // MOD-BY-LEETEN 01/17/2012-END
   void GatherFieldlines(int nblocks, float *size, int tsize);
   void SerialGatherFieldlines(int nblocks, float* size, int tsize);
   int GatherNumPts(int* &ntrace, int all, int nblocks);
