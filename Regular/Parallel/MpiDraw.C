@@ -90,6 +90,7 @@ Blocking *blocking; // blocking class object
 Assignment *assign; // assignment class object
 Neighborhoods *nbhds; // neighborhoods class object
 int compute_begin, compute_end; // jumpshot states
+int rank; // mpi rank
 float vec_scale; // vector scaling factor
 char seed_file[256]; // seed file name
 int seed_file_num = 0; // number of seeds read from the seed file
@@ -115,7 +116,6 @@ const bool useAdaptiveStepSize = true;
 int main(int argc, char *argv[]) {
 
   int nproc; // mpi groupsize
-  int rank; // mpi rank
 
   // init
   MPI_Init(&argc, &argv);
@@ -271,7 +271,7 @@ void Run() {
 
     } // for all rounds
 
-      // flush any remaining messages
+    // flush any remaining messages
     parflow->FlushNeighbors(Seeds);
 
 #ifdef REPARTITION

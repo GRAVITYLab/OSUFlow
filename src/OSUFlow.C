@@ -656,13 +656,8 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
     minRealB[i] = minB[i];
     maxRealB[i] = maxB[i];
   }
-  #if 0 // MOD-BY-LEETEN 01/17/2012-FROM:
-  CreateTimeVaryingFlowField(ppData, xdim, ydim, zdim, minB, maxB, minRealB,
-			     maxRealB, min_t, max_t);
-  #else // MOD-BY-LEETEN 01/17/2012-TO:
   return CreateTimeVaryingFlowField(ppData, xdim, ydim, zdim, minB, maxB, minRealB,
 			     maxRealB, min_t, max_t);
-  #endif // MOD-BY-LEETEN 01/17/2012-END
 }
 
 //////////////////////////////////////////////////////////////////
@@ -699,21 +694,10 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
     for (int j = 0; j<totalNum; j++) {
       pVector[j].Set(ppData[i][j*3], ppData[i][j*3+1], ppData[i][j*3+2]); 
     }
-#ifdef USE_BIL
-	// BIL is using malloc to allocate the blocks, so use free here.
-    free(ppData[i]); 
-#else
     delete[] ppData[i];
-#endif
     ppVector[i] = pVector; 
   }
-#ifdef USE_BIL
-  // When BIL is being used, the blocks being passed to OSUFlow are being
-  // allocated with malloc, so use free instead of delete.
-  free(ppData);
-#else
   delete[] ppData;
-#endif
   min_b[0] = minB[0]; min_b[1] = minB[1]; min_b[2] = minB[2]; 
   max_b[0] = maxB[0]; max_b[1] = maxB[1]; max_b[2] = maxB[2]; 
   realMin_b[0] = minRealB[0]; realMin_b[1] = minRealB[1]; 
@@ -764,7 +748,7 @@ void OSUFlow::SetRandomSeedPoints(const float min[3],
 	// generate seeds
 	nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
 
-	if (seedPtr!=NULL) delete[]seedPtr; 
+	if (seedPtr!=NULL) delete[] seedPtr; 
 	seedPtr = new VECTOR3[nSeeds];
 
 	size_t SeedSize[3]; 
@@ -801,7 +785,7 @@ void OSUFlow::SetRegularSeedPoints(const float min[3],
 
 	// generate seeds
 	nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
-	if (seedPtr!=NULL) delete[]seedPtr; 
+	if (seedPtr!=NULL) delete[] seedPtr; 
 	seedPtr = new VECTOR3[nSeeds];
 
 	SeedGenerator* pSeedGenerator = new SeedGenerator((const float*)minRakeExt, 
@@ -821,9 +805,9 @@ void OSUFlow::SetSeedPoints(VECTOR3* seeds, int num_seeds)
   this->numSeeds[2] = 1;
   nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
 
-  if (seedPtr != NULL)
+  if (seedPtr != NULL && seedPtr != seeds)
   {
-    delete [] seedPtr; 
+    delete[] seedPtr; 
   }
   seedPtr = new VECTOR3[nSeeds];
 
@@ -934,7 +918,7 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 
   if (has_data == false) DeferredLoadData(); 
 
-//   if (seedPtr!=NULL) delete [] seedPtr; 
+	if (seedPtr!=NULL && seedPtr != seeds) delete [] seedPtr; 
         nSeeds = seedNum; 
 	seedPtr = seeds; 
 
@@ -1007,7 +991,8 @@ bool OSUFlow::GenPathLines(list<vtListTimeSeedTrace*>& listSeedTraces,
 ////////////////////////////////////////////////////////////////////////////
 //
 // Take an input list of seeds, which all start at the same time currentT 
-bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedTraces, 
+bool OSUFlow::GenPathLines(VECTOR3* seeds, 
+			   list<vtListTimeSeedTrace*>& listSeedTraces, 
 			   TIME_DIR  dir, 
 			   int num_seeds, 
 			   int maxPoints,
@@ -1015,26 +1000,26 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 {
 
   if (has_data == false) DeferredLoadData(); 
-  if (seedPtr!=NULL) delete [] seedPtr; 
+  if (seedPtr!=NULL && seedPtr != seeds) delete [] seedPtr; 
 
-        seedPtr = seeds; 
-	nSeeds = num_seeds; 
+  seedPtr = seeds; 
+  nSeeds = num_seeds; 
 
-	listSeedTraces.clear();
+  listSeedTraces.clear();
 
-	// execute streamline
-	vtCPathLine* pPathLine;
+  // execute streamline
+  vtCPathLine* pPathLine;
 
-	pPathLine = new vtCPathLine(flowField);
+  pPathLine = new vtCPathLine(flowField);
 
-	InitFieldLine(pPathLine, maxPoints);
-	pPathLine->SetTimeDir(dir); 
-	pPathLine->setSeedPoints(seedPtr, nSeeds, currentT);
-	pPathLine->execute(listSeedTraces);
+  InitFieldLine(pPathLine, maxPoints);
+  pPathLine->SetTimeDir(dir); 
+  pPathLine->setSeedPoints(seedPtr, nSeeds, currentT);
+  pPathLine->execute(listSeedTraces);
 
-	// release resource
-	delete pPathLine;
-	return true;
+  // release resource
+  delete pPathLine;
+  return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -1051,16 +1036,8 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 
   if (has_data == false) DeferredLoadData(); 
 
-	// MOD-BY-LEETEN 02/07/2011-FROM:
-		// if (seedPtr!=NULL) delete[] seedPtr; 
-	// TO:
-	// MOD-BY-LEETEN 07/01/2011-FROM:
-		// if ( seedPtr != seeds )  
-	// TO:
 	if ( seedPtr != NULL && seedPtr != seeds )  
-	// MOD-BY-LEETEN 07/01/2011-END
 		delete[] seedPtr; 
-	// MOD-BY-LEETEN 02/07/2011-END
 
         nSeeds = num_seeds; 
 	seedPtr = seeds; 
@@ -1093,8 +1070,8 @@ bool OSUFlow::GenPathLines(VECTOR4* seeds,
 			   TIME_DIR  dir, 
 			   int num_seeds, 
 			   int maxPoints,
-				 int64_t *seedIds,
-				 list<int64_t> *listSeedIds)
+			   int64_t *seedIds,
+			   list<int64_t> *listSeedIds)
 {
 
 	assert((seedIds == NULL && listSeedIds == NULL) ||

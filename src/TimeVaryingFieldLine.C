@@ -320,7 +320,7 @@ int vtCTimeVaryingFieldLine::advectParticle(INTEG_ORD int_order,
 
 		if(!m_adaptStepSize)
 		{
-			// change step size to prevously used, since the oneStep methods
+			// change step size to previously used, since the oneStep methods
 			// will change the value of dt
 			dt = dt_attempt;
 		}

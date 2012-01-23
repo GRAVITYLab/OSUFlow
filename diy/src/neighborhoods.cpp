@@ -182,15 +182,21 @@ void Neighborhoods::PackMessages() {
 	pp_t pp; // a new package
 	pp.proc = (ni->gb).proc;
 	pp.posted = false;
-	pp.c.push_back(0);
-	pps.push_back(pp); // invalidates iteterator pi
+	pp.c = (int*)malloc(sizeof(int));
+	assert(pp.c != NULL);
+	pp.c[0] = 0;
+	pp.cn = 1;
+	pps.push_back(pp); // invalidates iterator pi
 	pi = pps.end() - 1; // reset pi to last item
       }
 
       // add count information
-      pi->c.push_back((ni->gb).gid);
-      pi->c.push_back((ni->items).size());
-      (pi->c)[0]++;
+      pi->c = (int*)realloc(pi->c, ((pi->cn) + 2) * sizeof(int));
+      assert(pi->c != NULL);
+      pi->c[pi->cn] = (ni->gb).gid;
+      pi->c[(pi->cn)+1] = (ni->items).size();
+      pi->cn = (pi->cn) + 2;
+      pi->c[0]++;
 
       // add payload and header to the message
       int j = 0;
@@ -198,11 +204,13 @@ void Neighborhoods::PackMessages() {
 	  ii != ni->items.end(); ii++) {
 	pi->p.push_back(*ii); // payload
 	for (vector<int>::iterator hi = (ni->hdr)[j].begin(); 
-	     hi != (ni->hdr)[j].end(); hi++)
-	  pi->c.push_back(*hi); // header
+	     hi != (ni->hdr)[j].end(); hi++) {
+	  pi->c = (int*)realloc(pi->c, ((pi->cn) + 1) * sizeof(int));
+	  pi->c[pi->cn] = *hi;
+	  pi->cn = (pi->cn) + 1;
+	}
 	j++;
       }
-
     }
   }
 
@@ -230,8 +238,7 @@ void Neighborhoods::PostMessages(MPI_Datatype* (*SendItemDtype)(int *,
     if (!pi->posted) {
 
       // counts-sends
-      MPI_Isend(&((pi->c)[0]), (pi->c)[0] * (nhdr + 2) + 1, MPI_INT, pi->proc, 
-		tag * 2, comm, &req);
+      MPI_Isend(pi->c, pi->cn, MPI_INT, pi->proc, tag * 2, comm, &req);
       pi->posted = true;
       ct.req = req;
       ct.proc = pi->proc;
@@ -242,14 +249,15 @@ void Neighborhoods::PostMessages(MPI_Datatype* (*SendItemDtype)(int *,
 
       // payload-sends
       if (pi->p.size() > 0) { // at least one item to send
-	MPI_Datatype *itype = SendItemDtype(&(pi->c)[0], &(pi->p)[0]);
-	MPI_Datatype *mtype = SendMsgDtype(&(pi->c)[0], &(pi->p)[0], itype);
+	MPI_Datatype *itype = SendItemDtype(pi->c, &(pi->p)[0]);
+	MPI_Datatype *mtype = SendMsgDtype(pi->c, &(pi->p)[0], itype);
 	MPI_Isend(MPI_BOTTOM, 1, *mtype, pi->proc, tag * 2 + 1, comm, &req);
 	pl.req = req;
 	pl.proc = pi->proc;
 	pl.done = false;
 	send_pts.push_back(pl);
 	MPI_Type_free(mtype);
+	MPI_Type_free(itype);
 	delete mtype;
 	delete itype;
       }
@@ -289,7 +297,7 @@ void Neighborhoods::TestMessages(float wf,
   list<ct_t>::iterator ct_it; // request list iterators
   list<pl_t>::iterator pl_it; // request list iterators
   int p; // process number
-  char *rcv_p; // one payload-receive
+  char *rcv_p = NULL; // one payload-receive
   int i, j, k;
   MPI_Request *reqs; // pending requests
   MPI_Request *arr; // requests that arrived
@@ -354,6 +362,7 @@ void Neighborhoods::TestMessages(float wf,
 	    pt.item_size = extent;
 	    recv_pts.push_back(pt);
 	    MPI_Type_free(mtype);
+	    MPI_Type_free(itype);
 	    delete mtype;
 	    delete itype;
 	  } // if npr > 0
@@ -446,6 +455,7 @@ int Neighborhoods::FlushNeighbors(vector<vector<char *> > &items,
       pt.item_size = extent;
       recv_pts.push_back(pt);
       MPI_Type_free(mtype);
+      MPI_Type_free(itype);
       delete mtype;
       delete itype;
     } // npr > 0
@@ -476,15 +486,25 @@ int Neighborhoods::FlushNeighbors(vector<vector<char *> > &items,
     for (vector<char *>::iterator pi = ppi->p.begin(); pi != ppi->p.end();
 	 pi++)
       delete[] *pi; // item payload, new'ed back when item was enqueued
-    ppi->c.clear();
+    free(ppi->c);
+    ppi->c = NULL;
+    ppi->cn = 0;
     ppi->p.clear();
   }
   pps.clear();
-  for (list<ct_t>::iterator ci = recv_cts.begin(); ci != recv_cts.end(); ci++)
-    delete[] ci->c; // array of received counts
   send_cts.clear();
   send_pts.clear();
+
+  for (list<ct_t>::iterator ci = recv_cts.begin(); ci != recv_cts.end(); ci++)
+    delete[] ci->c; // array of received counts
   recv_cts.clear();
+
+  for (list<pl_t>::iterator pl_it = recv_pts.begin(); pl_it != recv_pts.end(); 
+       pl_it++)
+  {
+    if(pl_it->p != NULL)
+      delete[] pl_it->p; // array of received items
+  }
   recv_pts.clear();
 
   tag = 0;
@@ -630,6 +650,9 @@ MPI_Datatype* Neighborhoods::SendMsgDtype(int *cts, char **pts,
   MPI_Datatype *mtype = new MPI_Datatype; // datatype for entire message
   MPI_Type_create_hindexed(nps, lengths, disps, *itype, mtype);
   MPI_Type_commit(mtype);
+
+  delete[] lengths;
+  delete[] disps;
 
   return mtype;
 

@@ -101,6 +101,7 @@ ParFlow::ParFlow(Lattice4D *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
+  this->nbhds = NULL;
 
   TotSeeds = 0;
   TotSteps = 0;
@@ -163,6 +164,9 @@ ParFlow::~ParFlow() {
   }
   if (time_stats != NULL) {
     free(time_stats);
+  }
+  if (nbhds != NULL) {
+    delete nbhds;
   }
 
 }
@@ -258,7 +262,7 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
 
   if(isUsed != NULL)
   {
-    delete isUsed;
+    delete[] isUsed;
   }
 
 }
@@ -439,13 +443,8 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num, i
 // end_steps: number of steps a particle must travel before stopping
 // w: weight of this block (output) (optional)
 //
-#if 0 // MOD-BY-LEETEN 01/17/2012-FROM:
-void ParFlow::ComputePathlines(vector<Particle> seeds, int block_num, int pf, 
-			       int end_steps, int *w) {
-#else // MOD-BY-LEETEN 01/17/2012-TO:
 void ParFlow::ComputePathlines(const vector<Particle>& seeds, int block_num, int pf, 
 			       int end_steps, int *w) {
-#endif // MOD-BY-LEETEN 01/17/2012-END
 
   list<vtListTimeSeedTrace*> list; // list of traces
   std::list<VECTOR4*>::iterator pt_iter; // iterator over pts in one trace
@@ -545,6 +544,7 @@ void ParFlow::ComputePathlines(const vector<Particle>& seeds, int block_num, int
 #ifdef _MPI
   comp_time = MPI_Wtime() - comp_time;
 #endif
+
 
 }
 //-----------------------------------------------------------------------
@@ -1353,6 +1353,7 @@ int ParFlow::ExchangeNeighbors(vector< vector<Particle> >& seeds, float wf) {
     pts[i].clear();
   pts.clear();
 
+
   return npr;
 
 }
@@ -1879,11 +1880,9 @@ void ParFlow::PrintPerf(double TotTime, double TotInTime, double TotOutTime,
 //     fprintf(stderr, "Neighbors / block %10s min = %-8d max = %-8d avg = %-8d std = %-8.0f\n", "", min_nneigh, max_nneigh, mean_nneigh, std_nneigh);
 //     fprintf(stderr, "-----------------------------------------------------------------------\n");
 
+    free(all_block_stats);
+    free(all_time_stats);
   } // rank = 0
-
-#ifdef USE_IOL
-  IOL_Timing_print();
-#endif
 
 }
 //-----------------------------------------------------------------------

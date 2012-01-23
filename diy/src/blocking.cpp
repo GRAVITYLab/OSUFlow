@@ -96,6 +96,10 @@ Blocking::~Blocking() {
 
   delete[] bb_list;
   delete[] rbb_list;
+  if(time_starts != NULL)
+  {
+    delete[] time_starts;
+  }
 
 }
 //----------------------------------------------------------------------------
@@ -234,7 +238,7 @@ void Blocking::ComputeBlocking(bool share_face, int ghost, int* ghost_dir,
 
   if(time_starts != NULL)
   {
-    delete time_starts;
+    delete[] time_starts;
     time_starts = NULL;
   }
   time_starts = new int64_t[lat_size[3]];
