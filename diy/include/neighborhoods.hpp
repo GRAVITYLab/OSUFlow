@@ -71,7 +71,8 @@ struct pl_t {
 // package ready to ship to a single process
 struct pp_t {
   int proc; // process id
-  vector<int> c; // counts message
+  int* c; // counts message
+  int cn; // size of counts message array
   vector<char *> p; // payload message
   bool posted; // a send has been posted for this package
 };
