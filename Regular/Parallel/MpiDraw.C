@@ -268,11 +268,12 @@ void Run() {
 
       // exchange neighbors
       parflow->ExchangeNeighbors(Seeds, wf);
+      parflow->FlushNeighbors(Seeds);
 
     } // for all rounds
 
     // flush any remaining messages
-    parflow->FlushNeighbors(Seeds);
+    //parflow->FlushNeighbors(Seeds);
 
 #ifdef REPARTITION
     AdvanceWeights(g);

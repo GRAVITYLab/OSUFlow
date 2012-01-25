@@ -257,7 +257,8 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
 #endif
 
   // volume and time bounds
-  vb_list = new volume_bounds_t[npart]; // volume bounds w/ ghost cells
+  vb_list = new volume_bounds_t[npart];  // volume bounds w/ ghost cells
+  vbr_list = new volume_bounds_t[npart]; // volume bounds w/o ghost cells
   for (i = 0; i < npart; i++) {
     vbr_list[i].xmin = vb_list[i].xmin = block_extents[i * 8];
     vbr_list[i].ymin = vb_list[i].ymin = block_extents[i * 8 + 1];
@@ -267,6 +268,7 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
     vbr_list[i].ymax = vb_list[i].ymax = block_extents[i * 8 + 5];
     vbr_list[i].zmax = vb_list[i].zmax = block_extents[i * 8 + 6];
     vbr_list[i].tmax = vb_list[i].tmax = block_extents[i * 8 + 7];
+
   }
 
   idim = ceil((float)xdim / (float)block_size[0]);

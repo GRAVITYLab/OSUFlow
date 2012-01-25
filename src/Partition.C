@@ -35,7 +35,7 @@ Partition::Partition(int npart, int nproc, int myproc, bool track_ids) {
   this->npart = npart;
   this->nproc = nproc;
   this->myproc = myproc;
-	this->track_ids = track_ids;
+  this->track_ids = track_ids;
 
   // allocate partitions list
   assert((parts = new Partition4D[npart]) != NULL);
