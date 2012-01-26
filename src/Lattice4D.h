@@ -96,6 +96,7 @@ class  Lattice4D {
   void GetVB(int block, float *min_s, float *max_s, int *min_t, int *max_t);
   void GetRealVB(int block, float *min_s, float *max_s, int *min_t, int *max_t);
   void GetTB(int block, int *min_t, int *max_t);
+  void GetTimeGroupBounds(int group, int* min_t, int* max_t);
   void GetGlobalVB(int part, float *min_s, float *max_s, 
 		   int *min_t, int *max_t);
   void GetExtents(float *min, float *max);
@@ -134,14 +135,14 @@ class  Lattice4D {
   int *alloc_neighbors; // allocated size of neighbor_ranks, neighbor_procs
   int alloc_blocks; // allocated number of blocks
   int *block_ranks; // rank (global partition number) of each of my blocks
-  time_bounds_t * tb_list;   // time bounds for each time block w/ ghost cells
 
  private: 
 
   int myproc; // my process or thread number
   int nproc; // number of processes or threads
-  volume_bounds_t *vbr_list; // real volume bounds w/o ghost
-  volume_bounds_t *vb_list;  // volume bounds w/ ghost
+  volume_bounds_t* vbr_list; // real volume bounds w/o ghost
+  volume_bounds_t* vb_list;  // volume bounds w/ ghost
+  time_bounds_t * tb_list;   // time bounds for each time block w/ ghost cells
   int* flowMatrix; 
   void GetNeighborRanks(int block);
   void VolumeBounds(float *block_extents, int nblocks, int *block_size,
@@ -151,6 +152,10 @@ class  Lattice4D {
 				    int nsp, int ntp, int *lat_dim);
   void ApplyGhost(int ghost);
   int GetNumPartitions(int proc);
+  void FindTimeBounds();
+
+  // function to sort time bounds
+  static int compare_time_bounds(const void* a, const void* b); 
 
   // overall extents of the entire dataset
   float min_extent[4];

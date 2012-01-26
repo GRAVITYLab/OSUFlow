@@ -268,7 +268,6 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
     vbr_list[i].ymax = vb_list[i].ymax = block_extents[i * 8 + 5];
     vbr_list[i].zmax = vb_list[i].zmax = block_extents[i * 8 + 6];
     vbr_list[i].tmax = vb_list[i].tmax = block_extents[i * 8 + 7];
-
   }
 
   idim = ceil((float)xdim / (float)block_size[0]);
@@ -276,6 +275,7 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
   kdim = ceil((float)zdim / (float)block_size[2]);
 
   ApplyGhost(ghost);
+  FindTimeBounds();
 
   part = new Partition(npart, nid, myid, track_ids);
 
@@ -339,6 +339,49 @@ Lattice4D::~Lattice4D()
   delete part;
 //   delete block_ranks;
 
+}
+//---------------------------------------------------------------------------
+//
+// manually time the boundaries of each time group by looking at every block
+//
+void Lattice4D::FindTimeBounds()
+{
+  // find bounds of time partitions
+  tb_list = new time_bounds_t[tdim];
+  int ti = 0;
+  int i, j;
+  for(i = 0; i < npart; i++) {
+
+    int tmin = vb_list[i].tmin;
+    int tmax = vb_list[i].tmax;
+
+    // see if these time bounds are already accounted
+    for(j=0; j<ti; j++) {
+      if(tb_list[j].tmin == tmin && tb_list[j].tmax == tmax)
+	break;
+    }
+
+    if(j == ti) {
+      // add new bounds
+      tb_list[ti].tmin = tmin;
+      tb_list[ti].tmax = tmax;
+      ti++;
+    }
+  }
+
+  // sort list since blocks could have been in any order
+  qsort(tb_list, tdim, sizeof(time_bounds_t), Lattice4D::compare_time_bounds);
+}
+// used to compare and sort time bounds list
+int Lattice4D::compare_time_bounds(const void* a, const void* b)
+{
+  time_bounds_t* aa = (time_bounds_t*)a;
+  time_bounds_t* bb = (time_bounds_t*)b;
+
+  if(aa->tmin == bb->tmin)
+    return aa->tmax - bb->tmax;
+  else
+    return aa->tmin - bb->tmin;
 }
 //---------------------------------------------------------------------------
 //
@@ -880,6 +923,18 @@ void Lattice4D::GetTB(int block, int *min_t, int *max_t) {
   *min_t = vbr_list[block_ranks[block]].tmin;
   *max_t = vbr_list[block_ranks[block]].tmax;
 
+}
+//---------------------------------------------------------------------------
+//
+// gets the bounds of a time group
+//
+// group: the time group
+// min_t, max_t: (output) temporal min and max bounds
+//
+void Lattice4D::GetTimeGroupBounds(int group, int* min_t, int* max_t) {
+
+  *min_t = tb_list[group].tmin;
+  *max_t = tb_list[group].tmax;
 }
 //---------------------------------------------------------------------------
 //
