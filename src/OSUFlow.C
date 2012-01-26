@@ -918,8 +918,7 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 
   if (has_data == false) DeferredLoadData(); 
 
-	if (seedPtr!=NULL && seedPtr != seeds) delete [] seedPtr; 
-        nSeeds = seedNum; 
+	nSeeds = seedNum; 
 	seedPtr = seeds; 
 
 	listSeedTraces.clear();

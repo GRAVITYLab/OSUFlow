@@ -443,8 +443,8 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num, i
 // end_steps: number of steps a particle must travel before stopping
 // w: weight of this block (output) (optional)
 //
-void ParFlow::ComputePathlines(const vector<Particle>& seeds, int block_num, int pf, 
-			       int end_steps, int *w) {
+void ParFlow::ComputePathlines(const vector<Particle>& seeds, int block_num,
+			       int pf, int end_steps, int *w) {
 
   list<vtListTimeSeedTrace*> list; // list of traces
   std::list<VECTOR4*>::iterator pt_iter; // iterator over pts in one trace
@@ -475,7 +475,7 @@ void ParFlow::ComputePathlines(const vector<Particle>& seeds, int block_num, int
       temp_seeds[i][2]= seeds[i].pt[2];
       temp_seeds[i][3]= seeds[i].pt[3];
     }
-	  
+
     // perform the integration
     SetIntegrationParams(osuflow[block_num]);
     osuflow[block_num]->GenPathLines(temp_seeds, list, FORWARD, nseeds, pf); 
