@@ -713,6 +713,7 @@ int Lattice4D::GetIndices(float x, float y, float z, float t, int &iidx, int &ji
 //--------------------------------------------------------------------------
 //
 // look up the volume bounds of lattice[i,j,k] 
+// takes into account ghost cells
 //
 int Lattice4D::GetBounds(int i, int j, int k, int t, volume_bounds_t& vb)  {
 
@@ -725,7 +726,7 @@ int Lattice4D::GetBounds(int i, int j, int k, int t, volume_bounds_t& vb)  {
   else if (t < 0 || t >=tdim) 
     return(-1); 
   
-  int idx = t*idim*jdim*kdim + k * idim * jdim + j * idim + i; 
+  int idx = GetRank(i, j, k, t);
   vb = vb_list[idx]; 
   return(1); 
 
@@ -733,12 +734,47 @@ int Lattice4D::GetBounds(int i, int j, int k, int t, volume_bounds_t& vb)  {
 //--------------------------------------------------------------------------
 //
 // look up the volume bounds of the subdomain 'rank' 
+// takes into account ghost cells
 //
 int Lattice4D::GetBounds(int rank, volume_bounds_t &vb) {
 
   if (rank < 0 || rank >= npart) 
     return(-1); 
   vb = vb_list[rank]; 
+  return(1); 
+
+}
+//--------------------------------------------------------------------------
+//
+// look up the volume bounds of lattice[i,j,k] 
+// does not take into account ghost cells
+//
+int Lattice4D::GetRealBounds(int i, int j, int k, int t, volume_bounds_t& vb)  {
+
+  if (i < 0 || i >= idim) 
+    return(-1); 
+  else if (j < 0 || j >= jdim) 
+    return(-1); 
+  else if (k < 0 || k >= kdim) 
+    return(-1); 
+  else if (t < 0 || t >=tdim) 
+    return(-1); 
+  
+  int idx = GetRank(i, j, k, t);
+  vb = vbr_list[idx]; 
+  return(1); 
+
+}
+//--------------------------------------------------------------------------
+//
+// look up the volume bounds of the subdomain 'rank' 
+// does not take into account ghost cells
+//
+int Lattice4D::GetRealBounds(int rank, volume_bounds_t &vb) {
+
+  if (rank < 0 || rank >= npart) 
+    return(-1); 
+  vb = vbr_list[rank]; 
   return(1); 
 
 }

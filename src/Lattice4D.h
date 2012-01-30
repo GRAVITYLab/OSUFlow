@@ -68,6 +68,8 @@ class  Lattice4D {
 		 int&kidx, int& lidx);
   int GetBounds(int i, int j, int k, int t, volume_bounds_t& vb);
   int GetBounds(int rank, volume_bounds_t& vb);
+  int GetRealBounds(int i, int j, int k, int t, volume_bounds_t& vb);
+  int GetRealBounds(int rank, volume_bounds_t& vb);
   volume_bounds_t* GetBoundsList(){ return vb_list;}
   void GetLatticeDims(int& i, int&j, int &k, int &l) 
   {i = idim; j=jdim; k=kdim; l = tdim; }
