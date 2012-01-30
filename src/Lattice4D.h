@@ -73,6 +73,8 @@ class  Lattice4D {
   {i = idim; j=jdim; k=kdim; l = tdim; }
   bool isIn(float, float, float, float, int, int, int, int); 
   bool isIn(float, float, float, int, int, int); 
+  bool isInReal(float, float, float, float, int, int, int, int); 
+  bool isInReal(float, float, float, int, int, int); 
 
   int GetNeighbor(int myrank, float x, float y, float z, float t, 
 		  int &ei, int &ej, int &ek, int &et); 

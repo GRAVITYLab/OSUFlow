@@ -116,6 +116,24 @@ Lattice4D::Lattice4D(int xlen, int ylen, int zlen, int tlen,
 
 #endif
 
+#if 0
+  printf("-----------------------------------------------------------------\n");
+  for (i = 0; i < npart; i++) {
+    printf("vbr[%i]: [%i %i %i %i] [%i %i %i %i]\n", i, vbr_list[i].xmin, 
+	   vbr_list[i].ymin, vbr_list[i].zmin, vbr_list[i].tmin, 
+	   vbr_list[i].xmax, vbr_list[i].ymax, vbr_list[i].zmax, 
+	   vbr_list[i].tmax);
+  }
+  printf("-----------------------------------------------------------------\n");
+  for (i = 0; i < npart; i++) {
+    printf("vb[%i]: [%i %i %i %i] [%i %i %i %i]\n", i, vb_list[i].xmin, 
+	   vb_list[i].ymin, vb_list[i].zmin, vb_list[i].tmin, 
+	   vb_list[i].xmax, vb_list[i].ymax, vb_list[i].zmax, 
+	   vb_list[i].tmax);
+  }
+  printf("-----------------------------------------------------------------\n");
+#endif
+
   // performance stats
   int tot_neighbors = 0;
   for (i = 0; i < nb; i++)
@@ -316,6 +334,24 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
     }
 
   }
+
+#if 0
+  printf("-----------------------------------------------------------------\n");
+  for (i = 0; i < npart; i++) {
+    printf("vbr[%i]: [%i %i %i %i] [%i %i %i %i]\n", i, vbr_list[i].xmin, 
+	   vbr_list[i].ymin, vbr_list[i].zmin, vbr_list[i].tmin, 
+	   vbr_list[i].xmax, vbr_list[i].ymax, vbr_list[i].zmax, 
+	   vbr_list[i].tmax);
+  }
+  printf("-----------------------------------------------------------------\n");
+  for (i = 0; i < npart; i++) {
+    printf("vb[%i]: [%i %i %i %i] [%i %i %i %i]\n", i, vb_list[i].xmin, 
+	   vb_list[i].ymin, vb_list[i].zmin, vb_list[i].tmin, 
+	   vb_list[i].xmax, vb_list[i].ymax, vb_list[i].zmax, 
+	   vb_list[i].tmax);
+  }
+  printf("-----------------------------------------------------------------\n");
+#endif
 
   // performance stats
   int tot_neighbors = 0;
@@ -708,15 +744,17 @@ int Lattice4D::GetBounds(int rank, volume_bounds_t &vb) {
 }
 //--------------------------------------------------------------------------
 //
-// check if the point (x,y,z) is in the lattice element [i,j,k,l]
+// check if the point (x,y,z,t) is in the lattice element [i,j,k,l]
+// considers ghost cells
 //
 bool Lattice4D::isIn(float x, float y, float z, float t, int i, int j, int k, 
-		   int l) {
+		     int l) {
 
-  if (i < 0 || i > idim - 1 || j < 0 || j > jdim - 1 || k < 0 || k > kdim - 1 || l <0 || l> tdim-1) 
+  if (i < 0 || i > idim - 1 || j < 0 || j > jdim - 1 || 
+      k < 0 || k > kdim - 1 || l < 0 || l > tdim - 1) 
     return(false); 
 
-  int idx = l*idim*jdim*kdim + k * idim * jdim + j * idim + i; 
+  int idx = GetRank(i, j, k, l);
   volume_bounds_t vb = vb_list[idx]; 
 
   if (vb.xmin > x || vb.xmax < x) 
@@ -734,16 +772,28 @@ bool Lattice4D::isIn(float x, float y, float z, float t, int i, int j, int k,
 //--------------------------------------------------------------------------
 //
 // check if the point (x,y,z) is in the lattice element [i,j,k]
-//
-// from old Lattice.C
+// assumes t is 0
+// considers ghost cells
 //
 bool Lattice4D::isIn(float x, float y, float z, int i, int j, int k) {
 
-  if (i < 0 || i > idim - 1 || j < 0 || j > jdim - 1 || k < 0 || k > kdim - 1) 
+  return isIn(x, y, z, 0, i, j, k, 0);
+
+}
+//--------------------------------------------------------------------------
+//
+// check if the point (x,y,z,t) is in the lattice element [i,j,k,l]
+// does not consider ghost cells
+//
+bool Lattice4D::isInReal(float x, float y, float z, float t, int i, int j,
+			 int k, int l) {
+
+  if (i < 0 || i > idim - 1 || j < 0 || j > jdim - 1 ||
+      k < 0 || k > kdim - 1 || l < 0 || l > tdim - 1) 
     return(false); 
 
-  int idx = k * idim * jdim + j * idim + i; 
-  volume_bounds_t vb = vb_list[idx]; 
+  int idx = GetRank(i, j, k, l);
+  volume_bounds_t vb = vbr_list[idx]; 
 
   if (vb.xmin > x || vb.xmax < x) 
     return (false); 
@@ -751,15 +801,31 @@ bool Lattice4D::isIn(float x, float y, float z, int i, int j, int k) {
     return (false); 
   else if (vb.zmin > z || vb.zmax < z) 
     return (false); 
- 
+  else if (vb.tmin > t || vb.tmax < t) 
+    return(false); 
+
   return(true); 
 
 }
 //--------------------------------------------------------------------------
 //
-// returns neighbor rank where x,y,z,t is in 
-// this is a global partition number
+// check if the point (x,y,z) is in the lattice element [i,j,k]
+// assumes t is 0
+// does not consider ghost cells
+//
+bool Lattice4D::isInReal(float x, float y, float z, int i, int j, int k) {
+
+  return isInReal(x, y, z, 0, i, j, k, 0);
+
+}
+//--------------------------------------------------------------------------
+//
+// returns neighbor rank where x, y, z, t is in 
+// myrank: global partition number of block
+// returns global partition number of neighbor
 // returns -1 if out of the domain
+//
+// Note: uses real bounds, does not consider ghost cells
 //
 int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z, float t) {
 
@@ -776,7 +842,7 @@ int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z, float t) {
 	  else if (nk+k<0 || nk+k>kdim-1) continue;
 	  else if (nj+j<0 || nj+j>jdim-1) continue;
 	  else if (ni+i<0 || ni+i>idim-1) continue;
-	  else if (isIn(x,y,z,t,i+ni, j+nj, k+nk, l+nt))
+	  else if (isInReal(x,y,z,t,i+ni, j+nj, k+nk, l+nt))
 	    return(GetRank(ni+i, nj+j, nk+k, nt+l)); 
 	}
   return(-1); 
@@ -786,7 +852,6 @@ int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z, float t) {
 //
 // returns neighbor number (0-5) of x,y,z point
 //
-// from old Lattice.C
 //
 int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z) {
 
@@ -794,12 +859,12 @@ int Lattice4D::CheckNeighbor(int myrank, float x, float y, float z) {
 
   GetIndices(myrank, i, j, k); 
 
-  if (isIn(x, y, z, i-1, j, k) == true) return(0);  //-X
-  if (isIn(x, y, z, i+1, j, k) == true) return(1);  //+X
-  if (isIn(x, y, z, i, j-1, k) == true) return(2);  //-Y
-  if (isIn(x, y, z, i, j+1, k) == true) return(3);  //+Y
-  if (isIn(x, y, z, i, j, k-1) == true) return(4);  //-Z
-  if (isIn(x, y, z, i, j, k+1) == true) return(5);  //+Z
+  if (isInReal(x, y, z, i-1, j,   k  ) == true) return(0);  //-X
+  if (isInReal(x, y, z, i+1, j,   k  ) == true) return(1);  //+X
+  if (isInReal(x, y, z, i,   j-1, k  ) == true) return(2);  //-Y
+  if (isInReal(x, y, z, i,   j+1, k  ) == true) return(3);  //+Y
+  if (isInReal(x, y, z, i,   j,   k-1) == true) return(4);  //-Z
+  if (isInReal(x, y, z, i,   j,   k+1) == true) return(5);  //+Z
 
   return(-1); 
 
