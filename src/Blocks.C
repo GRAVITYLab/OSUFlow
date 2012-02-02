@@ -248,7 +248,10 @@ int Blocks::IsBlockInTimeGroup(int g, int b, int tsize, int tb) {
 #else
   if (lat4D) {
     lat4D->GetTB(b, &min_t, &max_t);
-    time_group_start = lat4D->tb_list[g].tmin;
+    // MOD-BY-LEETEN 02/02/2012-FROM:    time_group_start = lat4D->tb_list[g].tmin;
+    int time_group_end;
+    lat4D->GetTimeGroupBounds(g, &time_group_start, &time_group_end);
+    // MOD-BY-LEETEN 02/02/2012-END
   }
   else {
     latAMR->GetTB(b, &min_t, &max_t);

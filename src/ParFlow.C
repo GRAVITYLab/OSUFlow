@@ -101,7 +101,9 @@ ParFlow::ParFlow(Lattice4D *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
+  #ifdef _MPI // ADD-BY-LEETEN 02/02/2012
   this->nbhds = NULL;
+  #endif // #ifdef _MPI // ADD-BY-LEETEN 02/02/2012
 
   TotSeeds = 0;
   TotSteps = 0;
@@ -165,10 +167,11 @@ ParFlow::~ParFlow() {
   if (time_stats != NULL) {
     free(time_stats);
   }
+  #ifdef _MPI // ADD-BY-LEETEN 02/02/2012
   if (nbhds != NULL) {
     delete nbhds;
   }
-
+  #endif // #ifdef _MPI // ADD-BY-LEETEN 02/02/2012
 }
 //-----------------------------------------------------------------------
 //
