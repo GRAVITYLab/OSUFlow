@@ -583,9 +583,8 @@ CVectorField* OSUFlow::CreateStaticFlowField(float *pData,
     minRealB[i] = minB[i];
     maxRealB[i] = maxB[i];
   }
-  // MOD-BY-LEETEN 01/17/2012-FROM:  CreateStaticFlowField(pData, xdim, ydim, zdim, minB, maxB,minRealB,maxRealB);
-  return CreateStaticFlowField(pData, xdim, ydim, zdim, minB, maxB,minRealB,maxRealB);
-  // MOD-BY-LEETEN 01/17/2012-END
+  return CreateStaticFlowField(pData, xdim, ydim, zdim, minB, maxB,
+			       minRealB, maxRealB);
 }
 
 CVectorField* OSUFlow::CreateStaticFlowField(float *pData, 
@@ -601,16 +600,11 @@ CVectorField* OSUFlow::CreateStaticFlowField(float *pData,
   VECTOR3 min_b, max_b; 
   VECTOR4 realMin_b, realMax_b; 
 
-  int totalNum = xdim*ydim*zdim; 
-  pVector = new VECTOR3[totalNum]; 
+  pVector = (VECTOR3*)pData;
   ppVector = new VECTOR3*[1]; 
-
-  for(int i=0; i<totalNum; i++) {
-    pVector[i].Set(pData[i*3], pData[i*3+1], pData[i*3+2]); 
-  }
-  delete [] pData; 
   ppVector[0] = pVector; 
 
+  int totalNum = xdim*ydim*zdim; 
   pSolution = new Solution(ppVector, totalNum, 1);
   pRegularCGrid = new RegularCartesianGrid(xdim, ydim, zdim); 
 
@@ -627,11 +621,8 @@ CVectorField* OSUFlow::CreateStaticFlowField(float *pData,
   assert(pSolution != NULL && pRegularCGrid != NULL);
   
   field = new CVectorField(pRegularCGrid, pSolution, 1);
-
-  delete [] ppVector; 
-  delete [] pVector; 
-
   flowField = field; 
+
   return(field); 
 }
 
@@ -678,7 +669,6 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
   CVectorField* field; 
   Solution* pSolution;
   RegularCartesianGrid* pRegularCGrid;
-  VECTOR3* pVector;
   VECTOR3** ppVector;
   VECTOR3 min_b, max_b; 
   VECTOR4 realMin_b, realMax_b; 
@@ -686,18 +676,7 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
   int totalNum = xdim*ydim*zdim; 
 
   numTimesteps = max_t-min_t+1;  
-  ppVector = new VECTOR3 *[numTimesteps]; 
-  for (int i=0; i<numTimesteps; i++) {
-    pVector = new VECTOR3[totalNum]; 
-    if (ppData[i] == NULL) 
-      printf("panic: null data pointer in CreateTimeVaryingFlowField\n"); 
-    for (int j = 0; j<totalNum; j++) {
-      pVector[j].Set(ppData[i][j*3], ppData[i][j*3+1], ppData[i][j*3+2]); 
-    }
-    delete[] ppData[i];
-    ppVector[i] = pVector; 
-  }
-  delete[] ppData;
+  ppVector = (VECTOR3**)ppData;
   min_b[0] = minB[0]; min_b[1] = minB[1]; min_b[2] = minB[2]; 
   max_b[0] = maxB[0]; max_b[1] = maxB[1]; max_b[2] = maxB[2]; 
   realMin_b[0] = minRealB[0]; realMin_b[1] = minRealB[1]; 
@@ -714,11 +693,6 @@ CVectorField* OSUFlow::CreateTimeVaryingFlowField(float** ppData,
 
   assert(pSolution != NULL && pRegularCGrid != NULL);
   field = new CVectorField(pRegularCGrid, pSolution, numTimesteps, min_t);
-
-  for (int i=0; i<numTimesteps; i++) {
-    delete [] ppVector[i]; 
-  }
-  delete[] ppVector; 
 
   flowField = field; 
   return(field); 

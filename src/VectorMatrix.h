@@ -61,6 +61,8 @@ typedef struct line_2d {
 class VECTOR3
 {
 private :
+    // do not add or remove members of this class! there are times in the code
+    // where an array of floats is converted into an array of VECTOR3. 
 	float vec[3];
 
 public :
