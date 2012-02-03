@@ -11,6 +11,56 @@ using namespace std;
 
 #include "TubeRendererInOpenGL.h"
 
+// ADD-BY-LEETEN 02/03/2012-BEGIN
+void
+CTubeRendererInOpenGL::_TurnLightingOn()
+{
+	glPushAttrib(GL_LIGHTING_BIT);
+	glCallList(lidLighting);
+}
+
+void
+CTubeRendererInOpenGL::_TurnLightingOff()
+{
+	glPopAttrib();	// 	glPushAttrib(GL_LIGHT_BIT);
+}
+
+void
+CTubeRendererInOpenGL::_UpdateLighting()
+{
+	float pfAmbient[4];
+	float pfDiffuse[4];
+	float pfSpecular[4];
+	float fSpotExponent;
+	glGetLightfv(GL_LIGHT0, GL_AMBIENT, pfAmbient);
+	glGetLightfv(GL_LIGHT0, GL_DIFFUSE,	pfDiffuse);
+	glGetLightfv(GL_LIGHT0, GL_SPECULAR, pfSpecular);
+	glGetLightfv(GL_LIGHT0, GL_SPOT_EXPONENT, &fSpotExponent);
+
+	if( lidLighting )
+		glDeleteLists(lidLighting, 1);
+	lidLighting = glGenLists(1);
+
+	glNewList(lidLighting, GL_COMPILE);
+
+	glLightfv(GL_LIGHT0, GL_AMBIENT,	pfAmbient);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE,	pfDiffuse);
+	glLightfv(GL_LIGHT0, GL_SPECULAR,	pfSpecular);
+	glLightf(GL_LIGHT0, GL_SPOT_EXPONENT, fSpotExponent);
+
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
+
+	glPushMatrix();
+	glLoadIdentity();
+	static GLfloat pfLightPos[4] =	{0.0f, 0.0f, 1.0f, 0.0f};
+	glLightfv(GL_LIGHT0, GL_POSITION, pfLightPos);
+	glPopMatrix();
+
+	glEndList();
+}
+// ADD-BY-LEETEN 02/03/2012-END
+
 void 
 CTubeRendererInOpenGL::_Draw()
 {
@@ -46,6 +96,14 @@ CTubeRendererInOpenGL::_Draw()
 	default:
 		fprintf(stderr, "%s@%s(%d): Unregonized option", __FUNCTION__, __FILE__, __LINE__);
 	}
+
+	// ADD-BY-LEETEN 02/03/2012-BEGIN
+	if( bIsLightingEnabled )
+	{
+		_TurnLightingOn();
+	}
+	// ADD-BY-LEETEN 02/03/2012-END
+
 	// MOD-BY-LEETEN 10/01/2010-FROM:
 		// glCallList(uLid);
 	// TO:
@@ -82,6 +140,13 @@ CTubeRendererInOpenGL::_Draw()
 	// ADD-BY-LEETEN 01/20/2011-END
 		glDrawElements(GL_TRIANGLES, iTotalNrOfPatches, GL_UNSIGNED_INT, cVertexArray.puIndices);
 	glPopClientAttrib();	// glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+
+	// ADD-BY-LEETEN 02/03/2012-BEGIN
+	if( bIsLightingEnabled )
+	{
+		_TurnLightingOff();
+	}
+	// ADD-BY-LEETEN 02/03/2012-END
 
 	glPopMatrix(); 
 	// MOD-BY-LEETEN 10/01/2010-END
@@ -180,6 +245,12 @@ CTubeRendererInOpenGL::~CTubeRendererInOpenGL(void)
 /*
 
 $Log: TubeRendererInOpenGL.cpp,v $
+Revision 1.11  2011-04-04 20:19:13  leeten
+
+[04/04/2011]
+1. [ADD] Define the methods _TurnLightingOn(), _TurnLightingOff(), and _UpdateLighting() to control the lightingh.
+2. [ADD] Automatically setup the lighting if it is enabled.
+
 Revision 1.10  2011/01/20 17:16:30  leeten
 
 [01/19/2010]

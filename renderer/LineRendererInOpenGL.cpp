@@ -244,26 +244,41 @@ CLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, float fX
 
 	VECTOR3 v3Point(fX, fY, fZ);
 
+	#if	0	// MOD-BY-LEETEN 02/03/2012-FROM:
+		VECTOR3 v3Tangent = v3Point - v3PrevPoint;
+		v3Tangent.Normalize();
+
+		if( iPointIndex > 0 )
+		{
+			if( 1 == iPointIndex )
+				pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
+			else
+				pv4TexCoords.push_back(VECTOR4(v3PrevTangent[0], v3PrevTangent[1], v3PrevTangent[2], 1.0));
+			pv4Coords.push_back(VECTOR4(v3PrevPoint[0], v3PrevPoint[1], v3PrevPoint[2], 1.0));
+			// ADD-BY-LEETEN 07/07/2010-BEGIN
+			pv4Colors.push_back(v4PrevColor);
+			// ADD-BY-LEETEN 07/07/2010-END
+
+			pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
+			pv4Coords.push_back(VECTOR4(v3Point[0], v3Point[1], v3Point[2], 1.0));
+			// ADD-BY-LEETEN 07/07/2010-BEGIN
+			pv4Colors.push_back(v4Color);
+			// ADD-BY-LEETEN 07/07/2010-END
+		}
+	#else	// MOD-BY-LEETEN 02/03/2012-TO:
 	VECTOR3 v3Tangent = v3Point - v3PrevPoint;
 	v3Tangent.Normalize();
 
 	if( iPointIndex > 0 )
 	{
-		if( 1 == iPointIndex )
-			pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
-		else
-			pv4TexCoords.push_back(VECTOR4(v3PrevTangent[0], v3PrevTangent[1], v3PrevTangent[2], 1.0));
-		pv4Coords.push_back(VECTOR4(v3PrevPoint[0], v3PrevPoint[1], v3PrevPoint[2], 1.0));
-		// ADD-BY-LEETEN 07/07/2010-BEGIN
-		pv4Colors.push_back(v4PrevColor);
-		// ADD-BY-LEETEN 07/07/2010-END
-
 		pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
 		pv4Coords.push_back(VECTOR4(v3Point[0], v3Point[1], v3Point[2], 1.0));
-		// ADD-BY-LEETEN 07/07/2010-BEGIN
 		pv4Colors.push_back(v4Color);
-		// ADD-BY-LEETEN 07/07/2010-END
 	}
+	pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
+	pv4Coords.push_back(VECTOR4(v3Point[0], v3Point[1], v3Point[2], 1.0));
+	pv4Colors.push_back(v4Color);
+	#endif	// MOD-BY-LEETEN 02/03/2012-END
 	iNrOfRenderedParticles++;
 
 	v3PrevPoint = v3Point;
@@ -324,7 +339,11 @@ CLineRendererInOpenGL::_Draw()
 			_CheckTrace(iT, bIsDrawing);
 			if( !bIsDrawing )
 				continue;
-			glDrawArrays(GL_LINES, pviGlPrimitiveBases[iT], pviGlPrimitiveLengths[iT]);
+			// MOD-BY-LEETEN 02/03/2012-FROM:
+				// glDrawArrays(GL_LINES, pviGlPrimitiveBases[iT], pviGlPrimitiveLengths[iT]);
+			// TO:
+			glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[iT], pviGlPrimitiveLengths[iT]);
+			// MOD-BY-LEETEN 02/03/2012-END
 		}
 		glPopClientAttrib();	// glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
 		glPopAttrib();	
@@ -371,7 +390,11 @@ CLineRendererInOpenGL::_Draw()
 		// ADD-BY-LEETEN 01/20/2011-BEGIN
 		if(CColorScheme::COLOR_ON_THE_FLY != this->cColorScheme.iScheme )
 		{
-			glDrawArrays(GL_LINES, pviGlPrimitiveBases[iT], pviGlPrimitiveLengths[iT]);
+			// MOD-BY-LEETEN 02/03/2012-FROM:
+				// glDrawArrays(GL_LINES, pviGlPrimitiveBases[iT], pviGlPrimitiveLengths[iT]);
+			// TO:
+			glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[iT], pviGlPrimitiveLengths[iT]);
+			// MOD-BY-LEETEN 02/03/2012-END
 			continue;
 		}
 		// ADD-BY-LEETEN 01/20/2011-END
@@ -382,7 +405,11 @@ CLineRendererInOpenGL::_Draw()
 		float fR, fG, fB, fA;
 		_GetTraceColor(iT, fR, fG, fB, fA);
 		glColor4f(fR, fG, fB, fA);
-		glDrawArrays(GL_LINES, pviGlPrimitiveBases[iT], pviGlPrimitiveLengths[iT]);
+		// MOD-BY-LEETEN 02/03/2012-FROM:
+			// glDrawArrays(GL_LINES, pviGlPrimitiveBases[iT], pviGlPrimitiveLengths[iT]);
+		// TO:
+		glDrawArrays(GL_LINE_STRIP, pviGlPrimitiveBases[iT], pviGlPrimitiveLengths[iT]);
+		// MOD-BY-LEETEN 02/03/2012-END
 	}
 	// MOD-BY-LEETEN 01/18/2011-END
 	glPopClientAttrib();	// glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
@@ -424,6 +451,11 @@ CLineRendererInOpenGL::~CLineRendererInOpenGL(void)
 /*
 
 $Log: LineRendererInOpenGL.cpp,v $
+Revision 1.12  2011-02-07 02:56:21  leeten
+
+[02/06/2011]
+1. [ADD] Change the lines from line segments to line strips.
+
 Revision 1.11  2011/01/20 17:12:37  leeten
 
 [01/19/2010]

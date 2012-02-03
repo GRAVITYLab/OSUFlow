@@ -8,6 +8,15 @@ May, 2010
 
 #include "LineRenderer.h"
 
+// ADD-BY-LEETEN 02/03/2012-BEGIN
+//! Specify the default line color
+void
+CLineRenderer::CColorScheme::_SetColor(const VECTOR4& v4Color)
+{
+	this->v4Color = v4Color;
+}
+// ADD-BY-LEETEN 02/03/2012-END
+
 VECTOR4 
 CLineRenderer::CColorScheme::V4GetColor()
 {
@@ -25,8 +34,16 @@ CLineRenderer::CColorScheme::V4GetColor()
 		{
 			// warning
 		}
+		// ADD-BY-LEETEN 02/03/2012-BEGIN
+		break;
+		// ADD-BY-LEETEN 02/03/2012-END
+
 	case COLOR_ALL_WHITE:
-		v4Color = VECTOR4(1.0f, 1.0f, 1.0f, 1.0f);
+		// MOD-BY-LEETEN 02/03/2012-FROM:
+			// v4Color = VECTOR4(1.0f, 1.0f, 1.0f, 1.0f);
+		// TO:
+		v4Color = this->v4Color;
+		// MOD-BY-LEETEN 02/03/2012-END
 		break;
 	}
 	return v4Color;
@@ -100,11 +117,19 @@ CLineRenderer::CColorScheme::CColorScheme()
 {
 	iScheme = COLOR_ALL_WHITE;
 	plv4Colors = NULL;
+	// ADD-BY-LEETEN 02/03/2012-BEGIN
+	v4Color.Set(1.0f, 1.0f, 1.0f, 1.0f);
+	// ADD-BY-LEETEN 02/03/2012-END
 }
 
 /*
 
 $Log: LineRenderer_ColorScheme.cpp,v $
+Revision 1.4  2011-02-07 02:57:41  leeten
+
+[02/06/2011]
+1. [ADD] When the coloring scheme is COLOR_ALL_WHITE, use the color specified in the vector v4Color. Define the method to _SetColor to specify this color.
+
 Revision 1.3  2010/10/01 20:36:09  leeten
 
 [10/01/2010]

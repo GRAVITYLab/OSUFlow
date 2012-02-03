@@ -18,7 +18,11 @@ CTubeRenderer::_SetInteger(int iParameter,	int iValue)
 		break;
 
 	case NR_OF_PATCHES:
-		this->iNrOfPatches = iNrOfPatches;
+		// MOD-BY-LEETEN 02/03/2012-FROM:
+			// this->iNrOfPatches = iNrOfPatches;
+		// TO:
+		this->iNrOfPatches = iValue;
+		// MOD-BY-LEETEN 02/03/2012-END
 		break;
 	}
 	CLineRenderer::_SetInteger(iParameter, iValue);
@@ -199,6 +203,11 @@ CTubeRenderer::~CTubeRenderer(void)
 /*
 
 $Log: TubeRenderer.cpp,v $
+Revision 1.6  2011-04-04 20:17:54  leeten
+
+[04/04/2011]
+1. [DEBUG] in SetInteger, assign the #patches to the variable.
+
 Revision 1.5  2011/01/20 17:14:29  leeten
 
 [01/19/2010]

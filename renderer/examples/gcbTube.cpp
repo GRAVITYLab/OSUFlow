@@ -74,37 +74,41 @@ void compute_streamlines()
 
 void draw_streamlines() 
 {
-	glPushAttrib(
-		GL_LIGHTING_BIT |
-		0
-	);
+	#if	0	// DEL-BY-LEETEN 02/03/2012-BEGIN
+		glPushAttrib(
+			GL_LIGHTING_BIT |
+			0
+		);
 
-	int iLighting;
-	cLineRenderer._GetInteger(CLineRenderer::ENABLE_LIGHTING, &iLighting);
-	if( iLighting )
-	{
-		static GLfloat pfLightAmbient[4] =	{0.1f, 0.1f, 0.1f, 1.0f};
-		static GLfloat pfLightDiffuse[4] =	{0.6f, 0.6f, 0.6f, 1.0f};
-		static GLfloat pfLightSpecular[4] =	{0.3f, 0.3f, 0.3f, 1.0f};;
-		static GLfloat fSpotExponent = 4.0f;
-		glLightfv(GL_LIGHT0, GL_AMBIENT,	pfLightAmbient);
-		glLightfv(GL_LIGHT0, GL_DIFFUSE,	pfLightDiffuse);
-		glLightfv(GL_LIGHT0, GL_SPECULAR,	pfLightSpecular);
-		glLightf(GL_LIGHT0, GL_SPOT_EXPONENT, fSpotExponent);
+		int iLighting;
+		cLineRenderer._GetInteger(CLineRenderer::ENABLE_LIGHTING, &iLighting);
+		if( iLighting )
+		{
+			static GLfloat pfLightAmbient[4] =	{0.1f, 0.1f, 0.1f, 1.0f};
+			static GLfloat pfLightDiffuse[4] =	{0.6f, 0.6f, 0.6f, 1.0f};
+			static GLfloat pfLightSpecular[4] =	{0.3f, 0.3f, 0.3f, 1.0f};;
+			static GLfloat fSpotExponent = 4.0f;
+			glLightfv(GL_LIGHT0, GL_AMBIENT,	pfLightAmbient);
+			glLightfv(GL_LIGHT0, GL_DIFFUSE,	pfLightDiffuse);
+			glLightfv(GL_LIGHT0, GL_SPECULAR,	pfLightSpecular);
+			glLightf(GL_LIGHT0, GL_SPOT_EXPONENT, fSpotExponent);
 
-		glEnable(GL_LIGHTING);
-		glEnable(GL_LIGHT0);
+			glEnable(GL_LIGHTING);
+			glEnable(GL_LIGHT0);
 
-		glPushMatrix();
-		glLoadIdentity();
-		static GLfloat pfLightPos[4] =	{0.0f, 0.0f, 1.0f, 0.0f};
-		glLightfv(GL_LIGHT0, GL_POSITION, pfLightPos);
-		glPopMatrix();
-	}
+			glPushMatrix();
+			glLoadIdentity();
+			static GLfloat pfLightPos[4] =	{0.0f, 0.0f, 1.0f, 0.0f};
+			glLightfv(GL_LIGHT0, GL_POSITION, pfLightPos);
+			glPopMatrix();
+		}
+	#endif	// DEL-BY-LEETEN 02/03/2012-END
 
 	cLineRenderer._Draw();
 
-	glPopAttrib();
+	// DEL-BY-LEETEN 02/03/2012-BEGIN
+		// glPopAttrib();
+	// DEL-BY-LEETEN 02/03/2012-END
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -172,6 +176,19 @@ init()
 {
 	LOG(printf("Initialize here."));
 	glEnable(GL_DEPTH_TEST);
+
+	// ADD-BY-LEETEN 02/03/2012-BEGIN
+	static GLfloat pfLightAmbient[4] =	{0.1f, 0.1f, 0.1f, 1.0f};
+	static GLfloat pfLightDiffuse[4] =	{0.6f, 0.6f, 0.6f, 1.0f};
+	static GLfloat pfLightSpecular[4] =	{0.3f, 0.3f, 0.3f, 1.0f};;
+	static GLfloat fSpotExponent = 4.0f;
+	glLightfv(GL_LIGHT0, GL_AMBIENT,	pfLightAmbient);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE,	pfLightDiffuse);
+	glLightfv(GL_LIGHT0, GL_SPECULAR,	pfLightSpecular);
+	glLightf(GL_LIGHT0, GL_SPOT_EXPONENT, fSpotExponent);
+
+	cLineRenderer._UpdateLighting();
+	// ADD-BY-LEETEN 02/03/2012-END
 
 	// ADD-BY-LEETEN 08/14/2010-BEGIN
 	LOG(printf("The vector field is ready. Press key 's' to generate the primtives."));
@@ -251,6 +268,11 @@ main(int argn, char* argv[])
 /*
 
 $Log: gcbTube.cpp,v $
+Revision 1.9  2011-04-04 20:21:24  leeten
+
+[04/04/2011]
+1. [MOD] Use the new method _UpdateLighting() to setup the lighting, and remove the code than manually control the lighting.
+
 Revision 1.8  2011/01/21 20:50:59  leeten
 
 [01/21/2011]

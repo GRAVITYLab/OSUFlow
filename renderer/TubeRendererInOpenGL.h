@@ -75,6 +75,10 @@ protected:
 	// name of the display list
 	GLuint uLid;
 
+	// ADD-BY-LEETEN 02/03/2012-BEGIN
+	GLuint lidLighting;
+	// ADD-BY-LEETEN 02/03/2012-END
+
 public:
 	// ADD-BY-LEETEN 04/14/2010-BEGIN
 	enum EParameter {
@@ -85,6 +89,11 @@ public:
 
 	virtual void _Draw();
 	virtual void _Update();
+	// ADD-BY-LEETEN 02/03/2012-BEGIN
+	virtual void _UpdateLighting();
+	virtual void _TurnLightingOn();
+	virtual void _TurnLightingOff();
+	// ADD-BY-LEETEN 02/03/2012-END
 
 	CTubeRendererInOpenGL(void);
 	virtual ~CTubeRendererInOpenGL(void);
@@ -93,6 +102,12 @@ public:
 /*
 
 $Log: TubeRendererInOpenGL.h,v $
+Revision 1.9  2011-04-04 20:19:52  leeten
+
+[04/04/2011]
+1. [ADD] Declare the methods _TurnLightingOn(), _TurnLightingOff(), and _UpdateLighting() to control the lightingh.
+2. [ADD] Add a display list lidLighting.
+
 Revision 1.8  2010/10/01 20:36:09  leeten
 
 [10/01/2010]

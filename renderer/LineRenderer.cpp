@@ -151,6 +151,9 @@ CLineRenderer::_SetFloatv(int iParameter,		int iNrOfValues, float pfValues[])
 					this->cLine.v4Color[i] = pfValues[i];
 				else
 					this->cLine.v4Color[i] = ( 4 == iNrOfValues)?pfValues[i]:1.0;
+			// ADD-BY-LEETEN 02/03/2012-BEGIN
+			this->cColorScheme._SetColor(this->cLine.v4Color);
+			// ADD-BY-LEETEN 02/03/2012-END
 
 			break;
 		default:
@@ -263,6 +266,11 @@ CLineRenderer::~CLineRenderer(void)
 /*
 
 $Log: LineRenderer.cpp,v $
+Revision 1.10  2011-02-07 02:53:48  leeten
+
+[02/06/2011]
+1. [ADD] Specify the line color to CColorScheme.
+
 Revision 1.9  2011/01/20 17:09:04  leeten
 
 [01/19/2010]

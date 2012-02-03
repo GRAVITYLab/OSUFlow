@@ -170,6 +170,14 @@ public:
 		//! The color scheme
 		int iScheme;
 
+		// ADD-BY-LEETEN 02/03/2012-BEGIN
+		//! The default line color, which will be used when the color scheme is ALL WHITE
+		VECTOR4 v4Color;
+
+		//! Specify the default line color
+		void _SetColor(const VECTOR4& v4Color);
+		// ADD-BY-LEETEN 02/03/2012-END
+
 		//! The color buffer
 		const list<VECTOR4> *plv4Colors;
 
@@ -259,6 +267,11 @@ public:
 /*
 
 $Log: LineRenderer.h,v $
+Revision 1.10  2011-02-07 02:54:55  leeten
+
+[02/06/2011]
+1. [ADD] Adda a vector v4Color to CColorScheme and a method _SetColor to specify this color. This color will be used when the coloring scheme is COLOR_ALL_WHITE.
+
 Revision 1.9  2011/01/20 17:17:50  leeten
 
 [01/19/2010]
