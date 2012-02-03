@@ -52,6 +52,14 @@ public:
 	int GetValue(int id, const float t, VECTOR3& nodeData);
 	void Normalize(bool bLocal);
 	void Scale(float scaleF); 
+	// ADD-BY-LEETEN 02/02/2012-BEGIN
+	// This function scan the solution with the user-specified function func().
+	void
+	  Scan
+	  (
+	   void (*func)(int iLocalT, int iNode, VECTOR3* pv3)
+	   );
+	// ADD-BY-LEETEN 02/02/2012-END
 };
 
 #endif

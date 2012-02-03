@@ -318,6 +318,17 @@ void CVectorField::ScaleField(float scale)
   m_pSolution->Scale(scale); 
 } 
 
+// ADD-BY-LEETEN 02/02/2012-BEGIN
+void
+CVectorField::Scan
+	  (
+	   void (*func)(int iLocalT, int iNode, VECTOR3* pv3)
+	   )
+{
+  m_pSolution->Scan(func);
+}
+// ADD-BY-LEETEN 02/02/2012-END
+
 //////////////////////////////////////////////////////////////////////////
 // to get physical coordinate by interpolation
 // input

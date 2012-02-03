@@ -262,7 +262,13 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 			szSeparator = strrchr(szPath, '\\');
 	#endif
 	if( NULL == szSeparator )
-		szSeparator = &szPath[0];
+	  // MOD-BY-LEETEN 02/02/2012-FROM:		szSeparator = &szPath[0];
+	{
+	  // if the filename does not contains separator, use relative path
+	  strcpy(szPath, ".");
+	}
+	else
+	  // MOD-BY-LEETEN 02/02/2012-END
 
 	*szSeparator = '\0';
 	// ADD-BY-LEETEN 02/07/2011-END

@@ -231,7 +231,30 @@ void Solution::Scale(float scaleF)
 	  }
 }
 
+// ADD-BY-LEETEN 02/02/2012-BEGIN
+void
+Solution::Scan
+(
+ void (*_func)(int iLocalT, int iNode, VECTOR3* pv3)
+)
+{
+	int iFor, jFor;
+	float u, v, w;
 
+	for(int iFor = 0; iFor < m_nTimeSteps; iFor++)
+	  {
+	    for(int jFor = 0; jFor < m_nNodeNum; jFor++)
+	      {
+		_func
+		  (
+		      iFor, 
+		      jFor,
+		      &m_pDataArray[iFor][jFor] 
+		  );
+	      }
+	  }
+}
+// ADD-BY-LEETEN 02/02/2012-END
 
 // compute the min and max value with minimal and maximal magnitude
 void Solution::ComputeMinMaxValue(void)

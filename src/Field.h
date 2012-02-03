@@ -50,6 +50,12 @@ public:
 	void NormalizeField(bool bLocal);
 	void ScaleField(float scale); 
 
+	// ADD-BY-LEETEN 02/02/2012-BEGIN
+	void Scan
+	  (
+	   void (*func)(int iLocalT, int iNode, VECTOR3 *pv3)
+	   );
+	// ADD-BY-LEETEN 02/02/2012-END
 
 	bool IsNormalized(void);
 	void getDimension(int& xdim, int& ydim, int& zdim);
