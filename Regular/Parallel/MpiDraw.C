@@ -109,6 +109,7 @@ const float lowerAngleAccuracy = 3.0;
 const float upperAngleAccuracy = 15.0;
 
 const INTEG_ORD integrationOrder = RK45;
+//const INTEG_ORD integrationOrder = FOURTH;
 const bool useAdaptiveStepSize = true;
 
 //----------------------------------------------------------------------------
@@ -523,9 +524,27 @@ void Cleanup() {
 
   delete [] pt;
   delete [] npt;
+
+  for(i=0; i<nblocks; i++)
+  {
+    list<vtListTimeSeedTrace*>::iterator trace_iter;
+    for(trace_iter=sl_list[i].begin();trace_iter!=sl_list[i].end();trace_iter++)
+    {
+      vtListTimeSeedTrace::iterator pt_iter;
+      for(pt_iter = (*trace_iter)->begin(); pt_iter != (*trace_iter)->end(); 
+	  pt_iter++)
+      {
+	delete *pt_iter;
+      }
+      (*trace_iter)->clear();
+      delete *trace_iter;
+    }
+    sl_list[i].clear();
+  }
   delete [] sl_list;
 
-  for (i = 0; i < nblocks; i++) {
+  for (i = 0; i < nblocks; i++)
+  {
     if (osuflow[i] != NULL)
       delete osuflow[i];
   }

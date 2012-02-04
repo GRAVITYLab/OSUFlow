@@ -343,13 +343,8 @@ void ParFlow::SetIntegrationParams(OSUFlow* osuflow) {
 // end_steps: number of steps a particle must travel before stopping
 // w: weight of this block (output) (optional)
 //
-#if 0 // MOD-BY-LEETEN 01/17/2012-FROM:
-void ParFlow::ComputeStreamlines(vector<Particle> seeds, int block_num, int pf, 
-				 int end_steps, int *w) {
-#else // MOD-BY-LEETEN 01/17/2012-TO:
-void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num, int pf, 
-				 int end_steps, int *w) {
-#endif // MOD-BY-LEETEN 01/17/2012-END
+void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num,
+				 int pf, int end_steps, int *w) {
 
   list<vtListSeedTrace*> list3; // 3D list of traces
   std::list<VECTOR3*>::iterator pt_iter3; // 3D iterator over pts in one trace
@@ -368,7 +363,7 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num, i
     TotSeeds += nseeds;
 
     // make VECTOR3s (temporary)
-    VECTOR3 *temp_seeds = new VECTOR3[nseeds];
+    VECTOR3* temp_seeds = new VECTOR3[nseeds];
     for (int i = 0; i < nseeds; i++) {
       temp_seeds[i][0]= seeds[i].pt[0];
       temp_seeds[i][1]= seeds[i].pt[1];
@@ -399,7 +394,6 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num, i
 	p = new VECTOR4;
 	p->Set(p3[0], p3[1], p3[2], 0.0f);
 	trace->push_back(p);
-
       }
 
       // find the matching seed for the trace 
@@ -426,7 +420,19 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num, i
 
     }
 
+    // cleanup
     delete[] temp_seeds;
+    for(trace_iter3 = list3.begin(); trace_iter3 != list3.end();trace_iter3++)
+    {
+      for(pt_iter3 = (*trace_iter3)->begin(); pt_iter3 != (*trace_iter3)->end();
+	  pt_iter3++) {
+	delete *pt_iter3;
+      }
+      (*trace_iter3)->clear();
+      delete *trace_iter3;
+    }
+    list3.clear();
+
 
   }
   

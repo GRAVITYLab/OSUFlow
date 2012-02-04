@@ -40,7 +40,7 @@ OSUFlow::~OSUFlow()
   delete[] flowName;
   if (has_data)
     delete flowField;
-//   if (seedPtr!=NULL) delete[] seedPtr; 
+  if (seedPtr!=NULL) delete[] seedPtr; 
   if (seedTimeArray!=NULL) delete [] seedTimeArray; 
   flowName = NULL;
   flowField = NULL;
@@ -893,7 +893,9 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
   if (has_data == false) DeferredLoadData(); 
 
 	nSeeds = seedNum; 
-	seedPtr = seeds; 
+
+	// this will copy the contents of seed to seedPtr
+	SetSeedPoints(seeds, seedNum);
 
 	listSeedTraces.clear();
 	if (listSeedIds != NULL)

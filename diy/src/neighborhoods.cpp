@@ -498,13 +498,6 @@ int Neighborhoods::FlushNeighbors(vector<vector<char *> > &items,
   for (list<ct_t>::iterator ci = recv_cts.begin(); ci != recv_cts.end(); ci++)
     delete[] ci->c; // array of received counts
   recv_cts.clear();
-
-  for (list<pl_t>::iterator pl_it = recv_pts.begin(); pl_it != recv_pts.end(); 
-       pl_it++)
-  {
-    if(pl_it->p != NULL)
-      delete[] pl_it->p; // array of received items
-  }
   recv_pts.clear();
 
   tag = 0;
