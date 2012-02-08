@@ -292,6 +292,8 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
   jdim = ceil((float)ydim / (float)block_size[1]);
   kdim = ceil((float)zdim / (float)block_size[2]);
 
+  tbr_list = new time_bounds_t[tdim];
+  tb_list = new time_bounds_t[tdim];
   ApplyGhost(ghost);
   FindTimeBounds();
 
@@ -351,6 +353,14 @@ Lattice4D::Lattice4D(char *part_file, int xlen, int ylen, int zlen, int tlen,
 	   vb_list[i].tmax);
   }
   printf("-----------------------------------------------------------------\n");
+  for (i = 0; i < tdim; i++) {
+    printf("tbr[%i]: [%i %i]\n", i, tbr_list[i].tmin, tbr_list[i].tmax);
+  }
+  printf("-----------------------------------------------------------------\n");
+  for (i = 0; i < tdim; i++) {
+    printf("tb[%i]: [%i %i]\n", i, tb_list[i].tmin, tb_list[i].tmax);
+  }
+  printf("-----------------------------------------------------------------\n");
 #endif
 
   // performance stats
@@ -383,9 +393,34 @@ Lattice4D::~Lattice4D()
 void Lattice4D::FindTimeBounds()
 {
   // find bounds of time partitions
-  tb_list = new time_bounds_t[tdim];
   int ti = 0;
   int i, j;
+
+  // time bounds without ghost cells
+  for(i = 0; i < npart; i++) {
+
+    int tmin = vbr_list[i].tmin;
+    int tmax = vbr_list[i].tmax;
+
+    // see if these time bounds are already accounted
+    for(j=0; j<ti; j++) {
+      if(tbr_list[j].tmin == tmin && tbr_list[j].tmax == tmax)
+	break;
+    }
+
+    if(j == ti) {
+      // add new bounds
+      tbr_list[ti].tmin = tmin;
+      tbr_list[ti].tmax = tmax;
+      ti++;
+    }
+  }
+
+  // sort list since blocks could have been in any order
+  qsort(tbr_list, tdim, sizeof(time_bounds_t), Lattice4D::compare_time_bounds);
+
+  // time bounds with ghost cells
+  ti = 0;
   for(i = 0; i < npart; i++) {
 
     int tmin = vb_list[i].tmin;
@@ -1014,12 +1049,25 @@ void Lattice4D::GetRealVB(int block, float *min_s, float *max_s,
 }
 //---------------------------------------------------------------------------
 //
-// gets local time bounds w/o ghost
+// gets local time bounds w/ ghost
 //
 // block: local block number (0-nblocks)
 // min_t, max_t: (output) temporal min and max bounds
 //
 void Lattice4D::GetTB(int block, int *min_t, int *max_t) {
+
+  *min_t = vb_list[block_ranks[block]].tmin;
+  *max_t = vb_list[block_ranks[block]].tmax;
+
+}
+//---------------------------------------------------------------------------
+//
+// gets local time bounds w/o ghost
+//
+// block: local block number (0-nblocks)
+// min_t, max_t: (output) temporal min and max bounds
+//
+void Lattice4D::GetRealTB(int block, int *min_t, int *max_t) {
 
   *min_t = vbr_list[block_ranks[block]].tmin;
   *max_t = vbr_list[block_ranks[block]].tmax;
@@ -1028,6 +1076,7 @@ void Lattice4D::GetTB(int block, int *min_t, int *max_t) {
 //---------------------------------------------------------------------------
 //
 // gets the bounds of a time group
+// ghost cells are included
 //
 // group: the time group
 // min_t, max_t: (output) temporal min and max bounds
@@ -1036,6 +1085,19 @@ void Lattice4D::GetTimeGroupBounds(int group, int* min_t, int* max_t) {
 
   *min_t = tb_list[group].tmin;
   *max_t = tb_list[group].tmax;
+}
+//---------------------------------------------------------------------------
+//
+// gets the bounds of a time group
+// ghost cells are not included
+//
+// group: the time group
+// min_t, max_t: (output) temporal min and max bounds
+//
+void Lattice4D::GetRealTimeGroupBounds(int group, int* min_t, int* max_t) {
+
+  *min_t = tbr_list[group].tmin;
+  *max_t = tbr_list[group].tmax;
 }
 //---------------------------------------------------------------------------
 //
@@ -1098,6 +1160,7 @@ void Lattice4D::ComputePartition(int *data_dim, int ghost,
   // init
   vbr_list = new volume_bounds_t[nsp * ntp]; // volume bounds w/o ghost
   vb_list = new volume_bounds_t[nsp * ntp];  // volume bounds w/ ghost
+  tbr_list = new time_bounds_t[ntp];         // time partition bounds w/o ghost
   tb_list = new time_bounds_t[ntp];          // time partition bounds w/ ghost
   for (i = 0; i < 3; i++) {
     lat_dim[i] = 1;
@@ -1183,6 +1246,8 @@ void Lattice4D::ComputePartition(int *data_dim, int ghost,
 	}
       }
     }
+    tbr_list[l].tmin = vb_list[n-1].tmin;
+    tbr_list[l].tmax = vb_list[n-1].tmax;
     tb_list[l].tmin = vb_list[n-1].tmin;
     tb_list[l].tmax = vb_list[n-1].tmax;
   }
@@ -1196,6 +1261,10 @@ void Lattice4D::ComputePartition(int *data_dim, int ghost,
       fprintf(stderr, "vbr_list[%d] min = [%d %d %d %d] max = [%d %d %d %d]\n", i, vbr_list[i].xmin, vbr_list[i].ymin, vbr_list[i].zmin, vbr_list[i].tmin, vbr_list[i].xmax, vbr_list[i].ymax, vbr_list[i].zmax, vbr_list[i].tmax);
     for (i = 0; i < nsp * ntp; i++)
       fprintf(stderr, "vb_list[%d] min = [%d %d %d %d] max = [%d %d %d %d]\n", i, vb_list[i].xmin, vb_list[i].ymin, vb_list[i].zmin, vb_list[i].tmin, vb_list[i].xmax, vb_list[i].ymax, vb_list[i].zmax, vb_list[i].tmax);
+    for (i = 0; i < tdim; i++)
+      fprintf(stderr, "tbr_list[%d]  [%d %d]\n", i, tbr_list[i].tmin, tbr_list[i].tmax);
+    for (i = 0; i < tdim; i++)
+      fprintf(stderr, "tb_list[%d]  [%d %d]\n", i, tb_list[i].tmin, tb_list[i].tmax);
  }
 #endif
 
@@ -1207,8 +1276,8 @@ void Lattice4D::ComputePartition(int *data_dim, int ghost,
 // ghost: ghost layer per side
 void Lattice4D::ApplyGhost(int ghost)
 {
-  for (int i = 0; i < npart; i++) {
-    // Note: adding ghost cells to tmin is never necessary
+  // Note: adding ghost cells to tmin is never necessary
+  for(int i=0; i<npart; i++) {
     vb_list[i].xmin = max(vbr_list[i].xmin - ghost, 0);
     vb_list[i].ymin = max(vbr_list[i].ymin - ghost, 0);
     vb_list[i].zmin = max(vbr_list[i].zmin - ghost, 0);
@@ -1217,8 +1286,11 @@ void Lattice4D::ApplyGhost(int ghost)
     vb_list[i].ymax = min(vbr_list[i].ymax + ghost, ydim - 1);
     vb_list[i].zmax = min(vbr_list[i].zmax + ghost, zdim - 1);
 
-    if(ldim != 1)  // don't add ghost cells when doing streamlines
-      vb_list[i].tmax = min(vbr_list[i].tmax + ghost, ldim - 1);
+    vb_list[i].tmax = min(vbr_list[i].tmax + ghost, ldim - 1);
+  }
+
+  for(int i=0; i<tdim; i++) {
+    tb_list[i].tmax = min(tbr_list[i].tmax + ghost, ldim - 1);
   }
 }
 //---------------------------------------------------------------------------

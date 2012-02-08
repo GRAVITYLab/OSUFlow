@@ -247,11 +247,9 @@ int Blocks::IsBlockInTimeGroup(int g, int b, int tsize, int tb) {
   time_group_start = blocking->time_starts[g];
 #else
   if (lat4D) {
-    lat4D->GetTB(b, &min_t, &max_t);
-    // MOD-BY-LEETEN 02/02/2012-FROM:    time_group_start = lat4D->tb_list[g].tmin;
     int time_group_end;
-    lat4D->GetTimeGroupBounds(g, &time_group_start, &time_group_end);
-    // MOD-BY-LEETEN 02/02/2012-END
+    lat4D->GetRealTB(b, &min_t, &max_t);
+    lat4D->GetRealTimeGroupBounds(g, &time_group_start, &time_group_end);
   }
   else {
     latAMR->GetTB(b, &min_t, &max_t);

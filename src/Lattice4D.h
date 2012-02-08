@@ -100,7 +100,9 @@ class  Lattice4D {
   void GetVB(int block, float *min_s, float *max_s, int *min_t, int *max_t);
   void GetRealVB(int block, float *min_s, float *max_s, int *min_t, int *max_t);
   void GetTB(int block, int *min_t, int *max_t);
+  void GetRealTB(int block, int *min_t, int *max_t);
   void GetTimeGroupBounds(int group, int* min_t, int* max_t);
+  void GetRealTimeGroupBounds(int group, int* min_t, int* max_t);
   void GetGlobalVB(int part, float *min_s, float *max_s, 
 		   int *min_t, int *max_t);
   void GetExtents(float *min, float *max);
@@ -146,6 +148,7 @@ class  Lattice4D {
   int nproc; // number of processes or threads
   volume_bounds_t* vbr_list; // real volume bounds w/o ghost
   volume_bounds_t* vb_list;  // volume bounds w/ ghost
+  time_bounds_t * tbr_list;  // time bounds for each time block w/o ghost cells
   time_bounds_t * tb_list;   // time bounds for each time block w/ ghost cells
   int* flowMatrix; 
   void GetNeighborRanks(int block);

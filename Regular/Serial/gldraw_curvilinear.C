@@ -99,7 +99,7 @@ void compute_streamlines() {
 		
 
 	seed_num=count;
-	osuflow->UserPickedSeedPoints(seed_list, seed_num);
+	osuflow->SetSeedPoints(seed_list, seed_num);
 	// osuflow->SetRandomSeedPoints(from, to, 10); 
 	int nSeeds; 
 	VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 

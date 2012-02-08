@@ -742,31 +742,30 @@ void OSUFlow::SetRandomSeedPoints(const float min[3],
 // specify a set of seed points regularly generated over the specified
 // spatial interval. Points can be in axis aligned dimension 0, 1, 2, 3
 //////////////////////////////////////////////////////////////////////////
-void OSUFlow::SetRegularSeedPoints(const float min[3], 
-								   const float max[3], 
-								   const size_t numSeeds[3])
+void OSUFlow::SetRegularSeedPoints(const float min[3], const float max[3],
+				   const size_t numSeeds[3])
 {
-	for(int iFor = 0; iFor < 3; iFor++)
-	{
-		minRakeExt[iFor] = min[iFor];
-		maxRakeExt[iFor] = max[iFor];
-	}
-	this->numSeeds[0] = (unsigned int)numSeeds[0];
-	this->numSeeds[1] = (unsigned int)numSeeds[1];
-	this->numSeeds[2] = (unsigned int)numSeeds[2];
+  for(int iFor = 0; iFor < 3; iFor++)
+  {
+    minRakeExt[iFor] = min[iFor];
+    maxRakeExt[iFor] = max[iFor];
+  }
+  this->numSeeds[0] = (unsigned int)numSeeds[0];
+  this->numSeeds[1] = (unsigned int)numSeeds[1];
+  this->numSeeds[2] = (unsigned int)numSeeds[2];
 
-	bUseRandomSeeds = false;
+  bUseRandomSeeds = false;
 
-	// generate seeds
-	nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
-	if (seedPtr!=NULL) delete[] seedPtr; 
-	seedPtr = new VECTOR3[nSeeds];
+  // generate seeds
+  nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
+  if (seedPtr!=NULL) delete[] seedPtr; 
+  seedPtr = new VECTOR3[nSeeds];
 
-	SeedGenerator* pSeedGenerator = new SeedGenerator((const float*)minRakeExt, 
-							  (const float*)maxRakeExt, 
-							  (const size_t*)numSeeds);
-	pSeedGenerator->GetSeeds(seedPtr, bUseRandomSeeds);
-	delete pSeedGenerator;
+  SeedGenerator* pSeedGenerator = new SeedGenerator((const float*)minRakeExt, 
+						    (const float*)maxRakeExt, 
+						    (const size_t*)numSeeds);
+  pSeedGenerator->GetSeeds(seedPtr, bUseRandomSeeds);
+  delete pSeedGenerator;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -975,10 +974,9 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds,
 {
 
   if (has_data == false) DeferredLoadData(); 
-  if (seedPtr!=NULL && seedPtr != seeds) delete [] seedPtr; 
 
-  seedPtr = seeds; 
-  nSeeds = num_seeds; 
+  // this will copy the contents of seed to seedPtr
+  SetSeedPoints(seeds, num_seeds);
 
   listSeedTraces.clear();
 
@@ -1002,7 +1000,8 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds,
 //    Take an input list of seeds, which 
 //    can start from different times (tarray) 
 //
-bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedTraces, 
+bool OSUFlow::GenPathLines(VECTOR3* seeds, 
+			   list<vtListTimeSeedTrace*>& listSeedTraces, 
 			   TIME_DIR  dir, 
 			   int num_seeds, 
 			   int maxPoints,
@@ -1011,11 +1010,9 @@ bool OSUFlow::GenPathLines(VECTOR3* seeds, list<vtListTimeSeedTrace*>& listSeedT
 
   if (has_data == false) DeferredLoadData(); 
 
-	if ( seedPtr != NULL && seedPtr != seeds )  
-		delete[] seedPtr; 
+	// this will copy the contents of seed to seedPtr
+	SetSeedPoints(seeds, num_seeds);
 
-        nSeeds = num_seeds; 
-	seedPtr = seeds; 
 	seedTimeArray = tarray; 
 
 	listSeedTraces.clear();
@@ -1122,8 +1119,8 @@ bool OSUFlow::GenStreakLines(VECTOR3* seeds, vtStreakTraces& streakTraces, TIME_
 
   if (has_data == false) DeferredLoadData(); 
 
-  nSeeds = num_seeds; 
-  seedPtr = seeds; 
+  // this will copy the contents of seed to seedPtr
+  SetSeedPoints(seeds, num_seeds);
 
   vtCStreakLine* pStreakLine = new vtCStreakLine(flowField); 
 
@@ -1149,13 +1146,9 @@ void Error(const char *fmt, ...){
 
   va_list argp;
   vfprintf(stderr, fmt, argp);
-	// ADD-BY-LEETEN 07/01/2011-FROM:
-	#if	!defined(WIN32)	
-	// ADD-BY-LEETEN 07/01/2011-END
+  #if !defined(WIN32)	
   sleep(5);
-	// ADD-BY-LEETEN 07/01/2011-FROM:
-	#endif	// #if	defined(WIN32)
-	// ADD-BY-LEETEN 07/01/2011-END
+  #endif
   exit(0);
 
 }
@@ -1280,21 +1273,4 @@ void OSUFlow:: InitTimeVaryingCurvilinearFlowField(void)
 	timesteps=reader->m_nTimeSteps;
 	flowField = new CVectorField(pCurvilinearGrid, pSolution, timesteps);
 	delete reader;
-}
-//added by lijie
-void OSUFlow::UserPickedSeedPoints(VECTOR3* ptr, int num)
-{
-	if (seedPtr!=NULL)  {
-			delete [] seedPtr;
-		}
-	seedPtr=new VECTOR3 [num];
-	for(int i=0; i<num; i++)
-	{
-		seedPtr[i].Set(ptr[i].x(),ptr[i].y(),ptr[i].z());
-	}
-
-	nSeeds=num;
-	this->numSeeds[0] = num;
-	this->numSeeds[1] = 1;
-	this->numSeeds[2] = 1;
 }

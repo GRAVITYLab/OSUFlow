@@ -130,8 +130,7 @@ class OSUFlow
 
   void DeleteData(void);
 
-	//used by curvilinear code  
-  void UserPickedSeedPoints(VECTOR3* ptr, int num);//added by lijie
+  //used by curvilinear code  
   void LoadDataCurvilinear(const char* fname, bool bStatic, 
 		       VECTOR3 sMin, VECTOR3 sMax)  ;  //added by lijie
   void LoadDataIrregular(const char* fname, bool bStatic, 
