@@ -78,7 +78,8 @@ void Blocking::Init(int dim, int tot_b, int64_t *data_size, bool share_face,
   this->comm = comm;
   this->assign = assignment;
   nb = assign->NumBlks();
-  this->time_starts = NULL;
+  this->tb_list = NULL;
+  this->rtb_list = NULL;
 
   for (int i = 0; i < dim; i++)
     (this->data_size)[i] = data_size[i];
@@ -96,9 +97,13 @@ Blocking::~Blocking() {
 
   delete[] bb_list;
   delete[] rbb_list;
-  if(time_starts != NULL)
+  if(tb_list != NULL)
   {
-    delete[] time_starts;
+    delete[] tb_list;
+  }
+  if(rtb_list != NULL)
+  {
+    delete[] rtb_list;
   }
 
 }
@@ -158,6 +163,46 @@ void Blocking::GetRealBlockBounds(int lid, int64_t* from, int64_t* to) {
     from[i] = rbb_list[gid].min[i];
     to[i] = rbb_list[gid].max[i];
   }
+}
+//----------------------------------------------------------------------------
+//
+// get the time bounds of a time group given the group number
+// includes ghost cells
+//
+// g: the time group
+// tmin: the lower time bounds of the group (output)
+// tmax: the upper time bounds of the group (output)
+//
+void Blocking::GetTimeBounds(int g, int64_t* tmin, int64_t* tmax) {
+
+  if(dim < 4 || g < 0 || g >= lat_size[3])
+  {
+    *tmin = -1;
+    *tmax = -1;
+  }
+
+  *tmin = tb_list[g].min;
+  *tmax = tb_list[g].max;
+}
+//----------------------------------------------------------------------------
+//
+// get the time bounds of a time group given the group number
+// does not include ghost cells
+//
+// g: the time group
+// tmin: the lower time bounds of the group (output)
+// tmax: the upper time bounds of the group (output)
+//
+void Blocking::GetRealTimeBounds(int g, int64_t* tmin, int64_t* tmax) {
+
+  if(dim < 4 || g < 0 || g >= lat_size[3])
+  {
+    *tmin = -1;
+    *tmax = -1;
+  }
+
+  *tmin = rtb_list[g].min;
+  *tmax = rtb_list[g].max;
 }
 //--------------------------------------------------------------------------
 //
@@ -236,12 +281,18 @@ void Blocking::ComputeBlocking(bool share_face, int ghost, int* ghost_dir,
   // factor data dimensions
   FactorDims(given);
 
-  if(time_starts != NULL)
+  if(tb_list != NULL)
   {
-    delete[] time_starts;
-    time_starts = NULL;
+    delete[] tb_list;
+    tb_list = NULL;
   }
-  time_starts = new int64_t[lat_size[3]];
+  if(rtb_list != NULL)
+  {
+    delete[] rtb_list;
+    rtb_list = NULL;
+  }
+  tb_list = new tb_t[lat_size[3]];
+  rtb_list = new tb_t[lat_size[3]];
   int time_index = 0;
 
   // volume bounds in row-major index order (x, y, z)
@@ -383,7 +434,10 @@ void Blocking::ComputeBlocking(bool share_face, int ghost, int* ghost_dir,
 		bb_list[lid].max[3] = 0;
 	      }
 	    }
-	    time_starts[time_index] = rbb_list[gid].min[3];
+	    tb_list[time_index].min = rbb_list[gid].min[3];
+	    tb_list[time_index].max = rbb_list[gid].max[3];
+	    rtb_list[time_index].min = rbb_list[gid].min[3];
+	    rtb_list[time_index].max = rbb_list[gid].max[3];
 	  }
 
 	  if (assign->RoundRobin_gid2proc(gid) == rank)
@@ -425,6 +479,17 @@ void Blocking::ComputeBlocking(bool share_face, int ghost, int* ghost_dir,
  	     i, gid, bb_list[i].min[0], bb_list[i].min[1], bb_list[i].min[2],
  	     bb_list[i].min[3], bb_list[i].max[0], bb_list[i].max[1], 
  	     bb_list[i].max[2], bb_list[i].max[3]);
+   }
+   if(dim > 3 && rank == 0)
+   {
+     for (int i = 0; i < lat_size[3]; i++) {
+       fprintf(stderr, "proc[%i] rtb_list[%d]: [%lld %lld]\n", rank, i,
+	                                     rtb_list[i].min, rtb_list[i].max);
+     }
+     for (int i = 0; i < lat_size[3]; i++) {
+       fprintf(stderr, "proc[%i] tb_list[%d]: [%lld %lld]\n", rank, i,
+	                                     tb_list[i].min, tb_list[i].max);
+     }
    }
 #endif
 
@@ -532,6 +597,29 @@ void Blocking::ApplyGhost(int ghost, int* ghost_dir, int* ghost_dim) {
 
 	  if (ghost_dir[j] > -1)
 	    bb_list[i].max[j] = min(bb_list[i].max[j] + ghost, data_size[j]-1);
+	}
+      }
+    }
+  }
+
+  // add ghost cells to time bounds
+  if(dim >= 4)
+  {
+    if(ghost_dim[3] == 1)
+    {
+      if(ghost_dir[3] < 1)
+      {
+	for(int i=0; i<lat_size[3]; i++)
+	{
+	  tb_list[i].min = max(rtb_list[i].min - ghost, (int64_t)0);
+	}
+
+      }
+      if(ghost_dir[3] > -1)
+      {
+	for(int i=0; i<lat_size[3]; i++)
+	{
+	  tb_list[i].max = min(rtb_list[i].max + ghost, data_size[3]-1);
 	}
       }
     }
@@ -769,13 +857,6 @@ int Blocking::Pt2NeighGid(int gid, float *pt, int ghost, int ghost_dir) {
 //
 bool Blocking::IsIn(float *pt, int *bi, int ghost, int ghost_dir) {
 
-  int lghost, rghost; // left and right side ghost (min side and max side)
-  lghost = rghost = ghost;
-  if (ghost_dir == -1)
-    rghost = 0;
-  if (ghost_dir == 1)
-    lghost = 0;
-
   // find the global id of the block being tested
   int gid;
   if (dim > 3)
@@ -811,10 +892,20 @@ bool Blocking::IsIn(float *pt, int *bi, int ghost, int ghost_dir) {
 //
 bool Blocking::InTimeBlock(int g, int lid, int tsize, int tb) {
 
-  int64_t starts[4]; // block starts
+  if (tsize == 1 || tb == 1)
+    return true;
 
-  BlockStarts(lid, starts);
-  if (tsize == 1 || tb == 1 || starts[3] == time_starts[g])
+  // block boundaries
+  int64_t from[4];
+  int64_t to[4];
+  GetRealBlockBounds(lid, from, to);
+
+  // time boundaries
+  int64_t tmin;
+  int64_t tmax;
+  GetRealTimeBounds(g, &tmin, &tmax);
+
+  if((from[3] == tmin) && (to[3] == tmax))
     return true;
 
   return false;

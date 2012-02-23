@@ -51,6 +51,13 @@ struct bb_t {
   int64_t max[MAX_DIM];
 };
 
+/* time bounds */
+struct tb_t { 
+  int64_t min;
+  int64_t max;
+};
+
+
 /* one global block */
 struct gb_t {
   int gid; /* global block id */

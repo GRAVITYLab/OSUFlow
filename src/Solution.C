@@ -53,17 +53,6 @@ Solution::Solution(VECTOR3** pData, int nodeNum, int timeSteps, int min_t,
 }
 
 
-Solution::Solution(int nodeNum, int timeSteps)
-{
-	m_nNodeNum = nodeNum;
-	m_nTimeSteps = timeSteps;		
-	m_MinT = 0; m_MaxT = timeSteps-1; 	
-	m_pDataArray = new VECTOR3*[timeSteps];
-
-	for(int iFor = 0; iFor < timeSteps; iFor++)
-		m_pDataArray[iFor] = NULL;
-}
-
 Solution::~Solution()
 {
 	int iFor;
@@ -71,7 +60,9 @@ Solution::~Solution()
 	if(m_pDataArray != NULL)
 	{
 		for(iFor = 0; iFor < m_nTimeSteps; iFor++)
+		{
 			delete[] m_pDataArray[iFor];
+		}
 		delete[] m_pDataArray;
 	}
 }

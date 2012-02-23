@@ -37,7 +37,6 @@ public:
 	Solution();
 	Solution(VECTOR3** pData, int nodeNum, int timeSteps);
 	Solution(VECTOR3** pData, int nodeNum, int timeSteps, int min_t, int max_t);
-	Solution(int nodeNum, int timeSteps);
 	~Solution();
 
 	void Reset();

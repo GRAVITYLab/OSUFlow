@@ -44,6 +44,8 @@ class Blocking {
   int64_t *GetBlockSizes() { return block_size; }
   void GetBlockBounds(int lid, int64_t* from, int64_t* to);
   void GetRealBlockBounds(int lid, int64_t* from, int64_t* to);
+  void GetTimeBounds(int g, int64_t* tmin, int64_t* tmax);
+  void GetRealTimeBounds(int g, int64_t* tmin, int64_t* tmax);
   int64_t *GetLatSizes() { return lat_size; }
   int64_t BlockStartsSizes(int lid, int64_t *starts, int64_t *sizes);
   int64_t BlockSizes(int lid, int64_t *sizes);
@@ -60,12 +62,7 @@ class Blocking {
   bool IsIn(float *pt, int *bi, int ghost, int ghost_dir);
   bool InTimeBlock(int g, int lid, int tsize, int tb);
 
-  bb_t *bb_list;  // block bounds list, includes ghost cells, only local blocks
-  bb_t *rbb_list; // real block bounds list, does not include ghost cells.
-		  // currently stores all blocks.
-
   Assignment *assign; // assignment class
-  int64_t* time_starts;  // the starting time for each different time block
 
 private:
 
@@ -81,6 +78,13 @@ private:
   int64_t lat_size[MAX_DIM]; // number of blocks in each dimension
   int64_t block_size[MAX_DIM]; //  size of blocks in each dimension
   MPI_Comm comm; // MPI communicator
+
+  bb_t *bb_list;  // block bounds list, includes ghost cells, only local blocks
+  bb_t *rbb_list; // real block bounds list, does not include ghost cells.
+		  // currently stores all blocks.
+
+  tb_t *tb_list;  // time bounds list, includes ghost cells
+  tb_t *rtb_list; // real time bounds list, does not include ghost cells
 
 
 };

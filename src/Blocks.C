@@ -237,17 +237,21 @@ float ***Blocks::BilLoadTimeGroupBlocks(int t_group, int nblocks,
 //
 int Blocks::IsBlockInTimeGroup(int g, int b, int tsize, int tb) {
 
-  int64_t starts[4]; // block starts
+  int64_t from[4]; // block starts
+  int64_t to[4]; // block starts
   int min_t, max_t; // time range of the block
-  int time_group_start;
 
 #ifdef _MPI
-  blocking->BlockStarts(b, starts);
-  min_t = starts[3];
-  time_group_start = blocking->time_starts[g];
+  int64_t time_group_start;
+  int64_t time_group_end;
+  blocking->GetRealBlockBounds(b, from, to);
+  min_t = from[3];
+  max_t = to[3];
+  blocking->GetRealTimeBounds(g, &time_group_start, &time_group_end);
 #else
+  int time_group_start;
+  int time_group_end;
   if (lat4D) {
-    int time_group_end;
     lat4D->GetRealTB(b, &min_t, &max_t);
     lat4D->GetRealTimeGroupBounds(g, &time_group_start, &time_group_end);
   }
@@ -257,7 +261,8 @@ int Blocks::IsBlockInTimeGroup(int g, int b, int tsize, int tb) {
   }
 #endif
 
-  if (tsize == 1 || tb == 1 || min_t == time_group_start)
+  if (tsize == 1 || tb == 1 || (min_t == time_group_start && 
+	                        max_t == time_group_end))
     return 1;
 
   return 0;
@@ -361,8 +366,17 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
       int gid = blocking->assign->RoundRobin_lid2gid(i); // global id of block
       for(int j=0; j<4; j++)
       {
-	real_from[j] = blocking->rbb_list[gid].min[j];
-	real_to[j] = blocking->rbb_list[gid].max[j];
+	int64_t real_from64[4];
+	int64_t real_to64[4];
+	blocking->GetRealBlockBounds(i, real_from64, real_to64);
+	real_from[0] = real_from64[0];
+	real_from[1] = real_from64[1];
+	real_from[2] = real_from64[2];
+	real_from[3] = real_from64[3];
+	real_to[0] = real_to64[0];
+	real_to[1] = real_to64[1];
+	real_to[2] = real_to64[2];
+	real_to[3] = real_to64[3];
       }
 
       t0 = MPI_Wtime();

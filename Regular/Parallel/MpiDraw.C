@@ -58,14 +58,6 @@ double TotOutTime = 0.0; // total output time
 double TotCompCommTime = 0.0; // comp + comm time
 int TotParticles; // total number of particles in the system
 
-// function prototypes
-void GetArgs(int argc, char *argv[]);
-void Init();
-void Cleanup();
-void Run();
-void Header(char *filename, float *size, int *tsize, float *vec_scale);
-void LoadSeedsFromFile();
-
 // globals
 static char filename[256]; // dataset file name
 static char **dataset_files = NULL; // files in the dataset
@@ -82,6 +74,7 @@ int nblocks; // my number of blocks
 int tf; // max number of traces per block
 int pf = 1000; // max number of points per trace in each round
 const int max_rounds = 100; // max number of rounds
+const int check_rounds = 5; // how often to flush / check seeds
 int end_steps; // final number of points each particle should travel
 DataMode data_mode; // data format
 Blocks *blocks; // block class object
@@ -111,6 +104,17 @@ const float upperAngleAccuracy = 15.0;
 const INTEG_ORD integrationOrder = RK45;
 //const INTEG_ORD integrationOrder = FOURTH;
 const bool useAdaptiveStepSize = true;
+
+// function prototypes
+void GetArgs(int argc, char *argv[]);
+void Init();
+void Cleanup();
+void Run();
+void Header(char *filename, float *size, int *tsize, float *vec_scale);
+void LoadSeedsFromFile();
+int isSeedInTimeGroup(int g);
+bool isSeedInTimeGroupTotal(int g);
+int getNumSeedsInTimeGroup(int g);
 
 //----------------------------------------------------------------------------
 
@@ -173,6 +177,7 @@ void Run() {
 
   int i, j;
   int g; // current group
+  int g_io; // the last group in which blocks were loaded
   double time; // time to load a block
   double t0;
 
@@ -192,13 +197,17 @@ void Run() {
   // for all groups
   for (g = 0; g < ntpart; g++) {
 
+    // check if there is any work to be done for this time group
+    if(!isSeedInTimeGroupTotal(g))
+      continue;  // go to next time group
+
     // synchronize before starting I/O
     MPI_Barrier(MPI_COMM_WORLD);
     t0 = MPI_Wtime();
 
     // delete blocks from previous time group
     if (g > 0) { 
-      blocks->DeleteBlocks(g, tsize, ntpart, nblocks);
+      blocks->DeleteBlocks(g_io+1, tsize, ntpart, nblocks);
     }
 
     // todo: change seeds to vector in repartition
@@ -215,6 +224,7 @@ void Run() {
 #else
     blocks->LoadBlocks4D(g, &time, nblocks, size, tsize, ntpart);
 #endif
+    g_io = g;
 
     // synchronize after I/O
     MPI_Barrier(MPI_COMM_WORLD);
@@ -269,12 +279,22 @@ void Run() {
 
       // exchange neighbors
       parflow->ExchangeNeighbors(Seeds, wf);
-      parflow->FlushNeighbors(Seeds);
+
+      if(j % check_rounds == 0)
+      {
+	// check if there is any more work to do in this time group
+	parflow->FlushNeighbors(Seeds);
+
+	if(!isSeedInTimeGroupTotal(g))
+	{
+	  break;  // break out of loop going through every round
+	}
+      }
 
     } // for all rounds
 
     // flush any remaining messages
-    //parflow->FlushNeighbors(Seeds);
+    parflow->FlushNeighbors(Seeds);
 
 #ifdef REPARTITION
     AdvanceWeights(g);
@@ -482,7 +502,9 @@ void Init() {
   // todo: switch to vectors and get rid of memory management
   assert((osuflow = (OSUFlow**)malloc(nblocks * sizeof(OSUFlow))) != NULL);
   for (i = 0; i < nblocks; i++)
+  {
     osuflow[i] = new OSUFlow;
+  }
 
   // Seeds and fieldline list
   Seeds.resize(nblocks);
@@ -546,7 +568,9 @@ void Cleanup() {
   for (i = 0; i < nblocks; i++)
   {
     if (osuflow[i] != NULL)
+    {
       delete osuflow[i];
+    }
   }
   for (i = 0; i < Seeds.size(); i++)
     Seeds[i].clear();
@@ -671,5 +695,101 @@ void LoadSeedsFromFile()
   }
 
   fclose(fileptr);
+}
+//-----------------------------------------------------------------------
+//
+// returns true if any proc has any seed still in time group g
+//
+bool isSeedInTimeGroupTotal(int g)
+{
+  int hasSeeds = isSeedInTimeGroup(g);
+  int hasSeedsAll;
+  MPI_Allreduce(&hasSeeds, &hasSeedsAll, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+
+  return hasSeedsAll;
+}
+//-----------------------------------------------------------------------
+//
+// returns 1 of there is at least one seed in the time group, only looks
+// at seeds local to this process.
+//
+int isSeedInTimeGroup(int g)
+{
+  if(tsize == 1)
+  {
+    // steady flow case
+    vector< vector<Particle> >::iterator sl_iter;  // seed list iterator
+    for(sl_iter=Seeds.begin(); sl_iter!=Seeds.end(); sl_iter++)
+    {
+      if(sl_iter->size() > 0)
+      {
+	return 1;
+      }
+    }
+  }
+  else
+  {
+    // time-varying case
+    int64_t tmin, tmax;
+    blocking->GetRealTimeBounds(g, &tmin, &tmax);
+
+    vector< vector<Particle> >::iterator sl_iter;  // seed list iterator
+    for(sl_iter=Seeds.begin(); sl_iter!=Seeds.end(); sl_iter++)
+    {
+      vector<Particle>::iterator seed_iter;
+      for(seed_iter=sl_iter->begin(); seed_iter!=sl_iter->end(); seed_iter++)
+      {
+	float time = seed_iter->pt[3];
+	if(time >= tmin && time <= tmax)
+	{
+	  return 1;
+	}
+      }
+    }
+  }
+
+  return 0;
+}
+//-----------------------------------------------------------------------
+//
+// returns the number of seeds in the time group
+//
+// counts seeds that are currently within this process, and is in the time
+// group g. this function is mainly used for debugging.
+//
+int getNumSeedsInTimeGroup(int g)
+{
+  int count = 0;
+  if(tsize == 1)
+  {
+    // steady flow case
+    vector< vector<Particle> >::iterator sl_iter;  // seed list iterator
+    for(sl_iter=Seeds.begin(); sl_iter!=Seeds.end(); sl_iter++)
+    {
+      count += sl_iter->size();
+    }
+  }
+  else
+  {
+    // time-varying case
+    int64_t tmin, tmax;
+    blocking->GetRealTimeBounds(g, &tmin, &tmax);
+
+    vector< vector<Particle> >::iterator sl_iter;  // seed list iterator
+    for(sl_iter=Seeds.begin(); sl_iter!=Seeds.end(); sl_iter++)
+    {
+      vector<Particle>::iterator seed_iter;
+      for(seed_iter=sl_iter->begin(); seed_iter!=sl_iter->end(); seed_iter++)
+      {
+	float time = seed_iter->pt[3];
+	if(time >= tmin && time <= tmax)
+	{
+	  count++;
+	}
+      }
+    }
+  }
+
+  return count;
 }
 //-----------------------------------------------------------------------
