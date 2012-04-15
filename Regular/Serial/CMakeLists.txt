@@ -88,7 +88,7 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 
       if( WITH_MPI )
 	target_link_libraries(${SAMPLE_NAME} 
-	  mpich
+	  # DEL-BY-LEETEN 04/15/2012: mpich
 	  diy # ADD-BY-LEETEN 01/07/2011
 	  ) 
       endif( )
