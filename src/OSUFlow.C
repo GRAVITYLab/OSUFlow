@@ -202,11 +202,13 @@ void OSUFlow::LoadData(const char* fname, float *sMin, float *sMax,
 
   int sRealMin[4];
   int sRealMax[4];
-  for(int i=0; i<4; i++)
+  for(int i=0; i<3; i++)
   {
     sRealMin[i] = sMin[i];
     sRealMax[i] = sMax[i];
   }
+  sRealMin[3] = min_t;
+  sRealMax[3] = max_t;
 	  
   switch (mode) {
 
