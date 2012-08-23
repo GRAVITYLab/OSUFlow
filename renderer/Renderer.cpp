@@ -11,11 +11,27 @@ May, 2010
 void 
 CRenderer::_SetInteger(int iParameter,	int iValue)
 {
+	// ADD-BY-LEETEN 08/23/2012-BEGIN
+	switch(iParameter)
+	{
+	case WITH_BOUNDING_BOX:
+		this->iIsWithBoundingBox = iValue;
+		break;
+	}
+	// ADD-BY-LEETEN 08/23/2012-END
 }
 
 void 
 CRenderer::_GetInteger(int iParameter,	int* piValue)
 {
+	// ADD-BY-LEETEN 08/23/2012-BEGIN
+	switch(iParameter)
+	{
+	case WITH_BOUNDING_BOX:
+		*piValue = this->iIsWithBoundingBox;
+		break;
+	}
+	// ADD-BY-LEETEN 08/23/2012-END
 }
 
 void 
@@ -91,6 +107,7 @@ CRenderer::_SetBoundingBox(
 	cBoundingBox.pv3Corners[1][0] = fRight;
 	cBoundingBox.pv3Corners[1][1] = fTop;
 	cBoundingBox.pv3Corners[1][2] = fBack;
+	iIsWithBoundingBox = true;	// ADD-BY-LEETEN 08/23/2012
 }
 
 CRenderer::CRenderer(void)

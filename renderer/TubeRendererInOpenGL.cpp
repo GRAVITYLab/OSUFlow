@@ -167,6 +167,10 @@ CTubeRendererInOpenGL::_Update()
 	glNewList(uLid, GL_COMPILE);
 
 	// ADD-BY-LEETEN 04/15/2010-BEGIN
+	// ADD-BY-LEETEN 08/23/2012-BEGIN
+	if( iIsWithBoundingBox )
+	{
+	// ADD-BY-LEETEN 08/23/2012-END
 	float fMaxDim = 0;
 	for(int i = 1; i < 3; i++)
 		fMaxDim = max(fMaxDim, 
@@ -184,6 +188,9 @@ CTubeRendererInOpenGL::_Update()
 		2.0f/(cBoundingBox.pv3Corners[1][1] - cBoundingBox.pv3Corners[0][1]), 
 		2.0f/(cBoundingBox.pv3Corners[1][2] - cBoundingBox.pv3Corners[0][2]));
 	glTranslatef(-cBoundingBox.pv3Corners[0][0], -cBoundingBox.pv3Corners[0][1], -cBoundingBox.pv3Corners[0][2]); 
+	// ADD-BY-LEETEN 08/23/2012-BEGIN
+	}
+	// ADD-BY-LEETEN 08/23/2012-END
 
 	if(cVertexArray.pfCoords) 
 		free(cVertexArray.pfCoords);

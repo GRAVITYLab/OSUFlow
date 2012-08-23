@@ -40,6 +40,11 @@ protected:
 		VECTOR3 pv3Corners[2];
 	} cBoundingBox;
 
+	// ADD-BY-LEETEN 08/23/2012-BEGIN
+	//! A flag to indicate whether the bounding box is given
+	int iIsWithBoundingBox;
+	// ADD-BY-LEETEN 08/23/2012-END
+	
 public:
 	// ADD-BY-LEETEN 04/14/2010-BEGIN
 	//! Names of the parameters
@@ -52,6 +57,7 @@ public:
 		DATA_SOURCE_POINTER,
 		COLOR_SOURCE_POINTER,
 		// ADD-BY-LEETEN 01/18/2011-END
+		WITH_BOUNDING_BOX,	// ADD-BY-LEETEN 08/23/2012
 		MAX_NR_OF_PARAMETERS,
 	} ;
 	// ADD-BY-LEETEN 04/14/2010-END

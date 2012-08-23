@@ -109,20 +109,38 @@ CTubeRenderer::_TraversePoint(int iPointIndex, int iTraceIndex, float fX, float 
 		v3Tangent.Normalize();
 
 		// compute an up vector that is orthogonal to the tangent
+		#if	0	// DEL-BY-LEETEN 08/23/2012-BEGIN
 		int iMaxDir = 0;
 		for(int i = 1; i < 3; i++)
 			if( fabsf(v3Tangent[iMaxDir]) > fabsf(v3Tangent[i]) )
 				iMaxDir = i;
+		#endif		// DEL-BY-LEETEN 08/23/2012-END
 
-		VECTOR3 v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);
+		// MOD-BY-LEETEN 08/23/2012-FROM:	VECTOR3 v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);
+		VECTOR3 v3Normal;
+		int iMinDir = 0;
+		for(int i = 1; i < 3; i++)
+			if( fabsf(v3Tangent[iMinDir]) > fabsf(v3Tangent[i]) )
+				iMinDir = i;
+		switch(iMinDir)
+		{
+		case 0:	v3Normal = VECTOR3(0.0f, -v3Tangent[2], v3Tangent[1]);	break;
+		case 1:	v3Normal = VECTOR3(-v3Tangent[2], 0.0f, v3Tangent[0]);	break;
+		case 2:	v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);	break;
+		}
+		// MOD-BY-LEETEN 08/23/2012-END
 		v3Normal.Normalize();
 
 		// find another vector which is orthogonal to both the tangent and the up vector
+		#if	0	// MOD-BY-LEETEN 08/23/2012-FROM:
 		VECTOR3 v3Up = VECTOR3(
 			v3Normal[1] * v3Tangent[2] - v3Normal[2] * v3Tangent[1],
 			v3Normal[2] * v3Tangent[0] - v3Normal[0] * v3Tangent[2],
 			v3Normal[0] * v3Tangent[1] - v3Normal[1] * v3Tangent[0]
 		);
+		#else		// MOD-BY-LEETEN 08/23/2012-TO:
+		VECTOR3 v3Up = cross(v3Normal, v3Tangent);
+		#endif		// MOD-BY-LEETEN 08/23/2012-END
 		v3Up.Normalize();
 
 		int iNrOfIterations = (1 == iPointIndex)?2:1;

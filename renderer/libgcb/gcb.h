@@ -56,10 +56,13 @@ using namespace std;
 	// MOD-BY-LEETEN 08/13/2010-FROM:
 		// #pragma comment (lib, "glut32.lib")      /* link with Windows MultiMedia lib */
 	// TO:
+	#if	0	// DEL-BY-LEETEN 08/23/2012-BEGIN
 	#ifdef  WIN32
 		#pragma comment (lib, "glut32.lib")      /* link with Windows MultiMedia lib */
 	#endif
+	#endif		// DEL-BY-LEETEN 08/23/2012-END
 	// MOD-BY-LEETEN 08/13/2010-END
+
 #endif
 
 #endif	// MOD-BY-LEETEN 08/06/2010-END

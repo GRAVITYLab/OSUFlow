@@ -51,7 +51,7 @@ foreach(SAMPLE_NAME
 		target_link_libraries(${SAMPLE_NAME} 
 			opengl32
 			glu32
-			glut32
+			# DEL-BY-LEETEN 08/23/2012:	glut32
 		)
 	else()
 		target_link_libraries(${SAMPLE_NAME} 

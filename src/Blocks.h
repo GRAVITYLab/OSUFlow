@@ -48,7 +48,9 @@
 
 enum {
   OSUFLOW,
+  #if !defined(WIN32)	// ADD-BY-LEETEN 08/23/2012
   VOID,
+  #endif // #if !defined(WIN32)	// ADD-BY-LEETEN 08/23/2012
 };
 
 // utility function to report memory usage

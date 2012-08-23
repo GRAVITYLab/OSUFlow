@@ -13,6 +13,12 @@ if(NOT DEFINED WIN32 AND NOT DEFINED MAC_OSX_OMPI AND NOT DEFINED MAC_OSX_MPICH)
 	)
 endif()
 
+# ADD-BY-LEETEN 08/23/2012-BEGIN
+if( DEFINED WIN32 )
+	message(WARNING "For Win32 environment, please manually specify the GLUT library to used (glut32,freeglut,openglut,etc)")
+endif()
+# ADD-BY-LEETEN 08/23/2012-END
+
 # specify the path to the headers
 include_directories(
 		. 
