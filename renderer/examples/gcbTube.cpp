@@ -50,13 +50,16 @@ void compute_streamlines()
   osuflow->SetIntegrationParams(1, 5); 
   osuflow->GenStreamLines(sl_list , BACKWARD_AND_FORWARD, 30, 0); 
   printf(" done integrations\n"); 
+  OSUFlow::MergeBackwardAndForwardTraces(sl_list);	// ADD-BY-LEETEN 09/09/2012
     printf("list size = %d\n", (int)sl_list.size()); 
 
 	// ADD-BY-LEETEN 07/07/2010-BEGIN
 	for(int i = 0; i < sl_list.size(); i++)
 	{
 		VECTOR4 v4Color;
-		switch((i/2)%7)
+		// MOD-BY-LEETEN 09/09/2012-FROM:		switch((i/2)%7)
+		switch(i%7)
+		// MOD-BY-LEETEN 09/09/2012-END
 		{
 		case 0: v4Color = VECTOR4(1.0f, 0.0f, 0.0f, 1.0f);	break;
 		case 1: v4Color = VECTOR4(0.0f, 1.0f, 0.0f, 1.0f);	break;

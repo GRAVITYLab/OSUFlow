@@ -137,6 +137,12 @@ class OSUFlow
 		       VECTOR3 sMin, VECTOR3 sMax) ;  //added by lijie
 
 
+	// ADD-BY-LEETEN 09/09/2012-BEGIN
+	static void MergeBackwardAndForwardTraces
+	(
+		list<vtListSeedTrace*>& lTraces
+	);
+	// ADD-BY-LEETEN 09/09/2012-END
  private:
 
  protected:

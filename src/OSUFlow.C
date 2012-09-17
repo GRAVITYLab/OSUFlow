@@ -1276,3 +1276,49 @@ void OSUFlow:: InitTimeVaryingCurvilinearFlowField(void)
 	flowField = new CVectorField(pCurvilinearGrid, pSolution, timesteps);
 	delete reader;
 }
+
+// ADD-BY-LEETEN 09/09/2012-BEGIN
+//! Merge the backward and forward traces
+/*!
+This static method merge the backward and forward traces in the input list. It assume that the first one is backward and the next one is the forward and so on.
+*/
+void 
+OSUFlow::
+	MergeBackwardAndForwardTraces
+	(
+		list<vtListSeedTrace*>& lTraces
+	)
+{
+	  for(list<vtListSeedTrace*>::iterator 
+		ilpTrace = lTraces.begin(); 
+		ilpTrace != lTraces.end(); 
+		)
+	{
+		// assume that the odd one is a backward trace
+		vtListSeedTrace* lpTrace = *ilpTrace;
+		
+		// reverse the order of the backward one
+		lpTrace->reverse();	
+		
+		// remove the last one (because it will be identical to the first on in the forward one.
+		lpTrace->pop_back();	
+
+		// move to the next trace, which is the forward one
+		ilpTrace++;		
+		vtListSeedTrace* lpNextTrace = *ilpTrace;
+
+		// merge the two trace
+		lpTrace->insert(lpTrace->end(), lpNextTrace->begin(), lpNextTrace->end());
+
+		// save the postion for the next trace
+		list<vtListSeedTrace*>::iterator ilpTemp = ilpTrace;	
+		ilpTemp++;						
+
+		// remove the original forward trace
+		lTraces.erase(ilpTrace);
+
+		// now direct the postition of the next trace to the saved one
+		ilpTrace = ilpTemp;
+	}
+}
+// ADD-BY-LEETEN 09/09/2012-END

@@ -143,6 +143,22 @@ CTubeRenderer::_TraversePoint(int iPointIndex, int iTraceIndex, float fX, float 
 		#endif		// MOD-BY-LEETEN 08/23/2012-END
 		v3Up.Normalize();
 
+		// ADD-BY-LEETEN 09/08/2012-BEGIN
+		static VECTOR3 v3PrevNormal;
+		if( 1 < iPointIndex )
+		{
+			float fPrevNormalToNormal = dot(v3PrevNormal, v3Normal);
+			float fPrevNormalToUp = dot(v3PrevNormal, v3Up);
+			VECTOR3 v3NewNormal = v3Normal * fPrevNormalToNormal + v3Up * fPrevNormalToUp;
+			v3Normal = v3NewNormal;
+			v3Normal.Normalize();
+
+			v3Up = cross(v3Normal, v3Tangent);
+			v3Up.Normalize();
+		}
+		v3PrevNormal = v3Normal;
+		// ADD-BY-LEETEN 09/08/2012-END
+
 		int iNrOfIterations = (1 == iPointIndex)?2:1;
 		for(int i = 0; i < iNrOfIterations; i++)
 		{
