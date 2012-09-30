@@ -143,7 +143,19 @@ class OSUFlow
 		list<vtListSeedTrace*>& lTraces
 	);
 	// ADD-BY-LEETEN 09/09/2012-END
- private:
+		
+	// ADD-BY-LEETEN 09/29/2012-BEGIN
+	static void WriteFlowlines
+	(
+		const float pfDomainMin[4],
+		const float pfDomainMax[4],
+		const list<vtListSeedTrace*>* plTraces,
+		const list<vtListTimeSeedTrace*>* plTimeTraces,
+		const char* szFilename
+	);
+	// ADD-BY-LEETEN 09/29/2012-END
+
+private:
 
  protected:
 	//used by curvilinear code  

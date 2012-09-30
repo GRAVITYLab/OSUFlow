@@ -16,6 +16,7 @@ May, 2010
 #include "OSUFlow.h"
 #include "LineRendererInOpenGL.h"
 
+char *szVecFilePath;	// ADD-BY-LEETEN 09/29/2012
 OSUFlow *osuflow; 
 VECTOR3 minLen, maxLen; 
 list<vtListSeedTrace*> sl_list; 
@@ -115,6 +116,36 @@ _KeyboardFunc(unsigned char ubKey, int iX, int iY)
 		glutPostRedisplay();
 		break;
 
+	// ADD-BY-LEETEN 09/29/2012-BEGIN
+	case 'S':
+		{
+			VECTOR3 v3Min, v3Max;
+			osuflow->Boundary(v3Min, v3Max);
+			float pfDomainMin[4];
+			float pfDomainMax[4];
+			for(size_t d = 0; d < 3; d++)
+			{
+				pfDomainMin[d] = v3Min[d];
+				pfDomainMax[d] = v3Max[d];
+			}
+			pfDomainMin[3] = 0.0f;
+			pfDomainMax[3] = 0.0f;
+
+			char szFilename[1024];
+			strcpy(szFilename, szVecFilePath);
+			strcat(szFilename, ".trace");
+
+			OSUFlow::WriteFlowlines(
+				pfDomainMin,
+				pfDomainMax,
+				&sl_list,
+				NULL,
+				szFilename);
+			LOG(printf("Save the streamlines to %s", szFilename));
+		}
+		break;
+	// ADD-BY-LEETEN 09/29/2012-END
+
 	}
 }
 
@@ -172,6 +203,8 @@ main(int argc, char* argv[])
 	LOG(printf("read file %s\n", argv[1])); 
 
 	osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
+
+	szVecFilePath = argv[1];	// ADD-BY-LEETEN 09/29/2012
 
 	// comptue the bounding box of the streamlines 
 	VECTOR3 minB, maxB; 

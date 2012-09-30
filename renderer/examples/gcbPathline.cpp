@@ -18,6 +18,8 @@ May, 2010
 
 enum {ANIME_LINES};
 
+char *szFilePath;	// ADD-BY-LEETEN 09/29/2012
+
 OSUFlow *osuflow; 
 VECTOR3 minLen, maxLen; 
 list<vtListTimeSeedTrace*> sl_list; 
@@ -186,6 +188,36 @@ _KeyboardFunc(unsigned char ubKey, int iX, int iY)
 		else
 			_TimerCB(ANIME_LINES);
 		break;
+
+	// ADD-BY-LEETEN 09/29/2012-BEGIN
+	case 'S':
+		{
+			VECTOR3 v3Min, v3Max;
+			osuflow->Boundary(v3Min, v3Max);
+			float pfDomainMin[4];
+			float pfDomainMax[4];
+			for(size_t d = 0; d < 3; d++)
+			{
+				pfDomainMin[d] = v3Min[d];
+				pfDomainMax[d] = v3Max[d];
+			}
+			pfDomainMin[3] = 0.0f;
+			pfDomainMax[3] = float(num_timesteps - 1);
+
+			char szFilename[1024];
+			strcpy(szFilename, szFilePath);
+			strcat(szFilename, ".trace");
+
+			OSUFlow::WriteFlowlines(
+				pfDomainMin,
+				pfDomainMax,
+				NULL,
+				&sl_list,
+				szFilename);
+			LOG(printf("Save the pathlines to %s", szFilename));
+		}
+		break;
+	// ADD-BY-LEETEN 09/29/2012-END
 	}
 }
 
@@ -253,6 +285,8 @@ main(int argn, char* argv[])
 	// load the scalar field
 	LOG(printf("read file %s\n", argv[1])); 
 	osuflow->LoadData((const char*)argv[1], false); //false : a time-varying flow field 
+
+	szFilePath = argv[1];	// ADD-BY-LEETEN 09/29/2012
 
 	osuflow->ScaleField(100.0); 
 

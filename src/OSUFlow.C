@@ -1322,3 +1322,106 @@ OSUFlow::
 	}
 }
 // ADD-BY-LEETEN 09/09/2012-END
+
+// ADD-BY-LEETEN 09/29/2012-BEGIN
+//! Output the streamlines to our own format
+void 
+OSUFlow::
+	WriteFlowlines
+	(
+		const float pfDomainMin[4],
+		const float pfDomainMax[4],
+		const list<vtListSeedTrace*>* plTraces,
+		const list<vtListTimeSeedTrace*>* plTimeTraces,
+		const char* szFilename
+	)
+{
+	FILE *fp;
+	fp = fopen(szFilename, "wb");
+	if( !fp )
+	{
+		perror(szFilename);
+		return;
+	}
+	fwrite(pfDomainMin, sizeof(pfDomainMin[0]), 4, fp);
+	fwrite(pfDomainMax, sizeof(pfDomainMax[0]), 4, fp);
+
+	if( plTraces && plTimeTraces )
+		fprintf(stderr, "Warning (%s() in %s(%d)): Both plTraces and plTimeTraces are not NULL. Only plTimeTraces will be written.",
+			__FUNCTION__
+			__FILE__, 
+			__LINE__);
+
+	if( plTimeTraces )
+	{
+		for(list<vtListTimeSeedTrace*>::const_iterator 
+				ilpTrace = plTimeTraces->begin(); 
+			ilpTrace != plTimeTraces->end(); 
+			ilpTrace++
+			)
+		{
+			const vtListTimeSeedTrace* lTrace = *ilpTrace;
+			unsigned int uNrOfPoints = lTrace->size();
+			fwrite(&uNrOfPoints, sizeof(uNrOfPoints), 1, fp);
+		}
+
+		int iDelim = -1;
+		fwrite(&iDelim, sizeof(iDelim), 1, fp);
+
+		for(list<vtListTimeSeedTrace*>::const_iterator 
+				ilpTrace = plTimeTraces->begin(); 
+			ilpTrace != plTimeTraces->end(); 
+			ilpTrace++
+			)
+		{
+			const vtListTimeSeedTrace* lTrace = *ilpTrace;
+			for(list<VECTOR4*>::const_iterator 
+					ilpv4 = lTrace->begin();
+				ilpv4 != lTrace->end();
+				ilpv4++)
+			{
+				const VECTOR4 *pv4 = *ilpv4;
+				fwrite(&pv4[0], sizeof(VECTOR4), 1, fp);
+			}
+		}
+	}
+	else
+	if( plTraces )
+	{
+		for(list<vtListSeedTrace*>::const_iterator 
+				ilpTrace = plTraces->begin(); 
+			ilpTrace != plTraces->end(); 
+			ilpTrace++
+			)
+		{
+			const vtListSeedTrace* lTrace = *ilpTrace;
+			unsigned int uNrOfPoints = lTrace->size();
+			fwrite(&uNrOfPoints, sizeof(uNrOfPoints), 1, fp);
+		}
+
+		int iDelim = -1;
+		fwrite(&iDelim, sizeof(iDelim), 1, fp);
+
+		for(list<vtListSeedTrace*>::const_iterator 
+				ilpTrace = plTraces->begin(); 
+			ilpTrace != plTraces->end(); 
+			ilpTrace++
+			)
+		{
+			const vtListSeedTrace* lTrace = *ilpTrace;
+			for(list<VECTOR3*>::const_iterator 
+					ilpv3 = lTrace->begin();
+				ilpv3 != lTrace->end();
+				ilpv3++)
+			{
+				const VECTOR3 *pv3 = *ilpv3;
+				fwrite(&pv3[0], sizeof(VECTOR3), 1, fp);
+
+				float fT = 0.0f;
+				fwrite(&fT, sizeof(fT), 1, fp);
+			}
+		}
+	}
+	fclose(fp);
+}
+// ADD-BY-LEETEN 09/29/2012-END
