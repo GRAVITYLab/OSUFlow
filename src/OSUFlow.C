@@ -1409,6 +1409,10 @@ OSUFlow::
 			)
 		{
 			const vtListSeedTrace* lTrace = *ilpTrace;
+			// ADD-BY-KEWEI 10/02/2012-BEGIN
+			float timeStepSize = 1.0f/lTrace->size();
+			int step = 0;
+			// ADD-BY-KEWEI 10/02/2012-END
 			for(list<VECTOR3*>::const_iterator 
 					ilpv3 = lTrace->begin();
 				ilpv3 != lTrace->end();
@@ -1416,8 +1420,12 @@ OSUFlow::
 			{
 				const VECTOR3 *pv3 = *ilpv3;
 				fwrite(&pv3[0], sizeof(VECTOR3), 1, fp);
-
-				float fT = 0.0f;
+				// MOD-BY-KEWEI 10/02/2012-FROM: 
+					// float fT = 0.0f;
+				// MOD-BY-KEWEI 10/02/2012-TO: 
+				float fT = min(step*timeStepSize,1.0f);
+				step++;
+				// MOD-BY-KEWEI 10/02/2012-END
 				fwrite(&fT, sizeof(fT), 1, fp);
 			}
 		}

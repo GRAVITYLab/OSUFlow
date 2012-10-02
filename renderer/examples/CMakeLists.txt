@@ -41,6 +41,7 @@ foreach(SAMPLE_NAME
 			gcbLineAnimator
 			gcbTubeDynamicColor
 			gcbPathline
+			gcbFileRenderer # ADD-BY-LEETEN 10/02/2012
 	)
 
 	# build the project as a library
