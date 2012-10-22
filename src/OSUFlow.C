@@ -1348,7 +1348,7 @@ OSUFlow::
 
 	if( plTraces && plTimeTraces )
 		fprintf(stderr, "Warning (%s() in %s(%d)): Both plTraces and plTimeTraces are not NULL. Only plTimeTraces will be written.",
-			__FUNCTION__
+			__FUNCTION__,	// MOD-BY-LEETEN 10/22/2012-FROM:	__FUNCTION__
 			__FILE__, 
 			__LINE__);
 
