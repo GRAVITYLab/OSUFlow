@@ -62,8 +62,9 @@ foreach(SAMPLE_NAME
 		)
 	endif()
 	target_link_libraries(${SAMPLE_NAME} 
+		renderer # ADD-BY-LEETEN 10/22/2012
 		OSUFlow
-		renderer
+		# DEL-BY-LEETEN 10/22/2012: renderer
 		gcb
 	) 
 
