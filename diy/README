@@ -1,0 +1,49 @@
+-------------------
+
+For questions / contact info, send mail to:
+
+Tom Peterka
+Argonne National Laboratory
+9700 S. Cass Ave.
+Argonne, IL 60439
+tpeterka@mcs.anl.gov
+
+-------------------
+
+Building diy:
+
+I assume below that you have downloaded the diy distribution and have it in a directory called diy.
+
+Change into that directory: cd diy
+
+On Crays and other machines that don't use mpicc and instead use cc for mpi programs:
+Set the MPICC and MPICXX environment variables to the correct mpi C and C++ compilers, respectively. Eg., on Jaguar, we use (assuming bash syntax):
+export MPICC=cc
+export MPICXX=CC
+
+Configure diy: (default configuration, for full list of options do .configure --help)
+./configure
+
+Build diy:
+make
+
+Install diy:
+If you want to use diy in-place from the build directory, you don't need to do anything. The make command already installed the include and lib directories there. Otherwise, if you wish to install in the default system location or a location given by --prefix=<install location> during the configure, then do:
+make install
+
+-------------------
+
+Learning to use diy:
+
+See the examples in diy/examples/ and browse the user's guide in diy/doc/manual.pdf
+
+The moab example requires moab and hdf5 installed and diy configured as:
+./configure --with-moab=<path to moab installation base directory> --with-hdf5=<path to parallel hdf5 installation base directory>
+
+-------------------
+
+Known bugs;
+
+1. Some OpenMPI installations do not appear to support parallel I/O correctly, and we have been seeing error messages referring to MPI_File_read_all(), which DIY uses extensively. Currently, the only known fix is to install MPICH2 <http://www.mcs.anl.gov/research/projects/mpich2/> and ensure that the system paths are configured to point to it instead of the default OpenMPI installation.
+
+-------------------

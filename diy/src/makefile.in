@@ -1,0 +1,95 @@
+#----------------------------------------------------------------------------
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# (C) 2011 by Argonne National Laboratory.
+# See COPYRIGHT in top-level directory.
+#
+#----------------------------------------------------------------------------
+include ../config_defs
+
+INCLUDE += -I. -I../include -I../src/bil-0.6.0/src
+CCFLAGS = -c
+CCFLAGS += -g
+
+# architecture
+ifeq ($(ARCH), LINUX)
+CCFLAGS += -DLINUX
+endif
+ifeq ($(ARCH), BGP)
+CCFLAGS += -DBGP
+endif
+ifeq ($(ARCH), BGQ)
+CCFLAGS += -DBGQ
+endif
+ifeq ($(ARCH), XKE)
+CCFLAGS += -DXKE
+endif
+ifeq ($(ARCH), MAC)
+CCFLAGS += -DMAC
+endif
+
+# compression
+ifeq ($(ZLIB), YES)
+CCFLAGS += -DZLIB
+endif
+
+# position-independent code
+ifeq ($(FPIC), YES)
+CCFLAGS += -fPIC
+endif
+
+# openmp
+ifeq ($(OPENMP), YES)
+CCFLAGS += -DOMP
+ifeq ($(ARCH), BGP)
+CXX = mpixlcxx_r
+CCFLAGS += -O3 -qarch=450d -qtune=450
+endif
+ifeq ($(ARCH), BGQ)
+CXX = mpixlcxx_r
+endif
+endif
+
+# diy core
+OBJS = diy.o io.o blocking.o assignment.o neighborhoods.o merge.o util.o swap.o comm.o
+
+# bil
+ifeq ($(BIL), YES)
+BIL = bil-0.6.0/src
+OBJS += $(BIL)/libbil_a-bil.o $(BIL)/libbil_a-bil_misc.o \
+	$(BIL)/libbil_a-bil_sched.o $(BIL)/libbil_a-bil_block.o \
+	$(BIL)/libbil_a-bil_pio.o $(BIL)/libbil_a-bil_timing.o
+endif
+
+# psort
+PSORT = psort
+OBJS += $(PSORT)/pmsort.o $(PSORT)/pssort.o $(PSORT)/util.o
+
+.SUFFIXES: .cpp
+
+default: all
+
+all: libdiy.a
+
+Makefile: Makefile.in ../config.status
+	../config.status $@
+
+config.status: ../configure
+	../config.status --recheck
+
+$(OBJS): ../include/*.h
+
+.cpp.o:
+	$(CXX) $(CCFLAGS) $(INCLUDE) $<
+
+libdiy.a : $(OBJS)
+	rm -f $@
+	ar cru $@ $(OBJS) 
+	mv libdiy.a ../lib
+clean:
+	rm -f *.o *.a
