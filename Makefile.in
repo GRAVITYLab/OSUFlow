@@ -125,13 +125,6 @@ $(distdir):
 	cp renderer/Makefile.in $(distdir)/renderer
 	cp renderer/*.cpp $(distdir)/renderer
 	cp renderer/*.h $(distdir)/renderer
-	mkdir -p $(distdir)/diy/examples
-	mkdir -p $(distdir)/diy/examples/C++_wrappers
-	mkdir -p $(distdir)/diy/examples/C_wrappers
-	mkdir -p $(distdir)/diy/examples/Fortran_wrappers
-	mkdir -p $(distdir)/diy/examples/block_io
-	mkdir -p $(distdir)/diy/examples/static
-	mkdir -p $(distdir)/diy/examples/time_varying
 	mkdir -p $(distdir)/diy/lib
 	mkdir -p $(distdir)/diy/include
 	mkdir -p $(distdir)/diy/src
@@ -166,12 +159,6 @@ $(distdir):
 	cp lib/libdiy.a $(distdir)/lib
 	cp include/*.h $(distdir)/include
 	cp src/*.cpp $(distdir)/src
-	cp C++_example/main.cpp $(distdir)/C++_example
-	cp C++_example/makefile.in $(distdir)/C++_example
-	cp C_example/main.cpp $(distdir)/C_example
-	cp C_example/makefile.in $(distdir)/C_example
-	cp Fortran_example/main.cpp $(distdir)/Fortran_example
-	cp Fortran_example/makefile.in $(distdir)/Fortran_example
 
 distcheck: $(distdir).tar.gz
 	gzip -cd $(distdir).tar.gz | tar xvf -
@@ -184,13 +171,9 @@ distcheck: $(distdir).tar.gz
 FORCE:
 	cd Regular/Parallel && $(MAKE) clean
 	cd AMR/Parallel && $(MAKE) clean
-	cd diy/examples/C++_wrappers && $(MAKE) clean
-	cd diy/examples/C_wrappers && $(MAKE) clean
-	cd diy/examples/Fortran_wrappers && $(MAKE) clean
-	cd diy/examples/block_io && $(MAKE) clean
-	cd diy/examples/static && $(MAKE) clean
-	cd diy/examples/time_varying && $(MAKE) clean
+ifeq ($(BIL), YES)
 	cd diy/src/psort && $(MAKE) clean
 	cd diy/src/bil-0.6.0 && $(MAKE) clean
+endif
 
 .PHONY: FORCE all clean check dist distcheck install uninstall

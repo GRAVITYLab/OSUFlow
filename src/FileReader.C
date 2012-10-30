@@ -386,7 +386,7 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
     // swap bytes
 #ifdef BYTE_SWAP
     for (i = 0; i < 3; i++)
-      swap4((char *)&(dimension[i]));
+      my_swap4((char *)&(dimension[i]));
 #endif
 
     totalNum = lxdim*lydim*lzdim; 
@@ -405,7 +405,7 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 	// swap bytes
 #ifdef BYTE_SWAP
 	for (i = 0; i < size; i++)
-	  swap4((char *)&(p[i]));
+	  my_swap4((char *)&(p[i]));
 #endif
 	p+=size;
       }
@@ -773,7 +773,7 @@ void Mpi_ioReadDataRaw(MPI_File f, float *dim, float *minB,
 
 #ifdef BYTE_SWAP
   for (j = 0; j < nflt; j++)
-    swap4((char *)&(p[j]));
+    my_swap4((char *)&(p[j]));
 #endif
 
   MPI_Type_free(&filetype);
@@ -809,7 +809,7 @@ void PosixReadDataRaw(FILE *f, float *dim, float *minB,
     assert(fread(dimi, sizeof(int), 3, f) > 0);
 #ifdef BYTE_SWAP
     for (int j = 0; j < 3; j++)
-      swap4((char *)&(dimi[j]));
+      my_swap4((char *)&(dimi[j]));
 #endif
     dim[0] = (float)dimi[0];
     dim[1] = (float)dimi[1];
@@ -830,7 +830,7 @@ void PosixReadDataRaw(FILE *f, float *dim, float *minB,
 
 #ifdef BYTE_SWAP
       for (int j = 0; j < size; j++)
-	swap4((char *)&(p[j]));
+	my_swap4((char *)&(p[j]));
 #endif
 
       p += size;
@@ -846,12 +846,12 @@ void PosixReadDataRaw(FILE *f, float *dim, float *minB,
 
 //---------------------------------------------------------------------------
 //
-// swap4(n)
+// my_swap4(n)
 //
 // Swaps 4 bytes from 1-2-3-4 to 4-3-2-1 order.
 // cast the input as a char and use on any 4 byte variable
 //
-void swap4(char *n) {
+void my_swap4(char *n) {
 
   char *n1;
   char c;

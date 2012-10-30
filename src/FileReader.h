@@ -44,7 +44,7 @@ void Mpi_ioReadDataRaw(MPI_File f, float *dim, float *minB,
 
 void PosixReadDataRaw(FILE *f, float *dim, float *minB, 
 		      float *maxB, float *p, DataMode dm);
-void swap4(char *n);
+void my_swap4(char *n);
 
 // ADD-BY-LEETEN 12/22/2011-BEGIN
 void
