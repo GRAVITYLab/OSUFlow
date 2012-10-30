@@ -22,10 +22,7 @@
 #include "Draw.h"
 #include "Blocks.h"
 #include "ParFlow.h"
-#include "bil.h"
-#include "assignment.hpp"
-#include "blocking.hpp"
-#include "neighborhoods.hpp"
+#include "diy.h"
 
 #ifdef MPE
 #include "mpe_log.h"
@@ -74,14 +71,21 @@ int nblocks; // my number of blocks
 int tf; // max number of traces per block
 int pf = 1000; // max number of points per trace in each round
 const int max_rounds = 100; // max number of rounds
-const int check_rounds = 5; // how often to flush / check seeds
+
+// deleted TP 10/23/12
+// const int check_rounds = 5; // how often to flush / check seeds
+
 int end_steps; // final number of points each particle should travel
 DataMode data_mode; // data format
 Blocks *blocks; // block class object
 ParFlow *parflow; // parallel flow class object
-Blocking *blocking; // blocking class object
-Assignment *assign; // assignment class object
-Neighborhoods *nbhds; // neighborhoods class object
+
+// deleted TP 10/12/12
+// Blocking *blocking; // blocking class object
+// Assignment *assign; // assignment class object
+// Neighborhoods *nbhds; // neighborhoods class object
+// end TP
+
 int compute_begin, compute_end; // jumpshot states
 int rank; // mpi rank
 float vec_scale; // vector scaling factor
@@ -90,8 +94,10 @@ int seed_file_num = 0; // number of seeds read from the seed file
 VECTOR3* seed_file_seeds = NULL; // seeds read from the seed file
 float wf = 0.1; // wait factor for nonblocking communication
                 // wait for this portion of messages to arrive each round
-const int ghost = 1;  // a ghost layer of at least 1 is required for correct
-		      // advection between blocks
+
+// deleted TP 10/23/12
+// const int ghost = 1;  // a ghost layer of at least 1 is required for correct
+// 		      // advection between blocks
 
 // integration parameters
 const float maxError = 0.001;
@@ -129,9 +135,11 @@ int main(int argc, char *argv[]) {
   MPE_Describe_state(compute_begin, compute_end, "Compute", "red");
 #endif
   GetArgs(argc, argv);
-#ifdef USE_BIL
-  BIL_Init(MPI_COMM_WORLD);
-#endif
+
+  // deleted TP 10/12/12
+// #ifdef USE_BIL
+//   BIL_Init(MPI_COMM_WORLD);
+// #endif
 
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
@@ -163,9 +171,14 @@ int main(int argc, char *argv[]) {
 
   Cleanup();
   MPI_Barrier(MPI_COMM_WORLD);
-#ifdef USE_BIL
-  BIL_Finalize();
-#endif
+
+  // edited TP 10/12/12
+// #ifdef USE_BIL
+//   BIL_Finalize();
+// #endif
+  DIY_Finalize();
+  // end TP
+
   MPI_Finalize();
 
 }
@@ -280,16 +293,18 @@ void Run() {
       // exchange neighbors
       parflow->ExchangeNeighbors(Seeds, wf);
 
-      if(j % check_rounds == 0)
-      {
-	// check if there is any more work to do in this time group
-	parflow->FlushNeighbors(Seeds);
+      // deleted TP 10/12/12
+//       if(j % check_rounds == 0)
+//       {
+// 	// check if there is any more work to do in this time group
+// 	parflow->FlushNeighbors(Seeds);
 
-	if(!isSeedInTimeGroupTotal(g))
-	{
-	  break;  // break out of loop going through every round
-	}
-      }
+// 	if(!isSeedInTimeGroupTotal(g))
+// 	{
+// 	  break;  // break out of loop going through every round
+// 	}
+//       }
+// end TP
 
     } // for all rounds
 
@@ -472,39 +487,20 @@ void Init() {
 
   // partition domain
   // todo: don't create partition if there is a part file?
-  int64_t data_size[4] = {size[0], size[1], size[2], tsize};
-  int maxb; // unused
-  int64_t given[4] = {0, 0, 0, ntpart};
-  assign = new Assignment(nspart * ntpart, nblocks, maxb, MPI_COMM_WORLD);
-
-  // which dimensions to apply ghost cells in
-  int ghost_dim[4] = {1, 1, 1, 1};
-
-  // which directions to apply ghost cells, for each dimension, 
-  // minimum sides only (-1), maximum sides only (1), 
-  // or all sides equally (0)
-  int ghost_dir[4] = {0, 0, 0, 0};
-
-  // if computing streamlines, then the time dimension needs to be restricted
-  // so that a ghost cell layer is not added on. if computing pathlines, only
-  // add a ghost layer to the maximum side in the time dimension
-  if(tsize == 1) {
-    ghost_dim[3] = 0;
-  }
-  else {
-    ghost_dir[3] = 1;
-  }
-
-  blocking = new Blocking(4, nspart * ntpart, data_size, 1, ghost, ghost_dir,
-			  ghost_dim, given, assign, MPI_COMM_WORLD); 
+  int data_size[4] = {size[0], size[1], size[2], tsize};
+  int given[4] = {0, 0, 0, ntpart}; // constraints in x, y, z, t
+  int ghost[8] = {1, 1, 1, 1, 1, 1, 0, 0}; // -x, +x, -y, +y, -z, +z, -t, +t
+  if (tsize > 1) 
+    ghost[7] = 1;
+  DIY_Init(4, ROUND_ROBIN_ORDER, nspart * ntpart, &nblocks, data_size, 1,
+	   MPI_COMM_WORLD);
+  DIY_Decompose(1, ghost, given);
 
   // create osuflow object for each block
   // todo: switch to vectors and get rid of memory management
   assert((osuflow = (OSUFlow**)malloc(nblocks * sizeof(OSUFlow))) != NULL);
   for (i = 0; i < nblocks; i++)
-  {
     osuflow[i] = new OSUFlow;
-  }
 
   // Seeds and fieldline list
   Seeds.resize(nblocks);
@@ -512,10 +508,19 @@ void Init() {
 
   // create remaining classes
   // todo: rename
-  blocks = new Blocks(blocking, assign, (void *)osuflow, OSUFLOW, 
-		      dataset_files, num_dataset_files, data_mode, ghost);
-  parflow = new ParFlow(blocking, assign, blocks, osuflow, sl_list, 
+
+  // edited TP 10/12/12
+//   blocks = new Blocks(blocking, assign, (void *)osuflow, OSUFLOW, 
+// 		      dataset_files, num_dataset_files, data_mode, ghost);
+//   parflow = new ParFlow(blocking, assign, blocks, osuflow, sl_list, 
+// 			&pt, &npt, &tot_ntrace, nblocks, 0);
+  blocks = new Blocks(nblocks, (void *)osuflow, OSUFLOW, 
+		      dataset_files, num_dataset_files, data_mode);
+
+  parflow = new ParFlow(blocks, osuflow, sl_list, 
 			&pt, &npt, &tot_ntrace, nblocks, 0);
+  // end TP
+
   parflow->SetMaxError(maxError);
   parflow->SetInitialStepSize(initialStepSize);
   parflow->SetMinStepSize(minStepSize);
@@ -578,7 +583,10 @@ void Cleanup() {
 
   delete blocks;
   delete parflow;
-  delete blocking;
+
+  // deleted TP 10/12/12
+//   delete blocking;
+
   free(osuflow);
 
   for (i = 0; i < num_dataset_files; i++)
@@ -710,7 +718,7 @@ bool isSeedInTimeGroupTotal(int g)
 }
 //-----------------------------------------------------------------------
 //
-// returns 1 of there is at least one seed in the time group, only looks
+// returns 1 if there is at least one seed in the time group, only looks
 // at seeds local to this process.
 //
 int isSeedInTimeGroup(int g)
@@ -730,11 +738,25 @@ int isSeedInTimeGroup(int g)
   else
   {
     // time-varying case
+
+    // edited TP
     int64_t tmin, tmax;
-    blocking->GetRealTimeBounds(g, &tmin, &tmax);
+//     blocking->GetRealTimeBounds(g, &tmin, &tmax);
+    int time_block;
+    bb_t bb;
+    for (int i = 0; i < nblocks; i++) {
+      DIY_In_time_block(i, &time_block);
+      if (time_block == g) {
+	DIY_No_ghost_block_bounds(i, &bb);
+	tmin = bb.min[3];
+	tmax = bb.max[3];
+	break;
+      }
+    }
+    // end TP
 
     vector< vector<Particle> >::iterator sl_iter;  // seed list iterator
-    for(sl_iter=Seeds.begin(); sl_iter!=Seeds.end(); sl_iter++)
+    for(sl_iter = Seeds.begin(); sl_iter != Seeds.end(); sl_iter++)
     {
       vector<Particle>::iterator seed_iter;
       for(seed_iter=sl_iter->begin(); seed_iter!=sl_iter->end(); seed_iter++)
@@ -773,7 +795,21 @@ int getNumSeedsInTimeGroup(int g)
   {
     // time-varying case
     int64_t tmin, tmax;
-    blocking->GetRealTimeBounds(g, &tmin, &tmax);
+
+    // edited TP
+//     blocking->GetRealTimeBounds(g, &tmin, &tmax);
+    int time_block;
+    bb_t bb;
+    for (int i = 0; i < nblocks; i++) {
+      DIY_In_time_block(i, &time_block);
+      if (time_block == g) {
+	DIY_No_ghost_block_bounds(i, &bb);
+	tmin = bb.min[3];
+	tmax = bb.max[3];
+	break;
+      }
+    }
+    // end TP
 
     vector< vector<Particle> >::iterator sl_iter;  // seed list iterator
     for(sl_iter=Seeds.begin(); sl_iter!=Seeds.end(); sl_iter++)

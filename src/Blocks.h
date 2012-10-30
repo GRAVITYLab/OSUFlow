@@ -53,6 +53,14 @@ enum {
   #endif // #if !defined(WIN32)	// ADD-BY-LEETEN 08/23/2012
 };
 
+// added by TP 9/12/12 //
+// one local block //
+struct lb_t {
+  int gid; /* global block id */
+  int loaded; /* whether block has has been loaded in memory */
+};
+// end TP 9/12/12 //
+
 // utility function to report memory usage
 // not part of the Blocks class
 int mem_size(double *vsizeMB, double *residentMemoryMB);
@@ -62,9 +70,12 @@ class Blocks {
  public:
 
 #ifdef _MPI
-  Blocks(Blocking *blocking, Assignment *assignment, void *compute, 
-	 int compute_type, char **dataset_files, int num_dataset_files, 
-	 DataMode data_mode, int ghost = 0);
+  // changed TP 10/12/12
+/*   Blocks(Blocking *blocking, Assignment *assignment, void *compute,  */
+/* 	 int compute_type, char **dataset_files, int num_dataset_files,  */
+/* 	 DataMode data_mode, int ghost = 0); */
+  Blocks(int nblocks, void *compute, int compute_type, char **dataset_files, 
+	 int num_dataset_files, DataMode data_mode);
 #endif
   Blocks(Lattice4D *lat, void *compute, int compute_type,
   	    char **dataset_files, int num_dataset_files, DataMode data_mode);
@@ -80,7 +91,10 @@ class Blocks {
   int LoadBlock4D(int grp, int blk, double *time, float *size,
 		  int tsize, int tb, int nblocks, float **data = NULL);
   int LoadBlocksAMR(int grp, double *time, DataMode dm);
-  int IsBlockInTimeGroup(int g, int b, int tsize, int tb);
+
+  /* removed by TP 10/10/12
+/*   int IsBlockInTimeGroup(int g, int b, int tsize, int tb); */
+
 #ifdef _MPI
   void SetLoad(int lid) { blocks[lid].loaded = true; }
   void ClearLoad(int lid) { blocks[lid].loaded = false; }
@@ -91,10 +105,16 @@ class Blocks {
 
 #ifdef _MPI
   vector<lb_t> blocks; // local block info
-  Blocking *blocking;
-  Assignment *assign;
+
+  // deleted TP 10/12/12
+/*   Blocking *blocking; */
+/*   Assignment *assign; */
+
 #endif
-  int ghost;
+
+  // deleted TP 10/12/12
+/*   int ghost; */
+
   char filename[256];
   DataMode data_mode;
   char **dataset_files;

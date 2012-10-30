@@ -16,6 +16,7 @@
 
 #ifdef _MPI
 #include <mpi.h>
+#include "diy.h"
 #include "bil.h"
 #endif
 
@@ -46,24 +47,36 @@
 //
 // parallel version
 //
-Blocks::Blocks(Blocking *blocking, Assignment *assignment, void *compute, 
-	       int compute_type, char **dataset_files, int num_dataset_files,
-	       DataMode data_mode, int ghost) {
+// changed by TP 10/12/12
+// Blocks::Blocks(Blocking *blocking, Assignment *assignment, void *compute, 
+// 	       int compute_type, char **dataset_files, int num_dataset_files,
+// 	       DataMode data_mode) {
+Blocks::Blocks(int nblocks, void *compute, int compute_type, 
+	       char **dataset_files, int num_dataset_files, 
+	       DataMode data_mode) {
 
-  this->ghost = ghost;
+  // deleted by TP 10/12/12
+//   this->ghost = ghost;
+
   //strncpy(this->filename, filename, sizeof(this->filename));
   this->data_mode = data_mode;
   this->dataset_files = dataset_files;
   this->num_dataset_files = num_dataset_files;
   this->compute_type = compute_type;
-  this->blocking = blocking;
-  assign = assignment;
 
-  int nb = assign->NumBlks();
+  // editedTP 10/12/12
+//   this->blocking = blocking;
+//   assign = assignment;
+//   int nb = assign->NumBlks();
+  int nb = nblocks;
+  // end TP
+
   blocks.reserve(nb);
   for (int i = 0; i < nb; i++) {
     lb_t lb;
-    lb.gid = assign->RoundRobin_lid2gid(i);
+    // changed by TP 10/9/12
+//     lb.gid = assign->RoundRobin_lid2gid(i);
+    lb.gid = DIY_Gid(i);
     lb.loaded = 0;
     blocks.push_back(lb);
   }
@@ -93,7 +106,10 @@ Blocks::Blocks(Lattice4D *lat, void *compute, int compute_type,
 
   lat4D = lat;
   latAMR = NULL;
-  ghost = 0;
+
+  // deleted TP 10/12/12
+//   ghost = 0;
+
   this->data_mode = data_mode;
   this->dataset_files = dataset_files;
   this->num_dataset_files = num_dataset_files;
@@ -120,7 +136,10 @@ Blocks::Blocks(LatticeAMR *lat, void *compute, int compute_type,
 
   latAMR = lat;
   lat4D = NULL;
-  ghost = 0;
+
+  // deleted 10/12/12
+//   ghost = 0;
+
   this->data_mode = data_mode;
   this->dataset_files = dataset_files;
   this->num_dataset_files = num_dataset_files;
@@ -174,39 +193,72 @@ float ***Blocks::BilLoadTimeGroupBlocks(int t_group, int nblocks,
   MPI_Datatype bil_datatype;
   MPI_Type_contiguous(3, MPI_FLOAT, &bil_datatype);
   float ***data = new float**[nblocks];
-  int64_t block_min[4], block_size[4]; // block extents
+
+  // edited TP 10/12/12
+//   int64_t block_min[4], block_size[4]; // block extents
+  int block_min[4], block_size[4]; // block extents
 
   // account for a header if necessary
+  // DIY does not provide this function, use BIL directly for it
   if(data_mode == RAW_HEADER)
     BIL_Set_io_header_size(12);  // header is 3 ints
 
   // load blocks for this time block
   for (int i = 0; i < nblocks; i++) { // for all my blocks
-    if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
-      blocking->BlockStartsSizes(i, block_min, block_size);
+
+    // edited TP 10/12/12
+    int time_block;
+    DIY_In_time_block(i, &time_block);
+//     if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
+    if (time_block == t_group) {
+//       blocking->BlockStartsSizes(i, block_min, block_size);
+      DIY_Block_starts_sizes(i, block_min, block_size);
+      // end TP
+
       data[i] = new float*[block_size[3]];
-      // convert from int64_t to int, and also reverse order for BIL
-      int bil_data_size[3] = { size[2], size[1], size[0] };
-      int bil_min[3] = { block_min[2], block_min[1], block_min[0] };
-      int bil_size[3] = { block_size[2], block_size[1], block_size[0] };
-      // post a BIL read for each time step in this block
+
+      // edited TP 10/12/12
+//       // convert from int64_t to int, and also reverse order for BIL
+//       int bil_data_size[3] = { size[2], size[1], size[0] };
+//       int bil_min[3] = { block_min[2], block_min[1], block_min[0] };
+//       int bil_size[3] = { block_size[2], block_size[1], block_size[0] };
+//       // post a BIL read for each time step in this block
+//       for (int j = 0; j < block_size[3]; j++) { // for all timesteps
+// 	data[i][j] = new float[block_size[0] * block_size[1] * 
+// 			       block_size[2] * 3];
+// 	BIL_Add_block_raw(3, bil_data_size, bil_min, bil_size, 
+// 			  dataset_files[block_min[3] + j], bil_datatype, 
+// 			  (void **)&data[i][j]);
+
+      // post a read for each time step in this block
       for (int j = 0; j < block_size[3]; j++) { // for all timesteps
 	data[i][j] = new float[block_size[0] * block_size[1] * 
 			       block_size[2] * 3];
-	BIL_Add_block_raw(3, bil_data_size, bil_min, bil_size, 
+	DIY_Add_data_raw(block_min, block_size, 
 			  dataset_files[block_min[3] + j], bil_datatype, 
 			  (void **)&data[i][j]);
+
+
       } // for all timesteps
     } // in time block
   } // for all blocks
 
-  BIL_Read();
+  // edited TP 10/12/12
+//   BIL_Read();
+  DIY_Read_data_all();
 
   // swap bytes
 #ifdef BYTE_SWAP
   for (int i = 0; i < nblocks; i++) { // for all my blocks
-    if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
-      blocking->BlockSizes(i, block_size);
+
+    // edited TP 10/12/12
+    DIY_In_time_block(i, &time_block)
+//     if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
+    if (time_block == t_group) {
+//       blocking->BlockStartsSizes(i, block_min, block_size);
+      DIY_Block_starts_sizes(i, block_min, block_size);
+      // end TP
+
       for (int j = 0; j < block_size[3]; j++) {
 	for (int k = 0; k < block_size[0] * block_size[1] * block_size[2] * 3; 
 	     k++)
@@ -228,46 +280,49 @@ float ***Blocks::BilLoadTimeGroupBlocks(int t_group, int nblocks,
 
 //----------------------------------------------------------------------------
 //
-// tests whether block b is in time block g
+// DEPRECATED, removed by TP 10/10/12
 //
-// g: current time block
-// blk: local block id
-// tsize: total number of timesteps
-// tb: total number of global time blocks
-//
-int Blocks::IsBlockInTimeGroup(int g, int b, int tsize, int tb) {
+// //
+// // tests whether block b is in time block g
+// //
+// // g: current time block
+// // blk: local block id
+// // tsize: total number of timesteps
+// // tb: total number of global time blocks
+// //
+// int Blocks::IsBlockInTimeGroup(int g, int b, int tsize, int tb) {
 
-  int64_t from[4]; // block starts
-  int64_t to[4]; // block starts
-  int min_t, max_t; // time range of the block
+//   int64_t from[4]; // block starts
+//   int64_t to[4]; // block starts
+//   int min_t, max_t; // time range of the block
 
-#ifdef _MPI
-  int64_t time_group_start;
-  int64_t time_group_end;
-  blocking->GetRealBlockBounds(b, from, to);
-  min_t = from[3];
-  max_t = to[3];
-  blocking->GetRealTimeBounds(g, &time_group_start, &time_group_end);
-#else
-  int time_group_start;
-  int time_group_end;
-  if (lat4D) {
-    lat4D->GetRealTB(b, &min_t, &max_t);
-    lat4D->GetRealTimeGroupBounds(g, &time_group_start, &time_group_end);
-  }
-  else {
-    latAMR->GetTB(b, &min_t, &max_t);
-    time_group_start = g * tsize / tb;
-  }
-#endif
+// #ifdef _MPI
+//   int64_t time_group_start;
+//   int64_t time_group_end;
+//   blocking->GetRealBlockBounds(b, from, to);
+//   min_t = from[3];
+//   max_t = to[3];
+//   blocking->GetRealTimeBounds(g, &time_group_start, &time_group_end);
+// #else
+//   int time_group_start;
+//   int time_group_end;
+//   if (lat4D) {
+//     lat4D->GetRealTB(b, &min_t, &max_t);
+//     lat4D->GetRealTimeGroupBounds(g, &time_group_start, &time_group_end);
+//   }
+//   else {
+//     latAMR->GetTB(b, &min_t, &max_t);
+//     time_group_start = g * tsize / tb;
+//   }
+// #endif
 
-  if (tsize == 1 || tb == 1 || (min_t == time_group_start && 
-	                        max_t == time_group_end))
-    return 1;
+//   if (tsize == 1 || tb == 1 || (min_t == time_group_start && 
+// 	                        max_t == time_group_end))
+//     return 1;
 
-  return 0;
+//   return 0;
 
-}
+// }
 //-----------------------------------------------------------------------
 //
 // evicts blocks in time group just prior to the current group
@@ -293,8 +348,12 @@ void Blocks::DeleteBlocks(int grp, int tsize, int tb, int nblocks) {
 #else
     loaded = lat4D ? lat4D->GetLoad(i) : latAMR->GetLoad(i);
 #endif
-
-    if (loaded && IsBlockInTimeGroup(grp - 1, i, tsize, tb)) {
+    // edited by TP 10/10/20
+    int time_block;
+    DIY_In_time_block(i, &time_block);
+//     if (loaded && IsBlockInTimeGroup(grp - 1, i, tsize, tb)) {
+    if (loaded && time_block == grp - 1) {
+      // end TP
 
 #ifdef _MPI
       ClearLoad(i);
@@ -333,7 +392,11 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
 			 float *size, int tsize, int tb, float ***data) {
 
   int s = 0; // data size (bytes)
-  int64_t starts[4], sizes[4]; // block starts and sizes
+
+  // edited TP 10/12/12
+//   int64_t starts[4], sizes[4]; // block starts and sizes
+  int starts[4], sizes[4]; // block starts and sizes
+
   int min_t, max_t; // block temporal extent
   int loaded; // whether a block is loaded
   double t0;
@@ -349,11 +412,20 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
     loaded = lat4D->GetLoad(i);
 #endif
 
-    if (!loaded && IsBlockInTimeGroup(grp, i, tsize, tb)) {
+    // edited by TP 10/10/20
+    int time_block;
+    DIY_In_time_block(i, &time_block);
+//     if (!loaded && IsBlockInTimeGroup(grp, i, tsize, tb)) {
+    if (!loaded && time_block == grp) {
+      // end TP
 
       // compute block extents
 #ifdef _MPI // parallel version
-      blocking->BlockStartsSizes(i, starts, sizes);
+
+      // edited TP 10/12/12
+//       blocking->BlockStartsSizes(i, starts, sizes);
+      DIY_Block_starts_sizes(i, starts, sizes);
+
       float from[3] = {starts[0], starts[1], starts[2]};
       float to[3] = {starts[0] + sizes[0] - 1, starts[1] + sizes[1] - 1,
 		     starts[2] + sizes[2] - 1};
@@ -363,21 +435,37 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
       // get the real bounds (not including ghost cells)
       int real_from[4];
       int real_to[4];
-      int gid = blocking->assign->RoundRobin_lid2gid(i); // global id of block
-      for(int j=0; j<4; j++)
-      {
-	int64_t real_from64[4];
-	int64_t real_to64[4];
-	blocking->GetRealBlockBounds(i, real_from64, real_to64);
-	real_from[0] = real_from64[0];
-	real_from[1] = real_from64[1];
-	real_from[2] = real_from64[2];
-	real_from[3] = real_from64[3];
-	real_to[0] = real_to64[0];
-	real_to[1] = real_to64[1];
-	real_to[2] = real_to64[2];
-	real_to[3] = real_to64[3];
-      }
+
+      // deleted by TP 10/10/12 (gid not used later)
+      // int gid = blocking->assign->RoundRobin_lid2gid(i); // global id of block
+
+//       for(int j=0; j<4; j++)
+//       {
+// 	int64_t real_from64[4];
+// 	int64_t real_to64[4];
+// 	blocking->GetRealBlockBounds(i, real_from64, real_to64);
+// 	real_from[0] = real_from64[0];
+// 	real_from[1] = real_from64[1];
+// 	real_from[2] = real_from64[2];
+// 	real_from[3] = real_from64[3];
+// 	real_to[0] = real_to64[0];
+// 	real_to[1] = real_to64[1];
+// 	real_to[2] = real_to64[2];
+// 	real_to[3] = real_to64[3];
+//       }
+
+      struct bb_t bb;
+      DIY_No_ghost_block_bounds(i, &bb);
+      real_from[0] = bb.min[0];
+      real_from[1] = bb.min[1];
+      real_from[2] = bb.min[2];
+      real_from[3] = bb.min[3];
+      real_to[0] = bb.max[0];
+      real_to[1] = bb.max[1];
+      real_to[2] = bb.max[2];
+      real_to[3] = bb.max[3];
+
+      // end TP
 
       t0 = MPI_Wtime();
 #else // serial version
@@ -452,7 +540,11 @@ int Blocks::LoadBlock4D(int grp, int blk, double *time, float *size,
 			int tsize, int tb, int nblocks, float **data) {
 
   int s = 0; // data size (bytes)
-  int64_t starts[4], sizes[4]; // block starts and sizes
+
+  // edited TP 10/12/12
+//   int64_t starts[4], sizes[4]; // block starts and sizes
+  int starts[4], sizes[4]; // block starts and sizes
+
   int min_t, max_t; // block temporal extent
   int loaded; // whether a block is loaded
 
@@ -462,11 +554,20 @@ int Blocks::LoadBlock4D(int grp, int blk, double *time, float *size,
     loaded = lat4D ? lat4D->GetLoad(blk) : latAMR->GetLoad(blk);
 #endif
 
-  if (!loaded && IsBlockInTimeGroup(grp, blk, tsize, tb)) {
+    // edited by TP 10/10/20
+    int time_block;
+    DIY_In_time_block(blk, &time_block);
+    //   if (!loaded && IsBlockInTimeGroup(grp, blk, tsize, tb)) {
+    if (!loaded && time_block == grp) {
+      // end TP
 
       // compute block extents
 #ifdef _MPI // parallel version
-      blocking->BlockStartsSizes(blk, starts, sizes);
+
+      // edited TP 10/12/12
+//       blocking->BlockStartsSizes(blk, starts, sizes);
+      DIY_Block_starts_sizes(blk, starts, sizes);
+
       float from[3] = {starts[0], starts[1], starts[2]};
       float to[3] = {starts[0] + sizes[0] - 1, starts[1] + sizes[1] - 1,
 		     starts[2] + sizes[2] - 1};
@@ -550,7 +651,14 @@ int Blocks::LoadBlocksAMR(int grp, double *time, DataMode dm) {
 
   for (i = 0; i < latAMR->nb; i++ ) {
 
-    if (!latAMR->GetLoad(i) && IsBlockInTimeGroup(grp, i, tsize, ntpart)) {
+    // edited by TP 10/10/20
+    // DIY does not support AMR right now, so this won't work
+    int time_block;
+    DIY_In_time_block(i, &time_block);
+//     if (!latAMR->GetLoad(i) && IsBlockInTimeGroup(grp, i, tsize, ntpart)) {
+    if (!latAMR->GetLoad(i) && time_block == grp) {
+      // end TP
+
 
       // create time varying flow field for this block
       latAMR->GetVB(i, from, to, &min_t, &max_t);

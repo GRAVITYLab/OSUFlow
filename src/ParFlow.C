@@ -17,6 +17,7 @@
 #ifdef _MPI 
 // ADD-BY-LEETEN 04/09/2011-END
 #include <mpi.h>
+#include "diy.h"
 // ADD-BY-LEETEN 04/09/2011-BEGIN
 #endif	// #ifdef _MPI 
 // ADD-BY-LEETEN 04/09/2011-END
@@ -39,7 +40,14 @@
 //
 // parallel version
 //
-ParFlow::ParFlow(Blocking *blocking, Assignment *assignment, Blocks *blocks, 
+
+// edited TP 10/12/12
+// ParFlow::ParFlow(Blocking *blocking, Assignment *assignment, Blocks *blocks, 
+// 		 OSUFlow **osuflow, list<vtListTimeSeedTrace*> *sl_list, 
+// 		 VECTOR4 **pt, int **npt, int *tot_ntrace, int nb, 
+// 		 int track_seed_id) {
+
+ParFlow::ParFlow(Blocks *blocks, 
 		 OSUFlow **osuflow, list<vtListTimeSeedTrace*> *sl_list, 
 		 VECTOR4 **pt, int **npt, int *tot_ntrace, int nb, 
 		 int track_seed_id) {
@@ -52,13 +60,16 @@ ParFlow::ParFlow(Blocking *blocking, Assignment *assignment, Blocks *blocks,
   this->track_seed_id = track_seed_id;
   this->nb = nb;
   this->blocks = blocks;
-  this->blocking = blocking;
-  this->assign = assignment;
 
-  nbhds = new Neighborhoods(blocking, assign, MPI_COMM_WORLD);
+  // deleted by TP 9/12/12  
+//   this->blocking = blocking;
+//   this->assign = assignment;
+  // nbhds = new Neighborhoods(blocking, assign, MPI_COMM_WORLD);
+  // end TP 9/12/12
 
   TotSeeds = 0;
   TotSteps = 0;
+  TotItemsSent = 0;
 
   // integration parameters
   initialStepSize = 1.0;
@@ -101,9 +112,9 @@ ParFlow::ParFlow(Lattice4D *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
-  #ifdef _MPI // ADD-BY-LEETEN 02/02/2012
-  this->nbhds = NULL;
-  #endif // #ifdef _MPI // ADD-BY-LEETEN 02/02/2012
+
+  // deleted TP 9/12/12  
+//   this->nbhds = NULL;
 
   TotSeeds = 0;
   TotSteps = 0;
@@ -167,11 +178,13 @@ ParFlow::~ParFlow() {
   if (time_stats != NULL) {
     free(time_stats);
   }
-  #ifdef _MPI // ADD-BY-LEETEN 02/02/2012
-  if (nbhds != NULL) {
-    delete nbhds;
-  }
-  #endif // #ifdef _MPI // ADD-BY-LEETEN 02/02/2012
+
+  // deleted TP 9/12/12
+//   if (nbhds != NULL) {
+//     delete nbhds;
+//   }
+  // end TP 9/12/12
+
 }
 //-----------------------------------------------------------------------
 //
@@ -216,21 +229,30 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
 
 #ifdef _MPI // parallel version
     blocks->ClearLoad(i);
-    int64_t from64[4];
-    int64_t to64[4];
+
+    // edited TP 9/12/12
+//     int64_t from64[4];
+//     int64_t to64[4];
     float from[3];
     float to[3];
+    bb_t bb;
+//     blocks->GetRealBlockBounds(i, from, to);
+    DIY_No_ghost_block_bounds(i, &bb);
+//     from[0] = from64[0];
+//     from[1] = from64[1];
+//     from[2] = from64[2];
+//     to[0] = to64[0];
+//     to[1] = to64[1];
+//     to[2] = to64[2];
+//     int min_t = from[3];
+//     int max_t = from[3];
+    int min_t = bb.min[3];
+    int max_t = bb.max[3]; // todo: why was this from instead of to above?
 
-    blocking->GetRealBlockBounds(i, from64, to64);
-    from[0] = from64[0];
-    from[1] = from64[1];
-    from[2] = from64[2];
-    to[0] = to64[0];
-    to[1] = to64[1];
-    to[2] = to64[2];
-    int min_t = from64[3];
-    int max_t = from64[3];
-    int gid = blocking->assign->RoundRobin_lid2gid(i);
+//     int gid = blocking->assign->RoundRobin_lid2gid(i);
+    int gid = DIY_Gid(i);
+    // end TP 9/12/12
+
 #else // serial version
     if (lat4D) {
       lat4D->ClearLoad(i);
@@ -248,9 +270,13 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
     if (tsize == 1 || tblocks == 1 || min_t == 0) {
 
       if(num_specific_seeds > 0)
-	SetSeeds(osuflow[i], from, to, specific_seeds, num_specific_seeds, isUsed);
+	// edited TP 10/12/12
+// 	SetSeeds(osuflow[i], from, to, specific_seeds, num_specific_seeds, isUsed);
+	SetSeeds(osuflow[i], bb.min, bb.max, specific_seeds, num_specific_seeds, isUsed);
       else
-	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+	// edited TP 10/12/12
+// 	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+	osuflow[i]->SetRandomSeedPoints(bb.min, bb.max, tf); 
       seeds = osuflow[i]->GetSeeds(nseeds); 
 
       for (j = 0; j < nseeds; j++) {
@@ -1347,21 +1373,30 @@ int ParFlow::GetFlowMatrix(int i, int j) {
 //
 int ParFlow::ExchangeNeighbors(vector< vector<Particle> >& seeds, float wf) {
 
-  vector<vector<char *> > pts; // received points for each block
-
   // exchange points
-  int npr = nbhds->ExchangeNeighbors(pts, wf, &RecvItemDtype, &SendItemDtype);
+  // edited TP 9/12/12
+  void ***items = new void**[nb];
+  int *num_items = new int[nb];
+  int npr = 0;
+//   int npr = nbhds->ExchangeNeighbors(pts, wf, &RecvItemDtype, &SendItemDtype);
+  DIY_Exchange_neighbors(items, num_items, 
+			 wf, &RecvItemDtype, &SendItemDtype);
 
-  // clear old seeds and copy received points to them
-  for (int i = 0; i < seeds.size(); i++)
+  // copy received points to seeds
+  Particle seed; // one 4D seed
+  for (int i = 0; i < nb; i++) { // for each block
+    npr += num_items[i];
     seeds[i].clear();
-  PointsToSeeds(seeds, pts);
-
-  // clear points
-  for (int i = 0; i < pts.size(); i++)
-    pts[i].clear();
-  pts.clear();
-
+    for (int j = 0; j < num_items[i]; j++) { // for each point in block
+      seed.pt.Set(((Item *)items[i][j])->pt[0],
+		  ((Item *)items[i][j])->pt[1],
+		  ((Item *)items[i][j])->pt[2],
+		  ((Item *)items[i][j])->pt[3]);
+      seed.steps = ((Item *)items[i][j])->steps;
+      seeds[i].push_back(seed);
+    }
+  }
+  // end TP 9/12/12
 
   return npr;
 
@@ -1376,40 +1411,59 @@ int ParFlow::ExchangeNeighbors(vector< vector<Particle> >& seeds, float wf) {
 //
 int ParFlow::FlushNeighbors(vector< vector<Particle> >& seeds) {
 
-  vector<vector<char *> > pts; // received points
+  // edited TP 9/12/12
+  void ***items = new void**[nb];
+  int *num_items = new int[nb];
+  int npr = 0;
+//   int npr = nbhds->FlushNeighbors(pts, &RecvItemDtype);
+  DIY_Flush_neighbors(items, num_items, &RecvItemDtype);
 
-  int npr = nbhds->FlushNeighbors(pts, &RecvItemDtype);
-  PointsToSeeds(seeds, pts);
-  for (int i = 0; i < pts.size(); i++)
-    pts[i].clear();
-  pts.clear();
+  // copy received points to seeds
+  Particle seed; // one 4D seed
+  for (int i = 0; i < nb; i++) { // for each block
+    npr += num_items[i];
+    // note that seeds are not cleared on the flush, so they carry over
+    // to the next time group, ie, no seeds[i].clear() here
+    for (int j = 0; j < num_items[i]; j++) { // for each point in block
+      seed.pt.Set(((Item *)items[i][j])->pt[0],
+		  ((Item *)items[i][j])->pt[1],
+		  ((Item *)items[i][j])->pt[2],
+		  ((Item *)items[i][j])->pt[3]);
+      seed.steps = ((Item *)items[i][j])->steps;
+      seeds[i].push_back(seed);
+    }
+  }
+  // end TP 9/12/12
 
   return npr;
 
 }
 //------------------------------------------------------------------------
-//
-// copies exhanged points to seeds
-//
-// seeds: locations to store received points, indexed by local block number
-// pts: points for each block
-//
-void ParFlow::PointsToSeeds(vector< vector<Particle> >& seeds, 
-			  vector< vector< char *> > points) {
+// //
+// // DEPRECATED, removed by TP 10/10/12
+// //
+// //
+// // copies exhanged points to seeds
+// //
+// // seeds: locations to store received points, indexed by local block number
+// // pts: points for each block
+// //
+// void ParFlow::PointsToSeeds(vector< vector<Particle> >& seeds, 
+// 			  vector< vector< char *> > points) {
 
-  Particle seed; // one 4D seed
-  for (int b = 0; b < points.size(); b++) { // each block
-    for (int p = 0; p < points[b].size(); p++) { // each point in the block
-      seed.pt.Set(((Item *)points[b][p])->pt[0],
-		  ((Item *)points[b][p])->pt[1],
-		  ((Item *)points[b][p])->pt[2],
-		  ((Item *)points[b][p])->pt[3]);
-      seed.steps = ((Item *)points[b][p])->steps;
-      seeds[b].push_back(seed);
-    }
-  }
+//   Particle seed; // one 4D seed
+//   for (int b = 0; b < points.size(); b++) { // each block
+//     for (int p = 0; p < points[b].size(); p++) { // each point in the block
+//       seed.pt.Set(((Item *)points[b][p])->pt[0],
+// 		  ((Item *)points[b][p])->pt[1],
+// 		  ((Item *)points[b][p])->pt[2],
+// 		  ((Item *)points[b][p])->pt[3]);
+//       seed.steps = ((Item *)points[b][p])->steps;
+//       seeds[b].push_back(seed);
+//     }
+//   }
 
-}
+// }
 //---------------------------------------------------------------------------
 
 #endif
@@ -1663,8 +1717,10 @@ void ParFlow::PrintPerf(double TotTime, double TotInTime, double TotOutTime,
 
   // get stats of my process
 #ifdef _MPI
-  block_stats[0] = assign->NumBlks(); // number of blocks
-  block_stats[3] = nbhds->TotItemsSent(); // total points sent
+  // edited TP 9/12/12
+  block_stats[0] = nb; // number of blocks
+  block_stats[3] = TotItemsSent; // total points sent
+  // end TP 9/12/12
 #else
   block_stats[0] = 0; // number of blocks  todo: fill in later
   block_stats[3] = 0; // total points sent todo: fill in later
@@ -1907,18 +1963,24 @@ void ParFlow::PostPoint(int lid, Item *item, int recirc, int end_steps) {
 
 #ifdef _MPI
 
-  int gid = assign->RoundRobin_lid2gid(lid);
-
-  // Note that the ghost cell argument is 0, even though ghost cells were used
-  // when loading the data. This is because we want boundaries not including
-  // ghost cells to be considered when finding which block the particle is now
-  // in.
-  int neigh_gid = blocking->Pt2NeighGid(gid, item->pt, 0, 0);
-  if (item->steps < end_steps && neigh_gid >= 0 && 
-      (recirc || neigh_gid != gid))
-  {
-    nbhds->EnqueueItem(lid, (char *)item, sizeof(Item), neigh_gid);
+  // start edited TP 9/12/12
+  int gid = DIY_Gid(lid);
+  bb_t bounds;
+  DIY_No_ghost_block_bounds(lid, &bounds);
+  if (!recirc) { // check if point is in lid and not recirculating
+    int i;
+    for (i = 0; i < 4; i++) { 
+      if (item->pt[i] < bounds.min[i] || item->pt[i] > bounds.max[i])
+	break;
+    }
+    if (i == 4)
+      return;
   }
+
+  if (item->steps < end_steps)
+    DIY_Enqueue_item_points(lid, item, NULL, sizeof(Item), item->pt, 
+			    1, NULL);
+  // end TP
 
 #else
 

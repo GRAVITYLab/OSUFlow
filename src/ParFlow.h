@@ -50,7 +50,13 @@ class ParFlow {
  public:
 
 #ifdef _MPI
-  ParFlow(Blocking *blocking, Assignment *assignment, Blocks *blocks, 
+
+  // edited TP 10/12/12
+/*   ParFlow(Blocking *blocking, Assignment *assignment, Blocks *blocks,  */
+/* 	  OSUFlow **osuflow, list<vtListTimeSeedTrace*> *sl_list, VECTOR4 **pt, */
+/* 	  int **npt, int *tot_ntrace, int nb, int track_seed_id = 0); */
+
+  ParFlow(Blocks *blocks, 
 	  OSUFlow **osuflow, list<vtListTimeSeedTrace*> *sl_list, VECTOR4 **pt,
 	  int **npt, int *tot_ntrace, int nb, int track_seed_id = 0);
 #endif
@@ -140,8 +146,10 @@ class ParFlow {
 
  private:
 
-  void PointsToSeeds(vector< vector<Particle> >& seeds, 
-		     vector<vector<char *> >points);
+  /* removed by TP 10/10/12 */
+/*   void PointsToSeeds(vector< vector<Particle> >& seeds,  */
+/* 		     vector<vector<char *> >points); */
+
   void PostPoint(int lid, Item *item, int recirc, int end_steps);
 
   int *block_stats; // block stats
@@ -151,6 +159,7 @@ class ParFlow {
   int TotSeeds; // total number of seeds for all blocks and all rounds
   int TotSteps; // total number of integration steps for all seeds,
                 // for all blocks and all rounds in this process
+  int TotItemsSent; // total number of items sent
   OSUFlow **osuflow;
   Lattice4D *lat4D;
   LatticeAMR *latAMR;
@@ -160,11 +169,15 @@ class ParFlow {
   int *tot_ntrace; // total number of everyone's traces
   int track_seed_id;
   int nb;
-#ifdef _MPI
-  Blocking *blocking; // blocking object
-  Assignment *assign; // assignment object
-  Neighborhoods *nbhds; // neighborhoods object
-#endif
+
+  // removed by TP 9/12/12
+/* #ifdef _MPI */
+/*   Blocking *blocking; // blocking object */
+/*   Assignment *assign; // assignment object */
+/*   Neighborhoods *nbhds; // neighborhoods object */
+/* #endif */
+// end TP 9/12/12
+
   Blocks *blocks; // blocks object
   double comp_time; // computation time for my process
   double comm_time1, comm_time2, comm_time3;
