@@ -882,9 +882,11 @@ swapn(char* p)
     swap(p[i], p[l-1-i]);
 }
 
+#ifndef _MPI // ADD-BY-LEETEN 10/29/2012
 void swap4(char *n) 
 {
   swapn<4>(n);
 }
+#endif // #ifndef _MPI // ADD-BY-LEETEN 10/29/2012
 // ADD-BY-LEETEN 10/29/2012-END
 //----------------------------------------------------------------------------
