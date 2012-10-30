@@ -272,11 +272,23 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
       if(num_specific_seeds > 0)
 	// edited TP 10/12/12
 // 	SetSeeds(osuflow[i], from, to, specific_seeds, num_specific_seeds, isUsed);
+	#ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
 	SetSeeds(osuflow[i], bb.min, bb.max, specific_seeds, num_specific_seeds, isUsed);
+	// ADD-BY-LEETEN 10/29/2012-BEGIN
+	#else // #ifdef _MPI
+ 	SetSeeds(osuflow[i], from, to, specific_seeds, num_specific_seeds, isUsed);
+	#endif // #ifdef _MPI
+	// ADD-BY-LEETEN 10/29/2012-END
       else
 	// edited TP 10/12/12
 // 	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+	#ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
 	osuflow[i]->SetRandomSeedPoints(bb.min, bb.max, tf); 
+	// ADD-BY-LEETEN 10/29/2012-BEGIN
+	#else // #ifdef _MPI
+ 	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
+	#endif // #ifdef _MPI
+	// ADD-BY-LEETEN 10/29/2012-END
       seeds = osuflow[i]->GetSeeds(nseeds); 
 
       for (j = 0; j < nseeds; j++) {

@@ -1,4 +1,8 @@
 
+// ADD-BY-LEETEN 10/29/2012-BEGIN
+#include <algorithm>
+using namespace std;
+// ADD-BY-LEETEN 10/29/2012-END
 #include <stdio.h>
 #include <stdlib.h> 
 #include <assert.h>
@@ -868,4 +872,19 @@ void my_swap4(char *n) {
   *n1 = c;
 
 }
+
+// ADD-BY-LEETEN 10/29/2012-BEGIN
+template<size_t l>
+void
+swapn(char* p)
+{
+  for(size_t i = 0; i < l / 2; i++)
+    swap(p[i], p[l-1-i]);
+}
+
+void swap4(char *n) 
+{
+  swapn<4>(n);
+}
+// ADD-BY-LEETEN 10/29/2012-END
 //----------------------------------------------------------------------------

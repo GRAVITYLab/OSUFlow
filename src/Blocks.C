@@ -348,12 +348,15 @@ void Blocks::DeleteBlocks(int grp, int tsize, int tb, int nblocks) {
 #else
     loaded = lat4D ? lat4D->GetLoad(i) : latAMR->GetLoad(i);
 #endif
+
+    #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
     // edited by TP 10/10/20
     int time_block;
     DIY_In_time_block(i, &time_block);
 //     if (loaded && IsBlockInTimeGroup(grp - 1, i, tsize, tb)) {
     if (loaded && time_block == grp - 1) {
       // end TP
+    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
 
 #ifdef _MPI
       ClearLoad(i);
@@ -368,8 +371,9 @@ void Blocks::DeleteBlocks(int grp, int tsize, int tb, int nblocks) {
       default:
 	break;
       }
-
+    #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
     }
+    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
 
   }
 
@@ -412,12 +416,14 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
     loaded = lat4D->GetLoad(i);
 #endif
 
+    #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
     // edited by TP 10/10/20
     int time_block;
     DIY_In_time_block(i, &time_block);
 //     if (!loaded && IsBlockInTimeGroup(grp, i, tsize, tb)) {
     if (!loaded && time_block == grp) {
       // end TP
+    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
 
       // compute block extents
 #ifdef _MPI // parallel version
@@ -512,7 +518,9 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
       s += ((to[0] - from[0]) * (to[1] - from[1]) *
 	    (to[2] - from[2]) * 3 * sizeof(float));
 
+    #ifdef _MPI			// ADD-BY-LEETEN 10/29/2012
     }
+    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
 
   }
 
@@ -554,12 +562,14 @@ int Blocks::LoadBlock4D(int grp, int blk, double *time, float *size,
     loaded = lat4D ? lat4D->GetLoad(blk) : latAMR->GetLoad(blk);
 #endif
 
+    #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
     // edited by TP 10/10/20
     int time_block;
     DIY_In_time_block(blk, &time_block);
     //   if (!loaded && IsBlockInTimeGroup(grp, blk, tsize, tb)) {
     if (!loaded && time_block == grp) {
       // end TP
+    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
 
       // compute block extents
 #ifdef _MPI // parallel version
@@ -601,8 +611,9 @@ int Blocks::LoadBlock4D(int grp, int blk, double *time, float *size,
     s = ((to[0] - from[0]) * (to[1] - from[1]) *
 	 (to[2] - from[2]) * 3 * sizeof(float));
 
+  #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
   }
-
+  #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
   return s;
 
 }
@@ -651,6 +662,7 @@ int Blocks::LoadBlocksAMR(int grp, double *time, DataMode dm) {
 
   for (i = 0; i < latAMR->nb; i++ ) {
 
+    #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
     // edited by TP 10/10/20
     // DIY does not support AMR right now, so this won't work
     int time_block;
@@ -658,6 +670,7 @@ int Blocks::LoadBlocksAMR(int grp, double *time, DataMode dm) {
 //     if (!latAMR->GetLoad(i) && IsBlockInTimeGroup(grp, i, tsize, ntpart)) {
     if (!latAMR->GetLoad(i) && time_block == grp) {
       // end TP
+    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
 
 
       // create time varying flow field for this block
@@ -678,7 +691,9 @@ int Blocks::LoadBlocksAMR(int grp, double *time, DataMode dm) {
 	    (to[2] - from[2]) * 3 * sizeof(float));
       latAMR->SetLoad(i);
 
+    #ifdef _MPI			// ADD-BY-LEETEN 10/29/2012
     }
+    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
 
   }
 
