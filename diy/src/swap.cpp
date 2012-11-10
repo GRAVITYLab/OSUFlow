@@ -145,7 +145,7 @@ void Swap::SwapBlocks(char **its, int **hdrs, int nr, int *kv, int num_elems,
     // all my blocks
     for (int b = 0; b < nb; b++) {
 
-      int gid = assign->Lid2Gid(b);
+      int gid = DIY_Gid(b);
       GetPartners(kv, r, gid, partners, grp, pos);
 
       // init start and size of this block's active part
@@ -266,7 +266,7 @@ void Swap::ReduceBlocks(char** its, int cur_r, int *kv,
     // get partners in the group of my current block
     int unused;
     int pos; // position of my block in the group
-    int gid = assign->Lid2Gid(b);
+    int gid = DIY_Gid(b);
     GetPartners(kv, cur_r, gid, partners, unused, pos);
 
     // collect items to be reduced

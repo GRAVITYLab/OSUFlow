@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <mpi.h>
 #include <math.h>
+#include <assert.h>
 #include "diy.h"
 
 using namespace std;
@@ -55,7 +56,7 @@ class Assignment {
   ~Assignment() {}
 
   // local block id to global block id
-  virtual int Lid2Gid(int lid) = 0;
+  virtual int AssignGid(int lid) = 0;
   virtual int Gid2Lid(int gid) = 0;
   virtual int Gid2Proc(int gid)  = 0;
 
@@ -86,8 +87,8 @@ class RoundRobinAssignment : public Assignment {
 
   RoundRobinAssignment(int tot_b, int &nb, int &max_b, MPI_Comm comm);
 
-  // local block id to global block id
-  int Lid2Gid(int lid)  {
+  // assigns global block id
+  int AssignGid(int lid)  {
     return(rank + lid * groupsize);
   }
 
@@ -107,14 +108,52 @@ class ProcOrderAssignment : public Assignment {
 
  public:
 
-  ProcOrderAssignment(int nb, MPI_Comm comm);
-  int Lid2Gid(int lid);
-  int Gid2Lid(int gid);
-  int Gid2Proc(int gid);
+  ProcOrderAssignment(int tot_b, int &nb, int &max_b, MPI_Comm comm);
 
-private:
+  // assigns global block id
+  int AssignGid(int lid) {
+    return(tot_b / groupsize * rank + lid);
+  }
 
-  vector<int> base_gids; // starting gid for each process' local blocks
+  // global block id to local block id
+  int Gid2Lid(int gid) {
+    return(gid - tot_b / groupsize * rank);
+  }
+
+  // global block id to process rank
+  int Gid2Proc(int gid) {
+    int proc = gid / (tot_b / groupsize);
+    return(proc < groupsize ? proc : groupsize - 1);
+  }
+
+};
+
+class ExistingAssignment : public Assignment {
+
+ public:
+
+  ExistingAssignment(int nb, int &max_b, int &tot_b, MPI_Comm comm);
+
+  // local block id to global block id
+  int AssignGid(int lid)  {
+    fprintf(stderr, "ExistingAssingment::Lid2Gid() should not be called. Use DIY_Gid() or Blocking::Lid2Gid() instead.\n");
+    assert(0);
+    return(-1);
+  }
+
+  // global block id to local block id
+  int Gid2Lid(int gid)  {
+    fprintf(stderr, "ExistingAssignment::Gid2lid() is not implemented yet\n");
+    assert(0);
+    return(-1);
+  }
+
+  // global block id to process rank
+  int Gid2Proc(int gid) {
+    fprintf(stderr, "ExistingAssignment::Gid2Proc() is not implemented yet\n");
+    assert(0);
+    return(-1);
+  }
 
 };
 

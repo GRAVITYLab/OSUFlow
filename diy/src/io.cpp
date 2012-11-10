@@ -727,6 +727,8 @@ int IO::ReadHeader(MPI_File fd, int null, int *hdr,
   int errcode;
   char b; // unused
 
+  int count = 0;
+
   if (null) { // empty write
     errcode = MPI_File_read_at_all(fd, ofst, &b, 0, MPI_BYTE, &status);
     if (errcode != MPI_SUCCESS)
@@ -736,13 +738,14 @@ int IO::ReadHeader(MPI_File fd, int null, int *hdr,
   else {
     errcode = MPI_File_read_at_all(fd, ofst, (void *)hdr, DIY_MAX_HDR_ELEMENTS, 
 				    MPI_INT, &status);
+    MPI_Get_count(&status,MPI_INT,&count);
     if (errcode != MPI_SUCCESS)
       handle_error(errcode, (char *)"MPI_File_read_at_all header");
-    assert(status.count == DIY_MAX_HDR_ELEMENTS * sizeof(int));
-    ofst += status.count;
+    assert(count == DIY_MAX_HDR_ELEMENTS * sizeof(int));
+    ofst += count;
   }
 
-  return status.count;
+  return(count);
 
 }
 //----------------------------------------------------------------------------

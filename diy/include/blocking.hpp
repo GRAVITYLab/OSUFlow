@@ -31,7 +31,7 @@ class Blocking {
   Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
 	   int *ghost, int64_t *given, Assignment *assignment, 
 	   MPI_Comm comm);
-  Blocking(int dim, int *gids, bb_t *bounds,
+  Blocking(int dim, int tot_b, int *gids, bb_t *bounds,
 	   Assignment *assignment, MPI_Comm comm);
   ~Blocking();
 
@@ -55,7 +55,7 @@ class Blocking {
   bool InTimeBlock(int g, int lid, int tsize, int tb);
   void NumLatBlocks(int64_t *lat_nblocks);
   int Lid2Gid(int lid);
-  int Gid2Lid(int gid);
+  int Gid2Lid(int gid); // only for gids on this process
 
 private:
 

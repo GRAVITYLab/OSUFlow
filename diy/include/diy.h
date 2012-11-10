@@ -125,12 +125,6 @@ struct map_block_t {
   Initializes DIY
 
   dim: number of dimensions (2, 3, or 4) (input)
-  block_order: ROUND_ROBIN_ORDER or CONTIGUOUS_ORDER numbering of
-  global block ids to processes (input)
-  glo_num__blocks: total number of blocks in the global domain (input)
-    pass 0 or anything for CONTIGUOUS_ORDER (unused)
-  loc_num_blocks: local number of blocks on this process
-  (output for ROUND_ROBIN_ORDER, input for CONTIGUOUS_ORDER)
   data_size: data size in each dimension (only for structured data), pass NULL
     for other cases
   num_threads: number of threads DIY is allowed to use (>= 1)
@@ -143,8 +137,7 @@ struct map_block_t {
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Init(int dim, int block_order, int glo_num_blocks, 
-	     int *loc_num_blocks, int *data_size, int num_threads,
+int DIY_Init(int dim, int *data_size, int num_threads,
 	     MPI_Comm comm);
 
 /* ----------------------------------------------------------------------- */
@@ -152,6 +145,11 @@ int DIY_Init(int dim, int block_order, int glo_num_blocks,
 /*
   Decomposes the domain
 
+  block_order: ROUND_ROBIN_ORDER or CONTIGUOUS_ORDER numbering of
+  global block ids to processes (input)
+  glo_num__blocks: total number of blocks in the global domain (input)
+    pass 0 or anything for CONTIGUOUS_ORDER (unused)
+  loc_num_blocks: local number of blocks on this process (output)
   share_face: whether neighboring blocks share a common face or are
   separated by a gap of one unit
   ghost: ghost layer for each dimension and side (min, max)
@@ -168,13 +166,15 @@ int DIY_Init(int dim, int block_order, int glo_num_blocks,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Decompose(int share_face, int *ghost, int *given);
+int DIY_Decompose(int block_order, int glo_num_blocks, int *loc_num_blocks, 
+		  int share_face, int *ghost, int *given);
 
 /* ----------------------------------------------------------------------- */
 
 /*
   Describes the already decomposed domain
 
+  loc_num_blocks: local number of blocks on this process
   gids: global ids of my local blocks
   bounds: block bounds (extents) of my local blocks
   rem_ids: remote ids used for neighbor discovery (pass NULL if 
@@ -201,7 +201,8 @@ int DIY_Decompose(int share_face, int *ghost, int *given);
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Decomposed(int *gids, struct bb_t *bounds, struct ri_t **rem_ids,
+int DIY_Decomposed(int loc_num_blocks, int *gids, struct bb_t *bounds, 
+		   struct ri_t **rem_ids,
 		   int *num_rem_ids, int **vids, int *num_vids,
 		   struct gb_t **neighbors, int *num_neighbors, int wrap);
 

@@ -1435,7 +1435,7 @@ MPI_Datatype* Neighborhoods::SendMsgDtype(int *cts, char **pts,
 //-----------------------------------------------------------------------
 //
 // exchanges all block bounds among all neighbors
-// neighbor bournds always exclude ghost
+// neighbor bounds always exclude ghost
 //
 void Neighborhoods::GetNeighborBounds() {
 

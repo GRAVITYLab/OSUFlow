@@ -113,7 +113,7 @@ int Merge::MergeBlocks(char **its, int **hdrs,
 
       if (!done[b]) { // blocks that survived to this round
 
-	gid = assign->Lid2Gid(b);
+	gid = DIY_Gid(b);
 	bool root = GetPartners(kv, r, gid, partners);
 
 	if (!root) { // nonroots post sends of headers and items
@@ -256,7 +256,7 @@ int Merge::AsyncMergeBlocks(char **its, int **hdrs, float wf,
 
       if (!done[b]) { // blocks that survived to this round
 
-	gid = assign->Lid2Gid(b);
+	gid = DIY_Gid(b);
 	bool root = GetPartners(kv, r, gid, partners);
 
 	if (!root) { // nonroots post sends of headers and items

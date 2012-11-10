@@ -63,7 +63,7 @@ Blocking::Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
 
 #pragma omp parallel for
   for (int i = 0; i < nb; i++) {
-    blocks[i].gid = assign->Lid2Gid(i);
+    blocks[i].gid = assign->AssignGid(i);
     blocks[i].proc = -1; // no need to store my own process id
   }
 
@@ -73,19 +73,20 @@ Blocking::Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
 // constructor for adopting an existing blocking
 //
 // dim: number of dimensions
+// tot_b: total number of blocks
 // gids: global ids of my local blocks
 // bounds: block bounds (extents) of local blocks
 // assignment: pointer to asignment class
 // comm: MPI communicator
 //
-Blocking::Blocking(int dim, int *gids, bb_t *bounds,
+Blocking::Blocking(int dim, int tot_b, int *gids, bb_t *bounds,
 		   Assignment *assignment, MPI_Comm comm) {
 
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &groupsize);
 
   this->dim = dim;
-  tot_b = -1; // unknown
+  this->tot_b = tot_b;
   this->comm = comm;
   assign = assignment;
   nb = assign->NumBlks();
@@ -548,7 +549,7 @@ void Blocking::GetNeighbors(int lid, vector<struct gb_t>& neighbors) {
 
   switch(dim) {
   case 2:
-    Gid2Indices(assign->Lid2Gid(lid), mi, mj);
+    Gid2Indices(Lid2Gid(lid), mi, mj);
     for (i = -1; i <= 1; i++) {
       for (j = -1; j <= 1; j++) {
 	gid = Indices2Gid(mi + i, mj + j);
@@ -561,7 +562,7 @@ void Blocking::GetNeighbors(int lid, vector<struct gb_t>& neighbors) {
     }
     break;
   case 3:
-    Gid2Indices(assign->Lid2Gid(lid), mi, mj, mk);
+    Gid2Indices(Lid2Gid(lid), mi, mj, mk);
     for (i = -1; i <= 1; i++) {
       for (j = -1; j <= 1; j++) {
 	for (k = -1; k <= 1; k++) {
@@ -576,7 +577,7 @@ void Blocking::GetNeighbors(int lid, vector<struct gb_t>& neighbors) {
     }
     break;
   case 4:
-    Gid2Indices(assign->Lid2Gid(lid), mi, mj, mk, ml);
+    Gid2Indices(Lid2Gid(lid), mi, mj, mk, ml);
     for (i = -1; i <= 1; i++) {
       for (j = -1; j <= 1; j++) {
 	for (k = -1; k <= 1; k++) {
@@ -712,6 +713,7 @@ int Blocking::Lid2Gid(int lid) {
 //----------------------------------------------------------------------------
 //
 // global block id to local block id
+// only for global blocks on this process, see assign class for all gids
 //
 // returns -1 if gid not found
 //

@@ -492,9 +492,8 @@ void Init() {
   int ghost[8] = {1, 1, 1, 1, 1, 1, 0, 0}; // -x, +x, -y, +y, -z, +z, -t, +t
   if (tsize > 1) 
     ghost[7] = 1;
-  DIY_Init(4, ROUND_ROBIN_ORDER, nspart * ntpart, &nblocks, data_size, 1,
-	   MPI_COMM_WORLD);
-  DIY_Decompose(1, ghost, given);
+  DIY_Init(4, data_size, 1, MPI_COMM_WORLD);
+  DIY_Decompose(ROUND_ROBIN_ORDER, nspart * ntpart, &nblocks, 1, ghost, given);
 
   // create osuflow object for each block
   // todo: switch to vectors and get rid of memory management

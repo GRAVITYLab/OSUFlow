@@ -50,10 +50,43 @@ RoundRobinAssignment::RoundRobinAssignment(int tot_b, int &nb, int &max_b,
 //
 // constructor
 //
-// nb: number of blocks in my process (input)
+// tot_b: total number of blocks
+// nb: number of blocks in my process (output)
+// max_b: maximum number of blocks in any process (output)
 // comm: MPI communicator
 //
-ProcOrderAssignment::ProcOrderAssignment(int nb, MPI_Comm comm) {
+ProcOrderAssignment::ProcOrderAssignment(int tot_b, int &nb, int &max_b,
+					 MPI_Comm comm) {
+
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &groupsize);
+
+  this->tot_b = tot_b;
+  this->comm = comm;
+
+  if (rank < groupsize - 1)
+    nb = tot_b / groupsize;
+  else // last rank gets the remaining blocks
+    nb = tot_b - rank * tot_b / groupsize;
+  this->nb = nb;
+  max_b = (int)(ceil(tot_b / (float)groupsize));
+
+}
+//----------------------------------------------------------------------------
+//
+// ExistingAssignment derived class
+//
+//----------------------------------------------------------------------------
+//
+// constructor
+//
+// nb: number of blocks in my process
+// max_b: maximum number of blocks in any process (output)
+// tot_b: total number of blocks (output)
+// comm: MPI communicator
+//
+ExistingAssignment::ExistingAssignment(int nb, int &max_b, int &tot_b,
+				       MPI_Comm comm) {
 
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &groupsize);
@@ -61,56 +94,10 @@ ProcOrderAssignment::ProcOrderAssignment(int nb, MPI_Comm comm) {
   this->nb = nb;
   this->comm = comm;
 
-  int *block_counts = new int[groupsize]; // number of blocks in each process
-  MPI_Alltoall(&nb, 1, MPI_INT, block_counts, 1, MPI_INT, comm);
-
-  // base gids is the prefix sum of block counts
-  base_gids.resize(groupsize);
-  base_gids[0] = 0;
-  for (int i = 1; i < groupsize; i++)
-    base_gids[i] = base_gids[i - 1] + block_counts[i - 1];
-
-  delete[] block_counts;
-
-}
-//----------------------------------------------------------------------------
-//
-// local block id to global block id
-//
-int ProcOrderAssignment::Lid2Gid(int lid) {
-
-    return(base_gids[rank] + lid);
-
-}
-//----------------------------------------------------------------------------
-//
-// global block id to local block id
-//
-// returns -1 if gid not found
-//
-int ProcOrderAssignment::Gid2Lid(int gid) {
-
-  vector<int>::iterator i = 
-    upper_bound(base_gids.begin(), base_gids.end(), gid);
-
-  if (i == base_gids.begin())
-    return -1;
-
-  return(gid - base_gids[i - base_gids.begin() - 1]);
-
-}
-//----------------------------------------------------------------------------
-//
-// global block id to process id
-//
-// returns -1 if gid not found
-//
-int ProcOrderAssignment::Gid2Proc(int gid) {
-
-  vector<int>::iterator i = 
-    upper_bound(base_gids.begin(), base_gids.end(), gid);
-
-  return(i - base_gids.begin() - 1);
+  // communicate to find max_b and tot_b
+  // would be faster with one allreduce and a custom reduction op
+  MPI_Allreduce(&nb, &max_b, 1, MPI_INT, MPI_MAX, comm);
+  MPI_Allreduce(&nb, &tot_b, 1, MPI_INT, MPI_SUM, comm);
 
 }
 //----------------------------------------------------------------------------
