@@ -48,6 +48,9 @@ extern DIY_Datatype DIY_LONG_DOUBLE; /* 16 bytes */
 #define DIY_MAX_R 64 /* maximum number of rounds */
 #define DIY_MAX_VIDS 8 /* maximum number of local vertex ids per block */
 
+/* RMA window size (in items, where 1 item = 3 ints = 12 bytes) */
+#define DIY_RMA_MAX_ITEMS 256
+
 /* block order */
 #define ROUND_ROBIN_ORDER 0
 #define CONTIGUOUS_ORDER 1
@@ -316,6 +319,86 @@ int DIY_Read_data_all();
 /* ----------------------------------------------------------------------- */
 
 /*
+  sends an item to a block (asynchronous)
+
+  lid: local block id
+  item: item(s) to be sent
+  count: number of items
+  datatype: item datatype
+  dest_gid: destination global block id
+
+  returns: error code
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Send(int lid, void *item, int count, DIY_Datatype datatype, 
+	     int dest_gid);
+
+/* ----------------------------------------------------------------------- */
+
+/*
+  receives an item from a block (asynchronous)
+
+  lid: local block id
+  items: items to be received (output, array of pointers allocated by caller)
+  count: number of items received (output)
+  wait: whether or not to wait for one or more items to arrive (0 or 1)
+  datatype: item datatype
+  src_gids: source global block ids (output, array allocated by caller)
+  only valid if MPI-3 is used, otherwise filled with -1 values
+
+  returns: error code
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Recv(int lid, void **items, int *count, int wait,
+	     DIY_Datatype datatype, int *src_gids);
+
+/* ----------------------------------------------------------------------- */
+
+/*
+  flushes asynchronous sending and receiving
+  (collective, must be called by all processes)
+
+  barrier: whether to issue a barrier (0 or 1)
+  recommended if more sends and receives to follow
+
+  returns: error code
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Flush_send_recv(int barrier);
+
+/* ----------------------------------------------------------------------- */
+/* DEPRECATED */
+/* /\* */
+/*   flushes asynchronous sending and receiving */
+/*   (collective, must be called by all processes) */
+
+/*   items: items to be received (output, array of pointers allocated by caller) */
+/*   count: number of items received (output) */
+/*   datatype: item datatype */
+/*   src_gids: source global block ids (output, array allocated by caller) */
+/*   dest_gids: my destination global block ids (output, array allocated by caller) */
+
+/*   returns: error code */
+/* *\/ */
+
+/* #ifdef __cplusplus */
+/* extern "C" */
+/* #endif */
+/* int DIY_Flush_send_recv(void **items, int *count, DIY_Datatype datatype,  */
+/* 			int *src_gids, int *dest_gids); */
+
+/* /\* ----------------------------------------------------------------------- *\/ */
+
+/*
   Configurable in-place merge reduction
 
   blocks: pointers to input/output blocks, result in in_blocks[0]
@@ -506,12 +589,8 @@ int DIY_Read_close_all();
   0.0 waits the minimum (1 message per round)
   1.0 waits the maximum (all messages per round)
   suggested value: 0.1
-  RecvItemDtype: pointer to user-supplied function
-  that takes a pointer to a counts message  and
-  creates an MPI datatype for the payloads message
-  SendItemDtype: pointer to user-supplied function
-  that takes a pointer to a counts message and a payloads message and
-  creates an MPI datatype for the payloads message
+  ItemDtype: pointer to user-supplied function that creates a DIY datatype 
+  for an item to be sent or received
 
   side effects: allocates items and array of pointers to them
 
@@ -522,8 +601,7 @@ int DIY_Read_close_all();
 extern "C"
 #endif
 int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
-			   DIY_Datatype* (*RecvItemDtype)(int *),
-			   DIY_Datatype* (*SendItemDtype)(int *, char**));
+			   void (*ItemDtype)(DIY_Datatype *));
 
 /* ----------------------------------------------------------------------- */
 
@@ -532,9 +610,8 @@ int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
 
   items: pointer to received items for each of my blocks [lid][item] (output)
   num_items: number of items for each block (allocated by user)
-  RecvItemDtype: pointer to user-supplied function
-  that takes a pointer to a counts message and
-  creates an MPI datatype for the payloads message
+  ItemDtype: pointer to user-supplied function that creates a DIY datatype 
+  for an item to be sent or received
 
   side effects: allocates items and array of pointers to them
 
@@ -545,7 +622,7 @@ int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
 extern "C"
 #endif
 int DIY_Flush_neighbors(void ***items, int *num_items,
-			DIY_Datatype* (*RecvItemDtype)(int *));
+			void (*ItemDtype)(DIY_Datatype *));
 
 /* ----------------------------------------------------------------------- */
 
@@ -656,36 +733,6 @@ int DIY_Enqueue_item_dirs(int lid, void *item, int *hdr,
 /* ----------------------------------------------------------------------- */
 
 /*
-
-DEPRECATED
-
-  Jingyuan's version
-
-  Enqueues an item for sending to one or more neighbors given mask array
-
-  lid: local id of my block
-  item: item to be enqueued
-  hdr: pointer to header (or NULL)
-  size: size of item in bytes
-  neigh_mask: destination neighbor(s)
-  TransformItem: pointer to function that transforms the item before
-  enqueueing to a wraparound neighbor, given the wrapping direction
-  (pass NULL if wrapping is unused)
-
-
-  returns: error code
-*/
-
-/* #ifdef __cplusplus */
-/* extern "C" */
-/* #endif */
-/* int DIY_Enqueue_item_mask(int lid, void *item, int *hdr, */
-/* 			  int item_size, int *neigh_mask, */
-/* 			  void (*TransformItem)(char *, unsigned char)); */
-
-/* ----------------------------------------------------------------------- */
-
-/*
   Enqueues an item for sending to all neighbors
   Not reflexive: skips sending to self block
 
@@ -707,32 +754,6 @@ extern "C"
 #endif
 int DIY_Enqueue_item_all(int lid, void *item, int *hdr, int item_size,
 			 void (*TransformItem)(char *, unsigned char));
-
-/* ----------------------------------------------------------------------- */
-/* DEPRECATED */
-/*
-  Enqueues an item for sending to all neighbors that are to one side
-  (eg., left, bottom, rear) of my block
-  Not reflexive: skips sending to self block
-
-  lid: local id of my block
-  item: item to be enqueued
-  hdr: pointer to header (or NULL)
-  size: size of item in bytes
-  dest_pt: point in the destination block, by which the destination can
-  be identified
-  TransformItem: pointer to function that transforms the item before
-  enqueueing to a wraparound neighbor, given the wrapping direction
-  (pass NULL if wrapping is unused)
-
-  returns: error code
-*/
-
-/* #ifdef __cplusplus */
-/* extern "C" */
-/* #endif */
-/* int DIY_Enqueue_item_half(int lid, void *item, int *hdr, int item_size, */
-/* 			  void (*TransformItem)(char *, unsigned char)); */
 
 /* ----------------------------------------------------------------------- */
 
@@ -762,37 +783,6 @@ extern "C"
 int DIY_Enqueue_item_all_near(int lid, void *item, int *hdr, int item_size,
 			      float *near_pt, float near_dist,
 			      void (*TransformItem)(char *, unsigned char));
-
-
-/* ----------------------------------------------------------------------- */
-/* DEPRECATED */
-/*
-  Enqueues an item for sending to all neighbors near enough to receive it
-  who are to one side (eg., left, bottom, rear) of my block
-  Not reflexive: skips sending to self block
-
-  lid: local id of my block
-  item: item to be enqueued
-  hdr: pointer to header (or NULL)
-  size: size of item in bytes
-  near_pt: point near the destination block
-  near_dist: blocks less than or equal to near_dist of the near_pt will be 
-  destinations for the enqueued item . If an item is sent to more than one 
-  neighbor that share faces, it is also sent to the diagonal neighbor 
-  sharing a line or point
-  TransformItem: pointer to function that transforms the item before
-  enqueueing to a wraparound neighbor, given the wrapping direction
-  (pass NULL if wrapping is unused)
-
-  returns: error code
-*/
-
-/* #ifdef __cplusplus */
-/* extern "C" */
-/* #endif */
-/* int DIY_Enqueue_item_half_near(int lid, void *item, int *hdr, int item_size, */
-/* 			       float *near_pt, float near_dist, */
-/* 			       void (*TransformItem)(char *, unsigned char)); */
 
 
 /* ----------------------------------------------------------------------- */

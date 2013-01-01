@@ -21,8 +21,10 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <vector>
+#include <map>
 #include "diy.h"
 #include "mpi.h"
+#include "assignment.hpp"
 
 using namespace std;
 
@@ -44,7 +46,7 @@ class Comm {
  public:
 
   Comm(MPI_Comm comm);
-  ~Comm(){};
+  ~Comm();
   void SendItem(char *item, int *hdr, int dest_rank, int gid,
 		MPI_Datatype *dtype);
   void StartRecvItem(int src_rank, bool use_header);
@@ -62,6 +64,24 @@ class Comm {
 		    char * (*CreateItem)(int *, int),
 		    void* (*RecvItemDtype)(void*, MPI_Datatype*, 
 					   int));
+  void Send(void *item, int count, DIY_Datatype datatype, 
+	    int dest_gid, Assignment *assign);
+  int Recv(int my_gid, void** &items, DIY_Datatype datatype, int wait);
+  void FlushSendRecv(int barrier);
+
+#ifdef _MPI3
+
+  void RmaSend(void *item, int count, DIY_Datatype datatype, 
+	       int my_gid, int dest_gid, Assignment *assign);
+  int RmaRecv(int my_gid, void** &items, DIY_Datatype datatype, 
+	      int *src_gids, int wait, Assignment *assign);
+  void RmaFlushSendRecv(int barrier);
+
+#endif
+
+  // DEPRECATED
+//   int RmaFlushSendRecv(void** &items, DIY_Datatype datatype, 
+// 		       int *src_gids, int *dest_gids, Assignment *assign);
 
  private:
 
@@ -85,6 +105,9 @@ class Comm {
   vector<rcv_hdr> rcv_hdrs; // posted receive-header messages
   MPI_Datatype *send_dtypes; // datatypes for sending items
   int num_sends; // number of sends in the current round
+  int *rma_buf; // RMA buffer
+  MPI_Win rma_win; // RMA window
+  vector<MPI_Request> rma_reqs; // RMA nonblocking send requests
 
 };
 

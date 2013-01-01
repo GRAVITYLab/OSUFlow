@@ -27,6 +27,25 @@ Comm::Comm(MPI_Comm comm) {
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &groupsize);
 
+  // init RMA
+  MPI_Alloc_mem((DIY_RMA_MAX_ITEMS * 3 + 1) * sizeof(int), MPI_INFO_NULL, 
+		&rma_buf);
+  for (int i = 0; i < 3 * DIY_RMA_MAX_ITEMS; i++)
+    rma_buf[i] = -1; // init items
+  rma_buf[DIY_RMA_MAX_ITEMS * 3] = 0; // init number of items
+  MPI_Win_create(rma_buf, (DIY_RMA_MAX_ITEMS * 3 + 1) * sizeof(int), 
+		 sizeof(int), MPI_INFO_NULL, comm, &rma_win);
+
+}
+//----------------------------------------------------------------------------
+//
+// destructor
+//
+Comm::~Comm() {
+
+  MPI_Win_free(&rma_win);
+  MPI_Free_mem(&rma_buf);
+
 }
 //----------------------------------------------------------------------------
 //
@@ -449,4 +468,321 @@ int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
   return reqs1.size();
 
 }
+//----------------------------------------------------------------------------
+//
+// sends items (all items in an epoch need to be same datatype)
+//
+// item: item(s) to be sent
+// count: number of items
+// datatype: item datatype
+// dest_gid: destination gid
+// assign: assignment class object
+//
+void Comm::Send(void *item, int count, DIY_Datatype datatype, 
+		int dest_gid, Assignment *assign) {
+
+  MPI_Request req;
+  int dest_proc = assign->Gid2Proc(dest_gid);
+  MPI_Isend(item, count, datatype, dest_proc, dest_gid, comm, &req);
+  rma_reqs.push_back(req);
+
+}
+//----------------------------------------------------------------------------
+//
+// receives items (all of the same datatype)
+//
+// my_gid: my gid
+// item: item(s) to be received
+// datatype: item datatype
+// src_gids: (output) gids of source blocks
+// wait: whether to wait for one or more items to arrive (0 or 1)
+//
+// returns: number of items received
+//
+int Comm::Recv(int my_gid, void** &items, DIY_Datatype datatype, int wait) {
+
+  MPI_Status status;
+  int flag;
+  int num_items = 0; // number of items pending for my gid
+  int more_items = 0; // maybe more items
+
+  // read the RMA buffer, polling as needed according to wait parameter
+  while (!num_items || more_items) {
+
+    MPI_Iprobe(MPI_ANY_SOURCE, my_gid, comm, &flag, &status);
+    if (flag) {
+      int size;
+      MPI_Get_count(&status, MPI_BYTE, &size);
+      items[num_items] = new unsigned char[size];
+      int src_proc = status.MPI_SOURCE;
+      MPI_Recv(items[num_items], size, MPI_BYTE, src_proc, my_gid, comm, 
+	       &status);
+      num_items++;
+      more_items = 1;
+    }
+    else
+      more_items = 0;
+
+    if (!wait)
+      break;
+
+  }
+
+  return num_items;
+
+}
+//----------------------------------------------------------------------------
+//
+// flushes RMA sends and receives
+//
+// barrier: whether to issue a barrier (0 or 1)
+//   (recommended if more sends and receives to follow)
+//
+void Comm::FlushSendRecv(int barrier) {
+
+  // flush the nonblocking payload sends
+  MPI_Status stats[rma_reqs.size()];
+  MPI_Waitall(rma_reqs.size(), &rma_reqs[0], stats);
+
+  if (barrier)
+    MPI_Barrier(comm);
+
+}
+//----------------------------------------------------------------------------
+
+#ifdef _MPI3
+
+//----------------------------------------------------------------------------
+//
+// sends RMA items (all items in an epoch need to be same datatype)
+//
+// item: item(s) to be sent
+// count: number of items
+// datatype: item datatype
+// my_gid: my gid
+// dest_gid: destination gid
+// assign: assignment class object
+//
+void Comm::RmaSend(void *item, int count, DIY_Datatype datatype, 
+		   int my_gid, int dest_gid, Assignment *assign) {
+
+  MPI_Request req;
+
+  // todo: does not check for overflow of receiving RMA window
+
+  int msg[3]; // msg[0] = src gid, msg[1] = dest gid, msg[2] = item count
+  msg[0] = my_gid;
+  msg[1] = dest_gid;
+  msg[2] = count;
+  int dest_proc = assign->Gid2Proc(dest_gid);
+
+  // grab the lock
+  MPI_Win_lock(MPI_LOCK_SHARED, dest_proc, 0, rma_win);
+
+  // get and update the count from the RMA buffer
+  int num_items; // number of items before incrementing
+  int incr = 1; // increment amount
+  MPI_Fetch_and_op(&incr, &num_items, MPI_INT, dest_proc, DIY_RMA_MAX_ITEMS * 3,
+		   MPI_SUM, rma_win);
+  MPI_Win_flush(dest_proc, rma_win);
+
+  // debug
+//   fprintf(stderr, "my_gid = %d dest_gid = %d dest_proc = %d num_items = %d\n", 
+// 	  my_gid, dest_gid, dest_proc, num_items);
+
+  // put the item
+//   MPI_Put(msg, 3, MPI_INT, dest_proc, num_items * 3, 3, MPI_INT, rma_win);
+  MPI_Accumulate(msg, 3, MPI_INT, dest_proc, num_items * 3, 3, MPI_INT,
+		 MPI_REPLACE, rma_win);
+  MPI_Win_flush(dest_proc, rma_win);
+  MPI_Win_unlock(dest_proc, rma_win);
+
+  // send the payload
+  MPI_Isend(item, count, datatype, dest_proc, dest_gid, comm, &req);
+  rma_reqs.push_back(req);
+
+}
+//----------------------------------------------------------------------------
+//
+// receives pending RMA items (all of the same datatype)
+//
+// my_gid: my gid
+// item: item(s) to be received
+// datatype: item datatype
+// src_gids: (output) gids of source blocks
+// wait: whether to wait for one or more items to arrive (0 or 1)
+// assign: assignment class object
+//
+// returns: number of items received
+//
+int Comm::RmaRecv(int my_gid, void** &items, DIY_Datatype datatype, 
+		  int *src_gids, int wait, Assignment *assign) {
+
+  int loc_rma_buf[3 * DIY_RMA_MAX_ITEMS]; // local version of rma buffer
+  MPI_Status status;
+  int num_items = 0; // number of items pending for my gid
+
+  // read the RMA buffer, polling as needed according to wait parameter
+  while (!num_items) {
+
+    MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, rma_win);
+    for (int i = 0; i < DIY_RMA_MAX_ITEMS; i++) {
+      int msg[3], unused[3];
+      MPI_Get_accumulate(unused, 3, MPI_INT, msg, 3, MPI_INT, rank, 3 * i, 3,
+			 MPI_INT, MPI_NO_OP, rma_win);
+      MPI_Win_flush(rank, rma_win);
+      if (msg[0] >= 0 && msg[1] == my_gid && msg[2] >= 0) {
+	loc_rma_buf[3 * num_items]     = msg[0];
+	loc_rma_buf[3 * num_items + 1] = msg[1];
+	loc_rma_buf[3 * num_items + 2] = msg[2];
+	msg[0] = -1; // clear the item
+	msg[1] = -1;
+	msg[2] = -1;
+	MPI_Accumulate(msg, 3, MPI_INT, rank, 3 * i, 3, MPI_INT,
+		       MPI_REPLACE, rma_win);
+	MPI_Win_flush(rank, rma_win);
+	num_items++;
+      }
+    }
+    MPI_Win_unlock(rank, rma_win);
+
+    if (!wait)
+      break;
+
+    if (!num_items) { // kick the MPI progress engine
+      int flag;
+      MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD,
+		 &flag, MPI_STATUS_IGNORE);
+    }
+
+  }
+
+  // process arrived items
+  for (int i = 0; i < num_items; i++) {
+
+    int *msg = &loc_rma_buf[3 * i]; // pointer into local rma buffer
+    MPI_Aint lb, extent;
+    MPI_Type_get_extent(datatype, &lb, &extent);
+    items[i] = new unsigned char[msg[2] * extent];
+    src_gids[i] = msg[0];
+    int src_proc = assign->Gid2Proc(src_gids[i]);
+    MPI_Recv(items[i], msg[2], datatype, src_proc, my_gid, comm, &status);
+
+  }
+
+  return num_items;
+
+}
+//----------------------------------------------------------------------------
+//
+// flushes RMA sends and receives
+//
+// barrier: whether to issue a barrier (0 or 1)
+//   (recommended if more sends and receives to follow)
+//
+void Comm::RmaFlushSendRecv(int barrier) {
+
+  // flush the nonblocking payload sends
+  MPI_Status stats[rma_reqs.size()];
+  MPI_Waitall(rma_reqs.size(), &rma_reqs[0], stats);
+
+  if (barrier)
+    MPI_Barrier(comm);
+
+  // clear the RMA buffer, must be locked
+  MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank, 0, rma_win);
+  for (int i = 0; i < 3 * DIY_RMA_MAX_ITEMS; i++)
+    rma_buf[i] = -1; // mark as unused
+  rma_buf[DIY_RMA_MAX_ITEMS * 3] = 0; // reset the number of items
+  MPI_Win_unlock(rank, rma_win);
+
+  if (barrier)
+    MPI_Barrier(comm);
+
+}
+//----------------------------------------------------------------------------
+
+#endif
+
+//----------------------------------------------------------------------------
+// //
+// // DEPRECATED
+// //
+// // This version should not be needed because all RMA communication has already
+// // been flushed, no new data should arrive. Keep it around for a while just
+// // in case this is not true.
+// //
+// // flushes RMA sends and receives
+// //
+// // item: item(s) to be received
+// // datatype: item datatype
+// // src_gids: (output) gids of source blocks (allocated by caller)
+// // dest_gids: (output) gids of destination blocks (allocated by caller)
+// // assign: assignment class object
+// //
+// // returns: number of items received
+// //
+// int Comm::RmaFlushSendRecv(void** &items, DIY_Datatype datatype, 
+// 			   int *src_gids, int *dest_gids, Assignment *assign) {
+
+//   int loc_rma_buf[3 * DIY_RMA_MAX_ITEMS]; // local version of rma buffer
+//   MPI_Status status;
+//   int num_items = 0; // number of items pending for my gid
+
+//   // flush the nonblocking payload sends
+//   MPI_Status stats[rma_reqs.size()];
+//   MPI_Waitall(rma_reqs.size(), &rma_reqs[0], stats);
+
+//   // wait for everyone to be done
+//   MPI_Barrier(comm);
+
+//   // read the RMA buffer
+//   MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, rma_win);
+//   for (int i = 0; i < DIY_RMA_MAX_ITEMS; i++) {
+//     int msg[3], unused[3];
+//     MPI_Get_accumulate(unused, 3, MPI_INT, msg, 3, MPI_INT, rank, 3 * i, 3,
+// 		       MPI_INT, MPI_NO_OP, rma_win);
+//     MPI_Win_flush(rank, rma_win);
+//     if (msg[0] >= 0 && msg[1] >= 0  && msg[2] >= 0) {
+//       loc_rma_buf[3 * num_items]     = msg[0];
+//       loc_rma_buf[3 * num_items + 1] = msg[1];
+//       loc_rma_buf[3 * num_items + 2] = msg[2];
+//       msg[0] = -1; // clear the item
+//       msg[1] = -1;
+//       msg[2] = -1;
+//       MPI_Accumulate(msg, 3, MPI_INT, rank, 3 * i, 3, MPI_INT,
+// 		     MPI_REPLACE, rma_win);
+//       MPI_Win_flush(rank, rma_win);
+//       num_items++;
+//     }
+//   }
+//   MPI_Win_unlock(rank, rma_win);
+
+//   // process arrived items
+//   for (int i = 0; i < num_items; i++) {
+
+//     int *msg = &loc_rma_buf[3 * i]; // pointer into local rma buffer
+//     MPI_Aint lb, extent;
+//     MPI_Type_get_extent(datatype, &lb, &extent);
+//     items[i] = new unsigned char[msg[2] * extent];
+//     src_gids[i] = msg[0];
+//     dest_gids[i] = msg[1];
+//     int src_proc = assign->Gid2Proc(src_gids[i]);
+//     MPI_Recv(items[i], msg[2], datatype, src_proc, dest_gids[i], comm, &status);
+
+//   }
+
+//   // clear the RMA buffer, must be locked
+//   MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank, 0, rma_win);
+//   for (int i = 0; i < 3 * DIY_RMA_MAX_ITEMS; i++)
+//     rma_buf[i] = -1; // mark as unused
+//   rma_buf[DIY_RMA_MAX_ITEMS * 3] = 0; // reset the number of items
+//   MPI_Win_unlock(rank, rma_win);
+
+//   // everyone's rma buffers are reset and ready for more
+//   MPI_Barrier(comm);
+
+//   return num_items;
+
+// }
 //----------------------------------------------------------------------------

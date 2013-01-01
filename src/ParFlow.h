@@ -196,9 +196,7 @@ class ParFlow {
 
 #ifdef _MPI
 // the following are outside of the clasee so they can be used as callbacks
-MPI_Datatype* RecvItemDtype(int *cts);
-MPI_Datatype* SendItemDtype(int *cts, char** pts);
-MPI_Datatype* CreateDtype();
+void CreateDtype(DIY_Datatype *dtype);
 #endif
 
 #endif

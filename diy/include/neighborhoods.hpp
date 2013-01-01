@@ -111,17 +111,11 @@ class Neighborhoods {
 		      void (*TransformItem)
 		      (char *, unsigned char),
 		      unsigned char neigh_dir);
-  // DEPRECATED
-  //   void EnqueueItemMask(int lid, char *item, size_t size, 
-  // 		       int *hdr, void (*TransformItem)
-  // 		       (char *, unsigned char),
-  // 		       int *mask);
   int ExchangeNeighbors(vector<vector<char *> > &items, float wf,
-			MPI_Datatype* (*RecvItemDtype)(int *),
-			MPI_Datatype* (*SendItemDtype)(int *, char**),
+			void (*ItemDtype)(MPI_Datatype *),
 			bool discovery = false);
   int FlushNeighbors(vector<vector<char *> > &items,
-		     MPI_Datatype* (*RecvItemDtype)(int *),
+		     void (*ItemDtype)(MPI_Datatype *),
 		     bool discovery = false);
   int Pt2NeighGid(int lid, float *pt);
   void BoundsIntersectNeighbors(int lid, bb_t cell_bounds, float t, 
@@ -129,8 +123,8 @@ class Neighborhoods {
 
  private: 
 
-  void PostMessages(MPI_Datatype* (*SendItemDtype)(int *, char**));
-  void TestMessages(float wf, MPI_Datatype* (*RecvItemDtype)(int *));
+  void PostMessages(void (*ItemDtype)(MPI_Datatype*));
+  void TestMessages(float wf, void (*ItemDtype)(MPI_Datatype *));
   void PackMessages();
   int ListToVector(vector<vector<char *> >& items, bool discovery);
   MPI_Datatype* RecvMsgDtype(int *cts, char* &pts, MPI_Datatype *itype);
@@ -163,8 +157,7 @@ class Neighborhoods {
 
 }; 
 
-// callback functions not part of the class
-MPI_Datatype* Nbhds_RecvItemType(int *cts);
-MPI_Datatype* Nbhds_SendItemType(int *cts, char** pds);
+// callback function not part of the class
+void Nbhds_ItemType(MPI_Datatype *type);
 
 #endif 

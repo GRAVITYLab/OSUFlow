@@ -354,6 +354,107 @@ int DIY_Read_data_all() {
 }
 //--------------------------------------------------------------------------
 //
+// sends an item to a block (asynchronous)
+//
+// lid: local block id
+// item: item(s) to be sent
+// count: number of items
+// datatype: item datatype
+// dest_gid: destination global block id
+//
+// returns: error code
+//
+int DIY_Send(int lid, void *item, int count, DIY_Datatype datatype, 
+	     int dest_gid) {
+
+  int my_gid = DIY_Gid(lid);
+
+#ifdef _MPI3
+  cc->RmaSend(item, count, datatype, my_gid, dest_gid, assign);
+#else
+  cc->Send(item, count, datatype, dest_gid, assign);
+#endif    
+
+  return 0;
+
+}
+//--------------------------------------------------------------------------
+//
+// receives an item from a block (asynchronous)
+//
+// lid: local block id
+// items: items to be received (output, array af pointers allocated by caller)
+// count: number of items received (output)
+// wait: whether to wait for one or more items to arrive (0 or 1)
+// datatype: item datatype
+// src_gids: source global block ids (output, array allocated by caller)
+//  only valid if MPI-3 is used, otherwise filled with -1 values
+//
+// returns: error code
+//
+int DIY_Recv(int lid, void **items, int *count, int wait,
+	     DIY_Datatype datatype, int *src_gids) {
+
+  int my_gid = DIY_Gid(lid);
+
+#ifdef _MPI3
+  *count = cc->RmaRecv(my_gid, items, datatype, src_gids, wait, assign);
+#else
+  *count = cc->Recv(my_gid, items, datatype, wait);
+  for (int i = 0; i < *count; i++)
+    src_gids[i] = -1; // only valid for RMA version
+#endif
+
+  return 0;
+
+}
+//--------------------------------------------------------------------------
+//
+// flushes asynchronous sending and receiving for all local blocks
+//  (collective, must be called by all processes)
+//
+// barrier: whether to issue a barrier (0 or 1)
+//  recommended if more more sends / receives to follow
+//
+// returns: error code
+//
+int DIY_Flush_send_recv(int barrier) {
+
+#ifdef _MPI3
+  cc->RmaFlushSendRecv(barrier);
+#else
+  cc->FlushSendRecv(barrier);
+#endif
+
+  return 0;
+
+}
+//--------------------------------------------------------------------------
+// //
+// // DEPRECATED
+// //
+// // flushes asynchronous sending and receiving for all local blocks
+// //  (collective, must be called by all processes)
+// //
+// // items: items to be received (output, array of pointers allocated by caller)
+// // count: number of items received (output)
+// // datatype: item datatype
+// // src_gids: source global block ids (output, array allocated by caller)
+// // dest_gids: my destination global block ids 
+// //  (output, array allocated by caller)
+// //
+// // returns: error code
+// //
+// int DIY_Flush_send_recv(void **items, int *count, DIY_Datatype datatype, 
+// 			int *src_gids, int *dest_gids) {
+
+//   *count = cc->RmaFlushSendRecv(items, datatype, src_gids, dest_gids, assign);
+
+//   return 0;
+
+// }
+// //--------------------------------------------------------------------------
+//
 // configurable in-place merge reduction
 //
 // blocks: pointers to input/output blocks, results in first num_blocks_out
@@ -569,20 +670,15 @@ int DIY_Read_close_all() {
 // 0.0 waits the minimum (1 message per round)
 // 1.0 waits the maximum (all messages per round)
 // suggested value: 0.1
-// RecvItemDtype: pointer to user-supplied function
-//   that takes a pointer to a counts message  and
-//   creates an MPI datatype for the payloads message
-// SendItemDtype: pointer to user-supplied function
-//   that takes a pointer to a counts message and a payloads message and
-//   creates an MPI datatype for the payloads message
+// ItemDtype: pointer to user-supplied function that creates a DIY datatype 
+//  for an item to be sent or received
 //
 // side effects: allocates items and array of pointers to them
 //
 // returns: error code
 //
 int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
-			   DIY_Datatype* (*RecvItemDtype)(int *),
-			   DIY_Datatype* (*SendItemDtype)(int *, char**)) {
+			   void (*ItemDtype)(DIY_Datatype *)) {
 
   // init / clear the items vector
   for (int i = 0; i < assign->NumBlks(); i++) {
@@ -594,7 +690,7 @@ int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
       items_v[i].clear();
   }
 
-  nbhds->ExchangeNeighbors(items_v, wf, RecvItemDtype, SendItemDtype);
+  nbhds->ExchangeNeighbors(items_v, wf, ItemDtype);
 
   for (int i = 0; i < assign->NumBlks(); i++) {
     num_items[i] = items_v[i].size();
@@ -611,16 +707,15 @@ int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
 //
 // items: pointer to received items for each of my blocks [lid][item] (output)
 // num_items: number of items for each block (allocated by user)
-// RecvItemDtype: pointer to user-supplied function
-//   that takes a pointer to a counts message and
-//   creates an MPI datatype for the payloads message
+// ItemDtype: pointer to user-supplied function that creates a DIY datatype 
+//  for an item to be sent or received
 //
 // side effects: allocates items and array of pointers to them
 //
 // returns: error code
 //
 int DIY_Flush_neighbors(void ***items, int *num_items,
-			DIY_Datatype* (*RecvItemDtype)(int *)) {
+			void (*ItemDtype)(DIY_Datatype *)) {
 
   // init / clear the items vector
   for (int i = 0; i < assign->NumBlks(); i++) {
@@ -632,7 +727,7 @@ int DIY_Flush_neighbors(void ***items, int *num_items,
       items_v[i].clear();
   }
 
-  nbhds->FlushNeighbors(items_v, RecvItemDtype);
+  nbhds->FlushNeighbors(items_v, ItemDtype);
   for (int i = 0; i < assign->NumBlks(); i++) {
     num_items[i] = items_v[i].size();
     if (items_v[i].size() > 0)

@@ -1391,8 +1391,7 @@ int ParFlow::ExchangeNeighbors(vector< vector<Particle> >& seeds, float wf) {
   int *num_items = new int[nb];
   int npr = 0;
 //   int npr = nbhds->ExchangeNeighbors(pts, wf, &RecvItemDtype, &SendItemDtype);
-  DIY_Exchange_neighbors(items, num_items, 
-			 wf, &RecvItemDtype, &SendItemDtype);
+  DIY_Exchange_neighbors(items, num_items, wf, &CreateDtype);
 
   // copy received points to seeds
   Particle seed; // one 4D seed
@@ -1428,7 +1427,7 @@ int ParFlow::FlushNeighbors(vector< vector<Particle> >& seeds) {
   int *num_items = new int[nb];
   int npr = 0;
 //   int npr = nbhds->FlushNeighbors(pts, &RecvItemDtype);
-  DIY_Flush_neighbors(items, num_items, &RecvItemDtype);
+  DIY_Flush_neighbors(items, num_items, &CreateDtype);
 
   // copy received points to seeds
   Particle seed; // one 4D seed
@@ -2008,46 +2007,9 @@ void ParFlow::PostPoint(int lid, Item *item, int recirc, int end_steps) {
 
 //-----------------------------------------------------------------------
 //
-// makes MPI datatype for receiving one item
+// creates a DIY datatype for an item
 //
-// cts: pointer to counts message
-//
-// side effects: allocates MPI datatype
-//
-// returns: pointer to MPI datatype
-//
-MPI_Datatype* RecvItemDtype(int *cts) {
-
-  return CreateDtype();
-
-}
-//-----------------------------------------------------------------------
-//
-// makes an MPI datatype for sending one item
-//
-// cts: pointer to counts message
-// pts: pointer to points message
-//
-// side effects: allocates MPI datatype
-//
-// returns: pointer to MPI datatype
-//
-//
-MPI_Datatype* SendItemDtype(int *cts, char** pts) {
-
-  return CreateDtype();
-
-}
-//-----------------------------------------------------------------------
-
-//
-// returns an MPI datatype for an item
-//
-// side effects: allocates MPI datatype
-//
-// returns: pointer to MPI datatype
-//
-MPI_Datatype* CreateDtype() {
+void CreateDtype(DIY_Datatype *dtype) {
 
   MPI_Datatype types[2];
   int lengths[2];
@@ -2061,10 +2023,7 @@ MPI_Datatype* CreateDtype() {
   displs[1] = offsetof(struct Item, steps);
   lengths[1] = 1;
 
-  MPI_Datatype *dtype = new MPI_Datatype;
   MPI_Type_create_struct(2, lengths, displs, types, dtype);
-
-  return dtype;
 
 }
 //-----------------------------------------------------------------------

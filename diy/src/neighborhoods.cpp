@@ -760,12 +760,8 @@ void Neighborhoods::EnqueueItemAllNear(int lid, char *item, size_t size,
 // 0.0 waits the minimum (1 message per round)
 // 1.0 waits the maximum (all messages per round)
 // suggested value: 0.5-0.75
-// RecvItemDtype: pointer to user-supplied function
-//   that takes a pointer to a counts message  and
-//   creates an MPI datatype for the payloads message
-// SendItemDtype: pointer to user-supplied function
-//   that takes a pointer to a counts message and a payloads message and
-//   creates an MPI datatype for the payloads message
+// ItemDtype: pointer to user-supplied function that creates an MPI datatype 
+//  for an item to be sent or received
 // discovery (optional): whether item discovery is used (default false)
 //
 // side effects: allocates vector of vectors to hold items
@@ -773,9 +769,7 @@ void Neighborhoods::EnqueueItemAllNear(int lid, char *item, size_t size,
 // returns: total number of payload items received
 //
 int Neighborhoods::ExchangeNeighbors(vector<vector<char *> > &items, float wf,
-				     MPI_Datatype* (*RecvItemDtype)(int *),
-				     MPI_Datatype* (*SendItemDtype)(int *, 
-								    char**),
+				     void (*ItemDtype)(MPI_Datatype*),
 				     bool discovery) {
 
   // total number of neighbor blocks
@@ -783,8 +777,8 @@ int Neighborhoods::ExchangeNeighbors(vector<vector<char *> > &items, float wf,
   for (vector<bl_t>::iterator bi = blocks.begin(); bi != blocks.end(); bi++)
     nn += bi->neighbors.size();
   PackMessages();
-  PostMessages(SendItemDtype);
-  TestMessages(wf, RecvItemDtype);
+  PostMessages(ItemDtype);
+  TestMessages(wf, ItemDtype);
 
   // copy received items from list to output vector
   int tot_npr = ListToVector(items, discovery);
@@ -875,13 +869,10 @@ void Neighborhoods::PackMessages() {
 // posts counts-sends, points-sends, and count-receives messages
 // these get posted first and don't depend on whether anything arrived
 //
-// SendItemDtype: pointer to user-supplied function
-//   that takes a pointer to a counts message and a payloads message and
-//   creates an MPI datatype for the payloads message
+// ItemDtype: pointer to user-supplied function that creates an MPI datatype 
+//  for an item to be sent or received
 //
-void Neighborhoods::PostMessages(MPI_Datatype* (*SendItemDtype)(int *, 
-								char **)) {
-
+void Neighborhoods::PostMessages(void (*ItemDtype)(MPI_Datatype *)) {
 
   MPI_Request req;
   pl_t pl; // one payload message
@@ -905,7 +896,8 @@ void Neighborhoods::PostMessages(MPI_Datatype* (*SendItemDtype)(int *,
 
       // payload-sends
       if (pi->p.size() > 0) { // at least one item to send
-	MPI_Datatype *itype = SendItemDtype(pi->c, &(pi->p)[0]);
+	MPI_Datatype *itype = new MPI_Datatype;
+	ItemDtype(itype);
 	MPI_Datatype *mtype = SendMsgDtype(pi->c, &(pi->p)[0], itype);
 	MPI_Isend(MPI_BOTTOM, 1, *mtype, pi->proc, tag * 2 + 1, comm, &req);
 	pl.req = req;
@@ -915,7 +907,7 @@ void Neighborhoods::PostMessages(MPI_Datatype* (*SendItemDtype)(int *,
 	MPI_Type_free(mtype);
 	delete mtype;
 	MPI_Type_free(itype);
-	free(itype);
+	delete itype;
       }
 
       // counts-receives
@@ -942,12 +934,11 @@ void Neighborhoods::PostMessages(MPI_Datatype* (*SendItemDtype)(int *,
 // for those counts that arrived
 //
 // wf: wait_factor for nonblocking communication [0.0-1.0]
-// RecvItemDtype: pointer to user-supplied function
-//   that takes a pointer to a counts message and
-//   creates an MPI datatype for the payloads message
+// ItemDtype: pointer to user-supplied function that creates an MPI datatype 
+//  for an item to be sent or received
 //
 void Neighborhoods::TestMessages(float wf, 
-				 MPI_Datatype* (*RecvItemDtype)(int *)) {
+				 void (*ItemDtype)(MPI_Datatype *)) {
 
   int npr; // number of received points from each process
   list<ct_t>::iterator ct_it; // request list iterators
@@ -1012,7 +1003,8 @@ void Neighborhoods::TestMessages(float wf,
 	  if (npr > 0) { // at least one point is expected
 
 	    p = ct_it->proc;
-	    MPI_Datatype *itype = RecvItemDtype(&(ct_it->c)[0]);
+	    MPI_Datatype *itype = new MPI_Datatype;
+	    ItemDtype(itype);
 	    MPI_Datatype *mtype = RecvMsgDtype(&(ct_it->c)[0], rcv_p, itype);
 	    MPI_Recv(rcv_p, 1, *mtype, p, ct_it->tag + 1, comm, &stat);
 	    pl_t pt; // one payload-receive message
@@ -1028,7 +1020,7 @@ void Neighborhoods::TestMessages(float wf,
 	    MPI_Type_free(mtype);
 	    delete mtype;
 	    MPI_Type_free(itype);
-	    free(itype);
+	    delete itype;
 
 	  } // if npr > 0
 
@@ -1055,15 +1047,14 @@ void Neighborhoods::TestMessages(float wf,
 // flushes exchange with neighbors
 //
 // items: received items for each of my blocks [lid] (output)
-// RecvItemDtype: pointer to user-supplied function
-//   that takes a pointer to a counts message and
-//   creates an MPI datatype for the payloads message
+// ItemDtype: pointer to user-supplied function that creates an MPI datatype 
+//  for an item to be sent or received
 // discovery (optional): whether item discovery is used (default false)
 //
 // returns: total number of payload items received
 //
 int Neighborhoods::FlushNeighbors(vector<vector<char *> > &items, 
-				  MPI_Datatype* (*RecvItemDtype)(int *),
+				  void (*ItemDtype)(MPI_Datatype *),
 				  bool discovery) {
 
   char* rcv_p; // one payload-receive
@@ -1123,7 +1114,8 @@ int Neighborhoods::FlushNeighbors(vector<vector<char *> > &items,
       ct_it->done = true;
       ct_it->tag = stats[i].MPI_TAG;
       p = ct_it->proc;
-      MPI_Datatype *itype = RecvItemDtype(&(ct_it->c)[0]);
+      MPI_Datatype *itype = new MPI_Datatype;
+      ItemDtype(itype);
       MPI_Datatype *mtype = RecvMsgDtype(&(ct_it->c)[0], rcv_p, itype);
       MPI_Recv(rcv_p, 1, *mtype, p, ct_it->tag + 1, comm, &stat);
       pl_t pt; // one point-receive message
@@ -1139,7 +1131,7 @@ int Neighborhoods::FlushNeighbors(vector<vector<char *> > &items,
       MPI_Type_free(mtype);
       delete mtype;
       MPI_Type_free(itype);
-      free(itype);
+      delete itype;
 
     } // npr > 0
 
@@ -1467,7 +1459,7 @@ void Neighborhoods::GetNeighborBounds() {
 
   vector<vector <char *> > items; // received items
 
-  ExchangeNeighbors(items, 1.0, &Nbhds_RecvItemType, &Nbhds_SendItemType);
+  ExchangeNeighbors(items, 1.0, &Nbhds_ItemType);
 
   assert(nblocks == (int)items.size()); // sanity
 
@@ -1499,7 +1491,7 @@ void Neighborhoods::GetNeighborBounds() {
   }
 
   // precautionary, should be nothing left to receive
-  FlushNeighbors(items, &Nbhds_RecvItemType);
+  FlushNeighbors(items, &Nbhds_ItemType);
 
 }
 //-----------------------------------------------------------------------
@@ -1562,8 +1554,7 @@ void Neighborhoods::GetNeighbors(int **vids, int *num_vids) {
 
   vector<vector <char *> > items; // received items
 
-  ExchangeNeighbors(items, 1.0, &Nbhds_RecvItemType, &Nbhds_SendItemType,
-		    discovery);
+  ExchangeNeighbors(items, 1.0, &Nbhds_ItemType, discovery);
 
   assert(nblocks == (int)items.size()); // sanity
 
@@ -1585,7 +1576,7 @@ void Neighborhoods::GetNeighbors(int **vids, int *num_vids) {
   }
 
   // precautionary, should be nothing left to receive
-  FlushNeighbors(items, &Nbhds_RecvItemType, true);
+  FlushNeighbors(items, &Nbhds_ItemType, true);
 
 }
 //-----------------------------------------------------------------------
@@ -1651,15 +1642,11 @@ int Neighborhoods::Pt2NeighGid(int lid, float *pt) {
 }
 //--------------------------------------------------------------------------
 //
-// makes MPI datatype for receiving one item
+// makes MPI datatype for sending and receiving one item
 //
-// cts: pointer to counts message
+// type: pointer to MPI datatype
 //
-// side effects: allocates MPI datatype
-//
-// returns: pointer to MPI datatype
-//
-MPI_Datatype* Nbhds_RecvItemType(int *cts) {
+void Nbhds_ItemType(MPI_Datatype *type) {
 
   // datatype for block bounds
   MPI_Datatype btype;
@@ -1670,7 +1657,6 @@ MPI_Datatype* Nbhds_RecvItemType(int *cts) {
   DIY_Create_struct_datatype(0, 2, bmap, &btype);
 
   // datatype for global block
-  MPI_Datatype *type = (MPI_Datatype*)malloc(sizeof(MPI_Datatype));
   struct map_block_t map[] = {
     { MPI_INT,           OFST, 1,            offsetof(struct gb_t, gid)      },
     { MPI_INT,           OFST, DIY_MAX_VIDS, offsetof(struct gb_t, vids)     },
@@ -1680,49 +1666,7 @@ MPI_Datatype* Nbhds_RecvItemType(int *cts) {
     { btype,             OFST, 1,            offsetof(struct gb_t, bb)       },
 };
   DIY_Create_struct_datatype(0, 6, map, type); 
-
   DIY_Destroy_datatype(&btype);
-
-  return type;
-
-}
-//-----------------------------------------------------------------------
-//
-// makes an MPI datatype for sending one item
-//
-// cts: pointer to counts message
-// pds: pointer to payloadss message
-//
-// side effects: allocates MPI datatype
-//
-// returns: pointer to MPI datatype
-//
-//
-MPI_Datatype* Nbhds_SendItemType(int *cts, char** pds) {
-
-  // datatype for block bounds
-  MPI_Datatype btype;
-  struct map_block_t bmap[] = {
-    { MPI_FLOAT, OFST, DIY_MAX_DIM, offsetof(struct bb_t, min) },
-    { MPI_FLOAT, OFST, DIY_MAX_DIM, offsetof(struct bb_t, max) },
-  };
-  DIY_Create_struct_datatype(0, 2, bmap, &btype);
-
-  // datatype for global block
-  MPI_Datatype *type = (MPI_Datatype*)malloc(sizeof(MPI_Datatype));
-  struct map_block_t map[] = {
-    { MPI_INT,           OFST, 1,            offsetof(struct gb_t, gid)      },
-    { MPI_INT,           OFST, DIY_MAX_VIDS, offsetof(struct gb_t, vids)     },
-    { MPI_INT,           OFST, 1,            offsetof(struct gb_t, num_vids) },
-    { MPI_INT,           OFST, 1,            offsetof(struct gb_t, proc)     },
-    { MPI_UNSIGNED_CHAR, OFST, 1,            offsetof(struct gb_t, neigh_dir)},
-    { btype,             OFST, 1,            offsetof(struct gb_t, bb)       },
-  };
-  DIY_Create_struct_datatype(0, 6, map, type); 
-
-  DIY_Destroy_datatype(&btype);
-
-  return type;
 
 }
 //-----------------------------------------------------------------------
