@@ -32,9 +32,7 @@ config.status: configure
 	./config.status --recheck
 
 check: FORCE all
-ifeq ($(BIL), YES)
 	cd diy/src/bil-0.6.0 && $(MAKE)
-endif
 	cd diy/src/psort && $(MAKE)
 	cd diy/src && $(MAKE)
 	cd Regular/Parallel && $(MAKE) # regular grid unit test
@@ -47,9 +45,7 @@ serial_check: serial
 	cd Regular/Serial && $(MAKE) draw
 
 all clean:
-ifeq ($(BIL), YES)
 	cd diy/src/bil-0.6.0 && $(MAKE) $@
-endif
 	cd diy/src/psort && $(MAKE) $@
 	cd diy/src && $(MAKE) $@
 	cd src && $(MAKE) $@ # serial flow library
@@ -171,9 +167,7 @@ distcheck: $(distdir).tar.gz
 FORCE:
 	cd Regular/Parallel && $(MAKE) clean
 	cd AMR/Parallel && $(MAKE) clean
-ifeq ($(BIL), YES)
 	cd diy/src/psort && $(MAKE) clean
 	cd diy/src/bil-0.6.0 && $(MAKE) clean
-endif
 
 .PHONY: FORCE all clean check dist distcheck install uninstall

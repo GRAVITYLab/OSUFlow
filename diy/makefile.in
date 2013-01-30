@@ -68,6 +68,9 @@ $(distdir):
 	mkdir -p $(distdir)/examples/time_varying
 	mkdir -p $(distdir)/examples/moab
 	mkdir -p $(distdir)/examples/r
+	mkdir -p $(distdir)/examples/vtk
+	mkdir -p $(distdir)/examples/vtk/composite
+	mkdir -p $(distdir)/examples/spare-thread
 	mkdir -p $(distdir)/lib
 	mkdir -p $(distdir)/include
 	mkdir -p $(distdir)/doc
@@ -87,7 +90,6 @@ $(distdir):
 	cp src/bil-0.6.0/AUTHORS $(distdir)/src/bil-0.6.0
 	cp src/bil-0.6.0/COPYING $(distdir)/src/bil-0.6.0
 	cp src/bil-0.6.0/INSTALL $(distdir)/src/bil-0.6.0
-	cp src/bil-0.6.0/Makefile.am $(distdir)/src/bil-0.6.0
 	cp src/bil-0.6.0/Makefile.in $(distdir)/src/bil-0.6.0
 	cp src/bil-0.6.0/NEWS $(distdir)/src/bil-0.6.0
 	cp src/bil-0.6.0/README $(distdir)/src/bil-0.6.0
@@ -102,7 +104,6 @@ $(distdir):
 	cp src/bil-0.6.0/ChangeLog $(distdir)/src/bil-0.6.0
 	cp src/bil-0.6.0/depcomp $(distdir)/src/bil-0.6.0
 	cp src/bil-0.6.0/install-sh $(distdir)/src/bil-0.6.0
-	cp src/bil-0.6.0/libbil.a $(distdir)/src/bil-0.6.0
 	cp tests/EXAMPLES $(distdir)/tests
 	cp COPYRIGHT $(distdir)
 	cp README $(distdir)
@@ -111,7 +112,6 @@ $(distdir):
 	cp config_defs.in $(distdir)
 	cp config.h.in $(distdir)
 	cp install.sh $(distdir)
-	cp lib/libdiy.a $(distdir)/lib
 	cp include/*.h $(distdir)/include
 	cp include/*.hpp $(distdir)/include
 	cp doc/*.pdf $(distdir)/doc
@@ -126,6 +126,10 @@ $(distdir):
 	cp examples/time_varying/*.cpp $(distdir)/examples/time_varying
 	cp examples/time_varying/*.dat $(distdir)/examples/time_varying
 	cp examples/time_varying/makefile $(distdir)/examples/time_varying
+	cp examples/vtk/composite/*.cpp $(distdir)/examples/vtk/composite
+	cp examples/vtk/composite/makefile $(distdir)/examples/vtk/composite
+	cp examples/spare-thread/*.cpp $(distdir)/examples/spare-thread
+	cp examples/spare-thread/makefile $(distdir)/examples/spare-thread
 	cp examples/moab/*.cpp $(distdir)/examples/moab
 	cp examples/moab/512_hex.h5m $(distdir)/examples/moab
 	cp examples/moab/makefile $(distdir)/examples/moab
@@ -136,7 +140,6 @@ distcheck: $(distdir).tar.gz
 	gzip -cd $(distdir).tar.gz | tar xvf -
 	cd $(distdir) && ./configure --with-hdf5=/Users/tpeterka/software/hdf5-1.8.5 --with-moab=/Users/tpeterka/software/moab --with-zlib=/Users/tpeterka/software/zlib-1.2.5/
 	cd $(distdir) && $(MAKE) test
-	cd $(distdir) && $(MAKE) clean
 	rm -rf $(distdir)
 	echo "*** Package $(distdir).tar.gz is ready for distribution"
 

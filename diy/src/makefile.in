@@ -55,15 +55,19 @@ CXX = mpixlcxx_r
 endif
 endif
 
+# mpi3
+ifeq ($(MPI3), YES)
+CCFLAGS += -D_MPI3
+endif
+
 # diy core
 OBJS = diy.o io.o blocking.o assignment.o neighborhoods.o merge.o util.o swap.o comm.o
 
 # bil
 ifeq ($(BIL), YES)
-BIL = bil-0.6.0/src
-OBJS += $(BIL)/libbil_a-bil.o $(BIL)/libbil_a-bil_misc.o \
-	$(BIL)/libbil_a-bil_sched.o $(BIL)/libbil_a-bil_block.o \
-	$(BIL)/libbil_a-bil_pio.o $(BIL)/libbil_a-bil_timing.o
+BIL = bil-0.6.0
+OBJS += $(BIL)/bil.o $(BIL)/bil_misc.o $(BIL)/bil_sched.o $(BIL)/bil_block.o \
+	$(BIL)/bil_pio.o $(BIL)/bil_timing.o
 endif
 
 # psort
@@ -74,7 +78,15 @@ OBJS += $(PSORT)/pmsort.o $(PSORT)/pssort.o $(PSORT)/util.o
 
 default: all
 
+ifeq ($(SO), YES) # static and dynamic libs
+ifeq ($(ARCH), MAC) # mac
+all: libdiy.a libdiy.dylib
+else # linux and others
+all: libdiy.a libdiy.so
+endif
+else # only static lib
 all: libdiy.a
+endif
 
 Makefile: Makefile.in ../config.status
 	../config.status $@
@@ -87,9 +99,20 @@ $(OBJS): ../include/*.h
 .cpp.o:
 	$(CXX) $(CCFLAGS) $(INCLUDE) $<
 
+libdiy.dylib : $(OBJS)
+	rm -f $@
+	g++ -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-install_name,libdiy.dylib -o libdiy.dylib $(OBJS)
+	mv libdiy.dylib ../lib
+
+libdiy.so : $(OBJS)
+	rm -f $@
+	g++ -shared -Wl,-soname,libdiy.so -o libdiy.so -lc $(OBJS)
+	mv libdiy.so ../lib
+
 libdiy.a : $(OBJS)
 	rm -f $@
 	ar cru $@ $(OBJS) 
 	mv libdiy.a ../lib
+
 clean:
 	rm -f *.o *.a

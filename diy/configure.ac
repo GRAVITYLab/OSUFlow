@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.61])
-AC_INIT([diy], [0.2], [tpeterka@mcs.anl.gov])
+AC_INIT([diy], [0.3], [tpeterka@mcs.anl.gov])
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_HEADERS([config.h])
 
@@ -21,9 +21,22 @@ if test ! ${MPICC} ; then
   AC_SUBST(MPICXX)
 
   if test ${MPICC} = "no" ; then
-    AC_MSG_ERROR([cannot find mpicc: try using the --with-mpi option to specify the base path of your MPI installation. If MPI is not installed, it can be downloaded at http://www.mcs.anl.gov/research/projects/mpich2/]) 
+    AC_MSG_ERROR([cannot find mpicc: try setting environment variables MPICC=/path/to/mpi/c/compiler and MPICXX=/path/to/mpi/c++/compiler in the configure command line or in the shell. If MPI is not installed, it can be downloaded at www.mpich.org]) 
   fi
 fi
+
+# mpi-3
+AC_ARG_ENABLE(mpi3, [AS_HELP_STRING([--enable-mpi3],
+[whether to enable new MPI-3 features (disabled by default, MPI-3 needs to be previously installed)])],
+[if test ${enableval} = "yes" ; then
+  enable_mpi3="YES"
+else
+  enable_mpi3="NO"
+fi],
+[enable_mpi3="NO"])
+
+echo "MPI-3 enabled = $enable_mpi3"
+AC_SUBST(enable_mpi3)
 
 #---------------------------
 #
@@ -227,6 +240,22 @@ AC_SUBST(enable_bil)
 
 #---------------------------
 #
+# build shared object in addition to static lib
+#
+AC_ARG_ENABLE(so, [AS_HELP_STRING([--enable-so],
+[whether to generate dynamically-linked shared object in addition to statically-linked library (disabled by default)])],
+[if test ${enableval} = "yes" ; then
+  enable_so="YES"
+else
+  enable_so="NO"
+fi],
+[enable_so="NO"])
+
+echo "shared object enabled = $enable_so"
+AC_SUBST(enable_so)
+
+#---------------------------
+#
 # -fPIC
 #
 AC_ARG_ENABLE(fpic, [AS_HELP_STRING([--enable-fpic],
@@ -238,6 +267,10 @@ else
 fi],
 [enable_fpic="NO"])
 
+if test ${enable_so} = "YES" ; then # shared objects need fpic
+  enable_fpic="YES"
+fi
+
 echo "-fPIC enabled = $enable_fpic"
 AC_SUBST(enable_fpic)
 
@@ -245,14 +278,14 @@ AC_SUBST(enable_fpic)
 #
 # openmp
 #
-AC_ARG_ENABLE(openmp, [AS_HELP_STRING([--disable-openmp],
-[whether to disable openmp (enabled by default)])],
+AC_ARG_ENABLE(openmp, [AS_HELP_STRING([--enable-openmp],
+[whether to enable openmp (disabled by default)])],
 [if test ${enableval} = "yes" ; then
   enable_openmp="YES"
 else
   enable_openmp="NO"
 fi],
-[enable_openmp="YES"])
+[enable_openmp="NO"])
 
 echo "openmp enabled = $enable_openmp"
 AC_SUBST(enable_openmp)
@@ -279,10 +312,7 @@ AC_TYPE_UINT64_T
 # configures
 AC_CONFIG_FILES([config_defs
                  makefile
-                 src/makefile])
-
-if test ${enable_bil} = "YES"; then
-AC_CONFIG_SUBDIRS([src/bil-0.6.0])
-fi
+                 src/makefile
+		 src/bil-0.6.0/Makefile])
 
 AC_OUTPUT

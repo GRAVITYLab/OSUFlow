@@ -51,6 +51,8 @@ ZLIB_LIB = @zlib_lib@
 NETCDF_LIB = @pnetcdf_lib@
 MOAB_BASE = @moab_base@
 OPENMP = @enable_openmp@
+MPI3 = @enable_mpi3@
+SO = @enable_so@
 
 # packaging
 package = @PACKAGE_NAME@
@@ -69,6 +71,9 @@ VPATH = @srcdir@
 INCLUDE =
 LIBS =
 
+ifeq ($(SO), YES)
+FPIC = YES
+endif
 ifeq ($(OPENMP), YES)
 INCLUDE = -fopenmp
 LIBS = -fopenmp
