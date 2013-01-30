@@ -24,24 +24,26 @@
 
 // diy global data
 static int64_t sizes[DIY_MAX_DIM]; // grid size (extents.max - extents.min + 1)
-static int tb; // total number of blocks in the domain
-static int nb; // my number of blocks
-static int maxb; // max. number of blocks in any process
+static int tot_blocks = 0; // total number of blocks in all domains
+static vector <int> tb; // total number of blocks in each domain
+static vector <int> nb; // my local number of blocks in ach domain
+static vector <int> maxb; // max. num. of blocks in any process in each domain
 static int dim; // number of dimensions
 static MPI_Comm comm; // MPI communicator
 static int rank; // MPI rank of this process
 static int groupsize; // MPI groupsize
 static int rounds; // number of merge rounds
 static int kvs[DIY_MAX_R]; // merge k-values
+static int num_dids = 0; // number of decompostion ids
 
-Assignment *assign; // assignment object (abstract base class)
+vector <Assignment *> assign; // assignment object (abstract base class)
 RoundRobinAssignment *round_robin_assign; // round robin assignment object
 ProcOrderAssignment *proc_order_assign; // process order assignment object
-Blocking *blocking; // blocking object
+vector <Blocking *> blocking; // blocking object
 Merge *merging; // merge object
 Swap *swapping; // swap object
-IO *io; // output I/O object
-Neighborhoods *nbhds; // neighborhoods object
+vector <IO *> io; // output I/O object
+vector <Neighborhoods *> nbhds; // neighborhoods object
 Comm *cc; // communication object
 
 // DIY datatypes are aliases for MPI datatypes
@@ -69,11 +71,9 @@ vector<unsigned char> decomp_buf_v;
 
 //--------------------------------------------------------------------------
 //
-// most functions return an error code
-// 0 indicates succes
-// > 0 indicates various errors, meaning is function specific
-//
-// currently all functions return 0 (success)
+// all functions return an error code or a useful value that doubles as en
+//  error code such that >= 0 indicates succes and < 0 indicates various errors
+// currently few or no functions actually return < 0, indicating an error
 // todo: add error checking
 //
 //--------------------------------------------------------------------------
@@ -91,7 +91,11 @@ vector<unsigned char> decomp_buf_v;
 //
 int DIY_Init(int dim, int *data_size, int num_threads, MPI_Comm comm) {
 
-  nbhds = NULL;
+  static int diy_initialized = 0; // whether initialized already
+
+  if (diy_initialized) // prevent multiple calls
+    return 0;
+
   ::dim = dim;
   ::comm = comm;
   MPI_Comm_rank(comm, &rank);
@@ -105,13 +109,14 @@ int DIY_Init(int dim, int *data_size, int num_threads, MPI_Comm comm) {
 
   BIL_Init(comm);
   cc = new Comm(comm);
-  merging = new Merge(comm);
-  swapping = new Swap(comm);
+  merging = new Merge(tot_blocks, comm);
+  swapping = new Swap(tot_blocks, comm);
 
 #ifdef OMP
   omp_set_num_threads(num_threads);
 #endif
 
+  diy_initialized = 1;
   return 0;
 
 }
@@ -135,31 +140,50 @@ int DIY_Init(int dim, int *data_size, int num_threads, MPI_Comm comm) {
 //   eg., {0, 0, 0, t} would result in t blocks in the 4th dimension
 //
 //
-// returns: error code
+// returns: id of this domain (< 0 if error)
 //
 int DIY_Decompose(int block_order, int glo_num_blocks, int *loc_num_blocks, 
 		  int share_face, int *ghost, int *given) {
 
+  Assignment *assign; // assignment object (abstract base class)
+  Blocking *blocking; // blocking object
+  IO *io; // output I/O object
+  Neighborhoods *nbhds; // neighborhoods object
+  int nblocks; // local number of blocks in current domain
+  int mblocks; // max number of blocks in any process in current domain
+
   if (block_order == ROUND_ROBIN_ORDER)
     assign = 
-      new RoundRobinAssignment(glo_num_blocks, nb, maxb, comm);
+      new RoundRobinAssignment(tot_blocks, glo_num_blocks, nblocks, mblocks, 
+			       comm);
   else
     assign = 
-      new ProcOrderAssignment(glo_num_blocks, nb, maxb, comm);
-  *loc_num_blocks = nb;
-  ::tb = glo_num_blocks;
+      new ProcOrderAssignment(tot_blocks, glo_num_blocks, nblocks, mblocks, 
+			      comm);
+  ::assign.push_back(assign);
+
+  nb.push_back(nblocks);
+  *loc_num_blocks = nblocks;
+  tb.push_back(glo_num_blocks);
+  maxb.push_back(mblocks);
 
   int64_t given64[DIY_MAX_DIM]; // int64_t version of given
   for (int i = 0; i < dim; i++)
     given64[i] = given[i];
 
   // decomposing a new domain
-  blocking = new Blocking(dim, tb, sizes, share_face, ghost, 
-			  given64, assign, comm);
-  nbhds = new Neighborhoods(blocking, assign, comm, false);
-  io = new IO(dim, tb, maxb, comm);
+  blocking = new Blocking(tot_blocks, num_dids, dim, glo_num_blocks, sizes, 
+			  share_face, ghost, given64, assign, comm);
+  nbhds = new Neighborhoods(num_dids, blocking, assign, comm, false);
+  io = new IO(num_dids, dim, glo_num_blocks, mblocks, comm);
+  ::blocking.push_back(blocking);
+  ::nbhds.push_back(nbhds);
+  ::io.push_back(io);
 
-  return 0;
+  num_dids++;
+  tot_blocks += glo_num_blocks;
+
+  return(num_dids - 1);;
 
 }
 //--------------------------------------------------------------------------
@@ -167,7 +191,7 @@ int DIY_Decompose(int block_order, int glo_num_blocks, int *loc_num_blocks,
 // Describes the already decomposed domain
 //
 // loc_num_blocks: local number of blocks on this process
-// gids: global ids of my local blocks
+// gids: global ids of my local blocks (unique across all domains)
 // bounds: block bounds (extents) of my local blocks
 // rem_ids: remote ids used for neighbor discovery (pass NULL if 
 //  neighbor discovery not needed at all)
@@ -188,26 +212,46 @@ int DIY_Decompose(int block_order, int glo_num_blocks, int *loc_num_blocks,
 // wrap: whether wraparound neighbors are used (0 = no wraparound neighbors
 //  were provided, 1 = provided some wraparound neighbors)
 //
-// returns: error code
+// returns: id of domain (< 0 if error)
 //
 int DIY_Decomposed(int loc_num_blocks, int *gids, struct bb_t *bounds, 
 		   struct ri_t **rem_ids, int *num_rem_ids, int **vids, 
 		   int *num_vids, struct gb_t **neighbors, 
 		   int *num_neighbors, int wrap) {
 
-  assign = new ExistingAssignment(loc_num_blocks, maxb, tb, comm);
+  Assignment *assign; // assignment object (abstract base class)
+  Blocking *blocking; // blocking object
+  IO *io; // output I/O object
+  Neighborhoods *nbhds; // neighborhoods object
+  int glo_num_blocks; // total number of blocks
+  int mblocks; // max number of blocks in any process in current domain
 
-  nb = loc_num_blocks;
+  assign = new ExistingAssignment(tot_blocks, loc_num_blocks, mblocks,
+				  glo_num_blocks, comm);
+  ::assign.push_back(assign);
+
+  nb.push_back(loc_num_blocks);
+  tb.push_back(glo_num_blocks);
+  maxb.push_back(mblocks);
 
   // existing decomposition version of blocking
-  blocking = new Blocking(dim, tb, gids, bounds, assign, comm);
+  blocking = new Blocking(tot_blocks, num_dids, dim, glo_num_blocks, gids, 
+			  bounds, assign, comm);
+  ::blocking.push_back(blocking);
 
   // discovery version of constructing the neighborhoods
-  nbhds = new Neighborhoods(blocking, assign, rem_ids, num_rem_ids, vids,
+  nbhds = new Neighborhoods(num_dids, blocking, assign, rem_ids, 
+			    num_rem_ids, vids,
 			    num_vids, neighbors, num_neighbors, comm, wrap);
-  io = new IO(dim, tb, maxb, comm);
+  ::nbhds.push_back(nbhds);
 
-  return 0;
+  io = new IO(num_dids, dim, glo_num_blocks, mblocks, comm);
+  ::io.push_back(io);
+
+  num_dids++;
+  tot_blocks += glo_num_blocks;
+
+  return(num_dids - 1);
 
 }
 //--------------------------------------------------------------------------
@@ -215,6 +259,7 @@ int DIY_Decomposed(int loc_num_blocks, int *gids, struct bb_t *bounds,
 // block starts and sizes
 // for blocks consisting of discrete, regular grid points
 //
+// did: domain id
 // lid: local block id
 // starts: pointer to allocated array of starting block extents (output), index
 //  of starting grid point (not cell) in each direction  
@@ -223,12 +268,12 @@ int DIY_Decomposed(int loc_num_blocks, int *gids, struct bb_t *bounds,
 //
 // returns: error code
 //
-int DIY_Block_starts_sizes(int lid, int *starts, int *sizes) {
+int DIY_Block_starts_sizes(int did, int lid, int *starts, int *sizes) {
 
   int64_t starts64[DIY_MAX_DIM];
   int64_t sizes64[DIY_MAX_DIM];
 
-  blocking->BlockStartsSizes(lid, starts64, sizes64);
+  blocking[did]->BlockStartsSizes(lid, starts64, sizes64);
   for (int i = 0; i < dim; i++) {
     starts[i] = starts64[i];
     sizes[i] = sizes64[i];
@@ -242,16 +287,16 @@ int DIY_Block_starts_sizes(int lid, int *starts, int *sizes) {
 // block bounds including ghost
 // for blocks consisting of continuous spatiotemporal regions
 //
+// did: domain id
 // lid: local block id
 // bounds; pointer to a block bounds structure (output), allocated or 
 //  declared  by caller
 //
 // returns: error code
 //
-int DIY_Block_bounds(int lid, struct bb_t *bounds) {
+int DIY_Block_bounds(int did, int lid, struct bb_t *bounds) {
 
-
-  blocking->BlockBounds(lid, bounds);
+  blocking[did]->BlockBounds(lid, bounds);
 
   return 0;
 
@@ -261,16 +306,16 @@ int DIY_Block_bounds(int lid, struct bb_t *bounds) {
 // block bounds excluding ghost
 // for blocks consisting of continuous spatiotemporal regions
 //
+// did: domain id
 // lid: local block id
 // bounds; pointer to a block bounds structure (output), allocated or 
 //  declared  by caller
 //
 // returns: error code
 //
-int DIY_No_ghost_block_bounds(int lid, struct bb_t *bounds) {
+int DIY_No_ghost_block_bounds(int did, int lid, struct bb_t *bounds) {
 
-
-  blocking->NoGhostBlockBounds(lid, bounds);
+  blocking[did]->NoGhostBlockBounds(lid, bounds);
 
   return 0;
 
@@ -279,18 +324,19 @@ int DIY_No_ghost_block_bounds(int lid, struct bb_t *bounds) {
 //
 // finds the time block to which a local block belongs
 //
+// did: domain id
 // lid: local block id
 // time_block: time block containing lid (output)
 //
 // return: error code
 //
-int DIY_In_time_block(int lid, int *time_block) {
+int DIY_In_time_block(int did, int lid, int *time_block) {
 
   int64_t lat_nblocks[DIY_MAX_DIM]; // number of blocks in each dimension
-  blocking->NumLatBlocks(lat_nblocks);
+  blocking[did]->NumLatBlocks(lat_nblocks);
 
-  for (int g = 0; g < tb; g++) {
-    if (blocking->InTimeBlock(g, lid, sizes[3], lat_nblocks[3])) {
+  for (int g = 0; g < tb[did]; g++) {
+    if (blocking[did]->InTimeBlock(g, lid, sizes[3], lat_nblocks[3])) {
       *time_block = g;
       return 0;
     }
@@ -356,6 +402,7 @@ int DIY_Read_data_all() {
 //
 // sends an item to a block (asynchronous)
 //
+// did: domain id
 // lid: local block id
 // item: item(s) to be sent
 // count: number of items
@@ -364,10 +411,10 @@ int DIY_Read_data_all() {
 //
 // returns: error code
 //
-int DIY_Send(int lid, void *item, int count, DIY_Datatype datatype, 
+int DIY_Send(int did, int lid, void *item, int count, DIY_Datatype datatype, 
 	     int dest_gid) {
 
-  int my_gid = DIY_Gid(lid);
+  int my_gid = DIY_Gid(did, lid);
 
 #ifdef _MPI3
   cc->RmaSend(item, count, datatype, my_gid, dest_gid, assign);
@@ -382,6 +429,7 @@ int DIY_Send(int lid, void *item, int count, DIY_Datatype datatype,
 //
 // receives an item from a block (asynchronous)
 //
+// did: domain id
 // lid: local block id
 // items: items to be received (output, array af pointers allocated by caller)
 // count: number of items received (output)
@@ -389,18 +437,21 @@ int DIY_Send(int lid, void *item, int count, DIY_Datatype datatype,
 // datatype: item datatype
 // src_gids: source global block ids (output, array allocated by caller)
 //  only valid if MPI-3 is used, otherwise filled with -1 values
+// sizes: size of each item received in datatypes (not bytes)
+//  (output, array allocated by caller)
 //
 // returns: error code
 //
-int DIY_Recv(int lid, void **items, int *count, int wait,
-	     DIY_Datatype datatype, int *src_gids) {
+int DIY_Recv(int did, int lid, void **items, int *count, int wait,
+	     DIY_Datatype datatype, int *src_gids, int *sizes) {
 
-  int my_gid = DIY_Gid(lid);
+  int my_gid = DIY_Gid(did, lid);
 
 #ifdef _MPI3
-  *count = cc->RmaRecv(my_gid, items, datatype, src_gids, wait, assign);
+  *count = cc->RmaRecv(my_gid, items, datatype, src_gids, wait, assign[did], 
+		       sizes);
 #else
-  *count = cc->Recv(my_gid, items, datatype, wait);
+  *count = cc->Recv(my_gid, items, datatype, wait, sizes);
   for (int i = 0; i < *count; i++)
     src_gids[i] = -1; // only valid for RMA version
 #endif
@@ -430,33 +481,10 @@ int DIY_Flush_send_recv(int barrier) {
 
 }
 //--------------------------------------------------------------------------
-// //
-// // DEPRECATED
-// //
-// // flushes asynchronous sending and receiving for all local blocks
-// //  (collective, must be called by all processes)
-// //
-// // items: items to be received (output, array of pointers allocated by caller)
-// // count: number of items received (output)
-// // datatype: item datatype
-// // src_gids: source global block ids (output, array allocated by caller)
-// // dest_gids: my destination global block ids 
-// //  (output, array allocated by caller)
-// //
-// // returns: error code
-// //
-// int DIY_Flush_send_recv(void **items, int *count, DIY_Datatype datatype, 
-// 			int *src_gids, int *dest_gids) {
-
-//   *count = cc->RmaFlushSendRecv(items, datatype, src_gids, dest_gids, assign);
-
-//   return 0;
-
-// }
-// //--------------------------------------------------------------------------
 //
 // configurable in-place merge reduction
 //
+// did: domain id
 // blocks: pointers to input/output blocks, results in first num_blocks_out
 // hdrs: pointers to input headers (optional, pass NULL if unnecessary)
 // num_rounds: number of rounds
@@ -473,19 +501,20 @@ int DIY_Flush_send_recv(int barrier) {
 //
 // returns: error code
 //
-int DIY_Merge_blocks(char **blocks, int **hdrs, int num_rounds, int *k_values,
-		     void (*reduce_func)(char **, int *, int), 
+int DIY_Merge_blocks(int did, char **blocks, int **hdrs, int num_rounds, 
+		     int *k_values,
+		     void (*reduce_func)(char **, int *, int, int *), 
 		     char *(*create_func)(int *),
 		     void (*destroy_func)(void *),
-		     void*(*type_func)(void*, DIY_Datatype*),
+		     void*(*type_func)(void*, DIY_Datatype*, int *),
 		     int *num_blocks_out) {
 
   rounds = num_rounds;
   for (int i = 0; i < num_rounds; i++)
     kvs[i] = k_values[i];
 
-  *num_blocks_out = merging->MergeBlocks(blocks, hdrs, num_rounds, k_values,
-					 cc, assign, reduce_func,
+  *num_blocks_out = merging->MergeBlocks(did, blocks, hdrs, num_rounds, 
+					 k_values, cc, assign[did], reduce_func,
 					 create_func, destroy_func, type_func);
 
   return 0;
@@ -495,6 +524,7 @@ int DIY_Merge_blocks(char **blocks, int **hdrs, int num_rounds, int *k_values,
 //
 // configurable in-place swap reduction
 //
+// did: domain id
 // blocks: pointers to input/output blocks
 // hdrs: pointers to input headers (optional, pass NULL if unnecessary)
 // num_elems: number of elements in a block
@@ -519,7 +549,7 @@ int DIY_Merge_blocks(char **blocks, int **hdrs, int num_rounds, int *k_values,
 //
 // returns: error code
 //
-int DIY_Swap_blocks(char **blocks, int **hdrs, int num_elems,
+int DIY_Swap_blocks(int did, char **blocks, int **hdrs, int num_elems,
 		    int num_rounds, int *k_values, int *starts, int *sizes,
 		    void (*reduce_func)(char **, int *, int, int), 
 		    char *(*recv_create_func)(int *, int),
@@ -531,8 +561,8 @@ int DIY_Swap_blocks(char **blocks, int **hdrs, int num_elems,
   for (int i = 0; i < num_rounds; i++)
     kvs[i] = k_values[i];
 
-  swapping->SwapBlocks(blocks, hdrs, num_rounds, k_values, num_elems, 
-		       starts, sizes, cc, assign, reduce_func,
+  swapping->SwapBlocks(did, blocks, hdrs, num_rounds, k_values, num_elems, 
+		       starts, sizes, cc, assign[did], reduce_func,
 		       recv_create_func, recv_destroy_func, send_type_func, 
 		       recv_type_func);
 
@@ -543,16 +573,17 @@ int DIY_Swap_blocks(char **blocks, int **hdrs, int num_elems,
 //
 // initializes parallel writing of analysis blocks
 //
+// did: domain id
 // filename: output filename
 // compress: whether to compress output (0 = normal, 1 = compress)
 //   (1: zlib's default compression level 6 is applied blockwise)
 //
 // returns: eerror code
 //
-int DIY_Write_open_all(char *filename, int compress) {
+int DIY_Write_open_all(int did, char *filename, int compress) {
 
   MPI_Barrier(comm); // synchronize to clear any skew before proceeding
-  io->WriteAnaInit(filename, compress);
+  io[did]->WriteAnaInit(filename, compress);
 
   return 0;
 
@@ -561,29 +592,26 @@ int DIY_Write_open_all(char *filename, int compress) {
 //
 // writes all analysis blocks in parallel with all other processes
 //
+// did: domain id
 // blocks: array of pointers to analysis blocks
 // num_blocks: number of blocks
 // hdrs: headers, one per analysis block (NULL if not used)
-// num_hdr_elems; number of header elements (0 if not used), 
-//   same for all headers
 // type_func: pointer to function that creates MPI datatype for item 
 //   returns the base address associated with the datatype
 //
 // returns: error code
 //
-int DIY_Write_blocks_all(void **blocks, int num_blocks, int **hdrs,
-			 int num_hdr_elems, 
-			 void*(*type_func)(void*, int, DIY_Datatype*)) {
+int DIY_Write_blocks_all(int did, void **blocks, int num_blocks, int **hdrs,
+			 void*(*type_func)(void*, int, int, DIY_Datatype*)) {
 
-  int tot_nb_merged = tb; // max possible number of merged blocks
+  int tot_nb_merged = tb[did]; // max possible number of merged blocks
   for (int i = 0; i < rounds; i++)
     tot_nb_merged /= kvs[i];
 
   // max number of blocks in any process after possible merging
-  int max_blocks = maxb < tot_nb_merged ? maxb : tot_nb_merged;
+  int max_blocks = maxb[did] < tot_nb_merged ? maxb[did] : tot_nb_merged;
 
-  io->WriteAllAna(blocks, num_blocks, max_blocks, hdrs, num_hdr_elems, 
-		  type_func);
+  io[did]->WriteAllAna(blocks, num_blocks, max_blocks, hdrs, type_func);
 
   return 0;
 
@@ -592,12 +620,14 @@ int DIY_Write_blocks_all(void **blocks, int num_blocks, int **hdrs,
 //
 // finalizes parallel writing of analysis blocks
 //
+// did: domain id
+//
 // returns: error code
 //
-int DIY_Write_close_all() {
+int DIY_Write_close_all(int did) {
 
   MPI_Barrier(comm); // flushes all I/O
-  io->WriteAnaFinalize();
+  io[did]->WriteAnaFinalize();
 
   return 0;
 
@@ -606,6 +636,7 @@ int DIY_Write_close_all() {
 //
 // initializes parallel reading of analysis blocks
 //
+// did: domain id
 // filename: input filename
 // swap_bytes: whether to swap bytes for endian conversion
 //  only applies to reading the headers and footer
@@ -613,23 +644,21 @@ int DIY_Write_close_all() {
 // compress: whether to compress output (0 = normal, 1 = compress)
 //   (1: zlib's default compression level 6 is applied blockwise)
 //
-// returns: eerror code
+// returns: number of local blacks to be read (< 0 if error)
 //
-int DIY_Read_open_all(char *filename, int swap_bytes, int compress) {
+int DIY_Read_open_all(int did, char *filename, int swap_bytes, int compress) {
 
   MPI_Barrier(comm); // synchronize to clear any skew before proceeding
-  io->ReadAnaInit(filename, swap_bytes, compress);
-
-  return 0;
+  return(io[did]->ReadAnaInit(filename, swap_bytes, compress));
 
 }
 //----------------------------------------------------------------------------
 //
 // reads all analysis blocks in parallel with all other processes
 //
+// did: domain id
 // blocks: pointer to array of pointers for analysis blocks being read (output)
 //  DIY will allocate blocks for you
-// num_blocks: number of local blocks read (output)
 // hdrs: headers, one per analysis block, allocated by caller
 //   (pass NULL if not used)
 // create_type_func: pointer to function that takes a block local id, 
@@ -638,10 +667,11 @@ int DIY_Read_open_all(char *filename, int swap_bytes, int compress) {
 //
 // returns: error code
 //
-int DIY_Read_blocks_all(void ***blocks, int *num_blocks, int **hdrs,
-			void* (*create_type_func)(int, int*, DIY_Datatype*)) {
+int DIY_Read_blocks_all(int did, void ***blocks, int **hdrs,
+			void* (*create_type_func)(int, int, int*, 
+						  DIY_Datatype*)) {
 
-  *num_blocks = io->ReadAllAna(*blocks, hdrs, create_type_func);
+  io[did]->ReadAllAna(*blocks, hdrs, create_type_func);
 
   return 0;
 
@@ -650,12 +680,14 @@ int DIY_Read_blocks_all(void ***blocks, int *num_blocks, int **hdrs,
 //
 // finalizes parallel reading of analysis blocks
 //
+// did: domain id
+//
 // returns: error code
 //
-int DIY_Read_close_all() {
+int DIY_Read_close_all(int did) {
 
   MPI_Barrier(comm); // flushes all I/O
-  io->ReadAnaFinalize();
+  io[did]->ReadAnaFinalize();
 
   return 0;
 
@@ -664,6 +696,7 @@ int DIY_Read_close_all() {
 //
 // exchanges items with all neighbors
 //
+// did: domain id
 // items: pointer to received items for each of my blocks [lid][item] (output)
 // num_items: number of items for each block (allocated by user)
 // wf: wait_factor for nonblocking communication [0.0-1.0]
@@ -677,11 +710,11 @@ int DIY_Read_close_all() {
 //
 // returns: error code
 //
-int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
+int DIY_Exchange_neighbors(int did, void ***items, int *num_items, float wf,
 			   void (*ItemDtype)(DIY_Datatype *)) {
 
   // init / clear the items vector
-  for (int i = 0; i < assign->NumBlks(); i++) {
+  for (int i = 0; i < assign[did]->NumBlks(); i++) {
     if (i + 1 > (int)items_v.size()) {
       vector<char *> v;
       items_v.push_back(v);
@@ -690,9 +723,9 @@ int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
       items_v[i].clear();
   }
 
-  nbhds->ExchangeNeighbors(items_v, wf, ItemDtype);
+  nbhds[did]->ExchangeNeighbors(items_v, wf, ItemDtype);
 
-  for (int i = 0; i < assign->NumBlks(); i++) {
+  for (int i = 0; i < assign[did]->NumBlks(); i++) {
     num_items[i] = items_v[i].size();
     if (items_v[i].size() > 0)
       items[i] = (void **)(&(items_v[i][0]));
@@ -705,6 +738,7 @@ int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
 //
 // flushes exchange with neighbors
 //
+// did: domain id
 // items: pointer to received items for each of my blocks [lid][item] (output)
 // num_items: number of items for each block (allocated by user)
 // ItemDtype: pointer to user-supplied function that creates a DIY datatype 
@@ -714,11 +748,11 @@ int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
 //
 // returns: error code
 //
-int DIY_Flush_neighbors(void ***items, int *num_items,
+int DIY_Flush_neighbors(int did, void ***items, int *num_items,
 			void (*ItemDtype)(DIY_Datatype *)) {
 
   // init / clear the items vector
-  for (int i = 0; i < assign->NumBlks(); i++) {
+  for (int i = 0; i < assign[did]->NumBlks(); i++) {
     if (i + 1 > (int)items_v.size()) {
       vector<char *> v;
       items_v.push_back(v);
@@ -727,8 +761,8 @@ int DIY_Flush_neighbors(void ***items, int *num_items,
       items_v[i].clear();
   }
 
-  nbhds->FlushNeighbors(items_v, ItemDtype);
-  for (int i = 0; i < assign->NumBlks(); i++) {
+  nbhds[did]->FlushNeighbors(items_v, ItemDtype);
+  for (int i = 0; i < assign[did]->NumBlks(); i++) {
     num_items[i] = items_v[i].size();
     if (items_v[i].size() > 0)
       items[i] = (void **)(&(items_v[i][0]));
@@ -741,6 +775,7 @@ int DIY_Flush_neighbors(void ***items, int *num_items,
 //
 // finds neighbors that intersect bounds +/- extension t
 //
+// did: domain id
 // lid: local block id
 // bounds: target bounds
 // t: additional extension on all sides of bounds
@@ -749,11 +784,11 @@ int DIY_Flush_neighbors(void ***items, int *num_items,
 //
 // returns: error code
 //
-int DIY_Bounds_intersect_neighbors(int lid, bb_t cell_bounds, float t, 
+int DIY_Bounds_intersect_neighbors(int did, int lid, bb_t cell_bounds, float t, 
 				   int *num_intersect, int *gids_intersect) {
 
-  nbhds->BoundsIntersectNeighbors(lid, cell_bounds, t, num_intersect, 
-				  gids_intersect);
+  nbhds[did]->BoundsIntersectNeighbors(lid, cell_bounds, t, num_intersect, 
+				       gids_intersect);
 
   return 0;
 
@@ -763,6 +798,7 @@ int DIY_Bounds_intersect_neighbors(int lid, bb_t cell_bounds, float t,
 // enqueues an item for sending to neighbors given their global block ids
 // reflexive: sends to self block if dest_gids includes global id of self
 //
+// did: domain id
 // lid: local id of my block
 // item: item to be enqueued
 // hdr: pointer to header (or NULL)
@@ -775,13 +811,13 @@ int DIY_Bounds_intersect_neighbors(int lid, bb_t cell_bounds, float t,
 //
 // returns: error code
 //
-int DIY_Enqueue_item_gids(int lid, void *item, int *hdr,
+int DIY_Enqueue_item_gids(int did, int lid, void *item, int *hdr,
 			  int item_size, int *dest_gids, int num_gids,
 			  void (*TransformItem)(char *, unsigned char)) {
 
   for (int i = 0; i < num_gids; i++)
-    nbhds->EnqueueItem(lid, (char *)item, item_size, dest_gids[i], hdr,
-		       TransformItem);
+    nbhds[did]->EnqueueItem(lid, (char *)item, item_size, dest_gids[i], hdr,
+			    TransformItem);
 
   return 0;
 
@@ -792,6 +828,7 @@ int DIY_Enqueue_item_gids(int lid, void *item, int *hdr,
 //  neighbor
 // reflexive: sends to self block if points are inside bounds of self
 //
+// did: domain id
 // lid: local id of my block
 // item: item to be enqueued
 // hdr: pointer to header (or NULL)
@@ -806,18 +843,18 @@ int DIY_Enqueue_item_gids(int lid, void *item, int *hdr,
 //
 // returns: error code
 //
-int DIY_Enqueue_item_points(int lid, void *item, int *hdr,
+int DIY_Enqueue_item_points(int did, int lid, void *item, int *hdr,
 			    int item_size, float *dest_pts, int num_dest_pts,
 			    void (*TransformItem)(char *, unsigned char)) {
 
   for (int i = 0; i < num_dest_pts; i++) {
 
     // global id of neighboring block where dest_pt should go
-    int neigh_gid = nbhds->Pt2NeighGid(lid, &dest_pts[i * dim]);
+    int neigh_gid = nbhds[did]->Pt2NeighGid(lid, &dest_pts[i * dim]);
 
     if (neigh_gid >= 0)
-      nbhds->EnqueueItem(lid, (char *)item, item_size, neigh_gid, hdr, 
-			 TransformItem);
+      nbhds[did]->EnqueueItem(lid, (char *)item, item_size, neigh_gid, hdr, 
+			      TransformItem);
 
   }
 
@@ -831,6 +868,7 @@ int DIY_Enqueue_item_points(int lid, void *item, int *hdr,
 //  be a bitwise OR of several directions
 // not reflexive: no direction is defined for sending to self block
 //
+// did: domain id
 // lid: local id of my block
 // item: item to be enqueued
 // hdr: pointer to header (or NULL)
@@ -843,15 +881,15 @@ int DIY_Enqueue_item_points(int lid, void *item, int *hdr,
 //
 // returns: error code
 //
-int DIY_Enqueue_item_dirs(int lid, void *item, int *hdr,
+int DIY_Enqueue_item_dirs(int did, int lid, void *item, int *hdr,
 			  int item_size, unsigned char *neigh_dirs, 
 			  int num_neigh_dirs,
 			  void (*TransformItem)(char *, unsigned char)) {
 
   for (int i = 0; i < num_neigh_dirs; i++) {
 
-    nbhds->EnqueueItemDir(lid, (char *)item, item_size, hdr, TransformItem,
-			  neigh_dirs[i]);
+    nbhds[did]->EnqueueItemDir(lid, (char *)item, item_size, hdr, 
+			       TransformItem, neigh_dirs[i]);
 
   }
 
@@ -860,39 +898,10 @@ int DIY_Enqueue_item_dirs(int lid, void *item, int *hdr,
 }
 //----------------------------------------------------------------------------
 //
-// DEPRECATED
-//
-// Jingyuan's version
-//
-// enqueues an item for sending to one or more neighbors given a mask array
-//
-// lid: local id of my block
-// item: item to be enqueued
-// hdr: pointer to header (or NULL)
-// size: size of item in bytes
-// neigh_mask: destination neighbor(s)
-// TransformItem: pointer to function that transforms the item before
-//  enqueueing to a wraparound neighbor, given the wrapping direction
-//  (pass NULL if wrapping is unused)
-//
-// returns: error code
-//
-// int DIY_Enqueue_item_mask(int lid, void *item, int *hdr,
-// 			   int item_size, int *neigh_mask,
-// 			   void (*TransformItem)(char *, unsigned char)) {
-
-//   nbhds->EnqueueItemMask(lid, (char *)item, item_size, hdr, TransformItem,
-// 			 neigh_mask);
-
-
-//   return 0;
-
-// }
-//----------------------------------------------------------------------------
-//
 // enqueues an item for sending to all neighbors
 // not reflexive: skips sending to self block
 //
+// did: domain id
 // lid: local id of my block
 // item: item to be enqueued
 // hdr: pointer to header (or NULL)
@@ -905,49 +914,21 @@ int DIY_Enqueue_item_dirs(int lid, void *item, int *hdr,
 //
 // returns: error code
 //
-int DIY_Enqueue_item_all(int lid, void *item, int *hdr, int item_size,
+int DIY_Enqueue_item_all(int did, int lid, void *item, int *hdr, int item_size,
 			 void (*TransformItem)(char *, unsigned char)) {
 
-  nbhds->EnqueueItemAll(lid, (char *)item, item_size, hdr, TransformItem,
-			true, false);
+  nbhds[did]->EnqueueItemAll(lid, (char *)item, item_size, hdr, TransformItem,
+			     true, false);
 
   return 0;
 
 }
 //----------------------------------------------------------------------------
 //
-// DEPRECATED
-//
-// enqueues an item for sending to all neighbors that are to one side
-//  (eg., left, bottom, rear) of my block
-// not reflexive: skips sending to self block
-//
-// lid: local id of my block
-// item: item to be enqueued
-// hdr: pointer to header (or NULL)
-// size: size of item in bytes
-// dest_pt: point in the destination block, by which the destination can
-//  be identified
-// TransformItem: pointer to function that transforms the item before
-//  enqueueing to a wraparound neighbor, given the wrapping direction
-//  (pass NULL if wrapping is unused)
-//
-// returns: error code
-//
-// int DIY_Enqueue_item_half(int lid, void *item, int *hdr, int item_size,
-// 			  void (*TransformItem)(char *, unsigned char)) {
-
-//   nbhds->EnqueueItemAll(lid, (char *)item, item_size, hdr, TransformItem,
-// 			false, false);
-
-//   return 0;
-
-// }
-//----------------------------------------------------------------------------
-//
 // enqueues an item for sending to all neighbors near enough to receive it
 // not reflexive: skips sending to self block
 //
+// did: domain id
 // lid: local id of my block
 // item: item to be enqueued
 // hdr: pointer to header (or NULL)
@@ -963,59 +944,26 @@ int DIY_Enqueue_item_all(int lid, void *item, int *hdr, int item_size,
 //
 // returns: error code
 //
-int DIY_Enqueue_item_all_near(int lid, void *item, int *hdr,
+int DIY_Enqueue_item_all_near(int did, int lid, void *item, int *hdr,
 			      int item_size, float *near_pt, float near_dist,
 			      void (*TransformItem)(char *, unsigned char)) {
 
-  nbhds->EnqueueItemAllNear(lid, (char *)item, item_size,
-			    near_pt, near_dist, hdr, TransformItem, 
-			    true);
+  nbhds[did]->EnqueueItemAllNear(lid, (char *)item, item_size,
+				 near_pt, near_dist, hdr, TransformItem, 
+				 true);
 
   return 0;
 
 }
-//----------------------------------------------------------------------------
-//
-// DEPRECATED
-//
-// enqueues an item for sending to all neighbors near enough to receive it
-//  that are to one side (eg., left, bottom, rear) of my block
-// not reflexive: skips sending to self block
-//
-// lid: local id of my block
-// item: item to be enqueued
-// hdr: pointer to header (or NULL)
-// size: size of item in bytes
-// near_pt: point near the destination block
-// near_dist: blocks less than or equal to near_dist of the near_pt will be 
-//   destinations for the enqueued item . If an item is sent to more than one 
-//   neighbor that share faces, it is also sent to the diagonal neighbor 
-//   sharing a line or point
-// TransformItem: pointer to function that transforms the item before
-//  enqueueing to a wraparound neighbor, given the wrapping direction
-//  (pass NULL if wrapping is unused)
-//
-// returns: error code
-//
-// int DIY_Enqueue_item_half_near(int lid, void *item, int *hdr,
-// 			       int item_size, float *near_pt, float near_dist,
-// 			       void (*TransformItem)(char *, unsigned char)) {
-
-//   nbhds->EnqueueItemAllNear(lid, (char *)item, item_size,
-// 			    near_pt, near_dist, hdr, TransformItem, false,
-//                          false);
-
-//   return 0;
-
-// }
 //----------------------------------------------------------------------------
 //
 // checks whether all processes are done working via a global reduction
 //
 // done: whether my local process is done (1 = done, 0 = still working)
 //
-// returns: whether all processes are done (1 = all done, 0 = still working)
-//  (not an error code, unlike most functions)
+// returns: whether all processes are done (1 = all done, 0 = still working,
+//  < 0 if error)
+//
 //
 int DIY_Check_done_all(int done) {
 
@@ -1034,15 +982,25 @@ int DIY_Check_done_all(int done) {
 //
 int DIY_Finalize() {
 
-  delete assign;
-  delete io;
+  static int diy_finalized = 0; // whether finalized already
+
+  if (diy_finalized) // prevent multiple calls
+    return 0;
+
   delete merging;
   delete swapping;
-  delete blocking;
-  BIL_Finalize();
-  if (nbhds)
-    delete nbhds;
+  delete cc;
 
+  BIL_Finalize();
+
+  for (int i = 0; i < num_dids; i++) {
+    delete assign[i];
+    delete io[i];
+    delete blocking[i];
+    delete nbhds[i];
+  }
+
+  diy_finalized = 1;
   return 0;
 
 }
@@ -1133,7 +1091,7 @@ int DIY_Destroy_datatype(DIY_Datatype *type) {
 //
 // addr: pointer or address
 //
-// returns: DIY address (not an error code, unlike most functions)
+// returns: DIY address (<0 if error)
 //
 DIY_Aint DIY_Addr(void *addr) {
 
@@ -1145,15 +1103,16 @@ DIY_Aint DIY_Addr(void *addr) {
 //----------------------------------------------------------------------------
 //
 // returns the global block identification number (gid)
-//   given a local block number
+//   given a local block id
 //
-// block_num: local block number
+// did: domain id
+// lid: local block id
 //
-// returns: global block ID (not an error code, unlike most functions)
+// returns: global block ID (< 0 if error)
 //
-int DIY_Gid(int block_num) {
+int DIY_Gid(int did, int lid) {
 
-  return blocking->Lid2Gid(block_num);
+  return blocking[did]->Lid2Gid(lid);
 
 }
 //----------------------------------------------------------------------------
@@ -1202,6 +1161,107 @@ int DIY_Decompress_block(unsigned char* in_buf, int in_size,
   decomp_buf_v.clear();
   DecompressBlockToBuffer(in_buf, in_size, &decomp_buf_v, decomp_size);
   *decomp_buf = &decomp_buf_v[0];
+  return 0;
+
+}
+//----------------------------------------------------------------------------
+//
+// Get total number of domains so far
+//
+// returns: number of domains (< 0 if error)
+//
+int DIY_Num_dids() {
+
+  return num_dids;
+
+}
+//----------------------------------------------------------------------------
+//
+// Get total number of blocks in all domains
+//
+// returns: number of blocks (< 0 if error)
+//
+int DIY_Tot_num_gids() {
+
+  return tot_blocks;
+
+}
+//----------------------------------------------------------------------------
+//
+// Get global number of blocks in one domain
+//
+// did: domain id
+//
+// returns: number of blocks (< 0 if error)
+//
+int DIY_Num_gids(int did) {
+
+  return tb[did];
+
+}
+//----------------------------------------------------------------------------
+//
+// Get local number of blocks in one domain
+//
+// did: domain id
+//
+// returns: number of blocks (< 0 if error)
+//
+int DIY_Num_lids(int did) {
+
+  return nb[did];
+
+}
+//----------------------------------------------------------------------------
+//
+// Get starting gid in one domain (assuming gids numbered consecutively
+//  across domains)
+//
+// did: domain id
+//
+// returns: starting gid (< 0 if error)
+//
+int DIY_Start_gid(int did) {
+
+  return assign[did]->StartGid();
+
+}
+//----------------------------------------------------------------------------
+//
+// Build K-D tree (prototype)
+//
+// did: domain id
+// pts: point locations to be indexed in kd-tree (for now)
+// loc_num_pts: global number of points
+// glo_num_pts: global number of points
+// num_levels: number of tree levels, counting root
+// num_bins: number of histogram bins at all levels
+//
+// returns: error code
+//
+int DIY_Build_tree(int did, float *pts, int loc_num_pts, int glo_num_pts, 
+		   int num_levels, int num_bins) {
+
+  blocking[did]->BuildTree(pts, loc_num_pts, glo_num_pts, num_levels, num_bins);
+
+  return 0;
+
+}
+//----------------------------------------------------------------------------
+//
+// Search K-D tree (prototype)
+//
+// did: domain id
+// pt: target point
+// leaf: (output) leaf node containing the point
+//
+// returns: error code
+//
+int DIY_Search_tree(int did, float *pt, struct leaf_t *leaf) {
+
+  int gid = blocking[did]->SearchTree(pt, 0);
+  blocking[did]->GetLeaf(gid, leaf);
+
   return 0;
 
 }

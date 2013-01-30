@@ -20,6 +20,7 @@
 // constructs and initializes my neighborhoods
 // using round robin assignment and implicit computation of neighborhoods
 //
+// did: domain id
 // blocking: pointer to blocking class
 // assignment: pointer to round robin assignment class
 // comm: MPI commnicator
@@ -27,9 +28,11 @@
 //  for later development)
 // nhdr: optional number of header counts
 //
-Neighborhoods::Neighborhoods(Blocking *blocking, Assignment *assignment, 
+Neighborhoods::Neighborhoods(int did, Blocking *blocking, 
+			     Assignment *assignment, 
 			     MPI_Comm comm, bool wrap, int nhdr) {
 
+  this->did = did;
   this->comm = comm;
   this->blocking = blocking;
   this->assign = assignment;
@@ -70,6 +73,7 @@ Neighborhoods::Neighborhoods(Blocking *blocking, Assignment *assignment,
 // using process order assignment and explicit listing of neighborhoods
 // and optional neighbor discovery
 //
+// did: domain id
 // blocking: pointer to blocking class
 // assignment: pointer to process order assignment class
 // rem_ids: remote ids used for neighbor discovery
@@ -87,12 +91,14 @@ Neighborhoods::Neighborhoods(Blocking *blocking, Assignment *assignment,
 // wrap: whether wraparound neighbors are used
 // nhdr: optional number of header counts
 //
-Neighborhoods::Neighborhoods(Blocking *blocking, Assignment *assignment, 
+Neighborhoods::Neighborhoods(int did, Blocking *blocking, 
+			     Assignment *assignment, 
 			     ri_t **rem_ids, int *num_rem_ids, int **vids, 
 			     int *num_vids, gb_t **neighbors, 
 			     int *num_neighbors, MPI_Comm comm, bool wrap,
 			     int nhdr) {
 
+  this->did = did;
   this->comm = comm;
   this->blocking = blocking;
   this->assign = assignment;
@@ -477,73 +483,6 @@ void Neighborhoods::EnqueueItemDir(int lid, char *item, size_t size, int *hdr,
 }
 //------------------------------------------------------------------------
 //
-// DEPRECATED
-//
-// Jingyuan's version
-//
-// enqueues an item for sending to neighbors identified by a mask array
-//
-// lid: local id of my block
-// item: item to be enqueued (char * pointer can point to anything, does not
-// need to be chars)
-// size: size of item in bytes
-// hdr: if nhdr > 0, pointer tp header counts
-// (additional quantities of subitems within the item)
-// TransformItem: pointer to function that transforms the item before
-//  enqueueing to a wraparound neighbor, given the wrapping direction
-//  (pass NULL if wrapping is unused)
-// mask: mask array indexed from negative to positive
-//
-// void Neighborhoods::EnqueueItemMask(int lid, char *item, size_t size, 
-// 				    int *hdr, void (*TransformItem)
-// 				    (char *, unsigned char),
-// 				    int *mask) {
-
-//   // todo: provide a non-copy mode for very large items
-
-//   // find the neighbor gid in my neighboring blocks
-//   for (int n = 0; n < (int)blocks[lid].neighbors.size(); n++) {
-//     bool symmetry_ok = true;
-
-//     bb_t bb;
-//     blocking->BlockBounds(lid, &bb);
-//     int num_dims = blocking->GetDim();
-//     int dir, index = 0;
-//     for (int d = 0; d < num_dims; d++) {
-//       if (bb.max[d] - blocks[lid].neighbors[n].gb.bb.min[d] < 0)
-//         dir = 0;
-//       else if (bb.max[d] - blocks[lid].neighbors[n].gb.bb.min[d] == 0)
-//         dir = 1;
-//       else
-//         dir = 2;
-
-//       index += dir * pow(3, num_dims - d - 1);
-//     }
-
-//     if (!mask[index])
-//       continue;
-
-//     // copy item so that it persists
-//     char *p = new char[size];
-//     memcpy(p, item, size);
-
-//     // transform item if wrapping
-//     if (TransformItem && blocks[lid].neighbors[n].wrap_dir)
-//       TransformItem(p, blocks[lid].neighbors[n].wrap_dir);
-
-//     // enqueue payload
-//     blocks[lid].neighbors[n].items.push_back(p);
-
-//     // enqueue header
-//     int j = blocks[lid].neighbors[n].items.size();
-//     if ((int)blocks[lid].neighbors[n].hdr.size() < j)
-//       blocks[lid].neighbors[n].hdr.resize(j);
-//     for (int i = 0; i < nhdr; i++) 
-//       blocks[lid].neighbors[n].hdr[j].push_back(hdr[i]);
-//   }
-// }
-//------------------------------------------------------------------------
-//
 // enqueues an item for sending to all neighbors
 // sending to self block dependings on a parameter, skips by default
 //
@@ -572,7 +511,7 @@ void Neighborhoods::EnqueueItemAll(int lid, char *item, size_t size,
   for (int n = 0; n < (int)blocks[lid].neighbors.size(); n++) {
 
     // skip self
-    if (!self && blocks[lid].neighbors[n].gb.gid == DIY_Gid(lid))
+    if (!self && blocks[lid].neighbors[n].gb.gid == DIY_Gid(did, lid))
       continue;
 
     bool symmetry_ok = true;
@@ -642,7 +581,7 @@ void Neighborhoods::EnqueueItemAllNear(int lid, char *item, size_t size,
   bb_t bb; // current block bounds
   int d; // current dimension
 
-  DIY_Block_bounds(lid, &bb);
+  DIY_Block_bounds(did, lid, &bb);
 
   // debug
 //   fprintf(stderr, "checking site %.2lf %.2lf %.2lf\n", pt[0], pt[1], pt[2]);
@@ -1646,7 +1585,7 @@ int Neighborhoods::Pt2NeighGid(int lid, float *pt) {
 //
 // type: pointer to MPI datatype
 //
-void Nbhds_ItemType(MPI_Datatype *type) {
+static void Nbhds_ItemType(MPI_Datatype *type) {
 
   // datatype for block bounds
   MPI_Datatype btype;

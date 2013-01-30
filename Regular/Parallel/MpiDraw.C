@@ -744,9 +744,9 @@ int isSeedInTimeGroup(int g)
     int time_block;
     bb_t bb;
     for (int i = 0; i < nblocks; i++) {
-      DIY_In_time_block(i, &time_block);
+      DIY_In_time_block(0, i, &time_block);
       if (time_block == g) {
-	DIY_No_ghost_block_bounds(i, &bb);
+	DIY_No_ghost_block_bounds(0, i, &bb);
 	tmin = bb.min[3];
 	tmax = bb.max[3];
 	break;
@@ -800,9 +800,9 @@ int getNumSeedsInTimeGroup(int g)
     int time_block;
     bb_t bb;
     for (int i = 0; i < nblocks; i++) {
-      DIY_In_time_block(i, &time_block);
+      DIY_In_time_block(0, i, &time_block);
       if (time_block == g) {
-	DIY_No_ghost_block_bounds(i, &bb);
+	DIY_No_ghost_block_bounds(0, i, &bb);
 	tmin = bb.min[3];
 	tmax = bb.max[3];
 	break;

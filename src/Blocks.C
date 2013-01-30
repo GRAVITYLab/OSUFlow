@@ -76,7 +76,7 @@ Blocks::Blocks(int nblocks, void *compute, int compute_type,
     lb_t lb;
     // changed by TP 10/9/12
 //     lb.gid = assign->RoundRobin_lid2gid(i);
-    lb.gid = DIY_Gid(i);
+    lb.gid = DIY_Gid(0, i);
     lb.loaded = 0;
     blocks.push_back(lb);
   }
@@ -208,11 +208,11 @@ float ***Blocks::BilLoadTimeGroupBlocks(int t_group, int nblocks,
 
     // edited TP 10/12/12
     int time_block;
-    DIY_In_time_block(i, &time_block);
+    DIY_In_time_block(0, i, &time_block);
 //     if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
     if (time_block == t_group) {
 //       blocking->BlockStartsSizes(i, block_min, block_size);
-      DIY_Block_starts_sizes(i, block_min, block_size);
+      DIY_Block_starts_sizes(0, i, block_min, block_size);
       // end TP
 
       data[i] = new float*[block_size[3]];
@@ -352,7 +352,7 @@ void Blocks::DeleteBlocks(int grp, int tsize, int tb, int nblocks) {
     #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
     // edited by TP 10/10/20
     int time_block;
-    DIY_In_time_block(i, &time_block);
+    DIY_In_time_block(0, i, &time_block);
 //     if (loaded && IsBlockInTimeGroup(grp - 1, i, tsize, tb)) {
     if (loaded && time_block == grp - 1) {
       // end TP
@@ -419,7 +419,7 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
     #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
     // edited by TP 10/10/20
     int time_block;
-    DIY_In_time_block(i, &time_block);
+    DIY_In_time_block(0, i, &time_block);
 //     if (!loaded && IsBlockInTimeGroup(grp, i, tsize, tb)) {
     if (!loaded && time_block == grp) {
       // end TP
@@ -430,7 +430,7 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
 
       // edited TP 10/12/12
 //       blocking->BlockStartsSizes(i, starts, sizes);
-      DIY_Block_starts_sizes(i, starts, sizes);
+      DIY_Block_starts_sizes(0, i, starts, sizes);
 
       float from[3] = {starts[0], starts[1], starts[2]};
       float to[3] = {starts[0] + sizes[0] - 1, starts[1] + sizes[1] - 1,
@@ -461,7 +461,7 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
 //       }
 
       struct bb_t bb;
-      DIY_No_ghost_block_bounds(i, &bb);
+      DIY_No_ghost_block_bounds(0, i, &bb);
       real_from[0] = bb.min[0];
       real_from[1] = bb.min[1];
       real_from[2] = bb.min[2];
@@ -565,7 +565,7 @@ int Blocks::LoadBlock4D(int grp, int blk, double *time, float *size,
     #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
     // edited by TP 10/10/20
     int time_block;
-    DIY_In_time_block(blk, &time_block);
+    DIY_In_time_block(0, blk, &time_block);
     //   if (!loaded && IsBlockInTimeGroup(grp, blk, tsize, tb)) {
     if (!loaded && time_block == grp) {
       // end TP
@@ -576,7 +576,7 @@ int Blocks::LoadBlock4D(int grp, int blk, double *time, float *size,
 
       // edited TP 10/12/12
 //       blocking->BlockStartsSizes(blk, starts, sizes);
-      DIY_Block_starts_sizes(blk, starts, sizes);
+      DIY_Block_starts_sizes(0, blk, starts, sizes);
 
       float from[3] = {starts[0], starts[1], starts[2]};
       float to[3] = {starts[0] + sizes[0] - 1, starts[1] + sizes[1] - 1,
@@ -666,7 +666,7 @@ int Blocks::LoadBlocksAMR(int grp, double *time, DataMode dm) {
     // edited by TP 10/10/20
     // DIY does not support AMR right now, so this won't work
     int time_block;
-    DIY_In_time_block(i, &time_block);
+    DIY_In_time_block(0, i, &time_block);
 //     if (!latAMR->GetLoad(i) && IsBlockInTimeGroup(grp, i, tsize, ntpart)) {
     if (!latAMR->GetLoad(i) && time_block == grp) {
       // end TP

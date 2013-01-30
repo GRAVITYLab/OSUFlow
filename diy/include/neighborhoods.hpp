@@ -90,9 +90,9 @@ class Neighborhoods {
 
  public: 
   
-  Neighborhoods(Blocking *blocking, Assignment *assignment,
+  Neighborhoods(int did, Blocking *blocking, Assignment *assignment,
 		MPI_Comm comm, bool wrap, int nhdr = 0); 
-  Neighborhoods(Blocking *blocking, Assignment *assignment, 
+  Neighborhoods(int did, Blocking *blocking, Assignment *assignment, 
 		struct ri_t **rem_ids, int *num_rem_ids, int **vids,
 		int *num_vids, gb_t **neighbors, int *num_neighbors,
 		MPI_Comm comm, bool wrap, int nhdr = 0);
@@ -134,6 +134,7 @@ class Neighborhoods {
   void GetNeighbors(int **vids, int *num_vids);
   int DiscoverGid2Lid(gb_t *gb, vector<int> &lids);
 
+  int did; // domain id
   vector<bl_t> blocks; // my blocks
   vector<pp_t> pps; // packed messages organized by process
   vector<ep_t> eps; // packed extents organized by process
@@ -158,6 +159,6 @@ class Neighborhoods {
 }; 
 
 // callback function not part of the class
-void Nbhds_ItemType(MPI_Datatype *type);
+static void Nbhds_ItemType(MPI_Datatype *type);
 
 #endif 

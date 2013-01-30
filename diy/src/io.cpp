@@ -87,13 +87,15 @@ void GetDatatype(MPI_Datatype *p) {
 //
 // constructor
 //
+// did: domain id
 // dim: number of dimensions
 // tb: total number of blocks
 // mb: maximum number of blocks per process
 // comm: MPI communicator
 //
-IO::IO(int dim, int tb, int mb, MPI_Comm comm) {
+IO::IO(int did, int dim, int tb, int mb, MPI_Comm comm) {
 
+  this->did = did;
   this->dim = dim;
   this->tot_b = tb;
   this->max_b = mb;
@@ -129,7 +131,9 @@ void IO::WriteAnaInit(const char *filename, bool compress) {
 //  user must swap bytes manually for datatypes because they are custom
 // compress: whether to apply decompression to nonempty reads (false by default)
 //
-void IO::ReadAnaInit(const char *filename, bool swap_bytes, bool compress) {
+// returns: local number of blocks to be read
+//
+int IO::ReadAnaInit(const char *filename, bool swap_bytes, bool compress) {
 
   int64_t *ftr; // footer, allocated by ReadFooter
   int64_t *all_sizes = NULL; // sizes for all blocks in footer
@@ -176,6 +180,8 @@ void IO::ReadAnaInit(const char *filename, bool swap_bytes, bool compress) {
   for (i = 0; i < max_b && block_starts[i] >= 0; i++)
 	 ;
   read_ana_b = i;
+
+  return(read_ana_b);
 
 }
 //----------------------------------------------------------------------------
@@ -416,14 +422,11 @@ void IO::ReadData(T* &data, const int64_t *starts,
 // nb: number of blocks
 // max_nb: maximum number of blocks in any process
 // hdrs: headers, one per analysis block (NULL if not used)
-// num_hdr_elems; number of header elements (0 if not used), 
-//   same for all headers
 // type_func: pointer to function that creates MPI datatype for item 
 //   returns the base address associated with the datatype
 //
 void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs, 
-		     int num_hdr_elems,
-		     void* (*type_func)(void*, int, MPI_Datatype*)) {
+		     void* (*type_func)(void*, int, int, MPI_Datatype*)) {
 
   int s; // temp
   MPI_Offset big_size; // MPI_Offset version of datatype size
@@ -443,11 +446,11 @@ void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs,
     if (i < nb) { // non-null block
 
       // combine header
-      addr = type_func(ana[i], i, &dtype); 
-      if (hdrs && num_hdr_elems) {
+      addr = type_func(ana[i], did, i, &dtype); 
+      if (hdrs) {
 	struct map_block_t map[] = {
-	  { MPI_INT, ADDR, num_hdr_elems, DIY_Addr(hdrs[i]) },
-	  { dtype,  ADDR, 1,             0,                },
+	  { MPI_INT, ADDR, DIY_MAX_HDR_ELEMENTS, DIY_Addr(hdrs[i]) },
+	  { dtype,   ADDR, 1,                    DIY_Addr(addr)    },
 	};
 	DIY_Create_struct_datatype(0, 2, map, &ctype);
       }
@@ -481,12 +484,16 @@ void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs,
 	ofst0 = ofst;
 	if (rank > 0)
 	  ofst += scan_size;
-	WriteDatatype(fd_out, addr, &ctype, 1, ofst);
+	if (hdrs)
+	  WriteDatatype(fd_out, 0, &ctype, 1, ofst);
+	else
+	  WriteDatatype(fd_out, addr, &ctype, 1, ofst);
+
       }
       MPI_Allreduce(&big_size, &tot_size, 1, MPI_LONG_LONG, MPI_SUM, comm);
       ofst = ofst0 + tot_size;
       DIY_Destroy_datatype(&dtype);
-      if (hdrs && num_hdr_elems)
+      if (hdrs)
 	DIY_Destroy_datatype(&ctype);
 
     }
@@ -512,10 +519,9 @@ void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs,
 //   block header, and creates (allocates) a block and creates an MPI datatype 
 //   for it. Returns the base address associated with the datatype
 //
-// returns: number of local blocks read
-//
-int IO::ReadAllAna(void** &ana, int **hdrs, 
-		   void* (*create_type_func)(int, int *, MPI_Datatype *)) {
+void IO::ReadAllAna(void** &ana, int **hdrs, 
+		    void* (*create_type_func)(int, int, int *, 
+					      MPI_Datatype *)) {
 
   MPI_Datatype dtype;
   ana = new void*[read_ana_b];
@@ -545,9 +551,9 @@ int IO::ReadAllAna(void** &ana, int **hdrs,
 
 	// allocate memory and create datatype
 	if (hdrs)
-	  ana[i] = create_type_func(i, hdrs[i], &dtype);
+	  ana[i] = create_type_func(did, i, hdrs[i], &dtype);
 	else
-	  ana[i] = create_type_func(i, NULL, &dtype);
+	  ana[i] = create_type_func(did, i, NULL, &dtype);
 
 	// decompress block and fill datatype
 	int hdr_size = DIY_MAX_HDR_ELEMENTS * sizeof(int);
@@ -567,9 +573,9 @@ int IO::ReadAllAna(void** &ana, int **hdrs,
 
 	// allocate memory and create datatype
 	if (hdrs)
-	  ana[i] = create_type_func(i, hdrs[i], &dtype);
+	  ana[i] = create_type_func(did, i, hdrs[i], &dtype);
 	else
-	  ana[i] = create_type_func(i, NULL, &dtype);
+	  ana[i] = create_type_func(did, i, NULL, &dtype);
 
 	// read analysis block
 	ReadDatatype(fd_in, ana[i], &dtype, 1, block_starts[i]);
@@ -600,8 +606,6 @@ int IO::ReadAllAna(void** &ana, int **hdrs,
     }
 
   }
-
-  return read_ana_b;
 
 }
 //----------------------------------------------------------------------------
@@ -741,11 +745,11 @@ int IO::ReadHeader(MPI_File fd, int null, int *hdr,
     MPI_Get_count(&status,MPI_INT,&count);
     if (errcode != MPI_SUCCESS)
       handle_error(errcode, (char *)"MPI_File_read_at_all header");
-    assert(count == DIY_MAX_HDR_ELEMENTS * sizeof(int));
-    ofst += count;
+    assert(count == DIY_MAX_HDR_ELEMENTS);
+    ofst += count * sizeof(int);
   }
 
-  return(count);
+  return(count * sizeof(int));
 
 }
 //----------------------------------------------------------------------------

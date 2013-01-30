@@ -51,11 +51,11 @@ class Comm {
 		MPI_Datatype *dtype);
   void StartRecvItem(int src_rank, bool use_header);
   int FinishRecvItemsMerge(char **items, int *gids, int *procs,
-			    char * (*CreateItem)(int *),
-			    void* (*RecvItemDtype)(void*, MPI_Datatype*));
+			   char * (*CreateItem)(int *),
+			   void* (*RecvItemDtype)(void*, MPI_Datatype*, int *));
   int RecvItemsMerge(char **items, int *gids, int *procs, float wf,
 		     char * (*CreateItem)(int *),
-		     void* (*RecvItemDtype)(void*, MPI_Datatype*));
+		     void* (*RecvItemDtype)(void*, MPI_Datatype*, int *));
   int FinishRecvItemsSwap(char **items, int *gids, int *procs, int ne,
 			  char * (*CreateItem)(int *, int),
 			  void* (*RecvItemDtype)(void*, MPI_Datatype*, 
@@ -65,38 +65,33 @@ class Comm {
 		    void* (*RecvItemDtype)(void*, MPI_Datatype*, 
 					   int));
   void Send(void *item, int count, DIY_Datatype datatype, 
-	    int dest_gid, Assignment *assign);
-  int Recv(int my_gid, void** &items, DIY_Datatype datatype, int wait);
+	    int dest_gid, vector <Assignment*> assign);
+  int Recv(int my_gid, void** &items, DIY_Datatype datatype, int wait,
+	   int *sizes);
   void FlushSendRecv(int barrier);
 
 #ifdef _MPI3
 
   void RmaSend(void *item, int count, DIY_Datatype datatype, 
-	       int my_gid, int dest_gid, Assignment *assign);
+	       int my_gid, int dest_gid, vector <Assignment*> assign);
   int RmaRecv(int my_gid, void** &items, DIY_Datatype datatype, 
-	      int *src_gids, int wait, Assignment *assign);
+	      int *src_gids, int wait, Assignment *assign, int *sizes);
   void RmaFlushSendRecv(int barrier);
 
 #endif
 
-  // DEPRECATED
-//   int RmaFlushSendRecv(void** &items, DIY_Datatype datatype, 
-// 		       int *src_gids, int *dest_gids, Assignment *assign);
-
  private:
 
   int FinishRecvItems(char **items, int *gids, int *procs, int ne,
-		       char* (*CreateItemMerge)(int *),
-		       char* (*CreateItemSwap)(int *, int),
-		       void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*),
-		       void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, 
-						  int));
+		      char* (*CreateItemMerge)(int *),
+		      char* (*CreateItemSwap)(int *, int),
+		      void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *),
+		      void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int));
   int RecvItems(char **items, int *gids, int *procs, float wf, int ne,
 		char* (*CreateItemMerge)(int *),
 		char* (*CreateItemSwap)(int *, int),
-		void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*),
-		void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, 
-					   int));
+		void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *),
+		void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int));
 
   bool use_header; // using a header for item communication
   MPI_Comm comm; // communicator

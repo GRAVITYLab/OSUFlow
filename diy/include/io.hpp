@@ -31,10 +31,10 @@ class IO {
 
  public:
 
-  IO(int dim, int tb, int mb, MPI_Comm comm);
+  IO(int did, int dim, int tb, int mb, MPI_Comm comm);
   ~IO(){};
   void WriteAnaInit(const char *filename, bool compress = false);
-  void ReadAnaInit(const char *filename, bool swap_bytes, 
+  int ReadAnaInit(const char *filename, bool swap_bytes, 
 		   bool compress = false);
   void WriteAnaFinalize();
   void ReadAnaFinalize();
@@ -44,10 +44,9 @@ class IO {
   void ReadAllData(T*** data, const int64_t *extents, int nb, 
 		   Blocking *blocking);
   void WriteAllAna(void **ana, int nb, int max_nb, int **hdrs, 
-		   int num_hdr_elems,
-		   void* (*type_func)(void*, int, MPI_Datatype*));
-  int ReadAllAna(void** &ana, int **hdrs, 
-		 void* (*create_type_func)(int, int *, MPI_Datatype *));
+		   void* (*type_func)(void*, int, int, MPI_Datatype*));
+  void ReadAllAna(void** &ana, int **hdrs, 
+		  void* (*create_type_func)(int, int, int *, MPI_Datatype *));
 
  private:
 
@@ -68,6 +67,7 @@ class IO {
   void ReorderFooter(int64_t *in_blks, int64_t *out_blks, 
 		     int *num_blks, int tot_blks);
 
+  int did; // domain id
   int dim; // number of dimensions in the dataset
   int tot_b; // total number of blocks
   int max_b; // maximum number of blocks per process

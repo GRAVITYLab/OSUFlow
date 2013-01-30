@@ -24,14 +24,23 @@
 
 using namespace std;
 
+// full tree node
+struct kd_node_t {
+  bb_t bounds; // bounds of region correponding to this tree node
+  int proc; // process to which this node is block is or will be assigned
+  int l_child; // array index of left child, -1 = leaf
+  int r_child; // array index of right child, -1 = leaf
+  int parent; // array index of parent, -1 = root
+};
+
 class Blocking {
 
  public:
 
-  Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
-	   int *ghost, int64_t *given, Assignment *assignment, 
+  Blocking(int start_b, int did, int dim, int tot_b, int64_t *data_size, 
+	   bool share_face, int *ghost, int64_t *given, Assignment *assignment, 
 	   MPI_Comm comm);
-  Blocking(int dim, int tot_b, int *gids, bb_t *bounds,
+  Blocking(int start_b, int did, int dim, int tot_b, int *gids, bb_t *bounds,
 	   Assignment *assignment, MPI_Comm comm);
   ~Blocking();
 
@@ -56,13 +65,21 @@ class Blocking {
   void NumLatBlocks(int64_t *lat_nblocks);
   int Lid2Gid(int lid);
   int Gid2Lid(int gid); // only for gids on this process
+  void BuildTree(float *pts, int loc_num_pts, int glo_num_pts,
+		 int num_levels, int num_bins);
+  int SearchTree(float *pt, int start_node = 0);
+  void GetLeaf(int index, leaf_t *leaf);
 
 private:
 
   void FactorDims(int64_t *given);
   void ApplyGhost();
+  int BinarySearch(int start, int num_vals, int *vals, int target);
+  void AddChildren(int parent, int split_dir, float split_frac);
 
+  int did; // domain id
   int dim; // number of dimensions
+  int start_b; // starting gid of this domain (num blocks in prior domains)
   int tot_b; // total number of blocks in the domain
   gb_t *blocks; // my local blocks
   bb_t *rbb; // no-ghost bounds of my local blocks
@@ -78,7 +95,16 @@ private:
   Assignment *assign; // assignment class
   bool share_face; // whether neighboring blocks share a common face or not
   int ghost[2 * DIY_MAX_DIM]; // ghost layer per side
+  vector <kd_node_t> kd_tree; // KD tree implemented as a vector
 
 };
+
+// callback functions are not class members
+static void KdTree_MergeHistogram(char **items, int *gids, int num_items, 
+				  int *hdr);
+static char *KdTree_CreateHistogram(int *hdr);
+static void KdTree_DestroyHistogram(void *item);
+static void *KdTree_CreateHistogramType(void *item, DIY_Datatype *dtype, 
+					int *hdr);
 
 #endif

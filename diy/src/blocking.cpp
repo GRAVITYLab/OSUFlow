@@ -19,6 +19,8 @@
 //
 // constructor for creating blocking from scratch
 //
+// start_b: starting block global id (number of blocks in prior domains)
+// did: domain id
 // dim: number of dimensions
 // tot_b: total number of blocks
 // data_size: data size in up to 4 dimensions
@@ -34,13 +36,16 @@
 // assignment: pointer to asignment class
 // comm: MPI communicator
 //
-Blocking::Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
+Blocking::Blocking(int start_b, int did, int dim, int tot_b, 
+		   int64_t *data_size, bool share_face,
 		   int *ghost, int64_t *given, 
 		   Assignment *assignment, MPI_Comm comm) {
 
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &groupsize);
 
+  this->start_b = start_b;
+  this->did = did;
   this->dim = dim;
   this->tot_b = tot_b;
   this->comm = comm;
@@ -72,19 +77,23 @@ Blocking::Blocking(int dim, int tot_b, int64_t *data_size, bool share_face,
 //
 // constructor for adopting an existing blocking
 //
+// start_b: starting block global id (number of blocks in prior domains)
+// did: domain id
 // dim: number of dimensions
 // tot_b: total number of blocks
-// gids: global ids of my local blocks
+// gids: global ids of my local blocks (unique across all domains)
 // bounds: block bounds (extents) of local blocks
 // assignment: pointer to asignment class
 // comm: MPI communicator
 //
-Blocking::Blocking(int dim, int tot_b, int *gids, bb_t *bounds,
-		   Assignment *assignment, MPI_Comm comm) {
+Blocking::Blocking(int start_b, int did, int dim, int tot_b, int *gids, 
+		   bb_t *bounds, Assignment *assignment, MPI_Comm comm) {
 
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &groupsize);
 
+  this->start_b = start_b;
+  this->did = did;
   this->dim = dim;
   this->tot_b = tot_b;
   this->comm = comm;
@@ -98,7 +107,7 @@ Blocking::Blocking(int dim, int tot_b, int *gids, bb_t *bounds,
 
 #pragma omp parallel for
   for (int i = 0; i < nb; i++) {
-    blocks[i].gid = gids[i];
+    blocks[i].gid = gids[i]; // user's gids need to be unique across all domains
     blocks[i].proc = -1; // no need to store my own process id
     for (int j = 0; j < dim; j++) {
       blocks[i].bb.min[j] = bounds[i].min[j];
@@ -261,18 +270,6 @@ void Blocking::NoGhostBlockBounds(int lid, bb_t *bounds) {
     }
   }
 
-  // DEPRECATED
-//   for (int i = 0; i < dim; i++) {
-//     if (blocks[lid].bb.min[i] > data_min[i])
-//       bounds->min[i] = blocks[lid].bb.min[i] + ghost[2 * i];
-//     else
-//       bounds->min[i] = blocks[lid].bb.min[i];
-//     if (blocks[lid].bb.max[i] < data_max[i])
-//       bounds->max[i] = blocks[lid].bb.max[i] - ghost[2 * i + 1];
-//     else
-//       bounds->max[i] = blocks[lid].bb.max[i];
-//   }
-
 }
 //--------------------------------------------------------------------------
 //
@@ -293,7 +290,7 @@ void Blocking::ComputeBlocking(int64_t *given) {
   // volume bounds in row-major index order (x, y, z)
   // x changes fastest, z slowest
   int lid = 0;
-  int gid = 0;
+  int gid = start_b;
   int nl = (dim < 4 ? 1 : lat_size[3]);
   int nk = (dim < 3 ? 1 : lat_size[2]);
   int nj = (dim < 2 ? 1 : lat_size[1]);
@@ -605,8 +602,8 @@ void Blocking::GetNeighbors(int lid, vector<struct gb_t>& neighbors) {
 //
 void Blocking::Gid2Indices(int gid, int& i, int& j) {
 
-  j = gid / lat_size[0];
-  i = gid % lat_size[0];
+  j = (gid - start_b) / lat_size[0];
+  i = (gid - start_b) % lat_size[0];
 
 }
 //---------------------------------------------------------------------------
@@ -618,9 +615,9 @@ void Blocking::Gid2Indices(int gid, int& i, int& j) {
 //
 void Blocking::Gid2Indices(int gid, int& i, int& j, int& k) {
 
-  k = gid / (lat_size[0] * lat_size[1]) ; 
-  j = (gid % (lat_size[0] * lat_size[1])) / lat_size[0]; 
-  i = gid % lat_size[0]; 
+  k = (gid - start_b) / (lat_size[0] * lat_size[1]) ; 
+  j = ((gid - start_b) % (lat_size[0] * lat_size[1])) / lat_size[0]; 
+  i = (gid - start_b) % lat_size[0]; 
 
 }
 //---------------------------------------------------------------------------
@@ -632,8 +629,8 @@ void Blocking::Gid2Indices(int gid, int& i, int& j, int& k) {
 //
 void Blocking::Gid2Indices(int gid, int& i, int& j, int& k, int &l) {
 
-  l = gid / (lat_size[0] * lat_size[1] * lat_size[2]); 
-  int r = gid % (lat_size[0] * lat_size[1] * lat_size[2]); 
+  l = (gid - start_b) / (lat_size[0] * lat_size[1] * lat_size[2]); 
+  int r = (gid - start_b) % (lat_size[0] * lat_size[1] * lat_size[2]); 
   k = r / (lat_size[0] * lat_size[1]) ; 
   j = (r % (lat_size[0] * lat_size[1])) / lat_size[0]; 
   i = r % lat_size[0]; 
@@ -649,7 +646,7 @@ int Blocking::Indices2Gid(int i, int j) {
   if (i < 0 || i >= (int)lat_size[0] || j < 0 || j >= (int)lat_size[1]) 
     return(-1); 
 
-  return(j * lat_size[0] + i);
+  return(start_b + j * lat_size[0] + i);
 
 }
 //----------------------------------------------------------------------------
@@ -663,7 +660,7 @@ int Blocking::Indices2Gid(int i, int j, int k) {
       k < 0 || k >= (int)lat_size[2]) 
     return(-1); 
 
-  return(k * lat_size[0] * lat_size[1] + j * lat_size[0] + i);
+  return(start_b + k * lat_size[0] * lat_size[1] + j * lat_size[0] + i);
 
 }
 //----------------------------------------------------------------------------
@@ -677,8 +674,8 @@ int Blocking::Indices2Gid(int i, int j, int k, int l) {
       k < 0 || k >= (int)lat_size[2] || l < 0 || l >= (int)lat_size[3]) 
     return(-1); 
 
-  return(l * lat_size[0] * lat_size[1] * lat_size[2] + k * lat_size[0] * 
-	 lat_size[1] + j * lat_size[0] + i);
+  return(start_b + l * lat_size[0] * lat_size[1] * lat_size[2] + 
+	 k * lat_size[0] * lat_size[1] + j * lat_size[0] + i);
 
 }
 //----------------------------------------------------------------------------
@@ -730,6 +727,441 @@ int Blocking::Gid2Lid(int gid) {
     return i;
   else
     return -1;
+
+}
+//----------------------------------------------------------------------------
+//
+// build kd tree (prototype)
+//
+// pts: point locations to be indexed in kd-tree (for now)
+// loc_num_pats: local number of points
+// glo_num_pats: global number of points
+// num_levels: number of tree levels, counting root
+// num_bins: number of histogram bins at all levels
+//
+void Blocking::BuildTree(float *pts, int loc_num_pts, int glo_num_pts,
+			 int num_levels, int num_bins) {
+
+  int num_hists; // number of historgrams in this level
+  int min_num_bins = 64; // minimum number of histogram bins
+  int median = glo_num_pts / 2; // desired median
+  int parent = 0; // curent parent tree node
+  int tot_num_bins; // total number of bins in all histograms for a block
+
+  // headers for each block
+  int **hdrs = new int*[nb];
+  for (int i = 0; i < nb; i++)
+    hdrs[i] = new int[1];
+
+  // todo: only the right number of bins for global range
+  // yet to implement local ranges, especially for later levels
+
+  // allocate histograms, hists[i] allocated and freed during each level
+  int **hists;
+  hists = new int*[nb];
+
+  // initialize kd-tree with level 0
+  kd_node_t node;
+  for (int i = 0; i < dim; i++) {
+    node.bounds.min[i] = data_min[i];
+    node.bounds.max[i] = data_max[i];
+  }
+  node.proc = 0; // default
+  node.l_child = -1; // empty, to be filled in later
+  node.r_child = -1; // ditto
+  node.parent = -1; // will remain empty for root
+  kd_tree.push_back(node);
+
+  for (int level = 1; level < num_levels; level++) { // tree levels
+
+    int dir = (level - 1) % dim;
+    num_hists = ((level - 1) ? num_hists * 2 : 1);
+    // toto: reduce histogram size with level (after one full cycle of all dirs)
+    // turned off for now
+//     if (level - 1)
+//       num_bins = (num_bins >= 2 * min_num_bins ? num_bins / 2 : min_num_bins);
+    tot_num_bins = num_hists * num_bins;
+
+    for (int b = 0; b < nb; b++)
+      hists[b] = new int[tot_num_bins];
+
+    // init histograms
+    for (int b = 0; b < nb; b++) {
+      for (int i = 0; i < tot_num_bins; i++)
+	hists[b][i] = 0;
+    }
+
+    for (int b = 0; b < nb; b++) { // local blocks
+
+      // scan and bin objects
+      // todo: is data_max and data_min set correctly? I doubt it for particles
+      float bin_width = (data_max[dir] - data_min[dir]) / num_bins;
+      for (int i = 0; i < loc_num_pts; i++) {
+
+	// search for particle in tree
+	// todo: don't have to start at root each time
+	int pt_node = SearchTree(&pts[3 * i], 0);
+	// pos of node in level
+	int node_level_pos = pt_node + 1 - pow(2, level - 1);
+
+	// debug
+// 	fprintf(stderr, "pt: %.1f %.1f %.1f in node %d: node_level_pos %d\n",
+// 		pts[3 * i], pts[3 * i + 1], pts[3 * i + 2],
+// 		pt_node, node_level_pos);
+
+	int bin = pts[3 * i + dir] / bin_width;
+	if (bin >= num_bins)
+	  bin = num_bins - 1;
+	bin += num_bins * node_level_pos; // move to correct histogram
+	hists[b][bin]++;
+
+      } // objects
+
+      hdrs[b][0] = tot_num_bins;
+
+    } // local blocks
+
+    // debug: print the histograms
+//     for (int b = 0; b < nb; b++) {
+//       for (int i = 0; i < num_bins; i++)
+// 	fprintf(stderr, "hists[%d][%d] = %d\n", b, i, hists[b][i]);
+//     }
+
+    // merge the histograms
+    // todo: change merge and swap API to take a target k and figure out
+    // rounds and kvalues itself
+    int rounds = log2f((float)tot_b); // todo: assumes power of 2 blocks
+    int kvalues[rounds];
+    for (int i = 0; i < rounds; i++)
+      kvalues[i] = 2;
+    int nb_merged; // number of output merged blocks
+
+    DIY_Merge_blocks(did, (char**)hists, hdrs, rounds, kvalues, 
+		     &KdTree_MergeHistogram, &KdTree_CreateHistogram, 
+		     &KdTree_DestroyHistogram, 
+		     &KdTree_CreateHistogramType, &nb_merged);
+
+    // find median split points in histograms
+    int split_index[num_hists]; // split indices in cumulative mass function
+    if (rank == groupsize - 1) {
+
+      assert(nb_merged == 1); // sanity
+
+      // debug: print the merged histogram
+//       for (int i = 0; i < num_bins; i++)
+// 	fprintf(stderr, "hist[%d] = %d\n", i, hists[0][i]);
+
+      // convert histogram to cumulative mass function; prefix sum
+      for (int i = 0; i < num_hists; i++) {
+	int ofst = i * num_bins; // start of this histogram
+	for (int j = 1; j < num_bins; j++)
+	  hists[0][ofst + j] += hists[0][ofst + j - 1];
+      }
+
+      // debug: print the CMF
+//       for (int i = 0; i < num_bins; i++)
+// 	fprintf(stderr, "cmf[%d] = %d\n", i, hists[0][i]);
+
+      // find split index of CMF
+      for (int i = 0; i < num_hists; i++) {
+	int ofst = i * num_bins; // start of this histogram
+	split_index[i] = BinarySearch(ofst, num_bins, hists[0], median);
+	// debug
+	fprintf(stderr, "level = %d split_index[%d] = %d median = %d\n", 
+		level, i, split_index[i], median);
+      }
+
+    }
+
+    // broadcast the split points
+    MPI_Bcast(split_index, num_hists, MPI_INT, groupsize - 1, comm);
+
+    // add new level to kd-tree
+    for (int i = 0; i < num_hists; i++) {
+      int ofst = i * num_bins; // start of this histogram
+      AddChildren(parent + i, dir, ((float)split_index[i] - ofst)/ num_bins);
+    }
+
+    parent += num_hists;
+    median /= 2;
+
+    // cleanup
+    for (int b = 0; b < nb; b++)
+      delete[] hists[b];
+
+  // debug: print the kd tree
+//   if (rank == 0) { // duplicated on all ranks, print only once
+//     for (int i = 0; i < kd_tree.size(); i++)
+//       fprintf(stderr, "kd tree node %d: proc %d min[%.1f %.1f %.1f] "
+// 	      "max[%.1f %.1f %.1f] l_child %d r_child %d parent %d\n",
+// 	      i, kd_tree[i].proc, kd_tree[i].bounds.min[0], 
+// 	      kd_tree[i].bounds.min[1], kd_tree[i].bounds.min[2], 
+// 	      kd_tree[i].bounds.max[0], kd_tree[i].bounds.max[1], 
+// 	      kd_tree[i].bounds.max[2], kd_tree[i].l_child, kd_tree[i].r_child,
+// 	      kd_tree[i].parent);
+//   }
+
+  } // tree levels
+
+  // debug: print the kd tree
+  if (rank == 0) { // duplicated on all ranks, print only once
+    for (int i = 0; i < kd_tree.size(); i++)
+      fprintf(stderr, "kd tree node %d: proc %d min[%.1f %.1f %.1f] "
+	      "max[%.1f %.1f %.1f] l_child %d r_child %d parent %d\n",
+	      i, kd_tree[i].proc, kd_tree[i].bounds.min[0], 
+	      kd_tree[i].bounds.min[1], kd_tree[i].bounds.min[2], 
+	      kd_tree[i].bounds.max[0], kd_tree[i].bounds.max[1], 
+	      kd_tree[i].bounds.max[2], kd_tree[i].l_child, kd_tree[i].r_child,
+	      kd_tree[i].parent);
+  }
+
+  // cleanup
+  delete[] hists;
+
+}
+//----------------------------------------------------------------------------
+//
+// search the tree looking for a point
+//
+// pt: target point
+// start_node: index of starting node of search (usually 0 (root), but
+//  the caller may have more information and can shorten the search by
+//  providing a node closer to the leaves)
+//
+// returns: leaf node index containing the target 
+//  -1 if not found, indicates either an erroneous tree 
+//  or a target point out of bounds of the entire domain at the root node
+//
+int Blocking::SearchTree(float *pt, int start_node) {
+
+  int node = start_node;
+  int i;
+
+  while (1) {
+
+    if (kd_tree[node].l_child == -1) // leaf; done
+      return node;
+
+    // check left child
+    for (i = 0; i < dim; i++) {
+      if (kd_tree[kd_tree[node].l_child].bounds.min[i] > pt[i] ||
+	  kd_tree[kd_tree[node].l_child].bounds.max[i] < pt[i])
+	break;
+    }
+
+    if (i == dim) {
+      node = kd_tree[node].l_child;
+      continue;
+    }
+
+    // check right child
+    for (i = 0; i < dim; i++) {
+      if (kd_tree[kd_tree[node].r_child].bounds.min[i] > pt[i] ||
+	  kd_tree[kd_tree[node].r_child].bounds.max[i] < pt[i])
+	break;
+    }
+
+    if (i == dim) {
+      node = kd_tree[node].r_child;
+      continue;
+    }
+
+    fprintf(stderr, "Error: TreeSearch() could not find target point\n");
+    return -1;
+
+  }
+
+}
+//----------------------------------------------------------------------------
+//
+// retrieves a tree leaf node
+//
+// index; leaf node index
+// leaf: (output) leaf data
+//
+void Blocking::GetLeaf(int index, leaf_t *leaf) {
+
+  leaf->gid = index + start_b;
+  leaf->proc = kd_tree[index].proc;
+  for (int i = 0; i < dim; i++) {
+    leaf->bounds.min[i] = kd_tree[index].bounds.min[i];
+    leaf->bounds.max[i] = kd_tree[index].bounds.max[i];
+  }
+
+}
+//----------------------------------------------------------------------------
+//
+// finds index of target value of a sorted array using binary search
+//
+// start: starting index (eg., 0)
+// num_vals: number of values starting at starting index
+// vals: array of values
+// target: target value
+//
+// returns: nearest index to target
+//
+int Blocking::BinarySearch(int start, int num_vals, int *vals, int target) {
+
+    int lo = start;
+    int hi = start + num_vals - 1;
+    int mid = (lo + hi) / 2;
+    while (hi - lo > 1 && mid > 0) {
+      if (vals[lo] >= target) {
+	mid = lo;
+	break;
+      }
+      if (target >= vals[hi]) {
+	mid = hi;
+	break;
+      }
+      if (vals[mid] < target)
+	lo = mid;
+      else if (target < vals[mid])
+	hi = mid;
+      else
+	break;
+      mid = (lo + hi) / 2;
+    }
+
+    return mid;
+
+}
+//----------------------------------------------------------------------------
+//
+// Add new children to a parent in the tree
+//
+// parent: index of parent node
+// split_dir: split direction (0 to dim - 1)
+// split_frac: fraction of parent bounds where to split children (0.0 - 1.0)
+//
+void Blocking::AddChildren(int parent, int split_dir, float split_frac) {
+
+  // debug
+//   fprintf(stderr, "ready to add node parent %d split dir %d split_frac %.1f\n",
+// 	  parent, split_dir, split_frac);
+
+  kd_node_t node; // one kd tree node
+
+  // for all children
+  for (int child = 0; child < 2; child++) {
+
+    node.parent = parent;
+    node.proc = kd_tree.size() % groupsize; // round robin for now
+    node.l_child = -1; // currently a leaf node
+    node.r_child = -1;
+
+    for (int i = 0; i < dim; i++) {
+
+      if (i == split_dir) { // the split direction
+	// map split index to point in the bounds
+	float split_point = kd_tree[node.parent].bounds.min[i] + split_frac *
+	  (kd_tree[node.parent].bounds.max[i] - 
+	   kd_tree[node.parent].bounds.min[i]);
+	if (child == 0) { // left child
+	  node.bounds.min[i] = kd_tree[node.parent].bounds.min[i];
+	  node.bounds.max[i] = split_point;
+	}
+	else { // right child
+	  node.bounds.min[i] = split_point;
+	  node.bounds.max[i] = kd_tree[node.parent].bounds.max[i];
+	}
+      }
+      else { // other directions unaffected
+	node.bounds.min[i] = kd_tree[node.parent].bounds.min[i];
+	node.bounds.max[i] = kd_tree[node.parent].bounds.max[i];
+      }
+
+    }
+
+    // add the node and point parent to it
+    kd_tree.push_back(node);
+    if (child == 0)
+      kd_tree[node.parent].l_child = kd_tree.size() - 1;
+    else
+      kd_tree[node.parent].r_child = kd_tree.size() - 1;
+
+    // debug
+//     fprintf(stderr, "adding node: proc %d min[%.1f %.1f %.1f] "
+// 	    "max[%.1f %.1f %.1f] l_child %d r_child %d parent %d\n",
+// 	    node.proc, node.bounds.min[0], 
+// 	    node.bounds.min[1], node.bounds.min[2], 
+// 	    node.bounds.max[0], node.bounds.max[1], 
+// 	    node.bounds.max[2], node.l_child, node.r_child,
+// 	    node.parent);
+
+  } // children
+
+}
+//----------------------------------------------------------------------------
+//
+// callback function to compute a global histogram
+//  by merging individual histograms
+//
+// items: pointers to input / output items, result in items[0]
+// char * is used as a generic pointers to bytes, not necessarily to strings
+// gids: gloabl ids of items to be reduced (unused)
+// num_items: total number of input items
+// hdr: quantity information
+//
+static void KdTree_MergeHistogram(char **items, int *gids, int num_items,
+				  int *hdr) {
+
+  // todo: need to offset histograms for range if/when histograms are not the
+  // global range, as they are now
+
+  // add histograms
+  for (int i = 1; i < num_items; i++) {
+    for (int j = 1; j < hdr[0]; j++)
+      ((int **)items)[0][j] += ((int **)items)[i][j];
+  }
+
+}
+//----------------------------------------------------------------------------
+//
+// callback function to create a received item
+//
+// hdr: quantity information
+//
+// char * is used as a generic pointers to bytes, not necessarily to strings
+//
+// side effects: allocates the item
+//
+// returns: pointer to the item
+//
+static char *KdTree_CreateHistogram(int *hdr) {
+
+  int *bins = new int[hdr[0]];
+  return (char *)bins;
+
+}
+//----------------------------------------------------------------------------
+//
+// callback function to destroy a received item
+//
+// item: item to be destroyed
+//
+static void KdTree_DestroyHistogram(void *item) {
+
+  delete[] (int *)item;
+
+}
+//----------------------------------------------------------------------------
+//
+// callback function to create a DIY datatype for received item being merged
+//
+// item: pointer to the item
+// dtype: pointer to the datatype
+// hdr: quantity information
+//
+// side effects: commits the datatype but DIY will cleanup datatype for you
+//
+// returns: base address associated with the datatype
+//
+static void *KdTree_CreateHistogramType(void *item, DIY_Datatype *dtype,
+					int *hdr) {
+
+  DIY_Create_vector_datatype(hdr[0], 1, DIY_INT, dtype);
+  return item;
 
 }
 //----------------------------------------------------------------------------

@@ -237,7 +237,7 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
     float to[3];
     bb_t bb;
 //     blocks->GetRealBlockBounds(i, from, to);
-    DIY_No_ghost_block_bounds(i, &bb);
+    DIY_No_ghost_block_bounds(0, i, &bb);
 //     from[0] = from64[0];
 //     from[1] = from64[1];
 //     from[2] = from64[2];
@@ -250,7 +250,7 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
     int max_t = bb.max[3]; // todo: why was this from instead of to above?
 
 //     int gid = blocking->assign->RoundRobin_lid2gid(i);
-    int gid = DIY_Gid(i);
+    int gid = DIY_Gid(0, i);
     // end TP 9/12/12
 
 #else // serial version
@@ -1391,7 +1391,7 @@ int ParFlow::ExchangeNeighbors(vector< vector<Particle> >& seeds, float wf) {
   int *num_items = new int[nb];
   int npr = 0;
 //   int npr = nbhds->ExchangeNeighbors(pts, wf, &RecvItemDtype, &SendItemDtype);
-  DIY_Exchange_neighbors(items, num_items, wf, &CreateDtype);
+  DIY_Exchange_neighbors(0, items, num_items, wf, &CreateDtype);
 
   // copy received points to seeds
   Particle seed; // one 4D seed
@@ -1427,7 +1427,7 @@ int ParFlow::FlushNeighbors(vector< vector<Particle> >& seeds) {
   int *num_items = new int[nb];
   int npr = 0;
 //   int npr = nbhds->FlushNeighbors(pts, &RecvItemDtype);
-  DIY_Flush_neighbors(items, num_items, &CreateDtype);
+  DIY_Flush_neighbors(0, items, num_items, &CreateDtype);
 
   // copy received points to seeds
   Particle seed; // one 4D seed
@@ -1975,9 +1975,9 @@ void ParFlow::PostPoint(int lid, Item *item, int recirc, int end_steps) {
 #ifdef _MPI
 
   // start edited TP 9/12/12
-  int gid = DIY_Gid(lid);
+  int gid = DIY_Gid(0, lid);
   bb_t bounds;
-  DIY_No_ghost_block_bounds(lid, &bounds);
+  DIY_No_ghost_block_bounds(0, lid, &bounds);
   if (!recirc) { // check if point is in lid and not recirculating
     int i;
     for (i = 0; i < 4; i++) { 
@@ -1989,7 +1989,7 @@ void ParFlow::PostPoint(int lid, Item *item, int recirc, int end_steps) {
   }
 
   if (item->steps < end_steps)
-    DIY_Enqueue_item_points(lid, item, NULL, sizeof(Item), item->pt, 
+    DIY_Enqueue_item_points(0, lid, item, NULL, sizeof(Item), item->pt, 
 			    1, NULL);
   // end TP
 

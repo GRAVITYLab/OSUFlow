@@ -60,7 +60,9 @@ class Assignment {
   virtual int Gid2Lid(int gid) = 0;
   virtual int Gid2Proc(int gid)  = 0;
 
-  int NumBlks() { return nb; }
+  int NumBlks() { return nb; } // number of local blocks in current domain
+  int StartGid() { return start_b; } // starting gid in current domain
+  int NumGids() { return tot_b; } // number of global blocks in current domain
 
   // static partitioning or dynamic repartitioning (static for now)
   bool GetStaticMode() { return true; }
@@ -71,7 +73,8 @@ class Assignment {
 
 protected:
 
-  int tot_b; // total number of blocks
+  int start_b; // starting gid of this domain (num blocks in prior domains)
+  int tot_b; // total number of blocks in this domain
   int nb; // my local number of blocks
   int rank; // my MPI process rank
   int groupsize; // MPI groupsize
@@ -85,21 +88,22 @@ class RoundRobinAssignment : public Assignment {
 
  public:
 
-  RoundRobinAssignment(int tot_b, int &nb, int &max_b, MPI_Comm comm);
+  RoundRobinAssignment(int start_b, int tot_b, int &nb, int &max_b, 
+		       MPI_Comm comm);
 
   // assigns global block id
   int AssignGid(int lid)  {
-    return(rank + lid * groupsize);
+    return(start_b + rank + lid * groupsize);
   }
 
   // global block id to local block id
   int Gid2Lid(int gid)  {
-    return(gid / groupsize);
+    return((gid - start_b)  / groupsize);
   }
 
   // global block id to process rank
   int Gid2Proc(int gid) {
-    return(gid % groupsize);
+    return((gid - start_b) % groupsize);
   }
 
 };
@@ -108,21 +112,22 @@ class ProcOrderAssignment : public Assignment {
 
  public:
 
-  ProcOrderAssignment(int tot_b, int &nb, int &max_b, MPI_Comm comm);
+  ProcOrderAssignment(int start_b, int tot_b, int &nb, int &max_b, 
+		      MPI_Comm comm);
 
   // assigns global block id
   int AssignGid(int lid) {
-    return(tot_b / groupsize * rank + lid);
+    return(start_b + tot_b / groupsize * rank + lid);
   }
 
   // global block id to local block id
   int Gid2Lid(int gid) {
-    return(gid - tot_b / groupsize * rank);
+    return(gid - start_b - tot_b / groupsize * rank);
   }
 
   // global block id to process rank
   int Gid2Proc(int gid) {
-    int proc = gid / (tot_b / groupsize);
+    int proc = (gid - start_b) / (tot_b / groupsize);
     return(proc < groupsize ? proc : groupsize - 1);
   }
 
@@ -132,7 +137,8 @@ class ExistingAssignment : public Assignment {
 
  public:
 
-  ExistingAssignment(int nb, int &max_b, int &tot_b, MPI_Comm comm);
+  ExistingAssignment(int start_b, int nb, int &max_b, int &tot_b, 
+		     MPI_Comm comm);
 
   // local block id to global block id
   int AssignGid(int lid)  {

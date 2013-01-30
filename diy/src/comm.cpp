@@ -44,7 +44,7 @@ Comm::Comm(MPI_Comm comm) {
 Comm::~Comm() {
 
   MPI_Win_free(&rma_win);
-  MPI_Free_mem(&rma_buf);
+  MPI_Free_mem(rma_buf);
 
 }
 //----------------------------------------------------------------------------
@@ -133,12 +133,13 @@ void Comm::StartRecvItem(int src_rank, bool use_header) {
 // returns: number of received items
 //
 int Comm::FinishRecvItemsMerge(char **items, int *gids, int *procs,
-			      char * (*CreateItem)(int *),
-			      void* (*RecvItemDtype)(void*, MPI_Datatype*)) {
+			       char * (*CreateItem)(int *),
+			       void* (*RecvItemDtype)(void*, MPI_Datatype*, 
+						      int *)) {
 
   char* (*CreateItemMerge)(int*) = CreateItem;
   char* (*CreateItemSwap)(int*, int) = NULL;
-  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*) = RecvItemDtype;
+  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = RecvItemDtype;
   void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = NULL;
 
   return FinishRecvItems(items, gids, procs, 0, CreateItemMerge, 
@@ -167,12 +168,12 @@ int Comm::FinishRecvItemsMerge(char **items, int *gids, int *procs,
 // returns: number of received items
 //
 int Comm::RecvItemsMerge(char **items, int *gids, int *procs, float wf,
-			      char * (*CreateItem)(int *),
-			      void* (*RecvItemDtype)(void*, MPI_Datatype*)) {
+			 char * (*CreateItem)(int *),
+			 void* (*RecvItemDtype)(void*, MPI_Datatype*, int *)) {
 
   char* (*CreateItemMerge)(int*) = CreateItem;
   char* (*CreateItemSwap)(int*, int) = NULL;
-  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*) = RecvItemDtype;
+  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = RecvItemDtype;
   void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = NULL;
 
   return RecvItems(items, gids, procs, wf, 0, CreateItemMerge, 
@@ -206,7 +207,7 @@ int Comm::FinishRecvItemsSwap(char **items, int *gids, int *procs, int ne,
 
   char* (*CreateItemMerge)(int*) = NULL;
   char* (*CreateItemSwap)(int*, int) = CreateItem;
-  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*) = NULL;
+  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = NULL;
   void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = RecvItemDtype;
   return FinishRecvItems(items, gids, procs, ne, CreateItemMerge, 
 			 CreateItemSwap, RecvItemDtypeMerge, RecvItemDtypeSwap);
@@ -242,7 +243,7 @@ int Comm::RecvItemsSwap(char **items, int *gids, int *procs, float wf, int ne,
 
   char* (*CreateItemMerge)(int*) = NULL;
   char* (*CreateItemSwap)(int*, int) = CreateItem;
-  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*) = NULL;
+  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = NULL;
   void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = RecvItemDtype;
   return RecvItems(items, gids, procs, wf, ne, CreateItemMerge, 
 		   CreateItemSwap, RecvItemDtypeMerge, RecvItemDtypeSwap);
@@ -275,11 +276,12 @@ int Comm::RecvItemsSwap(char **items, int *gids, int *procs, float wf, int ne,
 // returns: number of received items
 //
 int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
-			 char* (*CreateItemMerge)(int *),
-			 char* (*CreateItemSwap)(int *, int),
-			 void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*),
-			 void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, 
-						    int)) {
+			  char* (*CreateItemMerge)(int *),
+			  char* (*CreateItemSwap)(int *, int),
+			  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, 
+						      int *),
+			  void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, 
+						     int)) {
 
   MPI_Request req;
   vector<MPI_Request> reqs, reqs1;
@@ -310,7 +312,7 @@ int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
 
     if (RecvItemDtypeMerge) { // merge
       items[i] = CreateItemMerge(rcv_hdrs[i].hdr);
-      addr = RecvItemDtypeMerge((void *)items[i], &dm);
+      addr = RecvItemDtypeMerge((void *)items[i], &dm, rcv_hdrs[i].hdr);
     }
     else { // swap
       items[i] = CreateItemSwap(rcv_hdrs[i].hdr, ne);
@@ -379,7 +381,7 @@ int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
 int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
 		    char* (*CreateItemMerge)(int *),
 		    char* (*CreateItemSwap)(int *, int),
-		    void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*),
+		    void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *),
 		    void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, 
 					       int)) {
 
@@ -403,7 +405,7 @@ int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
 
       if (RecvItemDtypeMerge) { // merge
 	items[i] = CreateItemMerge(rcv_hdrs[i].hdr);
-	addr = RecvItemDtypeMerge((void *)items[i], &dm);
+	addr = RecvItemDtypeMerge((void *)items[i], &dm, rcv_hdrs[i].hdr);
       }
       else { // swap
 	items[i] = CreateItemSwap(rcv_hdrs[i].hdr, ne);
@@ -438,7 +440,7 @@ int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
 
 	if (RecvItemDtypeMerge) { // merge
 	  items[i] = CreateItemMerge(rcv_hdrs[i].hdr);
-	  addr = RecvItemDtypeMerge((void *)items[i], &dm);
+	  addr = RecvItemDtypeMerge((void *)items[i], &dm, rcv_hdrs[i].hdr);
 	}
 	else { // swap
 	  items[i] = CreateItemSwap(rcv_hdrs[i].hdr, ne);
@@ -476,13 +478,22 @@ int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
 // count: number of items
 // datatype: item datatype
 // dest_gid: destination gid
-// assign: assignment class object
+// assign: assignment objects
 //
 void Comm::Send(void *item, int count, DIY_Datatype datatype, 
-		int dest_gid, Assignment *assign) {
+		int dest_gid, vector <Assignment*> assign) {
 
+  int did; // domain id
+
+  // find the domain of dest_gid
+  for (did = 0; did < DIY_Num_dids(); did++) {
+    if (DIY_Start_gid(did) <= dest_gid && 
+	dest_gid < DIY_Start_gid(did) + DIY_Num_gids(did))
+      break;
+  }
+  assert(did < DIY_Num_dids());
   MPI_Request req;
-  int dest_proc = assign->Gid2Proc(dest_gid);
+  int dest_proc = assign[did]->Gid2Proc(dest_gid);
   MPI_Isend(item, count, datatype, dest_proc, dest_gid, comm, &req);
   rma_reqs.push_back(req);
 
@@ -496,27 +507,33 @@ void Comm::Send(void *item, int count, DIY_Datatype datatype,
 // datatype: item datatype
 // src_gids: (output) gids of source blocks
 // wait: whether to wait for one or more items to arrive (0 or 1)
+// sizes: size of each item received in datatypes (not bytes)
+//  (output, array allocated by caller)
 //
 // returns: number of items received
 //
-int Comm::Recv(int my_gid, void** &items, DIY_Datatype datatype, int wait) {
+int Comm::Recv(int my_gid, void** &items, DIY_Datatype datatype, int wait,
+	       int *sizes) {
 
   MPI_Status status;
   int flag;
   int num_items = 0; // number of items pending for my gid
   int more_items = 0; // maybe more items
+  MPI_Aint lb, extent; // datatype lower bound, extent
 
   // read the RMA buffer, polling as needed according to wait parameter
   while (!num_items || more_items) {
 
     MPI_Iprobe(MPI_ANY_SOURCE, my_gid, comm, &flag, &status);
     if (flag) {
-      int size;
+      int size; // message size in bytes
       MPI_Get_count(&status, MPI_BYTE, &size);
       items[num_items] = new unsigned char[size];
       int src_proc = status.MPI_SOURCE;
       MPI_Recv(items[num_items], size, MPI_BYTE, src_proc, my_gid, comm, 
 	       &status);
+      MPI_Type_get_extent(datatype, &lb, &extent);
+      sizes[num_items] = size / extent;
       num_items++;
       more_items = 1;
     }
@@ -561,11 +578,12 @@ void Comm::FlushSendRecv(int barrier) {
 // datatype: item datatype
 // my_gid: my gid
 // dest_gid: destination gid
-// assign: assignment class object
+// assign: assignment objects
 //
 void Comm::RmaSend(void *item, int count, DIY_Datatype datatype, 
-		   int my_gid, int dest_gid, Assignment *assign) {
+		   int my_gid, int dest_gid, vector <Assignment*> assign) {
 
+  int did; // domain id
   MPI_Request req;
 
   // todo: does not check for overflow of receiving RMA window
@@ -574,7 +592,15 @@ void Comm::RmaSend(void *item, int count, DIY_Datatype datatype,
   msg[0] = my_gid;
   msg[1] = dest_gid;
   msg[2] = count;
-  int dest_proc = assign->Gid2Proc(dest_gid);
+
+  // find the domain of dest_gid
+  for (did = 0; did < DIY_Num_dids(); did++) {
+    if (DIY_Start_gid(did) <= dest_gid && 
+	dest_gid < DIY_Start_gid(did) + DIY_Num_gids(did))
+      break;
+  }
+  assert(did < DIY_Num_dids());
+  int dest_proc = assign[did]->Gid2Proc(dest_gid);
 
   // grab the lock
   MPI_Win_lock(MPI_LOCK_SHARED, dest_proc, 0, rma_win);
@@ -612,11 +638,13 @@ void Comm::RmaSend(void *item, int count, DIY_Datatype datatype,
 // src_gids: (output) gids of source blocks
 // wait: whether to wait for one or more items to arrive (0 or 1)
 // assign: assignment class object
+// sizes: size of each item received in datatypes (not bytes)
+//  (output, array allocated by caller)
 //
 // returns: number of items received
 //
 int Comm::RmaRecv(int my_gid, void** &items, DIY_Datatype datatype, 
-		  int *src_gids, int wait, Assignment *assign) {
+		  int *src_gids, int wait, Assignment *assign, int *sizes) {
 
   int loc_rma_buf[3 * DIY_RMA_MAX_ITEMS]; // local version of rma buffer
   MPI_Status status;
@@ -667,6 +695,7 @@ int Comm::RmaRecv(int my_gid, void** &items, DIY_Datatype datatype,
     src_gids[i] = msg[0];
     int src_proc = assign->Gid2Proc(src_gids[i]);
     MPI_Recv(items[i], msg[2], datatype, src_proc, my_gid, comm, &status);
+    sizes[i] = msg[2];
 
   }
 

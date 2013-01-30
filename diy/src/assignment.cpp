@@ -23,17 +23,19 @@
 //
 // constructor
 //
-// tot_b: total number of blocks
+// start_b: starting block global id (number of blocks in prior domains)
+// tot_b: total number of blocks in this domain
 // nb: number of blocks in my process (output)
 // max_b: maximum number of blocks in any process (output)
 // comm: MPI communicator
 //
-RoundRobinAssignment::RoundRobinAssignment(int tot_b, int &nb, int &max_b, 
-					   MPI_Comm comm) {
+RoundRobinAssignment::RoundRobinAssignment(int start_b, int tot_b, int &nb, 
+					   int &max_b, MPI_Comm comm) {
 
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &groupsize);
 
+  this->start_b = start_b;
   this->tot_b = tot_b;
   this->comm = comm;
 
@@ -50,17 +52,19 @@ RoundRobinAssignment::RoundRobinAssignment(int tot_b, int &nb, int &max_b,
 //
 // constructor
 //
-// tot_b: total number of blocks
+// start_b: starting block global id (number of blocks in prior domains)
+// tot_b: total number of blocks in this domain
 // nb: number of blocks in my process (output)
 // max_b: maximum number of blocks in any process (output)
 // comm: MPI communicator
 //
-ProcOrderAssignment::ProcOrderAssignment(int tot_b, int &nb, int &max_b,
-					 MPI_Comm comm) {
+ProcOrderAssignment::ProcOrderAssignment(int start_b, int tot_b, int &nb, 
+					 int &max_b, MPI_Comm comm) {
 
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &groupsize);
 
+  this->start_b = start_b;
   this->tot_b = tot_b;
   this->comm = comm;
 
@@ -80,17 +84,19 @@ ProcOrderAssignment::ProcOrderAssignment(int tot_b, int &nb, int &max_b,
 //
 // constructor
 //
+// start_b: starting block global id (number of blocks in prior domains)
 // nb: number of blocks in my process
 // max_b: maximum number of blocks in any process (output)
-// tot_b: total number of blocks (output)
+// tot_b: total number of blocks in this domain (output)
 // comm: MPI communicator
 //
-ExistingAssignment::ExistingAssignment(int nb, int &max_b, int &tot_b,
-				       MPI_Comm comm) {
+ExistingAssignment::ExistingAssignment(int start_b, int nb, int &max_b, 
+				       int &tot_b, MPI_Comm comm) {
 
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &groupsize);
 
+  this->start_b = start_b;
   this->nb = nb;
   this->comm = comm;
 

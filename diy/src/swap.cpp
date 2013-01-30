@@ -19,10 +19,12 @@
 //
 // constructor
 //
+// start_b: starting block global id (number of blocks in prior domains)
 // comm: MPI communicator
 //
-Swap::Swap(MPI_Comm comm) {
+Swap::Swap(int start_b, MPI_Comm comm) {
 
+  this->start_b = start_b;
   this->comm = comm;
 
 }
@@ -52,12 +54,12 @@ inline void Swap::GetGrpPos(int cur_r, const int *kv, int gid,
     step *= kv[i];
 
   // the second term in the following expression does not simplify to
-  // gid / kv[r]
+  // (gid - start_b) / kv[r]
   // because the division gid / (step * kv[r]) is integer and truncates
   // this is exactly what we want
-  g = gid % step + gid / (step * kv[cur_r]) * step;
+  g = (gid - start_b) % step + (gid - start_b) / (step * kv[cur_r]) * step;
 
-  p = gid / step % kv[cur_r];
+  p = (gid - start_b) / step % kv[cur_r];
 
 }
 //----------------------------------------------------------------------------
@@ -93,6 +95,7 @@ inline void Swap::GetPartners(const int *kv, int cur_r, int gid,
 //
 // radix-k swap
 //
+// did: decomposition id
 // its: pointers to input/output items (reduced in-place)
 // hdrs: pointers to input headers (optional, pass NULL if unnecessary)
 // nr: number of rounds
@@ -115,8 +118,8 @@ inline void Swap::GetPartners(const int *kv, int cur_r, int gid,
 //   (less than the original item)
 //   returns the base address associated with the datatype
 //
-void Swap::SwapBlocks(char **its, int **hdrs, int nr, int *kv, int num_elems, 
-		      int *starts, int *sizes,
+void Swap::SwapBlocks(int did, char **its, int **hdrs, int nr, int *kv, 
+		      int num_elems, int *starts, int *sizes,
 		      Comm *cc, Assignment *assign,
 		      void (*reduce_func)(char **, int *, int, int), 
 		      char* (*recv_create_func)(int *, int),
@@ -145,7 +148,7 @@ void Swap::SwapBlocks(char **its, int **hdrs, int nr, int *kv, int num_elems,
     // all my blocks
     for (int b = 0; b < nb; b++) {
 
-      int gid = DIY_Gid(b);
+      int gid = DIY_Gid(did, b);
       GetPartners(kv, r, gid, partners, grp, pos);
 
       // init start and size of this block's active part
@@ -200,7 +203,7 @@ void Swap::SwapBlocks(char **its, int **hdrs, int nr, int *kv, int num_elems,
     } // for all my blocks
 
     // finish receiving and reduce blocks
-    ReduceBlocks(its, r, kv, sizes, cc, assign, reduce_func, 
+    ReduceBlocks(did, its, r, kv, sizes, cc, assign, reduce_func, 
 		 recv_create_func, recv_destroy_func, recv_type_func);
 
   } // for all rounds
@@ -210,6 +213,7 @@ void Swap::SwapBlocks(char **its, int **hdrs, int nr, int *kv, int num_elems,
 //
 // finish communication and reduce blocks
 //
+// did: decomposition id
 // its: pointers to input and output items (reduced in-place)
 // cur_r: current round
 // kv: k-values for all rounds
@@ -224,7 +228,7 @@ void Swap::SwapBlocks(char **its, int **hdrs, int nr, int *kv, int num_elems,
 //   part of a total of parts in theitem, and
 //   returns the base address associated with the datatype
 //
-void Swap::ReduceBlocks(char** its, int cur_r, int *kv,
+void Swap::ReduceBlocks(int did, char** its, int cur_r, int *kv,
 			int *sz_part, Comm *cc, Assignment *assign,
 			void (*reduce_func)(char **, int *, int, int), 
 			char* (*recv_create_func)(int *, int),
@@ -266,7 +270,7 @@ void Swap::ReduceBlocks(char** its, int cur_r, int *kv,
     // get partners in the group of my current block
     int unused;
     int pos; // position of my block in the group
-    int gid = DIY_Gid(b);
+    int gid = DIY_Gid(did, b);
     GetPartners(kv, cur_r, gid, partners, unused, pos);
 
     // collect items to be reduced

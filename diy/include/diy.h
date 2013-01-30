@@ -59,6 +59,22 @@ extern DIY_Datatype DIY_LONG_DOUBLE; /* 16 bytes */
 #define OFST 0
 #define ADDR 1
 
+/* neighbor direction enumeration
+   used to identify direction of one neighbor block for both regular and 
+   wrapround neighbors
+   can be bitwise ORed, eg., maximum-side neighboring block in 3 dimensions 
+   would be DIY_X1 | DIY_Y1 | DIY_Z1 
+   each use identifies exactly one block
+   eg. DIY_X0 is the (one) left neighbor block, not the entire left plane */
+#define DIY_X0    0x01 /* minimum-side x (left) neighbor */
+#define DIY_X1    0x02 /* maximum-side x (right) neighbor */
+#define DIY_Y0    0x04 /* minimum-side y (bottom) neighbor */
+#define DIY_Y1    0x08 /* maximum-side y (top) neighbor */
+#define DIY_Z0    0x10 /* minimum-side z (back) neighbor */
+#define DIY_Z1    0x20 /* maximum-side z (front)neighbor */
+#define DIY_T0    0x30 /* minimum-side t (earlier) neighbor */
+#define DIY_T1    0x40 /* maximum-side t (later) neighbor */
+
 /* block bounds */
 struct bb_t { 
   float min[DIY_MAX_DIM];
@@ -93,32 +109,21 @@ struct map_block_t {
 		 OFSTs are from the start of the type and ADDRs are from 0x */
 };
 
-/* neighbor direction enumeration
-   used to identify direction of one neighbor block for both regular and 
-   wrapround neighbors
-   can be bitwise ORed, eg., maximum-side neighboring block in 3 dimensions 
-   would be DIY_X1 | DIY_Y1 | DIY_Z1 
-   each use identifies exactly one block
-   eg. DIY_X0 is the (one) left neighbor block, not the entire left plane */
-#define DIY_X0    0x01 /* minimum-side x (left) neighbor */
-#define DIY_X1    0x02 /* maximum-side x (right) neighbor */
-#define DIY_Y0    0x04 /* minimum-side y (bottom) neighbor */
-#define DIY_Y1    0x08 /* maximum-side y (top) neighbor */
-#define DIY_Z0    0x10 /* minimum-side z (back) neighbor */
-#define DIY_Z1    0x20 /* maximum-side z (front)neighbor */
-#define DIY_T0    0x30 /* minimum-side t (earlier) neighbor */
-#define DIY_T1    0x40 /* maximum-side t (later) neighbor */
+/* leaf node from a tree */
+struct leaf_t {
+  int gid; /* node global id */
+  struct bb_t bounds; /* bounds of region correponding to this tree node */
+  int proc; /* process to which this node is block is or will be assigned */
+};
 
 /* ----------------------------------------------------------------------- */
 
 /*
   Public API
 
-  most functions return an error code
-  0 indicates succes
-  > 0 indicates various errors, meaning is function specific
-
-  currently all functions return 0 (success)
+  all functions return an error code or a useful value that doubles as en
+  error code such that >= 0 indicates succes and < 0 indicates various errors
+  currently few or no functions actually return < 0, indicating an error
   todo: add error checking
 */
 
@@ -163,7 +168,7 @@ int DIY_Init(int dim, int *data_size, int num_threads,
   number of blocks in a given direction
   eg., {0, 0, 0, t} would result in t blocks in the 4th dimension
 
-  returns: error code
+  returns: id of domain (< 0 if error)
 */
 
 #ifdef __cplusplus
@@ -178,7 +183,7 @@ int DIY_Decompose(int block_order, int glo_num_blocks, int *loc_num_blocks,
   Describes the already decomposed domain
 
   loc_num_blocks: local number of blocks on this process
-  gids: global ids of my local blocks
+  gids: global ids of my local blocks (unique across all domains)
   bounds: block bounds (extents) of my local blocks
   rem_ids: remote ids used for neighbor discovery (pass NULL if 
   neighbor discovery not needed at all)
@@ -198,7 +203,7 @@ int DIY_Decompose(int block_order, int glo_num_blocks, int *loc_num_blocks,
   wrap: whether wraparound neighbors are used (0 = no wraparound neighbors
   were provided, 1 = provided some wraparound neighbors)
 
-  returns: error code
+  returns: id of domain (< 0 if error)
 */
 
 #ifdef __cplusplus
@@ -215,6 +220,7 @@ int DIY_Decomposed(int loc_num_blocks, int *gids, struct bb_t *bounds,
   Finds block starts and sizes
   for blocks consisting of discrete, regular grid points
 
+  did: domain id
   lid: local block id
   starts: pointer to allocated array of starting block extents (output), index
   of starting grid point (not cell) in each direction
@@ -227,7 +233,7 @@ int DIY_Decomposed(int loc_num_blocks, int *gids, struct bb_t *bounds,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Block_starts_sizes(int lid, int *starts, int *sizes);
+int DIY_Block_starts_sizes(int did, int lid, int *starts, int *sizes);
 
 /* ----------------------------------------------------------------------- */
 
@@ -235,6 +241,7 @@ int DIY_Block_starts_sizes(int lid, int *starts, int *sizes);
   Finds block bounds including ghost
   for blocks consisting of continuous spatiotemporal regions
 
+  did: domain id
   lid: local block id
   bounds; pointer to a block bounds structure (output), allocated or 
   declared  by caller
@@ -245,13 +252,14 @@ int DIY_Block_starts_sizes(int lid, int *starts, int *sizes);
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Block_bounds(int lid, struct bb_t *bounds);
+int DIY_Block_bounds(int did, int lid, struct bb_t *bounds);
 
 /* ----------------------------------------------------------------------- */
 /*
   Finds block bounds excluding ghost
   for blocks consisting of continuous spatiotemporal regions
 
+  did: domain id
   lid: local block id
   bounds; pointer to a block bounds structure (output), allocated or 
   declared  by caller
@@ -262,13 +270,14 @@ int DIY_Block_bounds(int lid, struct bb_t *bounds);
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_No_ghost_block_bounds(int lid, struct bb_t *bounds);
+int DIY_No_ghost_block_bounds(int did, int lid, struct bb_t *bounds);
 
 /* ----------------------------------------------------------------------- */
 
 /*
   Finds the time block to which a local block belongs
 
+  did: domain id
   lid: local block id
   time_block: time block containing lid (output)
 
@@ -278,7 +287,7 @@ int DIY_No_ghost_block_bounds(int lid, struct bb_t *bounds);
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_In_time_block(int lid, int *time_block);
+int DIY_In_time_block(int did, int lid, int *time_block);
 
 /* ----------------------------------------------------------------------- */
 
@@ -321,6 +330,7 @@ int DIY_Read_data_all();
 /*
   sends an item to a block (asynchronous)
 
+  did: domain id
   lid: local block id
   item: item(s) to be sent
   count: number of items
@@ -333,7 +343,7 @@ int DIY_Read_data_all();
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Send(int lid, void *item, int count, DIY_Datatype datatype, 
+int DIY_Send(int did, int lid, void *item, int count, DIY_Datatype datatype, 
 	     int dest_gid);
 
 /* ----------------------------------------------------------------------- */
@@ -341,6 +351,7 @@ int DIY_Send(int lid, void *item, int count, DIY_Datatype datatype,
 /*
   receives an item from a block (asynchronous)
 
+  did: domain id
   lid: local block id
   items: items to be received (output, array of pointers allocated by caller)
   count: number of items received (output)
@@ -348,6 +359,8 @@ int DIY_Send(int lid, void *item, int count, DIY_Datatype datatype,
   datatype: item datatype
   src_gids: source global block ids (output, array allocated by caller)
   only valid if MPI-3 is used, otherwise filled with -1 values
+  sizes: size of each item received in datatypes (not bytes)
+   (output, array allocated by caller)
 
   returns: error code
 */
@@ -355,8 +368,8 @@ int DIY_Send(int lid, void *item, int count, DIY_Datatype datatype,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Recv(int lid, void **items, int *count, int wait,
-	     DIY_Datatype datatype, int *src_gids);
+int DIY_Recv(int did, int lid, void **items, int *count, int wait,
+	     DIY_Datatype datatype, int *src_gids, int *sizes);
 
 /* ----------------------------------------------------------------------- */
 
@@ -401,6 +414,7 @@ int DIY_Flush_send_recv(int barrier);
 /*
   Configurable in-place merge reduction
 
+  did: domain id
   blocks: pointers to input/output blocks, result in in_blocks[0]
   hdrs: pointers to input headers (optional, pass NULL if unnecessary)
   num_rounds: number of rounds
@@ -421,11 +435,12 @@ int DIY_Flush_send_recv(int barrier);
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Merge_blocks(char **blocks, int **hdrs, int num_rounds, int *k_values,
-		     void (*reduce_func)(char **, int *, int), 
+int DIY_Merge_blocks(int did, char **blocks, int **hdrs, int num_rounds, 
+		     int *k_values,
+		     void (*reduce_func)(char **, int *, int, int *), 
 		     char *(*create_func)(int *),
 		     void (*destroy_func)(void *),
-		     void* (*type_func)(void *, DIY_Datatype*),
+		     void* (*type_func)(void *, DIY_Datatype*, int *),
 		     int *num_blocks_out);
 
 /* ----------------------------------------------------------------------- */
@@ -433,6 +448,7 @@ int DIY_Merge_blocks(char **blocks, int **hdrs, int num_rounds, int *k_values,
 /*
   Configurable in-place swap reduction
 
+  did: domain id
   blocks: pointers to input/output blocks
   hdrs: pointers to input headers (optional, pass NULL if unnecessary)
   num_elems: number of elements in a block
@@ -461,7 +477,7 @@ int DIY_Merge_blocks(char **blocks, int **hdrs, int num_rounds, int *k_values,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Swap_blocks(char **blocks, int **hdrs, int num_elems,
+int DIY_Swap_blocks(int did, char **blocks, int **hdrs, int num_elems,
 		    int num_rounds, int *k_values, int *starts, int *sizes,
 		    void (*reduce_func)(char **, int *, int, int), 
 		    char *(*recv_create_func)(int *, int),
@@ -474,6 +490,7 @@ int DIY_Swap_blocks(char **blocks, int **hdrs, int num_elems,
 /*
   Initializes parallel writing of analysis blocks
 
+  did: domain id
   filename: output filename
   compress: whether to compress output (0 = normal, 1 = compress)
   (1: zlib's default compression level 6 is applied blockwise)
@@ -484,18 +501,17 @@ int DIY_Swap_blocks(char **blocks, int **hdrs, int num_elems,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Write_open_all(char *filename, int compress);
+int DIY_Write_open_all(int did, char *filename, int compress);
 
 /* ----------------------------------------------------------------------- */
 
 /*
   Writes all analysis blocks in parallel with all other processes
 
+  did: domain id
   blocks: array of pointers to analysis blocks
   num_blocks: number of blocks
   hdrs: headers, one per analysis block (NULL if not used)
-  num_hdr_elems; number of header elements (0 if not used), 
-  same for all headers
   type_func: pointer to function that creates MPI datatype for item 
   returns the base address associated with the datatype
 
@@ -505,14 +521,15 @@ int DIY_Write_open_all(char *filename, int compress);
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Write_blocks_all(void **blocks, int num_blocks, int **hdrs,
-			 int num_hdr_elems, 
-			 void* (*type_func)(void*, int, DIY_Datatype*));
+int DIY_Write_blocks_all(int did, void **blocks, int num_blocks, int **hdrs,
+			 void* (*type_func)(void*, int, int, DIY_Datatype*));
 
 /* ----------------------------------------------------------------------- */
 
 /*
   Finalizes parallel writing of analysis blocks
+
+  did: domain id
 
   returns: error code
 */
@@ -520,13 +537,14 @@ int DIY_Write_blocks_all(void **blocks, int num_blocks, int **hdrs,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Write_close_all();
+int DIY_Write_close_all(int did);
 
 /* ----------------------------------------------------------------------- */
 
 /*
   Initializes parallel reading of analysis blocks
 
+  did: domain id
   filename: output filename
   swap_bytes: whether to swap bytes for endian conversion
   only applies to reading the headers and footer
@@ -534,22 +552,22 @@ int DIY_Write_close_all();
   compress: whether to compress output (0 = normal, 1 = compress)
   (1: zlib's default compression level 6 is applied blockwise)
 
-  returns: error code
+  returns: number of local blacks to be read (< 0 if error)
 */
 
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Read_open_all(char *filename, int swap_bytes, int compress);
+int DIY_Read_open_all(int did, char *filename, int swap_bytes, int compress);
 
 /* ----------------------------------------------------------------------- */
 
 /*
   Reads all analysis blocks in parallel with all other processes
 
+  did: domain id
   blocks: pointer to array of pointers for analysis blocks being read (output)
   DIY will allocate blocks for you
-  num_blocks: number of local blocks read (output)
   hdrs: headers, one per analysis block, allocated by caller
   (pass NULL if not used)
   create_type_func: pointer to function that takes a block local id, 
@@ -562,13 +580,16 @@ int DIY_Read_open_all(char *filename, int swap_bytes, int compress);
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Read_blocks_all(void ***blocks, int *num_blocks, int **hdrs,
-			void* (*create_type_func)(int, int *, DIY_Datatype*));
+int DIY_Read_blocks_all(int did, void ***blocks, int **hdrs,
+			void* (*create_type_func)(int, int, int *, 
+						  DIY_Datatype*));
 
 /* ----------------------------------------------------------------------- */
 
 /*
   Finalizes parallel reading of analysis blocks
+
+  did: domain id
 
   returns: error code
 */
@@ -576,13 +597,14 @@ int DIY_Read_blocks_all(void ***blocks, int *num_blocks, int **hdrs,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Read_close_all();
+int DIY_Read_close_all(int did);
 
 /* ----------------------------------------------------------------------- */
 
 /*
   Exchanges items with all neighbors
 
+  did: domain id
   items: pointer to received items for each of my blocks [lid][item] (output)
   num_items: number of items for each block (allocated by user)
   wf: wait_factor for nonblocking communication [0.0-1.0]
@@ -600,7 +622,7 @@ int DIY_Read_close_all();
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
+int DIY_Exchange_neighbors(int did, void ***items, int *num_items, float wf,
 			   void (*ItemDtype)(DIY_Datatype *));
 
 /* ----------------------------------------------------------------------- */
@@ -608,6 +630,7 @@ int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
 /*
   Flushes exchange with neighbors
 
+  did: domain id
   items: pointer to received items for each of my blocks [lid][item] (output)
   num_items: number of items for each block (allocated by user)
   ItemDtype: pointer to user-supplied function that creates a DIY datatype 
@@ -621,7 +644,7 @@ int DIY_Exchange_neighbors(void ***items, int *num_items, float wf,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Flush_neighbors(void ***items, int *num_items,
+int DIY_Flush_neighbors(int did, void ***items, int *num_items,
 			void (*ItemDtype)(DIY_Datatype *));
 
 /* ----------------------------------------------------------------------- */
@@ -629,6 +652,7 @@ int DIY_Flush_neighbors(void ***items, int *num_items,
 /*
   finds neighbors that intersect bounds +/- extension t
 
+  did: domain id
   lid: local block id
   bounds: target bounds
   t: additional extension on all sides of bounds
@@ -641,7 +665,8 @@ int DIY_Flush_neighbors(void ***items, int *num_items,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Bounds_intersect_neighbors(int lid, struct bb_t cell_bounds, float t, 
+int DIY_Bounds_intersect_neighbors(int did, int lid, struct bb_t cell_bounds, 
+				   float t, 
 				   int *num_intersect, int *gids_intersect);
 
 /* ----------------------------------------------------------------------- */
@@ -650,6 +675,7 @@ int DIY_Bounds_intersect_neighbors(int lid, struct bb_t cell_bounds, float t,
   Enqueues an item for sending to neighbors given their global block ids
   Reflexive: sends to self block if dest_gids includes global id of self
 
+  did: domain id
   lid: local id of my block
   item: item to be enqueued
   hdr: pointer to header (or NULL)
@@ -667,7 +693,7 @@ int DIY_Bounds_intersect_neighbors(int lid, struct bb_t cell_bounds, float t,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Enqueue_item_gids(int lid, void *item, int *hdr,
+int DIY_Enqueue_item_gids(int did, int lid, void *item, int *hdr,
 			  int item_size, int *dest_gids, int num_gids,
 			  void (*TransformItem)(char *, unsigned char));
 
@@ -678,6 +704,7 @@ int DIY_Enqueue_item_gids(int lid, void *item, int *hdr,
   neighbor
   Reflexive: sends to self block if points are inside bounds of self
 
+  did: domain id
   lid: local id of my block
   item: item to be enqueued
   hdr: pointer to header (or NULL)
@@ -696,7 +723,7 @@ int DIY_Enqueue_item_gids(int lid, void *item, int *hdr,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Enqueue_item_points(int lid, void *item, int *hdr,
+int DIY_Enqueue_item_points(int did, int lid, void *item, int *hdr,
 			    int item_size, float *dest_pts, int num_dest_pts,
 			    void (*TransformItem)(char *, unsigned char));
 
@@ -708,6 +735,7 @@ int DIY_Enqueue_item_points(int lid, void *item, int *hdr,
   be a bitwise OR of several directions
   Not reflexive: no direction is defined for sending to self block
 
+  did: domain id
   lid: local id of my block
   item: item to be enqueued
   hdr: pointer to header (or NULL)
@@ -725,7 +753,7 @@ int DIY_Enqueue_item_points(int lid, void *item, int *hdr,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Enqueue_item_dirs(int lid, void *item, int *hdr,
+int DIY_Enqueue_item_dirs(int did, int lid, void *item, int *hdr,
 			  int item_size, unsigned char *neigh_dirs, 
 			  int num_neigh_dirs,
 			  void (*TransformItem)(char *, unsigned char));
@@ -736,6 +764,7 @@ int DIY_Enqueue_item_dirs(int lid, void *item, int *hdr,
   Enqueues an item for sending to all neighbors
   Not reflexive: skips sending to self block
 
+  did: domain id
   lid: local id of my block
   item: item to be enqueued
   hdr: pointer to header (or NULL)
@@ -752,7 +781,7 @@ int DIY_Enqueue_item_dirs(int lid, void *item, int *hdr,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Enqueue_item_all(int lid, void *item, int *hdr, int item_size,
+int DIY_Enqueue_item_all(int did, int lid, void *item, int *hdr, int item_size,
 			 void (*TransformItem)(char *, unsigned char));
 
 /* ----------------------------------------------------------------------- */
@@ -761,6 +790,7 @@ int DIY_Enqueue_item_all(int lid, void *item, int *hdr, int item_size,
   Enqueues an item for sending to all neighbors near enough to receive it
   Not reflexive: skips sending to self block
 
+  did: domain id
   lid: local id of my block
   item: item to be enqueued
   hdr: pointer to header (or NULL)
@@ -780,8 +810,8 @@ int DIY_Enqueue_item_all(int lid, void *item, int *hdr, int item_size,
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Enqueue_item_all_near(int lid, void *item, int *hdr, int item_size,
-			      float *near_pt, float near_dist,
+int DIY_Enqueue_item_all_near(int did, int lid, void *item, int *hdr, 
+			      int item_size, float *near_pt, float near_dist,
 			      void (*TransformItem)(char *, unsigned char));
 
 
@@ -792,8 +822,9 @@ int DIY_Enqueue_item_all_near(int lid, void *item, int *hdr, int item_size,
 
   done: whether my local process is done (1 = done, 0 = still working)
 
-  returns: whether all processes are done (1 = all done, 0 = still working)
-  (not an error code, unlike most functions)
+  returns: whether all processes are done (1 = all done, 0 = still working,
+  < 0 if error)
+
 */
 
 #ifdef __cplusplus
@@ -896,7 +927,7 @@ int DIY_Destroy_datatype(DIY_Datatype *type);
 
   addr: pointer or address
 
-  returns: DIY address (not an error code, unlike most functions)
+  returns: DIY address (< 0 if error)
 */
 
 #ifdef __cplusplus
@@ -910,15 +941,16 @@ DIY_Aint DIY_Addr(void *addr);
   Returns the global block identification number (gid) given a local 
   block number
 
-  block_num: local block number
+  did: domain id
+  lid: local block id
 
-  returns: global block ID (not an error code, unlike most functions)
+  returns: global block ID (< 0 if error)
 */
 
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Gid(int block_num);
+int DIY_Gid(int did, int lid);
 
 /* ----------------------------------------------------------------------- */
 
@@ -966,6 +998,105 @@ extern "C"
 #endif
 int DIY_Decompress_block(unsigned char* in_buf, int in_size, 
 			 unsigned char **decomp_buf, int *decomp_size);
+
+/* ----------------------------------------------------------------------- */
+
+/* 
+   Build Kd-tree (prototype)
+
+   not documented until I have a better idea how this will be used 
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Build_tree(int did, float *pts, int loc_num_pts, int glo_num_pts,
+		   int num_levels,int num_bins);
+
+/* ----------------------------------------------------------------------- */
+
+/* 
+   Search Kd-tree (prototype)
+
+   not documented until I have a better idea how this will be used 
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Search_tree(int did, float *pt, struct leaf_t *leaf);
+
+/* ----------------------------------------------------------------------- */
+
+/*
+  Get total number of domains so far
+
+  returns: number of domains (< 0 if error)
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Num_dids();
+
+/* ----------------------------------------------------------------------- */
+
+/*
+  Get total number of blocks in all domains
+
+  returns: number of blocks (< 0 if error)
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Tot_num_gids();
+
+/* ----------------------------------------------------------------------- */
+
+/*
+  Get global number of blocks in one domain
+
+  did: domain id
+
+  returns: number of blocks (< 0 if error)
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Num_gids(int did);
+
+/* ----------------------------------------------------------------------- */
+
+/*
+  Get local number of blocks in one domain
+
+  did: domain id
+
+  returns: number of blocks (< 0 if error)
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Num_lids(int did);
+
+/* ----------------------------------------------------------------------- */
+
+/*
+  Get starting gid in one domain (assuming gids numbered consecutively
+  across domains)
+
+  did: domain id
+
+  returns: starting gid (< 0 if error)
+*/
+
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Start_gid(int did);
 
 /* ----------------------------------------------------------------------- */
 

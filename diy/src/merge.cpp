@@ -19,10 +19,12 @@
 //
 // constructor
 //
+// start_b: starting block global id (number of blocks in prior domains)
 // comm: MPI communicator
 //
-Merge::Merge(MPI_Comm comm) {
+Merge::Merge(int start_b, MPI_Comm comm) {
 
+  this->start_b = start_b;
   this->comm = comm;
 
 }
@@ -48,7 +50,7 @@ inline bool Merge::GetPartners(const int *kv, int cur_r,
   for (r = 0; r < cur_r; r++)
     step *= kv[r];
 
-  p = gid / step % kv[cur_r];
+  p = (gid - start_b) / step % kv[cur_r];
   partners[0] = gid - p * step;
   for (k = 1; k < kv[cur_r]; k++)
     partners[k] = partners[k - 1] + step;
@@ -60,6 +62,7 @@ inline bool Merge::GetPartners(const int *kv, int cur_r,
 //
 // radix-k merge
 //
+// did: decomposition id
 // its: pointers to input/ouput items, results in first number of output items
 // hdrs: pointers to input headers (optional, pass NULL if unnecessary)
 // nr: number of rounds
@@ -77,12 +80,12 @@ inline bool Merge::GetPartners(const int *kv, int cur_r,
 //
 // returns: number of output items
 //
-int Merge::MergeBlocks(char **its, int **hdrs, 
+int Merge::MergeBlocks(int did, char **its, int **hdrs, 
 		       int nr, int *kv, Comm *cc, Assignment *assign,
-		       void (*merge_func)(char **, int *, int), 
+		       void (*merge_func)(char **, int *, int, int *), 
 		       char * (*create_func)(int *),
 		       void (*destroy_func)(void *),
-		       void* (*type_func)(void*, MPI_Datatype*)) {
+		       void* (*type_func)(void*, MPI_Datatype*, int *)) {
 
   int rank, groupsize; // MPI usual
   int gid; // global id of current item block
@@ -113,12 +116,15 @@ int Merge::MergeBlocks(char **its, int **hdrs,
 
       if (!done[b]) { // blocks that survived to this round
 
-	gid = DIY_Gid(b);
+	gid = DIY_Gid(did, b);
 	bool root = GetPartners(kv, r, gid, partners);
 
 	if (!root) { // nonroots post sends of headers and items
 	  p = assign->Gid2Proc(partners[kv[r] - 1]);
-	  addr = type_func(my_its[b], &dtype);
+	  if (hdrs)
+	    addr = type_func(my_its[b], &dtype, hdrs[b]);
+	  else
+	    addr = type_func(my_its[b], &dtype, NULL);
 	  // tag is source block gid
 	  if (hdrs)
 	    cc->SendItem((char *)addr, hdrs[b], p, gid, &dtype);
@@ -171,7 +177,11 @@ int Merge::MergeBlocks(char **its, int **hdrs,
 	}
       }
 
-      merge_func(&reduce_its[0], &reduce_gids[0], kv[r]);
+      // header from root block of merge is used
+      if (hdrs)
+	merge_func(&reduce_its[0], &reduce_gids[0], kv[r], hdrs[lid]);
+      else
+	merge_func(&reduce_its[0], &reduce_gids[0], kv[r], NULL);
       my_its[lid] = reduce_its[0];
 
     }
@@ -200,6 +210,7 @@ int Merge::MergeBlocks(char **its, int **hdrs,
 //
 // asynchronous radix-k merge
 //
+// did: decomposition id
 // its: pointers to input/ouput items, results in first number of output items
 // hdrs: pointers to input headers (optional, pass NULL if unnecessary)
 // wf: wait_factor for nonblocking communication [0.0-1.0]
@@ -220,12 +231,12 @@ int Merge::MergeBlocks(char **its, int **hdrs,
 //
 // returns: number of output items
 //
-int Merge::AsyncMergeBlocks(char **its, int **hdrs, float wf,
+int Merge::AsyncMergeBlocks(int did, char **its, int **hdrs, float wf,
 			    int nr, int *kv, Comm *cc, Assignment *assign,
-			    void (*merge_func)(char **, int *, int), 
+			    void (*merge_func)(char **, int *, int, int*), 
 			    char * (*create_func)(int *),
 			    void (*destroy_func)(void *),
-			    void* (*type_func)(void*, MPI_Datatype*)) {
+			    void* (*type_func)(void*, MPI_Datatype*, int*)) {
 
   int rank, groupsize; // MPI usual
   int gid; // global id of current item block
@@ -256,12 +267,15 @@ int Merge::AsyncMergeBlocks(char **its, int **hdrs, float wf,
 
       if (!done[b]) { // blocks that survived to this round
 
-	gid = DIY_Gid(b);
+	gid = DIY_Gid(did, b);
 	bool root = GetPartners(kv, r, gid, partners);
 
 	if (!root) { // nonroots post sends of headers and items
 	  p = assign->Gid2Proc(partners[kv[r] - 1]);
-	  addr = type_func(my_its[b], &dtype);
+	  if (hdrs)
+	    addr = type_func(my_its[b], &dtype, hdrs[b]);
+	  else
+	    addr = type_func(my_its[b], &dtype, NULL);
 	  // tag is source block gid
 	  if (hdrs)
 	    cc->SendItem((char *)addr, hdrs[b], p, gid, &dtype);
@@ -298,7 +312,7 @@ int Merge::AsyncMergeBlocks(char **its, int **hdrs, float wf,
 
       if (mr < num_merge_rounds - 1)
 	cc->RecvItemsMerge(recv_its, recv_gids, recv_procs, wf, create_func, 
-				 type_func); 
+			   type_func); 
       else
 	cc->RecvItemsMerge(recv_its, recv_gids, recv_procs, wf, create_func, 
 			   type_func); 
@@ -326,7 +340,11 @@ int Merge::AsyncMergeBlocks(char **its, int **hdrs, float wf,
 	  }
 	}
 
-	merge_func(&reduce_its[0], &reduce_gids[0], kv[r]);
+	// header for root block of merge is used
+	if (hdrs)
+	  merge_func(&reduce_its[0], &reduce_gids[0], kv[r], hdrs[lid]);
+	else
+	  merge_func(&reduce_its[0], &reduce_gids[0], kv[r], NULL);
 	my_its[lid] = reduce_its[0];
 
       }
