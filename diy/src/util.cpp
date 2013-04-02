@@ -163,7 +163,7 @@ void CreateDtype(MPI_Aint addr, vector<map_block_t> *map,
   }
 
   // create the datatype
-  MPI_Type_create_struct(map->size(), &counts[0], 
+  MPI_Type_create_struct((int)map->size(), &counts[0], 
 			 (MPI_Aint *)&addrs[0], &base_types[0], type);
 
 }
@@ -238,6 +238,12 @@ void CompressBlock(void* addr, MPI_Datatype dtype, MPI_Comm comm,
 
 #else
 
+  addr = addr; // quiet oompiler warnings
+  dtype = dtype;
+  comm = comm;
+  comp_buf = comp_buf; 
+  comp_size = comp_size;
+
   fprintf(stderr, "Error: CompressBlock() attempting to do compression "
 	  "without zlib installed\n");
 
@@ -309,6 +315,12 @@ void DecompressBlockToDatatype(unsigned char *in_buf, int in_size,
 
 #else
 
+  in_buf = in_buf; // quiet compiler warnings
+  in_size = in_size;
+  addr = addr;
+  dtype = dtype;
+  comm = comm;
+
   fprintf(stderr, "Error: DeCompressBlock() attempting to de decompression "
 	  "without zlib installed\n");
 
@@ -371,6 +383,11 @@ void DecompressBlockToBuffer(unsigned char* in_buf, int in_size,
   inflateEnd(&strm);
 
 #else
+
+  in_buf = in_buf; // quiet compiler warnings
+  in_size = in_size;
+  decomp_buf = decomp_buf;
+  decomp_size = decomp_size;
 
   fprintf(stderr, "Error: DeCompressBlock() attempting to de decompression "
 	  "without zlib installed\n");

@@ -116,7 +116,6 @@ inline void Swap::GetPartners(const int *kv, int cur_r, int gid,
 // recv_type_func: pointer to function that creates MPI datatype for receiving
 //   a subset of the item with a given number of elements 
 //   (less than the original item)
-//   returns the base address associated with the datatype
 //
 void Swap::SwapBlocks(int did, char **its, int **hdrs, int nr, int *kv, 
 		      int num_elems, int *starts, int *sizes,
@@ -125,7 +124,7 @@ void Swap::SwapBlocks(int did, char **its, int **hdrs, int nr, int *kv,
 		      char* (*recv_create_func)(int *, int),
 		      void (*recv_destroy_func)(void *),
 		      void* (*send_type_func)(void*, MPI_Datatype*, int, int),
-		      void* (*recv_type_func)(void*, MPI_Datatype*, int)) {
+		      void (*recv_type_func)(void*, MPI_Datatype*, int)) {
 
   int p; // process rank
   int nb = assign->NumBlks(); // number of local blocks
@@ -226,14 +225,13 @@ void Swap::SwapBlocks(int did, char **its, int **hdrs, int nr, int *kv,
 // recv_destroy_func: pointer to function that destroys received item
 // recv_type_func: pointer to function that creates MPI datatype for the current
 //   part of a total of parts in theitem, and
-//   returns the base address associated with the datatype
 //
 void Swap::ReduceBlocks(int did, char** its, int cur_r, int *kv,
 			int *sz_part, Comm *cc, Assignment *assign,
 			void (*reduce_func)(char **, int *, int, int), 
 			char* (*recv_create_func)(int *, int),
 			void (*recv_destroy_func)(void *),
-			void* (*recv_type_func)(void*, MPI_Datatype*, int)) {
+			void (*recv_type_func)(void*, MPI_Datatype*, int)) {
 
   int nb = assign->NumBlks();
   int n_recv = nb * kv[cur_r];

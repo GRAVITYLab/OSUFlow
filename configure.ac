@@ -264,6 +264,22 @@ echo "zoltan enabled = $with_zoltan"
 AC_SUBST(with_zoltan)
 
 #---------------------------
+#
+# build shared object in addition to static lib
+#
+AC_ARG_ENABLE(so, [AS_HELP_STRING([--enable-so],
+[whether to generate dynamically-linked shared object in addition to statically-linked library (disabled by default)])],
+[if test ${enableval} = "yes" ; then
+  enable_so="YES"
+else
+  enable_so="NO"
+fi],
+[enable_so="NO"])
+
+echo "shared object enabled = $enable_so"
+AC_SUBST(enable_so)
+
+#---------------------------
 
 # Checks for header files.
 AC_CHECK_HEADERS([fcntl.h float.h limits.h memory.h stdlib.h string.h strings.h unistd.h])

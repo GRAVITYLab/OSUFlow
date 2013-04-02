@@ -37,20 +37,20 @@ class Blocking {
 
  public:
 
-  Blocking(int start_b, int did, int dim, int tot_b, int64_t *data_size, 
-	   bool share_face, int *ghost, int64_t *given, Assignment *assignment, 
+  Blocking(int start_b, int did, int dim, int tot_b, int *data_size, 
+	   bool share_face, int *ghost, int *given, Assignment *assignment, 
 	   MPI_Comm comm);
   Blocking(int start_b, int did, int dim, int tot_b, int *gids, bb_t *bounds,
 	   Assignment *assignment, MPI_Comm comm);
   ~Blocking();
 
-  void ComputeBlocking(int64_t *given);
-  int64_t *GetBlockSizes() { return block_size; }
-  int64_t *GetLatSizes() { return lat_size; }
+  void ComputeBlocking(int *given);
+  int *GetBlockSizes() { return block_size; }
+  int *GetLatSizes() { return lat_size; }
   int GetDim() { return dim; }
-  int64_t BlockStartsSizes(int lid, int64_t *starts, int64_t *sizes);
-  int64_t BlockSizes(int lid, int64_t *sizes);
-  void BlockStarts(int lid, int64_t *starts);
+  int64_t BlockStartsSizes(int lid, int *starts, int *sizes);
+  int64_t BlockSizes(int lid, int *sizes);
+  void BlockStarts(int lid, int *starts);
   int64_t TotalBlockSize(int lid);
   void BlockBounds(int lid, bb_t *bounds);
   void NoGhostBlockBounds(int lid, bb_t *bounds);
@@ -62,7 +62,7 @@ class Blocking {
   int Indices2Gid(int i, int j, int k);
   int Indices2Gid(int i, int j, int k, int l);
   bool InTimeBlock(int g, int lid, int tsize, int tb);
-  void NumLatBlocks(int64_t *lat_nblocks);
+  void NumLatBlocks(int *lat_nblocks);
   int Lid2Gid(int lid);
   int Gid2Lid(int gid); // only for gids on this process
   void BuildTree(float *pts, int loc_num_pts, int glo_num_pts,
@@ -72,7 +72,7 @@ class Blocking {
 
 private:
 
-  void FactorDims(int64_t *given);
+  void FactorDims(int *given);
   void ApplyGhost();
   int BinarySearch(int start, int num_vals, int *vals, int target);
   void AddChildren(int parent, int split_dir, float split_frac);
@@ -88,9 +88,9 @@ private:
   int groupsize; // MPI groupsize
   float data_min[DIY_MAX_DIM]; // global data minimum
   float data_max[DIY_MAX_DIM]; // global data maximum
-  int64_t data_size[DIY_MAX_DIM]; // number of vertices in each dimension
-  int64_t lat_size[DIY_MAX_DIM]; // number of blocks in each dimension
-  int64_t block_size[DIY_MAX_DIM]; //  size of blocks in each dimension
+  int data_size[DIY_MAX_DIM]; // number of vertices in each dimension
+  int lat_size[DIY_MAX_DIM]; // number of blocks in each dimension
+  int block_size[DIY_MAX_DIM]; //  size of blocks in each dimension
   MPI_Comm comm; // MPI communicator
   Assignment *assign; // assignment class
   bool share_face; // whether neighboring blocks share a common face or not
@@ -104,7 +104,7 @@ static void KdTree_MergeHistogram(char **items, int *gids, int num_items,
 				  int *hdr);
 static char *KdTree_CreateHistogram(int *hdr);
 static void KdTree_DestroyHistogram(void *item);
-static void *KdTree_CreateHistogramType(void *item, DIY_Datatype *dtype, 
+static void KdTree_CreateHistogramType(void *item, DIY_Datatype *dtype, 
 					int *hdr);
 
 #endif

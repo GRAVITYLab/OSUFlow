@@ -23,7 +23,7 @@
 #include "util.hpp"
 
 // diy global data
-static int64_t sizes[DIY_MAX_DIM]; // grid size (extents.max - extents.min + 1)
+static int sizes[DIY_MAX_DIM]; // grid size (extents.max - extents.min + 1)
 static int tot_blocks = 0; // total number of blocks in all domains
 static vector <int> tb; // total number of blocks in each domain
 static vector <int> nb; // my local number of blocks in ach domain
@@ -35,6 +35,11 @@ static int groupsize; // MPI groupsize
 static int rounds; // number of merge rounds
 static int kvs[DIY_MAX_R]; // merge k-values
 static int num_dids = 0; // number of decompostion ids
+static int diy_initialized = 0; // whether initialized already
+
+bool dtype_absolute_address = false; // addresses in current datatype
+                                     // are absolute w.r.t. MPI_BOTTOM
+                                     // or relative w.r.t. base address
 
 vector <Assignment *> assign; // assignment object (abstract base class)
 RoundRobinAssignment *round_robin_assign; // round robin assignment object
@@ -91,9 +96,7 @@ vector<unsigned char> decomp_buf_v;
 //
 int DIY_Init(int dim, int *data_size, int num_threads, MPI_Comm comm) {
 
-  static int diy_initialized = 0; // whether initialized already
-
-  if (diy_initialized) // prevent multiple calls
+  if (diy_initialized) // prevent multiple initialiations
     return 0;
 
   ::dim = dim;
@@ -114,6 +117,8 @@ int DIY_Init(int dim, int *data_size, int num_threads, MPI_Comm comm) {
 
 #ifdef OMP
   omp_set_num_threads(num_threads);
+#else
+  num_threads = num_threads; // quiet compiler warning
 #endif
 
   diy_initialized = 1;
@@ -167,13 +172,9 @@ int DIY_Decompose(int block_order, int glo_num_blocks, int *loc_num_blocks,
   tb.push_back(glo_num_blocks);
   maxb.push_back(mblocks);
 
-  int64_t given64[DIY_MAX_DIM]; // int64_t version of given
-  for (int i = 0; i < dim; i++)
-    given64[i] = given[i];
-
   // decomposing a new domain
   blocking = new Blocking(tot_blocks, num_dids, dim, glo_num_blocks, sizes, 
-			  share_face, ghost, given64, assign, comm);
+			  share_face, ghost, given, assign, comm);
   nbhds = new Neighborhoods(num_dids, blocking, assign, comm, false);
   io = new IO(num_dids, dim, glo_num_blocks, mblocks, comm);
   ::blocking.push_back(blocking);
@@ -256,6 +257,44 @@ int DIY_Decomposed(int loc_num_blocks, int *gids, struct bb_t *bounds,
 }
 //--------------------------------------------------------------------------
 //
+// Reads a decomposition from a file
+//
+// filename: input filename
+// swap_bytes: whether to swap bytes for endian conversion
+// glo_num__blocks: total number of blocks in the global domain (output)
+// loc_num_blocks: local number of blocks on this process (output)
+//
+// returns: id of this domain (< 0 if error)
+//
+int DIY_Read_decomposed(char *filename, int swap_bytes,
+			int *glo_num_blocks, int *loc_num_blocks) {
+
+  int tot_blocks, nblocks; // global and local number of blocks
+  int given[3] = {0, 0, 0}; // no constraints on decomposition in {x, y, z}
+  int ghost[6] = {0, 0, 0, 0, 0, 0}; // -x, +x, -y, +y, -z, +z ghost
+  MPI_File fd; // file descriptor
+
+  int retval = MPI_File_open(comm, (char *)filename, MPI_MODE_RDONLY,
+			     MPI_INFO_NULL, &fd);
+  assert(retval == MPI_SUCCESS);
+
+  IO::ReadInfo(fd, swap_bytes, comm, tot_blocks, nblocks);
+
+  MPI_File_close(&fd);
+
+  // only works for regular grids with share_face = 1
+  // todo: need a complete solution where  everything needed to create a 
+  // decomposition is included in the file
+  int did = DIY_Decompose(CONTIGUOUS_ORDER, tot_blocks, &nblocks, 1, 
+			  ghost, given);
+  *glo_num_blocks = tot_blocks;
+  *loc_num_blocks = nblocks;
+
+  return did;
+
+}
+//--------------------------------------------------------------------------
+//
 // block starts and sizes
 // for blocks consisting of discrete, regular grid points
 //
@@ -270,14 +309,7 @@ int DIY_Decomposed(int loc_num_blocks, int *gids, struct bb_t *bounds,
 //
 int DIY_Block_starts_sizes(int did, int lid, int *starts, int *sizes) {
 
-  int64_t starts64[DIY_MAX_DIM];
-  int64_t sizes64[DIY_MAX_DIM];
-
-  blocking[did]->BlockStartsSizes(lid, starts64, sizes64);
-  for (int i = 0; i < dim; i++) {
-    starts[i] = starts64[i];
-    sizes[i] = sizes64[i];
-  }
+  blocking[did]->BlockStartsSizes(lid, starts, sizes);
 
   return 0;
 
@@ -332,7 +364,7 @@ int DIY_No_ghost_block_bounds(int did, int lid, struct bb_t *bounds) {
 //
 int DIY_In_time_block(int did, int lid, int *time_block) {
 
-  int64_t lat_nblocks[DIY_MAX_DIM]; // number of blocks in each dimension
+  int lat_nblocks[DIY_MAX_DIM]; // number of blocks in each dimension
   blocking[did]->NumLatBlocks(lat_nblocks);
 
   for (int g = 0; g < tb[did]; g++) {
@@ -414,11 +446,12 @@ int DIY_Read_data_all() {
 int DIY_Send(int did, int lid, void *item, int count, DIY_Datatype datatype, 
 	     int dest_gid) {
 
-  int my_gid = DIY_Gid(did, lid);
-
 #ifdef _MPI3
+  int my_gid = DIY_Gid(did, lid);
   cc->RmaSend(item, count, datatype, my_gid, dest_gid, assign);
 #else
+  did = did; // quiet compiler warning
+  lid = lid; // ditto
   cc->Send(item, count, datatype, dest_gid, assign);
 #endif    
 
@@ -492,8 +525,7 @@ int DIY_Flush_send_recv(int barrier) {
 // reduce_func: pointer to merging or reduction function
 // create_func: pointer to function that creates item
 // destroy_func: pointer to function the destroys item
-// type_func: pointer to function that creates MPI datatype for item 
-//   returns the base address associated with the datatype
+// type_func: pointer to function that creates DIY datatype for item 
 // num_blocks_out: number of output blocks (output)
 //
 // side effects: allocates output items and array of pointers to them
@@ -506,7 +538,7 @@ int DIY_Merge_blocks(int did, char **blocks, int **hdrs, int num_rounds,
 		     void (*reduce_func)(char **, int *, int, int *), 
 		     char *(*create_func)(int *),
 		     void (*destroy_func)(void *),
-		     void*(*type_func)(void*, DIY_Datatype*, int *),
+		     void (*type_func)(void*, DIY_Datatype*, int *),
 		     int *num_blocks_out) {
 
   rounds = num_rounds;
@@ -538,14 +570,13 @@ int DIY_Merge_blocks(int did, char **blocks, int **hdrs, int num_rounds,
 //   with given number of elements (less than original item)
 // recv_destroy_func: pointer to function that destroys received item
 //  part of a total number of parts in the item
-// send_type_func: pointer to function that creates MPI datatype for sending
+// send_type_func: pointer to function that creates DIY datatype for sending
 //   a subset of the item starting at an element and having a given number
 //   of elements (less than the original item)
 //   returns the base address associated with the datatype
-// recv_type_func: pointer to function that creates MPI datatype for receiving
+// recv_type_func: pointer to function that creates DIY datatype for receiving
 //   a subset of the item with a given number of elements 
 //   (less than the original item)
-//   returns the base address associated with the datatype
 //
 // returns: error code
 //
@@ -555,7 +586,7 @@ int DIY_Swap_blocks(int did, char **blocks, int **hdrs, int num_elems,
 		    char *(*recv_create_func)(int *, int),
 		    void (*recv_destroy_func)(void *),
 		    void*(*send_type_func)(void*, DIY_Datatype*, int, int),
-		    void*(*recv_type_func)(void*, DIY_Datatype*, int)) {
+		    void (*recv_type_func)(void*, DIY_Datatype*, int)) {
 
   rounds = num_rounds;
   for (int i = 0; i < num_rounds; i++)
@@ -596,13 +627,12 @@ int DIY_Write_open_all(int did, char *filename, int compress) {
 // blocks: array of pointers to analysis blocks
 // num_blocks: number of blocks
 // hdrs: headers, one per analysis block (NULL if not used)
-// type_func: pointer to function that creates MPI datatype for item 
-//   returns the base address associated with the datatype
+// type_func: pointer to function that creates DIY datatype for item 
 //
 // returns: error code
 //
 int DIY_Write_blocks_all(int did, void **blocks, int num_blocks, int **hdrs,
-			 void*(*type_func)(void*, int, int, DIY_Datatype*)) {
+			 void (*type_func)(void*, int, int, DIY_Datatype*)) {
 
   int tot_nb_merged = tb[did]; // max possible number of merged blocks
   for (int i = 0; i < rounds; i++)
@@ -641,15 +671,23 @@ int DIY_Write_close_all(int did) {
 // swap_bytes: whether to swap bytes for endian conversion
 //  only applies to reading the headers and footer
 //  user must swap bytes manually for datatypes because they are custom
-// compress: whether to compress output (0 = normal, 1 = compress)
-//   (1: zlib's default compression level 6 is applied blockwise)
+// compress: whether file is compressed (0 = normal, 1 = compressed)
+// glo_num__blocks: total number of blocks in the global domain (output)
+// loc_num_blocks: local number of blocks on this process (output)
 //
-// returns: number of local blacks to be read (< 0 if error)
+// returns: error code
 //
-int DIY_Read_open_all(int did, char *filename, int swap_bytes, int compress) {
+int DIY_Read_open_all(int did, char *filename, int swap_bytes, int compress,
+		      int *glo_num_blocks, int *loc_num_blocks) {
+
+  int tot_blocks, nblocks; // global and local number of blocks
 
   MPI_Barrier(comm); // synchronize to clear any skew before proceeding
-  return(io[did]->ReadAnaInit(filename, swap_bytes, compress));
+  io[did]->ReadAnaInit(filename, swap_bytes, compress, tot_blocks, nblocks);
+  *glo_num_blocks = tot_blocks;
+  *loc_num_blocks = nblocks;
+
+  return 0;
 
 }
 //----------------------------------------------------------------------------
@@ -661,9 +699,8 @@ int DIY_Read_open_all(int did, char *filename, int swap_bytes, int compress) {
 //  DIY will allocate blocks for you
 // hdrs: headers, one per analysis block, allocated by caller
 //   (pass NULL if not used)
-// create_type_func: pointer to function that takes a block local id, 
-//   block header, and creates (allocates) a block and creates an MPI datatype 
-//   for it. Returns the base address associated with the datatype
+// create_type_func: pointer to a function that allocates a block and
+//   creates an DIY datatype for it.
 //
 // returns: error code
 //
@@ -726,7 +763,7 @@ int DIY_Exchange_neighbors(int did, void ***items, int *num_items, float wf,
   nbhds[did]->ExchangeNeighbors(items_v, wf, ItemDtype);
 
   for (int i = 0; i < assign[did]->NumBlks(); i++) {
-    num_items[i] = items_v[i].size();
+    num_items[i] = (int)items_v[i].size();
     if (items_v[i].size() > 0)
       items[i] = (void **)(&(items_v[i][0]));
   }
@@ -763,7 +800,7 @@ int DIY_Flush_neighbors(int did, void ***items, int *num_items,
 
   nbhds[did]->FlushNeighbors(items_v, ItemDtype);
   for (int i = 0; i < assign[did]->NumBlks(); i++) {
-    num_items[i] = items_v[i].size();
+    num_items[i] = (int)items_v[i].size();
     if (items_v[i].size() > 0)
       items[i] = (void **)(&(items_v[i][0]));
   }
@@ -982,9 +1019,7 @@ int DIY_Check_done_all(int done) {
 //
 int DIY_Finalize() {
 
-  static int diy_finalized = 0; // whether finalized already
-
-  if (diy_finalized) // prevent multiple calls
+  if (!diy_initialized) // prevent finalizing without initializing
     return 0;
 
   delete merging;
@@ -999,8 +1034,17 @@ int DIY_Finalize() {
     delete blocking[i];
     delete nbhds[i];
   }
+  if (num_dids) {
+    assign.clear();
+    blocking.clear();
+    nbhds.clear();
+    io.clear();
+  }
 
-  diy_finalized = 1;
+  diy_initialized = 0;
+  num_dids = 0;
+  tot_blocks = 0;
+
   return 0;
 
 }
@@ -1020,6 +1064,7 @@ int DIY_Create_vector_datatype(int num_elems, int stride,
 
   MPI_Type_vector(num_elems, 1, stride, base_type, type);
   MPI_Type_commit(type);
+  dtype_absolute_address = false;
 
   return 0;
 
@@ -1045,6 +1090,7 @@ int DIY_Create_subarray_datatype(int num_dims, int *full_size, int *sub_size,
   MPI_Type_create_subarray(num_dims, full_size, sub_size, start_pos,
 			   MPI_ORDER_FORTRAN, base_type, type);
   MPI_Type_commit(type);
+  dtype_absolute_address = false;
 
   return 0;
 
@@ -1066,6 +1112,7 @@ int DIY_Create_struct_datatype(DIY_Aint base_addr, int num_map_blocks,
   vector<map_block_t>tmap(map, map + num_map_blocks);
   CreateDtype(base_addr, &tmap, type);
   MPI_Type_commit(type);
+  dtype_absolute_address = true;
 
   return 0;
 
@@ -1120,7 +1167,7 @@ int DIY_Gid(int did, int lid) {
 // block compression
 //
 // addr: address of start of datatype
-// dtype: MPI datatype
+// dtype: DIY datatype
 // comm: MPI communicator
 // comp_buf: pointer to compressed buffer, datatype DIY_BYTE (output)
 // comp_size: size of compressed buffer in bytes

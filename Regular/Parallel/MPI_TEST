@@ -34,8 +34,8 @@ exe=./mpitest
 # dataset
 if [ "$ARCH" = "LINUX" ] || [ "$ARCH" = "MAC_OSX" ]; then
 #data=$HOME/flame/flame.list
-data=$HOME/tornado/tornado.list
-#data=../../sample_data/regular/test.list
+#data=$HOME/tornado/tornado.list
+data=../../sample_data/regular/test.list
 #data=$HOME/tornado/tornado_rep.list
 #data=$HOME/plume/plume.list
 #data=$HOME/nek5000/200x200x200/nek5000.list

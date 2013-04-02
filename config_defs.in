@@ -20,6 +20,7 @@ NETCDF_INC = @pnetcdf_inc@
 HDF_LIB = @hdf5_lib@
 ZOLTAN_LIB = @zoltan_lib@
 NETCDF_LIB = @pnetcdf_lib@
+SO = @enable_so@
 
 # override the user defs to force serial mode
 ifeq ($(MPI), NO)
@@ -28,6 +29,11 @@ BIL = NO
 PNETCDF = NO
 HDF5 = NO
 ZOLTAN = NO
+endif
+
+# build shared object
+ifeq ($(SO), YES)
+FPIC = YES
 endif
 
 package = @PACKAGE_NAME@

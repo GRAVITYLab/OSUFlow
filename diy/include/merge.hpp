@@ -35,13 +35,13 @@ public:
 		  void (*merge_func)(char **, int *, int, int *),
 		  char * (*create_func)(int *),
 		  void (*destroy_func)(void *),
-		  void* (*type_func)(void*, MPI_Datatype*, int *));
+		  void (*type_func)(void*, MPI_Datatype*, int *));
   int AsyncMergeBlocks(int did, char **its, int **hdrs, float wf,
 		       int nr, int *kv, Comm *cc, Assignment *assign,
 		       void (*merge_func)(char **, int *, int, int *),
 		       char * (*item_func)(int *),
 		       void (*destroy_func)(void *),
-		       void* (*type_func)(void*, MPI_Datatype*, int *));
+		       void (*type_func)(void*, MPI_Datatype*, int *));
 
 private:
 

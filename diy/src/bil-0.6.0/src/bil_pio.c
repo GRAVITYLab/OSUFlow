@@ -39,10 +39,6 @@
 #include "bil_sched.h"
 #include "bil_timing.h"
 
-// when defined, this uses collective calls for reads.
-// should almost ways be on.
-#define COLLECTIVE_READ
-
 int BIL_Pio_compare_block_id(const void* a, const void* b) {
   BIL_Block* block_a = (BIL_Block*)a;
   BIL_Block* block_b = (BIL_Block*)b;
@@ -150,6 +146,7 @@ void BIL_Pio_read_raw_blocks(MPI_Comm all_readers_comm, MPI_Comm io_comm,
     MPI_Datatype var_type;
     assert(MPI_Type_contiguous(blocks[i].var_size, MPI_BYTE, &var_type)
            == MPI_SUCCESS);
+    assert(MPI_Type_commit(&var_type) == MPI_SUCCESS); // added by TP
     MPI_Datatype file_type;
     assert(MPI_Type_create_subarray(blocks[i].num_dims,
                                     blocks[i].file_dim_sizes,
@@ -164,13 +161,8 @@ void BIL_Pio_read_raw_blocks(MPI_Comm all_readers_comm, MPI_Comm io_comm,
     // Allocate data and read it collectively.
     blocks[i].data = BIL_Misc_malloc(blocks[i].total_size * blocks[i].var_size);
     BIL_Timing_io_start(all_readers_comm);
-#ifdef COLLECTIVE_READ
-    assert(MPI_File_read_all(fp, blocks[i].data, blocks[i].total_size,
-                         var_type, MPI_STATUS_IGNORE) == MPI_SUCCESS);
-#else
     assert(MPI_File_read(fp, blocks[i].data, blocks[i].total_size,
                          var_type, MPI_STATUS_IGNORE) == MPI_SUCCESS);
-#endif
     BIL_Timing_io_stop(all_readers_comm,
                        blocks[i].total_size * blocks[i].var_size);
 
@@ -474,23 +466,6 @@ void BIL_Pio_exchange_blocks(BIL_Sched_IO* io_sched,
 
 void BIL_Pio_issue(BIL_Sched_IO* io_sched, BIL_Sched_IO* inv_io_sched,
                    int num_groups, int* blocks_to_group_map) {
-
-#ifdef COLLECTIVE_READ
-  // Make a communicator for only the processes that are reading blocks. Return
-  // if you are not reading data.
-  MPI_Comm all_readers_comm = MPI_COMM_NULL;
-  if (io_sched->num_io_blocks > 0) {
-    MPI_Comm_split(BIL->world_comm, 1, 0, &all_readers_comm);
-  } else {
-    MPI_Comm_split(BIL->world_comm, MPI_UNDEFINED, 0, &all_readers_comm);
-    return;
-  }
-
-  // Create the communicator for your I/O group.
-  MPI_Comm io_comm;
-  MPI_Comm_split(all_readers_comm, io_sched->io_blocks[0].io_group, 0,&io_comm);
-#endif
-
   int* var_sizes = BIL_Misc_malloc(sizeof(int) * num_groups);
   memset(var_sizes, 0, sizeof(int) * num_groups);
   int s, i;
@@ -501,13 +476,8 @@ void BIL_Pio_issue(BIL_Sched_IO* io_sched, BIL_Sched_IO* inv_io_sched,
   // variables are being read in.
   for (s = 0; s < io_sched->num_io_stages; s++) {
     if (BIL->io_type == BIL_RAW) {
-#ifdef COLLECTIVE_READ
-      BIL_Pio_read_raw_blocks(BIL->world_comm, io_comm,
-                              1, &(io_sched->io_blocks[which_block]));
-#else
       BIL_Pio_read_raw_blocks(BIL->world_comm, MPI_COMM_SELF,
                               1, &(io_sched->io_blocks[which_block]));
-#endif
       which_block++;
     }
 #ifndef DISABLE_PNETCDF
@@ -535,11 +505,6 @@ void BIL_Pio_issue(BIL_Sched_IO* io_sched, BIL_Sched_IO* inv_io_sched,
       BIL->blocks[i].var_size = var_sizes[blocks_to_group_map[i]];
     }
   }
-#endif
-
-#ifdef COLLECTIVE_READ
-  MPI_Comm_free(&all_readers_comm);
-  MPI_Comm_free(&io_comm);
 #endif
   BIL_Misc_free(var_sizes);
   MPI_Barrier(BIL->world_comm);

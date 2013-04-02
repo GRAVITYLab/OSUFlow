@@ -16,6 +16,12 @@
 #include "comm.hpp"
 
 //--------------------------------------------------------------------------
+
+extern bool dtype_absolute_address; // addresses in current datatype
+                                     // are absolute w.r.t. MPI_BOTTOM
+                                     // or relative w.r.t. base address
+
+//--------------------------------------------------------------------------
 //
 // constructor
 //
@@ -126,7 +132,6 @@ void Comm::StartRecvItem(int src_rank, bool use_header) {
 //   and creates an item, returning a pointer to it
 // RecvItemDtype: pointer to user-supplied function
 //   that takes an item and creates an MPI datatype for it
-//   and returns the base address associated with the datatype
 //
 // side effects: allocates space for the new items
 //
@@ -134,13 +139,13 @@ void Comm::StartRecvItem(int src_rank, bool use_header) {
 //
 int Comm::FinishRecvItemsMerge(char **items, int *gids, int *procs,
 			       char * (*CreateItem)(int *),
-			       void* (*RecvItemDtype)(void*, MPI_Datatype*, 
-						      int *)) {
+			       void (*RecvItemDtype)(void*, MPI_Datatype*, 
+						     int *)) {
 
   char* (*CreateItemMerge)(int*) = CreateItem;
   char* (*CreateItemSwap)(int*, int) = NULL;
-  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = RecvItemDtype;
-  void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = NULL;
+  void (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = RecvItemDtype;
+  void (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = NULL;
 
   return FinishRecvItems(items, gids, procs, 0, CreateItemMerge, 
 			 CreateItemSwap, RecvItemDtypeMerge, RecvItemDtypeSwap);
@@ -161,7 +166,6 @@ int Comm::FinishRecvItemsMerge(char **items, int *gids, int *procs,
 //   and creates an item, returning a pointer to it
 // RecvItemDtype: pointer to user-supplied function
 //   that takes an item and creates an MPI datatype for it
-//   and returns the base address associated with the datatype
 //
 // side effects: allocates space for the new items
 //
@@ -169,12 +173,12 @@ int Comm::FinishRecvItemsMerge(char **items, int *gids, int *procs,
 //
 int Comm::RecvItemsMerge(char **items, int *gids, int *procs, float wf,
 			 char * (*CreateItem)(int *),
-			 void* (*RecvItemDtype)(void*, MPI_Datatype*, int *)) {
+			 void (*RecvItemDtype)(void*, MPI_Datatype*, int *)) {
 
   char* (*CreateItemMerge)(int*) = CreateItem;
   char* (*CreateItemSwap)(int*, int) = NULL;
-  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = RecvItemDtype;
-  void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = NULL;
+  void (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = RecvItemDtype;
+  void (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = NULL;
 
   return RecvItems(items, gids, procs, wf, 0, CreateItemMerge, 
 		   CreateItemSwap, RecvItemDtypeMerge, RecvItemDtypeSwap);
@@ -194,7 +198,6 @@ int Comm::RecvItemsMerge(char **items, int *gids, int *procs, float wf,
 //   creates an item, returning a pointer to it
 // RecvItemDtype: pointer to user-supplied function
 //   that takes an item and creates an MPI datatype for it
-//   and returns the base address associated with the datatype
 //
 // side effects: allocates space for the new items
 //
@@ -202,13 +205,13 @@ int Comm::RecvItemsMerge(char **items, int *gids, int *procs, float wf,
 //
 int Comm::FinishRecvItemsSwap(char **items, int *gids, int *procs, int ne,
 			     char * (*CreateItem)(int *, int),
-			     void* (*RecvItemDtype)(void*, MPI_Datatype*, 
+			     void (*RecvItemDtype)(void*, MPI_Datatype*, 
 						    int)) {
 
   char* (*CreateItemMerge)(int*) = NULL;
   char* (*CreateItemSwap)(int*, int) = CreateItem;
-  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = NULL;
-  void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = RecvItemDtype;
+  void (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = NULL;
+  void (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = RecvItemDtype;
   return FinishRecvItems(items, gids, procs, ne, CreateItemMerge, 
 			 CreateItemSwap, RecvItemDtypeMerge, RecvItemDtypeSwap);
 
@@ -230,7 +233,6 @@ int Comm::FinishRecvItemsSwap(char **items, int *gids, int *procs, int ne,
 //   creates an item, returning a pointer to it
 // RecvItemDtype: pointer to user-supplied function
 //   that takes an item and creates an MPI datatype for it
-//   and returns the base address associated with the datatype
 //
 // side effects: allocates space for the new items
 //
@@ -238,13 +240,13 @@ int Comm::FinishRecvItemsSwap(char **items, int *gids, int *procs, int ne,
 //
 int Comm::RecvItemsSwap(char **items, int *gids, int *procs, float wf, int ne,
 		      char * (*CreateItem)(int *, int),
-		      void* (*RecvItemDtype)(void*, MPI_Datatype*, 
+		      void (*RecvItemDtype)(void*, MPI_Datatype*, 
 					     int)) {
 
   char* (*CreateItemMerge)(int*) = NULL;
   char* (*CreateItemSwap)(int*, int) = CreateItem;
-  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = NULL;
-  void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = RecvItemDtype;
+  void (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *) = NULL;
+  void (*RecvItemDtypeSwap)(void*, MPI_Datatype*, int) = RecvItemDtype;
   return RecvItems(items, gids, procs, wf, ne, CreateItemMerge, 
 		   CreateItemSwap, RecvItemDtypeMerge, RecvItemDtypeSwap);
 
@@ -278,10 +280,10 @@ int Comm::RecvItemsSwap(char **items, int *gids, int *procs, float wf, int ne,
 int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
 			  char* (*CreateItemMerge)(int *),
 			  char* (*CreateItemSwap)(int *, int),
-			  void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, 
-						      int *),
-			  void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, 
-						     int)) {
+			  void (*RecvItemDtypeMerge)(void*, MPI_Datatype*, 
+						     int *),
+			  void (*RecvItemDtypeSwap)(void*, MPI_Datatype*, 
+						    int)) {
 
   MPI_Request req;
   vector<MPI_Request> reqs, reqs1;
@@ -293,7 +295,7 @@ int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
   if (use_header) {
     for (int i = 0; i < (int)snd_items.size(); i++)
       reqs.push_back(snd_items[i].hreq);
-    MPI_Waitall(reqs.size(), &reqs[0], MPI_STATUS_IGNORE);
+    MPI_Waitall((int)reqs.size(), &reqs[0], MPI_STATUS_IGNORE);
   }
 
   // flush completion of header receives
@@ -301,7 +303,7 @@ int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
     reqs.clear();
     for (int i = 0; i < (int)rcv_hdrs.size(); i++)
       reqs.push_back(rcv_hdrs[i].req);
-    MPI_Waitall(reqs.size(), &reqs[0], stats);
+    MPI_Waitall((int)reqs.size(), &reqs[0], stats);
     for (int i = 0; i < (int)rcv_hdrs.size(); i++)
       rcv_hdrs[i].tag = stats[i].MPI_TAG;
   }
@@ -312,11 +314,19 @@ int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
 
     if (RecvItemDtypeMerge) { // merge
       items[i] = CreateItemMerge(rcv_hdrs[i].hdr);
-      addr = RecvItemDtypeMerge((void *)items[i], &dm, rcv_hdrs[i].hdr);
+      RecvItemDtypeMerge((void *)items[i], &dm, rcv_hdrs[i].hdr);
+      if (dtype_absolute_address)
+	addr = MPI_BOTTOM;
+      else
+	addr = items[i];
     }
     else { // swap
       items[i] = CreateItemSwap(rcv_hdrs[i].hdr, ne);
-      addr = RecvItemDtypeSwap((void *)items[i], &dm, ne);
+      RecvItemDtypeSwap((void *)items[i], &dm, ne);
+      if (dtype_absolute_address)
+	addr = MPI_BOTTOM;
+      else
+	addr = items[i];
     }
     if (use_header) {	
       MPI_Irecv(addr, 1, dm, rcv_hdrs[i].proc, rcv_hdrs[i].tag + 1, comm, &req);
@@ -335,11 +345,11 @@ int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
   reqs.clear();
   for (int i = 0; i < (int)snd_items.size(); i++)
     reqs.push_back(snd_items[i].ireq);
-  MPI_Waitall(reqs.size(), &reqs[0], MPI_STATUS_IGNORE);
+  MPI_Waitall((int)reqs.size(), &reqs[0], MPI_STATUS_IGNORE);
   snd_items.clear();
 
   // flush completion of item receives
-  MPI_Waitall(reqs1.size(), &reqs1[0], stats);
+  MPI_Waitall((int)reqs1.size(), &reqs1[0], stats);
   if (!use_header) {
     for (int i = 0; i < (int)rcv_hdrs.size(); i++) {
       gids[i] = (stats[i].MPI_TAG - 1) / 2;
@@ -349,7 +359,7 @@ int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
 
   rcv_hdrs.clear();
 
-  return reqs1.size();
+  return (int)reqs1.size();
 
 }
 //----------------------------------------------------------------------------
@@ -368,7 +378,6 @@ int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
 //  more ints for fraction of total data
 // RecvItemDtypeMerge: pointer to user-supplied function
 //   that takes an item and creates an MPI datatype for it
-//   and returns the base address associated with the datatype
 // RecvItemDtypeSwap: similar to RecvItemDtypeMerge, but function takes two
 //  more ints for fraction of total data to convert to data type
 // Only one of RecvItemDtypeMerge and RecvItemDtypeSwap should be non-null,
@@ -381,8 +390,8 @@ int Comm::FinishRecvItems(char **items, int *gids, int *procs, int ne,
 int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
 		    char* (*CreateItemMerge)(int *),
 		    char* (*CreateItemSwap)(int *, int),
-		    void* (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *),
-		    void* (*RecvItemDtypeSwap)(void*, MPI_Datatype*, 
+		    void (*RecvItemDtypeMerge)(void*, MPI_Datatype*, int *),
+		    void (*RecvItemDtypeSwap)(void*, MPI_Datatype*, 
 					       int)) {
 
   MPI_Request req;
@@ -394,8 +403,8 @@ int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
   int arr[rcv_hdrs.size()]; // requests that arrived
   int narr; // number of requests that arrived
   int tot_narr = 0; // total number counts-receive messages arrived this round
-  int min_arr = (int)(wf * rcv_hdrs.size()); // wait for this number of 
-                                             // messsages to arrive
+  int min_arr = (int)(wf * (int)rcv_hdrs.size()); // wait for this number of 
+                                                  // messsages to arrive
   static bool first = true; // first time
 
   // post item receives only once if not using headers
@@ -405,11 +414,19 @@ int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
 
       if (RecvItemDtypeMerge) { // merge
 	items[i] = CreateItemMerge(rcv_hdrs[i].hdr);
-	addr = RecvItemDtypeMerge((void *)items[i], &dm, rcv_hdrs[i].hdr);
+	RecvItemDtypeMerge((void *)items[i], &dm, rcv_hdrs[i].hdr);
+	if (dtype_absolute_address)
+	  addr = MPI_BOTTOM;
+	else
+	  addr = items[i];
       }
       else { // swap
 	items[i] = CreateItemSwap(rcv_hdrs[i].hdr, ne);
-	addr = RecvItemDtypeSwap((void *)items[i], &dm, ne);
+	RecvItemDtypeSwap((void *)items[i], &dm, ne);
+	if (dtype_absolute_address)
+	  addr = MPI_BOTTOM;
+	else
+	  addr = items[i];
       }
       MPI_Irecv(addr, 1, dm, rcv_hdrs[i].proc, MPI_ANY_TAG, comm, &req);
       MPI_Type_free(&dm);
@@ -430,7 +447,7 @@ int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
       reqs.clear();
       for (int i = 0; i < (int)rcv_hdrs.size(); i++)
 	reqs.push_back(rcv_hdrs[i].req);
-      MPI_Waitsome(reqs.size(), &reqs[0], &narr, arr, stats);
+      MPI_Waitsome((int)reqs.size(), &reqs[0], &narr, arr, stats);
       for (int i = 0; i < (int)rcv_hdrs.size(); i++)
 	rcv_hdrs[i].tag = stats[i].MPI_TAG;
 
@@ -440,11 +457,19 @@ int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
 
 	if (RecvItemDtypeMerge) { // merge
 	  items[i] = CreateItemMerge(rcv_hdrs[i].hdr);
-	  addr = RecvItemDtypeMerge((void *)items[i], &dm, rcv_hdrs[i].hdr);
+	  RecvItemDtypeMerge((void *)items[i], &dm, rcv_hdrs[i].hdr);
+	  if (dtype_absolute_address)
+	    addr = MPI_BOTTOM;
+	  else
+	    addr = items[i];
 	}
 	else { // swap
 	  items[i] = CreateItemSwap(rcv_hdrs[i].hdr, ne);
-	  addr = RecvItemDtypeSwap((void *)items[i], &dm, ne);
+	  RecvItemDtypeSwap((void *)items[i], &dm, ne);
+	  if (dtype_absolute_address)
+	    addr = MPI_BOTTOM;
+	  else
+	    addr = items[i];
 	}
 	MPI_Recv(addr, 1, dm, rcv_hdrs[i].proc, rcv_hdrs[i].tag + 1, comm, 
 		 &stat);
@@ -461,13 +486,13 @@ int Comm::RecvItems(char **items, int *gids, int *procs, float wf, int ne,
     // no header
     else {
 
-      MPI_Waitsome(reqs.size(), &reqs[0], &narr, arr, stats);
+      MPI_Waitsome((int)reqs.size(), &reqs[0], &narr, arr, stats);
 
     } // no header
 
   }
 
-  return reqs1.size();
+  return (int)reqs1.size();
 
 }
 //----------------------------------------------------------------------------
@@ -533,7 +558,7 @@ int Comm::Recv(int my_gid, void** &items, DIY_Datatype datatype, int wait,
       MPI_Recv(items[num_items], size, MPI_BYTE, src_proc, my_gid, comm, 
 	       &status);
       MPI_Type_get_extent(datatype, &lb, &extent);
-      sizes[num_items] = size / extent;
+      sizes[num_items] = (int)(size / extent);
       num_items++;
       more_items = 1;
     }
@@ -559,7 +584,7 @@ void Comm::FlushSendRecv(int barrier) {
 
   // flush the nonblocking payload sends
   MPI_Status stats[rma_reqs.size()];
-  MPI_Waitall(rma_reqs.size(), &rma_reqs[0], stats);
+  MPI_Waitall((int)rma_reqs.size(), &rma_reqs[0], stats);
 
   if (barrier)
     MPI_Barrier(comm);

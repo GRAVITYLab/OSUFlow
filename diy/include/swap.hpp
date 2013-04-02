@@ -36,7 +36,7 @@ public:
 		  char* (*recv_create_func)(int *, int),
 		  void (*recv_detroy_func)(void *),
 		  void* (*send_type_func)(void*, MPI_Datatype*, int, int),
-		  void* (*recv_type_func)(void*, MPI_Datatype*, int));
+		  void (*recv_type_func)(void*, MPI_Datatype*, int));
 
 private:
 
@@ -49,7 +49,7 @@ private:
 		    void (*reduce_func)(char **, int *, int, int), 
 		    char* (*recv_create_func)(int *, int),
 		    void (*recv_detroy_func)(void *),
-		    void* (*recv_type_func)(void*, MPI_Datatype*, int));
+		    void (*recv_type_func)(void*, MPI_Datatype*, int));
 
   int start_b; // starting block global id, number of blocks in prior domains
   MPI_Comm comm; // communicator

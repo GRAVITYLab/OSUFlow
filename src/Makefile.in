@@ -35,7 +35,7 @@ OBJS =  Grid.o       polynomials.o  TimeVaryingFieldLine.o \
 	FlashAMR.o   ParFlow.o       flashhdf5_float.o \
 	Repartition.o                ComputeFieldLines.o \
 	Blocks.o     Partition.o     Lattice4D.o    LatticeAMR.o \
-	Plot3DReader.o               CurvilinearGrid.o
+	CurvilinearGrid.o
 
 SRCS =  Grid.C       polynomials.C  TimeVaryingFieldLine.C \
 	eigenvals.C  Interpolator.C  Rake.C	    Topology.C \
@@ -46,13 +46,30 @@ SRCS =  Grid.C       polynomials.C  TimeVaryingFieldLine.C \
 	FlashAMR.C   ParFlow.C       flashhdf5_float.C \
 	Repartition.C                ComputeFieldLines.C \
 	Blocks.C     Partition.C     Lattice4D.C    LatticeAMR.C \
-	Plot3DReader.C               CurvilinearGrid.C
+	CurvilinearGrid.C
+
+# position-independent code
+ifeq ($(FPIC), YES)
+CCFLAGS += -fPIC
+endif
 
 .suffixes: .C
 
 default: all
 
+ifeq ($(SO), YES) # static and dynamic libs
+ifeq ($(ARCH), MAC_OSX_MPICH) # mac mpich
+all: libOSUFlow.a libOSUFlow.dylib
+else # not mac mpich
+ifeq ($(ARCH), MAC_OSX_OMPI) # mac open mpi
+all: libOSUFlow.a libOSUFlow.dylib
+else # not mac: linux and others
+all: libOSUFlow.a libOSUFlow.so
+endif
+endif
+else # only static lib
 all: libOSUFlow.a
+endif
 
 Makefile: Makefile.in ../config.status
 	../config.status $@
@@ -65,9 +82,17 @@ $(OBJS): *.h
 .C.o:
 	$(C++) $(CCFLAGS) $(INCLUDE) $<
 
+libOSUFlow.dylib : $(OBJS)
+	rm -f $@
+	g++ -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-install_name,libOSUFlow.dylib -o libOSUFlow.dylib $(OBJS)
+
+libOSUFlow.so : $(OBJS)
+	rm -f $@
+	g++ -shared -Wl,-soname,libOSUFlow.so -o libOSUFlow.so -lc $(OBJS)
+
 libOSUFlow.a : $(OBJS)
 	rm -f $@
 	ar cru $@ $(OBJS) 
 
 clean:
-	rm -f *.o *.a
+	rm -f *.o *.a *.dylib *.so

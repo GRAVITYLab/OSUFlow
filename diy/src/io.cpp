@@ -17,37 +17,43 @@
 #include "util.hpp"
 
 //--------------------------------------------------------------------------
+
+extern bool dtype_absolute_address; // addresses in current datatype
+                                     // are absolute w.r.t. MPI_BOTTOM
+                                     // or relative w.r.t. base address
+
+//--------------------------------------------------------------------------
 //
 // the following declarations are needed in order to link template functions
 // across compilation units
 //
 template 
-void IO::ReadAllData<char>(char*** data, const int64_t *extents, int nb, 
+void IO::ReadAllData<char>(char*** data, const int *extents, int nb, 
 			   Blocking *blocking);
 template 
 void IO::ReadAllData<unsigned char>(unsigned char*** data, 
-				    const int64_t *extents, int nb, 
+				    const int *extents, int nb, 
 				    Blocking *blocking);
 template 
-void IO::ReadAllData<int16_t>(int16_t*** data, const int64_t *extents, int nb, 
+void IO::ReadAllData<int16_t>(int16_t*** data, const int *extents, int nb, 
 			      Blocking *blocking);
 template 
-void IO::ReadAllData<uint16_t>(uint16_t*** data, const int64_t *extents, 
+void IO::ReadAllData<uint16_t>(uint16_t*** data, const int *extents, 
 			       int nb, Blocking *blocking);
 template 
-void IO::ReadAllData<int32_t>(int32_t*** data, const int64_t *extents, int nb, 
+void IO::ReadAllData<int32_t>(int32_t*** data, const int *extents, int nb, 
 			      Blocking *blocking);
 template 
-void IO::ReadAllData<uint32_t>(uint32_t*** data, const int64_t *extents, 
+void IO::ReadAllData<uint32_t>(uint32_t*** data, const int *extents, 
 			       int nb, Blocking *blocking);
 template 
-void IO::ReadAllData<float>(float*** data, const int64_t *extents, int nb, 
+void IO::ReadAllData<float>(float*** data, const int *extents, int nb, 
 			    Blocking *blocking);
 template 
-void IO::ReadAllData<double>(double*** data, const int64_t *extents, int nb, 
+void IO::ReadAllData<double>(double*** data, const int *extents, int nb, 
 			     Blocking *blocking);
 template 
-void IO::ReadAllData<long double>(long double*** data, const int64_t *extents, 
+void IO::ReadAllData<long double>(long double*** data, const int *extents, 
 				  int nb, Blocking *blocking);
 //--------------------------------------------------------------------------
 //
@@ -129,11 +135,12 @@ void IO::WriteAnaInit(const char *filename, bool compress) {
 // swap_bytes: whether to swap bytes for endian conversion
 //  only applies to reading the headers and footer
 //  user must swap bytes manually for datatypes because they are custom
-// compress: whether to apply decompression to nonempty reads (false by default)
+// compress: whether to apply decompression to nonempty reads
+// glo_num__blocks: total number of blocks in the global domain (output)
+// loc_num_blocks: local number of blocks on this process (output)
 //
-// returns: local number of blocks to be read
-//
-int IO::ReadAnaInit(const char *filename, bool swap_bytes, bool compress) {
+void IO::ReadAnaInit(const char *filename, bool swap_bytes, bool compress,
+		     int& glo_num_blocks, int& loc_num_blocks) {
 
   int64_t *ftr; // footer, allocated by ReadFooter
   int64_t *all_sizes = NULL; // sizes for all blocks in footer
@@ -147,7 +154,7 @@ int IO::ReadAnaInit(const char *filename, bool swap_bytes, bool compress) {
 
   // root reads footer and distributes offset to each process
   if (rank == 0) {
-    ReadFooter(fd_in, ftr, &tot_b, swap_bytes);
+    ReadFooter(fd_in, comm, ftr, &tot_b, swap_bytes);
     all_sizes = new int64_t[tot_b];
     for (int i = 0; i < tot_b - 1; i++)
       all_sizes[i] = ftr[i + 1] - ftr[i];
@@ -155,7 +162,7 @@ int IO::ReadAnaInit(const char *filename, bool swap_bytes, bool compress) {
     MPI_File_get_size(fd_in, &file_size);
     all_sizes[tot_b - 1] = file_size - (tot_b + 1) * sizeof(int64_t);
   }
-
+  MPI_Bcast(&tot_b, 1, MPI_INT, 0, comm);
   // maximum number of blocks per process
   max_b = (tot_b >= groupsize ? tot_b / groupsize : 1);
 
@@ -163,8 +170,8 @@ int IO::ReadAnaInit(const char *filename, bool swap_bytes, bool compress) {
   // cotiguous block distribution to processes w.r.t order blocks appear
   // in the file (as opposed to round robin order)
 
-  block_starts.reserve(max_b);
-  block_sizes.reserve(max_b);
+  block_starts.resize(max_b);
+  block_sizes.resize(max_b);
   MPI_Scatter(ftr, max_b, MPI_LONG_LONG, &block_starts[0], max_b, 
 	      MPI_LONG_LONG, 0, comm);
   MPI_Scatter(all_sizes, max_b, MPI_LONG_LONG, &block_sizes[0], max_b, 
@@ -181,7 +188,55 @@ int IO::ReadAnaInit(const char *filename, bool swap_bytes, bool compress) {
 	 ;
   read_ana_b = i;
 
-  return(read_ana_b);
+  glo_num_blocks = tot_b;
+  loc_num_blocks = read_ana_b;
+
+}
+//----------------------------------------------------------------------------
+//
+// reads info from file
+//
+// fd: file descriptor of open file
+// swap_bytes: whether to swap bytes for endian conversion
+// comm: MPI communicator
+// glo_num__blocks: total number of blocks in the global domain (output)
+// loc_num_blocks: local number of blocks on this process (output)
+//
+void IO::ReadInfo(MPI_File fd, bool swap_bytes, MPI_Comm comm,
+		  int& glo_num_blocks, int& loc_num_blocks) {
+
+  int64_t *ftr; // footer, allocated by ReadFooter
+  int tot_b; // total number of global blocks
+  int max_b; // maximum number of blocks in any process
+  int rank, groupsize; // MPI usual
+
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &groupsize);
+
+  // root reads footer and distributes offset to each process
+  if (rank == 0)
+    ReadFooter(fd, comm, ftr, &tot_b, swap_bytes);
+  MPI_Bcast(&tot_b, 1, MPI_INT, 0, comm);
+  // maximum number of blocks per process
+  max_b = (tot_b >= groupsize ? tot_b / groupsize : 1);
+
+  // get block starting offsets
+  // cotiguous block distribution to processes w.r.t order blocks appear
+  // in the file (as opposed to round robin order)
+  MPI_Offset block_starts[max_b]; // block starting offsets for all my blocks
+  MPI_Scatter(ftr, max_b, MPI_LONG_LONG, &block_starts[0], max_b, 
+	      MPI_LONG_LONG, 0, comm);
+
+  // count and save my local number of blocks read in
+  int i;
+  for (i = 0; i < max_b && block_starts[i] >= 0; i++)
+	 ;
+  glo_num_blocks = tot_b;
+  loc_num_blocks = i;
+
+  // cleanup
+  if (rank == 0)
+    delete[] ftr;
 
 }
 //----------------------------------------------------------------------------
@@ -210,8 +265,8 @@ void IO::WriteAnaFinalize() {
     reorder_sizes = new int64_t[tot_out_blks];
   }
   // gather sizes of output blocks from each process to root
-  MPI_Gatherv(&block_sizes[0], block_sizes.size(), MPI_LONG_LONG, all_sizes, 
-	      num_blks, displs, MPI_LONG_LONG, 0, comm);
+  MPI_Gatherv(&block_sizes[0], (int)block_sizes.size(), MPI_LONG_LONG, 
+	      all_sizes, num_blks, displs, MPI_LONG_LONG, 0, comm);
 
   // root writes the footer
   if (rank == 0) {
@@ -320,10 +375,10 @@ void IO::ReadDataFinalize() {
 // side effects: memory for data will be allocated
 //
 template<typename T> 
-void IO::ReadAllData(T*** data, const int64_t *extents, int nb, 
+void IO::ReadAllData(T*** data, const int *extents, int nb, 
 		     Blocking *blocking) {
 
-  int64_t starts[DIY_MAX_DIM], sizes[DIY_MAX_DIM]; // starts and sizes of a block
+  int starts[DIY_MAX_DIM], sizes[DIY_MAX_DIM]; // starts and sizes of a block
   int i, j;
 
   *data = new T*[max_b];
@@ -359,8 +414,8 @@ void IO::ReadAllData(T*** data, const int64_t *extents, int nb,
 // side effects: memory for data will be allocated by this function
 //
 template<typename T> 
-void IO::ReadData(T* &data, const int64_t *starts, 
-		  const int64_t *sizes, const int64_t *extents,
+void IO::ReadData(T* &data, const int *starts, 
+		  const int *sizes, const int *extents,
 		  bool swap_bytes) {
 
   int si[DIY_MAX_DIM]; // size of entire dataset
@@ -380,7 +435,7 @@ void IO::ReadData(T* &data, const int64_t *starts,
   if (!tot_size) {
     errcode = MPI_File_read_all(fd_in, data, 0, MPI_BYTE, &status);
     if (errcode != MPI_SUCCESS)
-      handle_error(errcode, (char *)"MPI_File_read_all empty data");
+      handle_error(errcode, comm, (char *)"MPI_File_read_all empty data");
     return;
   }
 
@@ -403,7 +458,7 @@ void IO::ReadData(T* &data, const int64_t *starts,
 		    MPI_INFO_NULL);
   errcode = MPI_File_read_all(fd_in, data, tot_size, dtype, &status);
   if (errcode != MPI_SUCCESS)
-    handle_error(errcode, (char *)"MPI_File_read_all nonempty data");
+    handle_error(errcode, comm, (char *)"MPI_File_read_all nonempty data");
   int count;
   MPI_Get_count(&status, dtype, &count);
   assert(count == tot_size);
@@ -423,10 +478,9 @@ void IO::ReadData(T* &data, const int64_t *starts,
 // max_nb: maximum number of blocks in any process
 // hdrs: headers, one per analysis block (NULL if not used)
 // type_func: pointer to function that creates MPI datatype for item 
-//   returns the base address associated with the datatype
 //
 void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs, 
-		     void* (*type_func)(void*, int, int, MPI_Datatype*)) {
+		     void (*type_func)(void*, int, int, MPI_Datatype*)) {
 
   int s; // temp
   MPI_Offset big_size; // MPI_Offset version of datatype size
@@ -436,7 +490,6 @@ void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs,
   MPI_Offset unused1 = 0;
   MPI_Datatype dtype; // analysis block datatype
   MPI_Datatype ctype; // combined header + analysis block datatype
-  void* addr; // base address of datatype
 
   // a naive implementation for now
   for (int i = 0; i < max_nb; i++) {
@@ -446,8 +499,13 @@ void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs,
     if (i < nb) { // non-null block
 
       // combine header
-      addr = type_func(ana[i], did, i, &dtype); 
+      type_func(ana[i], did, i, &dtype); 
       if (hdrs) {
+	void *addr; // base address of original datatype
+	if (dtype_absolute_address)
+	  addr = DIY_BOTTOM;
+	else
+	  addr = ana[i];
 	struct map_block_t map[] = {
 	  { MPI_INT, ADDR, DIY_MAX_HDR_ELEMENTS, DIY_Addr(hdrs[i]) },
 	  { dtype,   ADDR, 1,                    DIY_Addr(addr)    },
@@ -460,7 +518,7 @@ void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs,
       if (compress) { // compressed
 	vector<unsigned char> comp_buf;
 	int comp_size;
-	CompressBlock(addr, ctype, comm, &comp_buf, &comp_size);
+	CompressBlock(ana[i], ctype, comm, &comp_buf, &comp_size);
 
 	// use MPI_Offset to not overflow the scan
 	// in MPI 2.2, should use MPI_OFFSET datatype, but BG/P is MPI 2.0
@@ -484,10 +542,10 @@ void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs,
 	ofst0 = ofst;
 	if (rank > 0)
 	  ofst += scan_size;
-	if (hdrs)
+	if (dtype_absolute_address)
 	  WriteDatatype(fd_out, 0, &ctype, 1, ofst);
 	else
-	  WriteDatatype(fd_out, addr, &ctype, 1, ofst);
+	  WriteDatatype(fd_out, ana[i], &ctype, 1, ofst);
 
       }
       MPI_Allreduce(&big_size, &tot_size, 1, MPI_LONG_LONG, MPI_SUM, comm);
@@ -516,14 +574,14 @@ void IO::WriteAllAna(void **ana, int nb, int max_nb, int **hdrs,
 // hdrs: headers, one per analysis block
 //   (allocated by caller, pass NULL if not used)
 // create_type_func: pointer to function that takes a block local id, 
-//   block header, and creates (allocates) a block and creates an MPI datatype 
-//   for it. Returns the base address associated with the datatype
+//   block header, and creates (allocates) a block and creates a DIY datatype 
 //
 void IO::ReadAllAna(void** &ana, int **hdrs, 
 		    void* (*create_type_func)(int, int, int *, 
 					      MPI_Datatype *)) {
 
   MPI_Datatype dtype;
+
   ana = new void*[read_ana_b];
 
   // a naive implementation for now
@@ -536,12 +594,13 @@ void IO::ReadAllAna(void** &ana, int **hdrs,
 	// read entire block
 	dtype = MPI_BYTE;
 	unsigned char *comp_buf = new unsigned char[block_sizes[i]];
-	ReadDatatype(fd_in, comp_buf, &dtype, block_sizes[i], block_starts[i]);
+	int size = (int)block_sizes[i]; // number of bytes in block
+	ReadDatatype(fd_in, comp_buf, &dtype, size, block_starts[i]);
 
 	// decompress block
 	vector<unsigned char> decomp_buf;
 	int decomp_size; // size of decompressed block in bytes
-	DecompressBlockToBuffer(comp_buf, block_sizes[i], &decomp_buf, 
+	DecompressBlockToBuffer(comp_buf, size, &decomp_buf, 
 			      &decomp_size);
 
 	// copy header
@@ -557,8 +616,7 @@ void IO::ReadAllAna(void** &ana, int **hdrs,
 
 	// decompress block and fill datatype
 	int hdr_size = DIY_MAX_HDR_ELEMENTS * sizeof(int);
-	DecompressBlockToDatatype(comp_buf + hdr_size, 
-				  block_sizes[i] - hdr_size,
+	DecompressBlockToDatatype(comp_buf + hdr_size, size - hdr_size,
 				  ana[i], dtype, comm);
 
 	delete[] comp_buf;
@@ -578,7 +636,10 @@ void IO::ReadAllAna(void** &ana, int **hdrs,
 	  ana[i] = create_type_func(did, i, NULL, &dtype);
 
 	// read analysis block
-	ReadDatatype(fd_in, ana[i], &dtype, 1, block_starts[i]);
+	if (dtype_absolute_address)
+	  ReadDatatype(fd_in, MPI_BOTTOM, &dtype, 1, block_starts[i]);
+	else
+	  ReadDatatype(fd_in, ana[i], &dtype, 1, block_starts[i]);
 
       }
 
@@ -637,14 +698,14 @@ int IO::WriteFooter(MPI_File fd, const int64_t *blk_sizes, int nb_out) {
   int count;
   MPI_Get_count(&status, MPI_LONG_LONG, &count);
   assert(count == nb_out + 1);
-  tot_bytes += (count  * sizeof(int64_t));
+  tot_bytes += (count  * (int)sizeof(int64_t));
 
   // print the file size
   MPI_Offset ofst;
   MPI_Offset disp;
   MPI_File_get_position(fd, &ofst);
   MPI_File_get_byte_offset(fd, ofst, &disp);
-  int size = disp / 1048576;
+  int size = (int)(disp / 1048576);
   fprintf(stderr, "Output file size is %d MB\n", size);
 
   delete[] footer;
@@ -659,31 +720,37 @@ int IO::WriteFooter(MPI_File fd, const int64_t *blk_sizes, int nb_out) {
 // allocates ftr to be the correct size (caller should not allocate it)
 //
 // fd: open MPI file handle
+// comm: MPI communicator
 // ftr: footer data (output)
 // tb: total number of blocks (output)
 // swap_bytes: whether to swap bytes for endian conversion
 //
 // returns: number of bytes read
 //
-int IO::ReadFooter(MPI_File fd, int64_t* &ftr, int *tb, bool swap_bytes) {
+int IO::ReadFooter(MPI_File fd, MPI_Comm comm, int64_t* &ftr, int *tb, 
+		   bool swap_bytes) {
 
   MPI_Status status;
   int errcode;
   int tot_bytes = 0; // total bytes read
   int count;
   MPI_Offset size;
+  int groupsize; // MPI comm size
 
   MPI_File_get_size(fd, &size);
+  MPI_Comm_size(comm, &groupsize);
 
   // read the total number of blocks
-  errcode = MPI_File_read_at(fd, size - sizeof(int64_t), tb, 1, 
+  int64_t tb64; // 64 bit version of tb
+  errcode = MPI_File_read_at(fd, size - sizeof(int64_t), &tb64, 1, 
 			     MPI_LONG_LONG, &status);
+  *tb = (int)tb64;
   MPI_Get_count(&status, MPI_LONG_LONG, &count);
   assert(count == 1);
   if (errcode != MPI_SUCCESS)
-    handle_error(errcode, 
+    handle_error(errcode, comm,
 		 (char *)"MPI_File_read footer number of blocks");
-  tot_bytes += (count * sizeof(int64_t));
+  tot_bytes += (count * (int)sizeof(int64_t));
   if (swap_bytes)
       swap((char *)tb, 1, sizeof(int64_t));
 
@@ -699,10 +766,10 @@ int IO::ReadFooter(MPI_File fd, int64_t* &ftr, int *tb, bool swap_bytes) {
   errcode = MPI_File_read_at(fd, size - (*tb + 1) * sizeof(int64_t),
 			     ftr, *tb, MPI_LONG_LONG, &status);
   if (errcode != MPI_SUCCESS)
-    handle_error(errcode, (char *)"MPI_File_read footer block start");
+    handle_error(errcode, comm, (char *)"MPI_File_read footer block start");
   MPI_Get_count(&status, MPI_LONG_LONG, &count);
   assert(count == *tb);
-  tot_bytes += (count * sizeof(int64_t));
+  tot_bytes += (count * (int)sizeof(int64_t));
   if (swap_bytes)
     swap((char *)ftr, *tb, sizeof(int64_t));
 
@@ -736,7 +803,7 @@ int IO::ReadHeader(MPI_File fd, int null, int *hdr,
   if (null) { // empty write
     errcode = MPI_File_read_at_all(fd, ofst, &b, 0, MPI_BYTE, &status);
     if (errcode != MPI_SUCCESS)
-      handle_error(errcode, (char *)"MPI_File_read_at_all empty header");
+      handle_error(errcode, comm, (char *)"MPI_File_read_at_all empty header");
   }
 
   else {
@@ -744,12 +811,12 @@ int IO::ReadHeader(MPI_File fd, int null, int *hdr,
 				    MPI_INT, &status);
     MPI_Get_count(&status,MPI_INT,&count);
     if (errcode != MPI_SUCCESS)
-      handle_error(errcode, (char *)"MPI_File_read_at_all header");
+      handle_error(errcode, comm, (char *)"MPI_File_read_at_all header");
     assert(count == DIY_MAX_HDR_ELEMENTS);
     ofst += count * sizeof(int);
   }
 
-  return(count * sizeof(int));
+  return(count * (int)sizeof(int));
 
 }
 //----------------------------------------------------------------------------
@@ -775,12 +842,13 @@ int IO::WriteDatatype(MPI_File fd, void* addr,
   if (!num_d) { // empty write
     errcode = MPI_File_write_at_all(fd, ofst, &b, 0, MPI_BYTE, &status);
     if (errcode != MPI_SUCCESS)
-      handle_error(errcode, (char *)"MPI_File_write_all empty datatype");
+      handle_error(errcode, comm, (char *)"MPI_File_write_all empty datatype");
   }
   else {
     errcode = MPI_File_write_at_all(fd, ofst, addr, num_d, *d, &status);
     if (errcode != MPI_SUCCESS)
-      handle_error(errcode, (char *)"MPI_File_write_all nonempty datatype");
+      handle_error(errcode, comm, 
+		   (char *)"MPI_File_write_all nonempty datatype");
     MPI_Get_count(&status, MPI_BYTE, &bytes);
     block_sizes.push_back(bytes);
   }
@@ -816,12 +884,13 @@ int IO::ReadDatatype(MPI_File fd, void* addr,
   if (!num_d) { // empty read
     errcode = MPI_File_read_at_all(fd, ofst, &b, 0, MPI_BYTE, &status);
     if (errcode != MPI_SUCCESS)
-      handle_error(errcode, (char *)"MPI_File_read_all empty datatype");
+      handle_error(errcode, comm, (char *)"MPI_File_read_all empty datatype");
   }
   else {
     errcode = MPI_File_read_at_all(fd, ofst, addr, num_d, *d, &status);
     if (errcode != MPI_SUCCESS)
-      handle_error(errcode, (char *)"MPI_File_read_all nonempty datatype");
+      handle_error(errcode, comm, 
+		   (char *)"MPI_File_read_all nonempty datatype");
     MPI_Get_count(&status, MPI_BYTE, &bytes);
   }
 
@@ -835,7 +904,7 @@ int IO::ReadDatatype(MPI_File fd, void* addr,
 // MPI error handler
 // decodes and prints MPI error messages
 //
-void IO::handle_error(int errcode, char *str) {
+void IO::handle_error(int errcode, MPI_Comm comm, char *str) {
 
   char msg[MPI_MAX_ERROR_STRING];
   int resultlen;

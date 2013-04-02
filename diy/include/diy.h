@@ -215,7 +215,24 @@ int DIY_Decomposed(int loc_num_blocks, int *gids, struct bb_t *bounds,
 		   struct gb_t **neighbors, int *num_neighbors, int wrap);
 
 /* ----------------------------------------------------------------------- */
+/*
+  Initializes parallel reading of analysis blocks and decomposes domain
+  accordingliy
 
+  filename: input filename
+  swap_bytes: whether to swap bytes for endian conversion
+  glo_num__blocks: total number of blocks in the global domain (output)
+  loc_num_blocks: local number of blocks on this process (output)
+
+  returns: id of this domain (< 0 if error)
+*/
+#ifdef __cplusplus
+extern "C"
+#endif
+int DIY_Read_decomposed(char *filename, int swap_bytes,
+			int *glo_num_blocks, int *loc_num_blocks);
+
+/* ----------------------------------------------------------------------- */
 /*
   Finds block starts and sizes
   for blocks consisting of discrete, regular grid points
@@ -422,8 +439,7 @@ int DIY_Flush_send_recv(int barrier);
   reduce_func: pointer to merging or reduction function
   create_func: pointer to function that creates item
   destroy_func: pointer to function that destroys item
-  type_func: pointer to function that creates MPI datatype for item 
-  returns the base address associated with the datatype
+  type_func: pointer to function that creates DIY datatype for item 
   num_blocks_out: number of output blocks (output)
 
   side effects: allocates output items and array of pointers to them
@@ -440,7 +456,7 @@ int DIY_Merge_blocks(int did, char **blocks, int **hdrs, int num_rounds,
 		     void (*reduce_func)(char **, int *, int, int *), 
 		     char *(*create_func)(int *),
 		     void (*destroy_func)(void *),
-		     void* (*type_func)(void *, DIY_Datatype*, int *),
+		     void (*type_func)(void *, DIY_Datatype*, int *),
 		     int *num_blocks_out);
 
 /* ----------------------------------------------------------------------- */
@@ -462,14 +478,13 @@ int DIY_Merge_blocks(int did, char **blocks, int **hdrs, int num_rounds,
   with given number of elements (less than original item)
   recv_destroy_func: pointer to function that desroys received item
   part of a total number of parts in the item
-  send_type_func: pointer to function that creates MPI datatype for sending
+  send_type_func: pointer to function that creates DIY datatype for sending
   a subset of the item starting at an element and having a given number
   of elements (less than the original item)
   returns the base address associated with the datatype
-  recv_type_func: pointer to function that creates MPI datatype for receiving
+  recv_type_func: pointer to function that creates DIY datatype for receiving
   a subset of the item with a given number of elements 
   (less than the original item)
-  returns the base address associated with the datatype
 
   returns: error code
 */
@@ -483,7 +498,7 @@ int DIY_Swap_blocks(int did, char **blocks, int **hdrs, int num_elems,
 		    char *(*recv_create_func)(int *, int),
 		    void (*recv_destroy_func)(void *),
 		    void*(*send_type_func)(void*, DIY_Datatype*, int, int),
-		    void*(*recv_type_func)(void*, DIY_Datatype*, int));
+		    void (*recv_type_func)(void*, DIY_Datatype*, int));
 
 /* ----------------------------------------------------------------------- */
 
@@ -512,8 +527,7 @@ int DIY_Write_open_all(int did, char *filename, int compress);
   blocks: array of pointers to analysis blocks
   num_blocks: number of blocks
   hdrs: headers, one per analysis block (NULL if not used)
-  type_func: pointer to function that creates MPI datatype for item 
-  returns the base address associated with the datatype
+  type_func: pointer to function that creates DIY datatype for item 
 
   returns: error code
 */
@@ -522,7 +536,7 @@ int DIY_Write_open_all(int did, char *filename, int compress);
 extern "C"
 #endif
 int DIY_Write_blocks_all(int did, void **blocks, int num_blocks, int **hdrs,
-			 void* (*type_func)(void*, int, int, DIY_Datatype*));
+			 void (*type_func)(void*, int, int, DIY_Datatype*));
 
 /* ----------------------------------------------------------------------- */
 
@@ -549,16 +563,18 @@ int DIY_Write_close_all(int did);
   swap_bytes: whether to swap bytes for endian conversion
   only applies to reading the headers and footer
   user must swap bytes manually for datatypes because they are custom
-  compress: whether to compress output (0 = normal, 1 = compress)
-  (1: zlib's default compression level 6 is applied blockwise)
+  compress: whether file is compressed (0 = normal, 1 = compressed)
+  glo_num__blocks: total number of blocks in the global domain (output)
+  loc_num_blocks: local number of blocks on this process (output)
 
-  returns: number of local blacks to be read (< 0 if error)
+  returns: error code
 */
 
 #ifdef __cplusplus
 extern "C"
 #endif
-int DIY_Read_open_all(int did, char *filename, int swap_bytes, int compress);
+int DIY_Read_open_all(int did, char *filename, int swap_bytes, int compress,
+		      int *glo_num_blocks, int *loc_num_blocks);
 
 /* ----------------------------------------------------------------------- */
 
@@ -570,9 +586,8 @@ int DIY_Read_open_all(int did, char *filename, int swap_bytes, int compress);
   DIY will allocate blocks for you
   hdrs: headers, one per analysis block, allocated by caller
   (pass NULL if not used)
-  create_type_func: pointer to function that takes a block local id, 
-  block header, and creates (allocates) a block and creates an MPI datatype 
-  for it. Returns the base address associated with the datatype
+  create_type_func: pointer to a function that allocates a block and
+  creates a DIY datatype for it.
 
   returns: error code
 */
@@ -958,7 +973,7 @@ int DIY_Gid(int did, int lid);
   Compresses a block
 
   addr: address of start of datatype
-  dtype: MPI datatype
+  dtype: DIY datatype
   comm: MPI communicator
   comp_buf: pointer to compressed buffer, datatype DIY_BYTE (output)
   comp_size: size of compressed buffer in bytes

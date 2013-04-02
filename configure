@@ -684,6 +684,7 @@ with_hdf5
 zoltan_inc
 zoltan_lib
 with_zoltan
+enable_so
 LIBOBJS
 subdirs
 LTLIBOBJS'
@@ -1281,6 +1282,9 @@ Optional Features:
                           machine with opposite endianness than the dataset)
   --enable-warnings       whether to enable all warnings during build
   --disable-mpi           whether to disable mpi (build serial mode only)
+  --enable-so             whether to generate dynamically-linked shared object
+                          in addition to statically-linked library (disabled
+                          by default)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -3787,7 +3791,7 @@ if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
 else
   ac_cv_header_stdc=no
 fi
-rm -f conftest*
+rm -f -r conftest*
 
 fi
 
@@ -3808,7 +3812,7 @@ if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
 else
   ac_cv_header_stdc=no
 fi
-rm -f conftest*
+rm -f -r conftest*
 
 fi
 
@@ -4768,6 +4772,25 @@ Cannot find zoltan:  the package will be built without zoltan support. Otherwise
 fi
 fi
 echo "zoltan enabled = $with_zoltan"
+
+
+#---------------------------
+#
+# build shared object in addition to static lib
+#
+# Check whether --enable-so was given.
+if test "${enable_so+set}" = set; then
+  enableval=$enable_so; if test ${enableval} = "yes" ; then
+  enable_so="YES"
+else
+  enable_so="NO"
+fi
+else
+  enable_so="NO"
+fi
+
+
+echo "shared object enabled = $enable_so"
 
 
 #---------------------------
@@ -6780,12 +6803,13 @@ with_hdf5!$with_hdf5$ac_delim
 zoltan_inc!$zoltan_inc$ac_delim
 zoltan_lib!$zoltan_lib$ac_delim
 with_zoltan!$with_zoltan$ac_delim
+enable_so!$enable_so$ac_delim
 LIBOBJS!$LIBOBJS$ac_delim
 subdirs!$subdirs$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 72; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 73; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

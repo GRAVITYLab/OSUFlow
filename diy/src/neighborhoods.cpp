@@ -32,6 +32,8 @@ Neighborhoods::Neighborhoods(int did, Blocking *blocking,
 			     Assignment *assignment, 
 			     MPI_Comm comm, bool wrap, int nhdr) {
 
+  wrap = wrap; // quiet compiler warning
+
   this->did = did;
   this->comm = comm;
   this->blocking = blocking;
@@ -277,7 +279,7 @@ void Neighborhoods::WrapNeighbors() {
 
       // x dimension
       if ((neigh->gb.neigh_dir & DIY_X1) == DIY_X1) {
-	pt[0] = bb.min[0] - 0.5 * my_size[0];
+	pt[0] = bb.min[0] - 0.5f * my_size[0];
 	// todo: add ghost?
 
 	// actual neighbor to my max side, but I see him to my min
@@ -289,7 +291,7 @@ void Neighborhoods::WrapNeighbors() {
       }
       // actual neighbor is to my min side, but I see him to my max
       else if ((neigh->gb.neigh_dir & DIY_X0) == DIY_X0) {
-	pt[0] = bb.max[0] + 0.5 * my_size[0];
+	pt[0] = bb.max[0] + 0.5f * my_size[0];
 	if (pt[0] < neigh->gb.bb.min[0] || pt[0] > neigh->gb.bb.max[0]) {
 	  neigh->wrap_dir |= DIY_X1;
 	  neigh->gb.bb.max[0] = bb.max[0] + neigh_size[0];
@@ -299,7 +301,7 @@ void Neighborhoods::WrapNeighbors() {
 
       // y dimension
       if ((neigh->gb.neigh_dir & DIY_Y1) == DIY_Y1) {
-	pt[1] = bb.min[1] - 0.5 * my_size[1];
+	pt[1] = bb.min[1] - 0.5f * my_size[1];
 	if (pt[1] < neigh->gb.bb.min[1] || pt[1] > neigh->gb.bb.max[1]) {
 	  neigh->wrap_dir |= DIY_Y0;
 	  neigh->gb.bb.min[1] = bb.min[1] - neigh_size[1];
@@ -307,7 +309,7 @@ void Neighborhoods::WrapNeighbors() {
 	}
       }
       else if ((neigh->gb.neigh_dir & DIY_Y0) == DIY_Y0) {
-	pt[1] = bb.max[1] + 0.5 * my_size[1];
+	pt[1] = bb.max[1] + 0.5f * my_size[1];
 	if (pt[1] < neigh->gb.bb.min[1] || pt[1] > neigh->gb.bb.max[1]) {
 	  neigh->wrap_dir |= DIY_Y1;
 	  neigh->gb.bb.max[1] = bb.max[1] + neigh_size[1];
@@ -318,7 +320,7 @@ void Neighborhoods::WrapNeighbors() {
       // z dimension
       if (dim > 2) { 
 	if ((neigh->gb.neigh_dir & DIY_Z1) == DIY_Z1) {
-	  pt[2] = bb.min[2] - 0.5 * my_size[2];
+	  pt[2] = bb.min[2] - 0.5f * my_size[2];
 	  if (pt[2] < neigh->gb.bb.min[2] || pt[2] > neigh->gb.bb.max[2]) {
 	    neigh->wrap_dir |= DIY_Z0;
 	    neigh->gb.bb.min[2] = bb.min[2] - neigh_size[2];
@@ -326,7 +328,7 @@ void Neighborhoods::WrapNeighbors() {
 	  }
 	}
 	else if ((neigh->gb.neigh_dir & DIY_Z0) == DIY_Z0) {
-	  pt[2] = bb.max[2] + 0.5 * my_size[2];
+	  pt[2] = bb.max[2] + 0.5f * my_size[2];
 	  if (pt[2] < neigh->gb.bb.min[2] || pt[2] > neigh->gb.bb.max[2]) {
 	    neigh->wrap_dir |= DIY_Z1;
 	    neigh->gb.bb.max[2] = bb.max[2] + neigh_size[2];
@@ -338,7 +340,7 @@ void Neighborhoods::WrapNeighbors() {
       // t dimension
       if (dim > 3) {
 	if ((neigh->gb.neigh_dir & DIY_T1) == DIY_T1) {
-	  pt[3] = bb.min[3] - 0.5 * my_size[3];
+	  pt[3] = bb.min[3] - 0.5f * my_size[3];
 	  if (pt[3] < neigh->gb.bb.min[3] || pt[3] > neigh->gb.bb.max[3]) {
 	    neigh->wrap_dir |= DIY_T0;
 	    neigh->gb.bb.min[3] = bb.min[3] - neigh_size[3];
@@ -346,7 +348,7 @@ void Neighborhoods::WrapNeighbors() {
 	  }
 	}
 	else if ((neigh->gb.neigh_dir & DIY_T0) == DIY_T0) {
-	  pt[3] = bb.max[3] + 0.5 * my_size[3];
+	  pt[3] = bb.max[3] + 0.5f * my_size[3];
 	  if (pt[3] < neigh->gb.bb.min[3] || pt[3] > neigh->gb.bb.max[3]) {
 	    neigh->wrap_dir |= DIY_T1;
 	    neigh->gb.bb.max[3] = bb.max[3] + neigh_size[3];
@@ -404,7 +406,7 @@ void Neighborhoods::EnqueueItem(int lid, char *item, size_t size,
   blocks[lid].neighbors[n].items.push_back(p);
 
   // enqueue header
-  int j = blocks[lid].neighbors[n].items.size();
+  int j = (int)(blocks[lid].neighbors[n].items.size());
   if ((int)blocks[lid].neighbors[n].hdr.size() < j)
     blocks[lid].neighbors[n].hdr.resize(j);
   for (int i = 0; i < nhdr; i++) 
@@ -473,7 +475,7 @@ void Neighborhoods::EnqueueItemDir(int lid, char *item, size_t size, int *hdr,
     blocks[lid].neighbors[n].items.push_back(p);
 
     // enqueue header
-    int j = blocks[lid].neighbors[n].items.size();
+    int j = (int)(blocks[lid].neighbors[n].items.size());
     if ((int)blocks[lid].neighbors[n].hdr.size() < j)
       blocks[lid].neighbors[n].hdr.resize(j);
     for (int i = 0; i < nhdr; i++) 
@@ -542,7 +544,7 @@ void Neighborhoods::EnqueueItemAll(int lid, char *item, size_t size,
     blocks[lid].neighbors[n].items.push_back(p);
 
     // enqueue header
-    int j = blocks[lid].neighbors[n].items.size();
+    int j = (int)(blocks[lid].neighbors[n].items.size());
     if ((int)blocks[lid].neighbors[n].hdr.size() < j)
       blocks[lid].neighbors[n].hdr.resize(j);
     for (int i = 0; i < nhdr; i++) 
@@ -597,11 +599,11 @@ void Neighborhoods::EnqueueItemAllNear(int lid, char *item, size_t size,
     for (d = 0; d < dim; d++) {
       dir[d] = blocks[lid].neighbors[n].gb.bb.min[d] - bb.min[d];
       if (dir[d] > 0.0) {
-	dir[d] = 1.0;
+	dir[d] = 1.0f;
 	sum_d++;
       }
       else if (dir[d] < 0.0) {
-	dir[d] = -1.0;
+	dir[d] = -1.0f;
 	sum_d++;
       }
     }
@@ -680,7 +682,7 @@ void Neighborhoods::EnqueueItemAllNear(int lid, char *item, size_t size,
     blocks[lid].neighbors[n].items.push_back(p);
 
     // enqueue header
-    int j = blocks[lid].neighbors[n].items.size();
+    int j = (int)blocks[lid].neighbors[n].items.size();
     if ((int)blocks[lid].neighbors[n].hdr.size() < j)
       blocks[lid].neighbors[n].hdr.resize(j);
     for (int i = 0; i < nhdr; i++) 
@@ -714,7 +716,7 @@ int Neighborhoods::ExchangeNeighbors(vector<vector<char *> > &items, float wf,
   // total number of neighbor blocks
   nn = 0;
   for (vector<bl_t>::iterator bi = blocks.begin(); bi != blocks.end(); bi++)
-    nn += bi->neighbors.size();
+    nn += (int)bi->neighbors.size();
   PackMessages();
   PostMessages(ItemDtype);
   TestMessages(wf, ItemDtype);
@@ -778,7 +780,7 @@ void Neighborhoods::PackMessages() {
 
       assert(pi->c != NULL);
       pi->c[pi->cn] = (ni->gb).gid;
-      pi->c[(pi->cn)+1] = (ni->items).size();
+      pi->c[(pi->cn)+1] = (int)((ni->items).size());
       pi->cn = (pi->cn) + 2;
       pi->c[0]++;
 
@@ -893,8 +895,8 @@ void Neighborhoods::TestMessages(float wf,
   int tot_narr = 0; // total number counts-receive messages arrived this round
   int nreqs; // number of requests
   if (!assign->GetStaticMode()) // override wf for dynamic repartitioning
-    wf = 1.0;
-  int min_arr = (int)(wf * pps.size()); // wait for this number of 
+    wf = 1.0f;
+  int min_arr = (int)(wf * (int)pps.size()); // wait for this number of 
                                         // counts-receives
                                         // to arrive in this round
 
@@ -954,7 +956,7 @@ void Neighborhoods::TestMessages(float wf,
 	    pt.p = rcv_p;
 	    MPI_Aint lb, extent;
 	    MPI_Type_get_extent(*itype, &lb, &extent);
-	    pt.item_size = extent;
+	    pt.item_size = (int)extent;
 	    recv_pts.push_back(pt);
 	    MPI_Type_free(mtype);
 	    delete mtype;
@@ -1065,7 +1067,7 @@ int Neighborhoods::FlushNeighbors(vector<vector<char *> > &items,
       pt.p = rcv_p;
       MPI_Aint lb, extent;
       MPI_Type_get_extent(*itype, &lb, &extent);
-      pt.item_size = extent;
+      pt.item_size = (int)extent;
       recv_pts.push_back(pt);
       MPI_Type_free(mtype);
       delete mtype;
@@ -1398,7 +1400,7 @@ void Neighborhoods::GetNeighborBounds() {
 
   vector<vector <char *> > items; // received items
 
-  ExchangeNeighbors(items, 1.0, &Nbhds_ItemType);
+  ExchangeNeighbors(items, 1.0f, &Nbhds_ItemType);
 
   assert(nblocks == (int)items.size()); // sanity
 
@@ -1493,7 +1495,7 @@ void Neighborhoods::GetNeighbors(int **vids, int *num_vids) {
 
   vector<vector <char *> > items; // received items
 
-  ExchangeNeighbors(items, 1.0, &Nbhds_ItemType, discovery);
+  ExchangeNeighbors(items, 1.0f, &Nbhds_ItemType, discovery);
 
   assert(nblocks == (int)items.size()); // sanity
 

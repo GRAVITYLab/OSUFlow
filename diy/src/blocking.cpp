@@ -37,8 +37,8 @@
 // comm: MPI communicator
 //
 Blocking::Blocking(int start_b, int did, int dim, int tot_b, 
-		   int64_t *data_size, bool share_face,
-		   int *ghost, int64_t *given, 
+		   int *data_size, bool share_face,
+		   int *ghost, int *given, 
 		   Assignment *assignment, MPI_Comm comm) {
 
   MPI_Comm_rank(comm, &rank);
@@ -54,8 +54,8 @@ Blocking::Blocking(int start_b, int did, int dim, int tot_b,
   nb = assign->NumBlks();
 
   for (int i = 0; i < dim; i++) {
-    data_min[i] = 0.0; // for now, until data min and max are added to API
-    data_max[i] = data_size[i] - 1.0; // for now
+    data_min[i] = 0.0f; // for now, until data min and max are added to API
+    data_max[i] = data_size[i] - 1.0f; // for now
     (this->data_size)[i] = data_size[i];
     (this->ghost)[2 * i] = ghost[2 * i];
     (this->ghost)[2 * i + 1] = ghost[2 * i + 1];
@@ -133,7 +133,7 @@ Blocking::~Blocking() {
 //
 // nblocks: number of blocks in each dimension
 //
-void Blocking::NumLatBlocks(int64_t *lat_nblocks) {
+void Blocking::NumLatBlocks(int *lat_nblocks) {
 
   for (int i = 0; i < dim; i++)
     lat_nblocks[i] = lat_size[i];
@@ -152,7 +152,7 @@ void Blocking::NumLatBlocks(int64_t *lat_nblocks) {
 //
 // returns: total size of block (product of sizes in each dimension)
 //
-int64_t Blocking::BlockStartsSizes(int lid, int64_t *starts, int64_t *sizes) {
+int64_t Blocking::BlockStartsSizes(int lid, int *starts, int *sizes) {
 
   int64_t tot_size = 1;
 
@@ -176,7 +176,7 @@ int64_t Blocking::BlockStartsSizes(int lid, int64_t *starts, int64_t *sizes) {
 //
 // returns: total size of block (product of sizes in each dimension)
 //
-int64_t Blocking::BlockSizes(int lid, int64_t *sizes) {
+int64_t Blocking::BlockSizes(int lid, int *sizes) {
 
   int64_t tot_size = 1;
 
@@ -197,7 +197,7 @@ int64_t Blocking::BlockSizes(int lid, int64_t *sizes) {
 // starts: pointer to allocated array of starting block extents (output), index 
 //  of starting grid point (not cell) in each direction
 //
-void Blocking::BlockStarts(int lid, int64_t *starts) {
+void Blocking::BlockStarts(int lid, int *starts) {
 
   for (int i = 0; i < dim; i++)
     starts[i] = blocks[lid].bb.min[i];
@@ -218,7 +218,7 @@ int64_t Blocking::TotalBlockSize(int lid) {
   int64_t tot_size = 1;
 
   for (int i = 0; i < dim; i++)
-    tot_size *= (blocks[lid].bb.max[i] - blocks[lid].bb.min[i] + 1);
+    tot_size *= (int64_t)(blocks[lid].bb.max[i] - blocks[lid].bb.min[i] + 1.0f);
 
   return tot_size;
 
@@ -282,7 +282,7 @@ void Blocking::NoGhostBlockBounds(int lid, bb_t *bounds) {
 //   number of blocks in a given direction
 //   eg., {0, 0, 0, t} would result in t blocks in the 4th dimension
 //
-void Blocking::ComputeBlocking(int64_t *given) {
+void Blocking::ComputeBlocking(int *given) {
 
   // factor data dimensions
   FactorDims(given);
@@ -417,10 +417,10 @@ void Blocking::ComputeBlocking(int64_t *given) {
 //   0 implies no constraint in that direction and some value n > 0 is a given
 //   number of blocks in a given direction
 //
-void Blocking::FactorDims(int64_t *given) { 
+void Blocking::FactorDims(int *given) { 
 
   int rem = tot_b; // unfactored remaining portion of tot_b
-  int64_t block_dim[DIY_MAX_DIM]; // current block size
+  int block_dim[DIY_MAX_DIM]; // current block size
   int max; // longest remaining direction (0, 1, 2)
   int i, j;
 
@@ -435,11 +435,11 @@ void Blocking::FactorDims(int64_t *given) {
       if (rem % given[i])
 
 #ifdef MAC
-	fprintf(stderr,"Unable to block the volume with given[%d] = %Ld "
+	fprintf(stderr,"Unable to block the volume with given[%d] = %d "
 		"dimension. Please provide different 'given' constraints and "
 		"rerun.\n", i, given[i]);
 #else
-	fprintf(stderr,"Unable to block the volume with given[%d] = %ld "
+	fprintf(stderr,"Unable to block the volume with given[%d] = %d "
 		"dimension. Please provide different 'given' constraints and "
 		"rerun.\n", i, given[i]);
 #endif
@@ -487,7 +487,7 @@ void Blocking::FactorDims(int64_t *given) {
 
   // block sizes
   for(i = 0; i < dim; i++)
-    block_size[i] = (int64_t)(roundf((float)data_size[i] / (float)lat_size[i]));
+    block_size[i] = (int)(roundf((float)data_size[i] / (float)lat_size[i]));
 
   // debug
 //   fprintf(stderr, "block sizes = [ ");
@@ -689,7 +689,7 @@ int Blocking::Indices2Gid(int i, int j, int k, int l) {
 //
 bool Blocking::InTimeBlock(int g, int lid, int tsize, int tb) {
 
-  int64_t starts[4]; // block starts
+  int starts[4]; // block starts
 
   BlockStarts(lid, starts);
   if (tsize == 1 || tb == 1 || starts[3] == g * tsize / tb)
@@ -743,7 +743,6 @@ void Blocking::BuildTree(float *pts, int loc_num_pts, int glo_num_pts,
 			 int num_levels, int num_bins) {
 
   int num_hists; // number of historgrams in this level
-  int min_num_bins = 64; // minimum number of histogram bins
   int median = glo_num_pts / 2; // desired median
   int parent = 0; // curent parent tree node
   int tot_num_bins; // total number of bins in all histograms for a block
@@ -802,7 +801,8 @@ void Blocking::BuildTree(float *pts, int loc_num_pts, int glo_num_pts,
 	// todo: don't have to start at root each time
 	int pt_node = SearchTree(&pts[3 * i], 0);
 	// pos of node in level
-	int node_level_pos = pt_node + 1 - pow(2, level - 1);
+	int temp = (int)(pow(2, level - 1));
+	int node_level_pos = pt_node + 1 - temp;
 
 	// debug
 // 	fprintf(stderr, "pt: %.1f %.1f %.1f in node %d: node_level_pos %d\n",
@@ -905,7 +905,7 @@ void Blocking::BuildTree(float *pts, int loc_num_pts, int glo_num_pts,
 
   // debug: print the kd tree
   if (rank == 0) { // duplicated on all ranks, print only once
-    for (int i = 0; i < kd_tree.size(); i++)
+    for (int i = 0; i < (int)kd_tree.size(); i++)
       fprintf(stderr, "kd tree node %d: proc %d min[%.1f %.1f %.1f] "
 	      "max[%.1f %.1f %.1f] l_child %d r_child %d parent %d\n",
 	      i, kd_tree[i].proc, kd_tree[i].bounds.min[0], 
@@ -1046,7 +1046,7 @@ void Blocking::AddChildren(int parent, int split_dir, float split_frac) {
   for (int child = 0; child < 2; child++) {
 
     node.parent = parent;
-    node.proc = kd_tree.size() % groupsize; // round robin for now
+    node.proc = (int)kd_tree.size() % groupsize; // round robin for now
     node.l_child = -1; // currently a leaf node
     node.r_child = -1;
 
@@ -1076,9 +1076,9 @@ void Blocking::AddChildren(int parent, int split_dir, float split_frac) {
     // add the node and point parent to it
     kd_tree.push_back(node);
     if (child == 0)
-      kd_tree[node.parent].l_child = kd_tree.size() - 1;
+      kd_tree[node.parent].l_child = (int)kd_tree.size() - 1;
     else
-      kd_tree[node.parent].r_child = kd_tree.size() - 1;
+      kd_tree[node.parent].r_child = (int)kd_tree.size() - 1;
 
     // debug
 //     fprintf(stderr, "adding node: proc %d min[%.1f %.1f %.1f] "
@@ -1105,6 +1105,8 @@ void Blocking::AddChildren(int parent, int split_dir, float split_frac) {
 //
 static void KdTree_MergeHistogram(char **items, int *gids, int num_items,
 				  int *hdr) {
+
+  gids = gids; // quiet compiler warning
 
   // todo: need to offset histograms for range if/when histograms are not the
   // global range, as they are now
@@ -1149,19 +1151,18 @@ static void KdTree_DestroyHistogram(void *item) {
 //
 // callback function to create a DIY datatype for received item being merged
 //
-// item: pointer to the item
+// item: pointer to the item (nused)
 // dtype: pointer to the datatype
 // hdr: quantity information
 //
 // side effects: commits the datatype but DIY will cleanup datatype for you
 //
-// returns: base address associated with the datatype
-//
-static void *KdTree_CreateHistogramType(void *item, DIY_Datatype *dtype,
+static void KdTree_CreateHistogramType(void *item, DIY_Datatype *dtype,
 					int *hdr) {
 
+  item = item; // quiet compiler warning
+
   DIY_Create_vector_datatype(hdr[0], 1, DIY_INT, dtype);
-  return item;
 
 }
 //----------------------------------------------------------------------------

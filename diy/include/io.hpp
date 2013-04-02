@@ -34,38 +34,41 @@ class IO {
   IO(int did, int dim, int tb, int mb, MPI_Comm comm);
   ~IO(){};
   void WriteAnaInit(const char *filename, bool compress = false);
-  int ReadAnaInit(const char *filename, bool swap_bytes, 
-		   bool compress = false);
+  void ReadAnaInit(const char *filename, bool swap_bytes, bool compress,
+		   int& glo_num_blocks, int& loc_num_blocks);
   void WriteAnaFinalize();
   void ReadAnaFinalize();
   void ReadDataInit(const char *filename);
   void ReadDataFinalize();
   template<typename T> 
-  void ReadAllData(T*** data, const int64_t *extents, int nb, 
+  void ReadAllData(T*** data, const int *extents, int nb, 
 		   Blocking *blocking);
   void WriteAllAna(void **ana, int nb, int max_nb, int **hdrs, 
-		   void* (*type_func)(void*, int, int, MPI_Datatype*));
+		   void (*type_func)(void*, int, int, MPI_Datatype*));
   void ReadAllAna(void** &ana, int **hdrs, 
-		  void* (*create_type_func)(int, int, int *, MPI_Datatype *));
+		  void* (*create_type_func)(int, int, int *, 
+					    MPI_Datatype *));
+  static void ReadInfo(MPI_File fd, bool swap_bytes, MPI_Comm comm,
+		       int& glo_num_blocks, int& loc_num_blocks);
 
  private:
 
-  void handle_error(int errcode, char *str);
   int WriteFooter(MPI_File fd, const int64_t *blk_sizes, int nb_out);
   int WriteDatatype(MPI_File fd, void* addr,
 		    MPI_Datatype *d, int num_d, MPI_Offset& ofst);
   int ReadDatatype(MPI_File fd, void* addr, 
 		   MPI_Datatype *d, int num_d, MPI_Offset& ofst);
   template<typename T> 
-  void ReadData(T*& data, const int64_t *starts, 
-		const int64_t *sizes, const int64_t *extents,
+  void ReadData(T*& data, const int *starts, 
+		const int *sizes, const int *extents,
 		bool swap_bytes = false);
   int ReadHeader(MPI_File fd, int null, int *hdr, 
 		 MPI_Offset& ofst);
-  int ReadFooter(MPI_File fd, int64_t* &ftr, int *tb,
-		 bool swap_bytes = false);
   void ReorderFooter(int64_t *in_blks, int64_t *out_blks, 
 		     int *num_blks, int tot_blks);
+  static int ReadFooter(MPI_File fd, MPI_Comm comm, int64_t* &ftr, int *tb,
+			bool swap_bytes = false);
+  static void handle_error(int errcode, MPI_Comm comm, char *str);
 
   int did; // domain id
   int dim; // number of dimensions in the dataset

@@ -15,6 +15,9 @@ include ../config_defs
 INCLUDE += -I. -I../include -I../src/bil-0.6.0/src
 CCFLAGS = -c
 CCFLAGS += -g
+#CCFLAGS += -Wall
+#CCFLAGS += -Wextra
+#CCFLAGS += -Wshorten-64-to-32
 
 # architecture
 ifeq ($(ARCH), LINUX)

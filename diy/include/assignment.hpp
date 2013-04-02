@@ -142,6 +142,7 @@ class ExistingAssignment : public Assignment {
 
   // local block id to global block id
   int AssignGid(int lid)  {
+    lid = lid; // quiet compiler warning
     fprintf(stderr, "ExistingAssingment::Lid2Gid() should not be called. Use DIY_Gid() or Blocking::Lid2Gid() instead.\n");
     assert(0);
     return(-1);
@@ -149,6 +150,7 @@ class ExistingAssignment : public Assignment {
 
   // global block id to local block id
   int Gid2Lid(int gid)  {
+    gid = gid; // quiet compiler warning
     fprintf(stderr, "ExistingAssignment::Gid2lid() is not implemented yet\n");
     assert(0);
     return(-1);
@@ -156,6 +158,7 @@ class ExistingAssignment : public Assignment {
 
   // global block id to process rank
   int Gid2Proc(int gid) {
+    gid = gid; // quiet compiler warning
     fprintf(stderr, "ExistingAssignment::Gid2Proc() is not implemented yet\n");
     assert(0);
     return(-1);

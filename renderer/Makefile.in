@@ -47,11 +47,28 @@ SRCS =  \
 	PointRendererGlyph.cpp    TubeRendererInOpenGL.cpp \
 	LineRenderer_ColorScheme.cpp Draw.C
 
+# position-independent code
+ifeq ($(FPIC), YES)
+CCFLAGS += -fPIC
+endif
+
 .SUFFIXES: .C,.cpp
 
 default: all
 
+ifeq ($(SO), YES) # static and dynamic libs
+ifeq ($(ARCH), MAC_OSX_MPICH) # mac mpich
+all: librenderer.a librenderer.dylib
+else # not mac mpich
+ifeq ($(ARCH), MAC_OSX_OMPI) # mac open mpi
+all: librenderer.a librenderer.dylib
+else # not mac: linux and others
+all: librenderer.a librenderer.so
+endif
+endif
+else # only static lib
 all: librenderer.a
+endif
 
 Makefile: Makefile.in ../config.status
 	../config.status $@
@@ -67,11 +84,19 @@ $(OBJS): *.h
 .cpp.o:
 	$(C++) $(CCFLAGS) $(INCLUDE)  $<
 
+librenderer.dylib : $(OBJS)
+	rm -f $@
+	g++ -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-install_name,librenderer.dylib -o librenderer.dylib $(OBJS)
+
+librenderer.so : $(OBJS)
+	rm -f $@
+	g++ -shared -Wl,-soname,librenderer.so -o librenderer.so -lc $(OBJS)
+
 librenderer.a : $(OBJS)
 	rm -f $@
 	ar cru $@ $(OBJS) 
 
 clean:
-	rm -f *.o *.a
+	rm -f *.o *.a *.dylib *.so
 
 endif

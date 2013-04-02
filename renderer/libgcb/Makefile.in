@@ -43,7 +43,13 @@ ifndef TARGET
 TARGET=lib$(ProjectName).a
 endif
 
-default: $(TARGET)
+# position-independent code
+ifeq ($(FPIC), YES)
+CCFLAGS += -fPIC
+endif
+
+default: all
+#default: $(TARGET)
 
 Makefile: Makefile.in ../../config.status
 	../../config.status $@
@@ -53,7 +59,21 @@ config.status: ../../configure
 
 .PHONY: all
 
-all: $(TARGET)
+ifeq ($(SO), YES) # static and dynamic libs
+ifeq ($(ARCH), MAC_OSX_MPICH) # mac mpich
+all: liblibgcb.a liblibgcb.dylib
+else # not mac mpich
+ifeq ($(ARCH), MAC_OSX_OMPI) # mac open mpi
+all: liblibgcb.a liblibgcb.dylib
+else # not mac: linux and others
+all: liblibgcb.a liblibgcb.so
+endif
+endif
+else # only static lib
+all: liblibgcb.a
+endif
+
+#all: $(TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(CCFLAGS) $(INCLUDE) -o $@ -c $<
@@ -80,12 +100,20 @@ SRCS=$(SOURCE_FILES) $(HEADER_FILES) $(RESOURCE_FILES)  \
 
 OBJS=$(patsubst %.rc,%.res,$(patsubst %.cxx,%.o,$(patsubst %.cpp,%.o,$(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(filter %.c %.cc %.cpp %.cxx %.rc,$(SRCS)))))))
 
+liblibgcb.dylib : $(OBJS)
+	rm -f $@
+	g++ -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-install_name,liblibgcb.dylib -o liblibgcb.dylib $(OBJS)
+
+liblibgcb.so : $(OBJS)
+	rm -f $@
+	g++ -shared -Wl,-soname,liblibgcb.so -o liblibgcb.so -lc $(OBJS)
+
 $(TARGET): $(OBJS) $(CUSTOM_OUTPUTS)
 	$(AR) $(ARFLAGS) $@ $(OBJS)
 
 .PHONY: clean
 clean:
-	-rm -f $(OBJS) $(TARGET) $(CUSTOM_OUTPUTS) $(ProjectName).dep
+	-rm -f $(OBJS) $(TARGET) $(CUSTOM_OUTPUTS) $(ProjectName).dep *.dylib *.so
 
 .PHONY: depends
 depends:

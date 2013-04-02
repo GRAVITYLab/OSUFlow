@@ -16,6 +16,12 @@
 #include "merge.hpp"
 
 //----------------------------------------------------------------------------
+
+extern bool dtype_absolute_address; // addresses in current datatype
+                                     // are absolute w.r.t. MPI_BOTTOM
+                                     // or relative w.r.t. base address
+
+//--------------------------------------------------------------------------
 //
 // constructor
 //
@@ -73,7 +79,6 @@ inline bool Merge::GetPartners(const int *kv, int cur_r,
 // create_func: pointer to function that creates item
 // destroy_func: pointer to function that destroys item
 // type_func: pointer to function that creates MPI datatype for item 
-//   returns the base address associated with the datatype
 //
 // side effects: allocates output items and array of pointers to them, if
 //   not reducing in-place
@@ -85,12 +90,11 @@ int Merge::MergeBlocks(int did, char **its, int **hdrs,
 		       void (*merge_func)(char **, int *, int, int *), 
 		       char * (*create_func)(int *),
 		       void (*destroy_func)(void *),
-		       void* (*type_func)(void*, MPI_Datatype*, int *)) {
+		       void (*type_func)(void*, MPI_Datatype*, int *)) {
 
   int rank, groupsize; // MPI usual
   int gid; // global id of current item block
   int p; // process rank
-  void *addr; // base address of datatype
   MPI_Datatype dtype; // data type
   int ng; // number of groups this process owns
   int nb = assign->NumBlks(); // number of blocks this process owns
@@ -122,14 +126,18 @@ int Merge::MergeBlocks(int did, char **its, int **hdrs,
 	if (!root) { // nonroots post sends of headers and items
 	  p = assign->Gid2Proc(partners[kv[r] - 1]);
 	  if (hdrs)
-	    addr = type_func(my_its[b], &dtype, hdrs[b]);
+	    type_func(my_its[b], &dtype, hdrs[b]);
 	  else
-	    addr = type_func(my_its[b], &dtype, NULL);
+	    type_func(my_its[b], &dtype, NULL);
 	  // tag is source block gid
-	  if (hdrs)
-	    cc->SendItem((char *)addr, hdrs[b], p, gid, &dtype);
+	  if (hdrs && dtype_absolute_address)
+	    cc->SendItem((char *)MPI_BOTTOM, hdrs[b], p, gid, &dtype);
+	  else if (hdrs && !dtype_absolute_address)
+	    cc->SendItem((char *)my_its[b], hdrs[b], p, gid, &dtype);
+	  else if (!hdrs && dtype_absolute_address)
+	    cc->SendItem((char *)MPI_BOTTOM, NULL, p, gid, &dtype);
 	  else
-	    cc->SendItem((char *)addr, NULL, p, gid, &dtype);
+	    cc->SendItem((char *)my_its[b], NULL, p, gid, &dtype);
 	  MPI_Type_free(&dtype);
 	  done[b] = true; // nonroot blocks are done after they have been sent
 	}
@@ -155,7 +163,7 @@ int Merge::MergeBlocks(int did, char **its, int **hdrs,
 			     type_func); 
 
     // merge each group
-    ng = root_gids.size(); // number of groups this process owns
+    ng = (int)root_gids.size(); // number of groups this process owns
     for (int j = 0; j < ng; j++) {
 
       vector<char *>reduce_its; // items ready for reduction in a group
@@ -224,7 +232,6 @@ int Merge::MergeBlocks(int did, char **its, int **hdrs,
 // create_func: pointer to function that creates item
 // destroy_func: pointer to function that destroys item
 // type_func: pointer to function that creates MPI datatype for item 
-//   returns the base address associated with the datatype
 //
 // side effects: allocates output items and array of pointers to them, if
 //   not reducing in-place
@@ -236,12 +243,11 @@ int Merge::AsyncMergeBlocks(int did, char **its, int **hdrs, float wf,
 			    void (*merge_func)(char **, int *, int, int*), 
 			    char * (*create_func)(int *),
 			    void (*destroy_func)(void *),
-			    void* (*type_func)(void*, MPI_Datatype*, int*)) {
+			    void (*type_func)(void*, MPI_Datatype*, int*)) {
 
   int rank, groupsize; // MPI usual
   int gid; // global id of current item block
   int p; // process rank
-  void *addr; // base address of datatype
   MPI_Datatype dtype; // data type
   int ng = 0; // number of groups this process owns
   int nb = assign->NumBlks(); // number of blocks this process owns
@@ -273,14 +279,18 @@ int Merge::AsyncMergeBlocks(int did, char **its, int **hdrs, float wf,
 	if (!root) { // nonroots post sends of headers and items
 	  p = assign->Gid2Proc(partners[kv[r] - 1]);
 	  if (hdrs)
-	    addr = type_func(my_its[b], &dtype, hdrs[b]);
+	    type_func(my_its[b], &dtype, hdrs[b]);
 	  else
-	    addr = type_func(my_its[b], &dtype, NULL);
+	    type_func(my_its[b], &dtype, NULL);
 	  // tag is source block gid
-	  if (hdrs)
-	    cc->SendItem((char *)addr, hdrs[b], p, gid, &dtype);
+	  if (hdrs && dtype_absolute_address)
+	    cc->SendItem((char *)MPI_BOTTOM, hdrs[b], p, gid, &dtype);
+	  else if (hdrs && !dtype_absolute_address)
+	    cc->SendItem((char *)my_its[b], hdrs[b], p, gid, &dtype);
+	  else if (!hdrs && dtype_absolute_address)
+	    cc->SendItem((char *)MPI_BOTTOM, NULL, p, gid, &dtype);
 	  else
-	    cc->SendItem((char *)addr, NULL, p, gid, &dtype);
+	    cc->SendItem((char *)my_its[b], NULL, p, gid, &dtype);
 	  MPI_Type_free(&dtype);
 	  done[b] = true; // nonroot blocks are done after they have been sent
 	}
@@ -301,8 +311,8 @@ int Merge::AsyncMergeBlocks(int did, char **its, int **hdrs, float wf,
 
     // get and merge one or more items at a time
 
-    wf = (wf < 0.1 ? 0.1 : wf); // clamp minimum wf
-    int num_merge_rounds = 1.0 / wf;
+    wf = (wf < 0.1f ? 0.1f : wf); // clamp minimum wf
+    int num_merge_rounds = 1.0f / wf;
     for (int mr = 0; mr < num_merge_rounds; mr++) {
 
       // finish receiving all items
@@ -318,7 +328,7 @@ int Merge::AsyncMergeBlocks(int did, char **its, int **hdrs, float wf,
 			   type_func); 
 
       // merge each group
-      ng = root_gids.size(); // number of groups this process owns
+      ng = (int)root_gids.size(); // number of groups this process owns
       for (int j = 0; j < ng; j++) {
 
 	vector<char *>reduce_its; // items ready for reduction in a group
