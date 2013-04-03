@@ -14,8 +14,8 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-ARCH=MAC_OSX
-#ARCH=LINUX
+#ARCH=MAC_OSX
+ARCH=LINUX
 #ARCH=BGP
 #ARCH=EUREKA
 
