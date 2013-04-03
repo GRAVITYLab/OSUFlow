@@ -82,10 +82,14 @@ OBJS += $(PSORT)/pmsort.o $(PSORT)/pssort.o $(PSORT)/util.o
 default: all
 
 ifeq ($(SO), YES) # static and dynamic libs
-ifeq ($(ARCH), MAC) # mac
+ifeq ($(ARCH), MAC_OSX_MPICH) # mac mpich
 all: libdiy.a libdiy.dylib
-else # linux and others
+else # not mac mpich
+ifeq ($(ARCH), MAC_OSX_OMPI) # mac open mpi
+all: libdiy.a libdiy.dylib
+else # not mac: linux and others
 all: libdiy.a libdiy.so
+endif
 endif
 else # only static lib
 all: libdiy.a

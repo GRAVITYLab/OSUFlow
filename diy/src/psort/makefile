@@ -5,6 +5,11 @@ all: pmsort_test pssort_test pssort_bench pssort_bench_record
 CFLAGS = -O3 -g
 # -qarch=450d -qtune=450 
 
+# position-independent code
+ifeq ($(FPIC), YES)
+CFLAGS += -fPIC
+endif
+
 pssort.o: pssort.c
 	$(CC) $(CFLAGS) -c pssort.c
 
