@@ -367,7 +367,7 @@ int DIY_In_time_block(int did, int lid, int *time_block) {
   int lat_nblocks[DIY_MAX_DIM]; // number of blocks in each dimension
   blocking[did]->NumLatBlocks(lat_nblocks);
 
-  for (int g = 0; g < tb[did]; g++) {
+  for (int g = 0; g < lat_nblocks[3]; g++) {
     if (blocking[did]->InTimeBlock(g, lid, sizes[3], lat_nblocks[3])) {
       *time_block = g;
       return 0;

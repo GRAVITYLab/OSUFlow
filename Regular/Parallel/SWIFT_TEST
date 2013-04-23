@@ -14,13 +14,13 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-#ARCH=MAC_OSX
-ARCH=LINUX
+ARCH=MAC_OSX
+#ARCH=LINUX
 #ARCH=BGP
 #ARCH=EUREKA
 
 # number of procs
-num_procs=4
+num_procs=1
 
 # number of BG/P nodes for vn mode
 num_nodes=$[$num_procs / 4]
@@ -33,21 +33,23 @@ exe=./mpitest
 
 # dataset
 if [ "$ARCH" = "LINUX" ] || [ "$ARCH" = "MAC_OSX" ]; then
-data=../../sample_data/regular/test.list
+#data=../../sample_data/regular/test.list
+data=/Users/tpeterka/nek5000/200x200x200/nek5000.list
 fi
 if [ "$ARCH" = "BGP" ]; then
 data=/pvfs-surveyor/tpeterka/nek5000/100x100x100/nek5000.list
 fi
 
 # number of spatial blocks per process
-bf=4
+bf=1
 
 # total number of temporal blocks
 tb=8
 
 # total number of particles
 #tp=$[$num_procs * $bf * 1]
-tp=256
+#tp=256
+tp=131072
 
 # final number of steps in each field line
 st=1000

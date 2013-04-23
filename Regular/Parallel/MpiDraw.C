@@ -115,7 +115,7 @@ const bool useAdaptiveStepSize = true;
 void GetArgs(int argc, char *argv[]);
 void Init();
 void Cleanup();
-void Run();
+void Run(MPI_Comm comm);
 void Header(char *filename, float *size, int *tsize, float *vec_scale);
 void LoadSeedsFromFile();
 int isSeedInTimeGroup(int g);
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
   // run
   MPI_Barrier(MPI_COMM_WORLD);
   TotTime = MPI_Wtime();
-  Run();
+  Run(MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
   TotTime = MPI_Wtime() - TotTime;
 
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
 //
 // Run
 //
-void Run() {
+void Run(MPI_Comm comm) {
 
   int i, j;
   int g; // current group
@@ -215,7 +215,7 @@ void Run() {
       continue;  // go to next time group
 
     // synchronize before starting I/O
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(comm);
     t0 = MPI_Wtime();
 
     // delete blocks from previous time group
@@ -240,7 +240,7 @@ void Run() {
     g_io = g;
 
     // synchronize after I/O
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(comm);
     TotInTime += (MPI_Wtime() - t0);
     t0 = MPI_Wtime();
 
@@ -316,18 +316,18 @@ void Run() {
 #endif
 
     // end time group synchronized to get accurate timing
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(comm);
     TotCompCommTime += (MPI_Wtime() - t0);
 
   } // for all groups
 
   // synchronize prior to gathering
-  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Barrier(comm);
   TotOutTime = MPI_Wtime();
 
   // gather fieldlines for rendering
   parflow->GatherFieldlines(nblocks, size, tsize);
-  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Barrier(comm);
   TotOutTime = MPI_Wtime() - TotOutTime;
 
   //   // debug
@@ -457,6 +457,51 @@ void GetArgs(int argc, char *argv[]) {
     break;
   }
   strncpy(seed_file, argv[8], sizeof(seed_file));
+
+  pf = end_steps;
+
+}
+//-----------------------------------------------------------------------
+//
+// SetArgs
+//
+// sets parameters from given values
+// SWIFT_TEST: args = $data $bf $tb $tp $st $pf $dm $sf
+//
+void SetArgs(MPI_Comm comm, const char *data,
+             int bf, int tb, int tp, int st, const char* pfile,
+             DataMode dm, const char *sf) {
+
+  int groupsize;
+
+  MPI_Comm_size(comm, &groupsize);
+  strncpy(filename, data, sizeof(filename));
+  Header(filename, size, &tsize, &vec_scale);
+  nspart = groupsize * bf; // total space partitions
+  ntpart = (tsize == 1 ? 1 : tb); // total time partitions
+  tf = tp / nspart; // traces per block
+  end_steps = st; // desired ending number of steps per field line
+  strncpy(part_file, pfile, sizeof(part_file));
+  switch(dm) {
+  case 0:
+    data_mode = RAW;
+    break;
+  case 1:
+    data_mode = RAW_HEADER;
+    break;
+  case 2:
+    data_mode = NETCDF;
+    break;
+  case 3:
+    data_mode = HDF_FLOAT;
+    break;
+  case 4:
+    data_mode = HDF_DOUBLE;
+    break;
+  default:
+    break;
+  }
+  strncpy(seed_file, sf, sizeof(seed_file));
 
   pf = end_steps;
 
