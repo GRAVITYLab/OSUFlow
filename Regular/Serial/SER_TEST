@@ -1,0 +1,75 @@
+#!/bin/bash
+
+#----------------------------------------------------------------------------
+#
+# serial run script
+#
+# Han-Wei Shen
+# The Ohio State University
+# Columbus, OH
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+ARCH=MAC_OSX
+#ARCH=LINUX
+
+# executable
+exe=./SerDraw
+
+# dataset
+#data=$HOME/tornado/tornado.list
+#data=$HOME/plume/plume.list
+data=$HOME/flow/osuflow/data/plume.5.list
+
+# total number of spatial blocks
+sb=4
+
+# total number of temporal blocks
+tb=4
+
+# total number of particles
+tp=128
+
+# data mode
+# 0 = raw with no header data
+# 1 = raw with dimensions at start
+# 2 = netCDF
+# 3 = HDF5 float (32 bit)
+# 4 = HDF5 double (64 bit)
+dm=1
+
+# all program args
+args="$data $sb $tb $tp $dm"
+
+if [ "$ARCH" = "MAC_OSX" ]; then
+
+$exe $args
+
+#dsymutil $exe; valgrind -q $exe $args
+
+#vdsymutil $exe; algrind -q --leak-check=yes $exe $args
+
+#dsymutl $exe; gdb -x gdb.run --args $exe $args
+
+fi
+
+if [ "$ARCH" = "LINUX" ]; then
+
+$exe $args
+
+#valgrind -q $exe $args
+
+#valgrind -q --leak-check=yes $exe $args
+
+#gdb -x gdb.run --args $exe $args
+
+fi
+

@@ -1,0 +1,91 @@
+#----------------------------------------------------------------------------
+#
+# Examples makefile
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+# @configure_input@
+
+# the way to use the options set by configure is to include them below
+include ../../config_defs
+
+# otherwise, the way to set user options when configure is not used is to
+# edit user_defs.mk manually and then include it below
+#include user_defs.mk
+
+include ../../system_defs.mk
+
+INCLUDE += -I. -I../../bil/src -I../../src -I../../anlcom -I../../renderer -I../libgcb
+
+# MOD-BY-LEETEN 04/09/2011-FROM:
+	# LIBS += -L../../bil -L../../src -L../../anlcom -lanlcom -lOSUFlow -L../../renderer -lrenderer -L../libgcb -llibgcb
+# TO:
+LIBS += -L../../bil -L../../src -lOSUFlow -L../../renderer -lrenderer -L../libgcb -llibgcb
+# MOD-BY-LEETEN 04/09/2011-END
+
+ifeq ($(BIL), YES)
+LIBS += -lbil
+endif
+ifeq ($(PNETCDF), YES)
+LIBS += -lpnetcdf
+endif
+ifeq ($(HDF5), YES)
+LIBS += -lhdf5
+endif
+
+.SUFFIXES: .cpp.c
+
+Makefile: Makefile.in ../../config.status
+	../../config.status $@
+
+config.status: ../../configure
+	../../config.status --recheck
+
+.cpp.o:
+	$(C++) $(CCFLAGS) $(INCLUDE)  $<
+.c.o:
+	$(CC) $(CCFLAGS) $(INCLUDE) $<
+
+default: all
+
+all: gcbGlyph gcbLineAnimator gcbPathline gcbPoints gcbStreamline gcbTemplate \
+	gcbTube gcbStreamlineDynamicColor gcbStreamlineColoringPoints
+
+gcbGlyph: gcbGlyph.o
+	$(C++) -o gcbGlyph gcbGlyph.o -L. $(LIBS) 
+
+gcbLineAnimator: gcbLineAnimator.o
+	$(C++) -o gcbLineAnimator gcbLineAnimator.o -L. $(LIBS) 
+
+gcbPathline: gcbPathline.o
+	$(C++) -o gcbPathline gcbPathline.o -L. $(LIBS) 
+
+gcbPoints: gcbPoints.o
+	$(C++) -o gcbPoints gcbPoints.o -L. $(LIBS) 
+
+gcbStreamline: gcbStreamline.o
+	$(C++) -o gcbStreamline gcbStreamline.o -L. $(LIBS) 
+
+gcbStreamlineDynamicColor: gcbStreamlineDynamicColor.o
+	$(C++) -o gcbStreamlineDynamicColor gcbStreamlineDynamicColor.o -L. $(LIBS) 
+
+gcbStreamlineColoringPoints: gcbStreamlineColoringPoints.o
+	$(C++) -o gcbStreamlineColoringPoints gcbStreamlineColoringPoints.o -L. $(LIBS) 
+
+gcbTemplate: gcbTemplate.o
+	$(C++) -o gcbTemplate gcbTemplate.o -L. $(LIBS) 
+
+gcbTube: gcbTube.o
+	$(C++) -o gcbTube gcbTube.o -L. $(LIBS) 
+
+clean:
+	rm -f *.o
+

@@ -1,0 +1,95 @@
+K 25
+svn:wc:ra_dav:version-url
+V 33
+/repos/osuflow/!svn/ver/314/trunk
+END
+configure
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/repos/osuflow/!svn/ver/310/trunk/configure
+END
+Makefile.in
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/repos/osuflow/!svn/ver/308/trunk/Makefile.in
+END
+README_INSTALL
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/repos/osuflow/!svn/ver/217/trunk/README_INSTALL
+END
+user_defs.mk
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/repos/osuflow/!svn/ver/210/trunk/user_defs.mk
+END
+changelog
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/repos/osuflow/!svn/ver/210/trunk/changelog
+END
+notes
+K 25
+svn:wc:ra_dav:version-url
+V 39
+/repos/osuflow/!svn/ver/210/trunk/notes
+END
+user_defs.mk.in
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/repos/osuflow/!svn/ver/237/trunk/user_defs.mk.in
+END
+system_defs.mk
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/repos/osuflow/!svn/ver/218/trunk/system_defs.mk
+END
+config.h.in
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/repos/osuflow/!svn/ver/213/trunk/config.h.in
+END
+configure.ac
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/repos/osuflow/!svn/ver/310/trunk/configure.ac
+END
+COPYRIGHT
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/repos/osuflow/!svn/ver/210/trunk/COPYRIGHT
+END
+config_defs.in
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/repos/osuflow/!svn/ver/310/trunk/config_defs.in
+END
+README_CMAKE.TXT
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/repos/osuflow/!svn/ver/225/trunk/README_CMAKE.TXT
+END
+CMakeLists.txt
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/repos/osuflow/!svn/ver/244/trunk/CMakeLists.txt
+END
+install.sh
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/repos/osuflow/!svn/ver/210/trunk/install.sh
+END

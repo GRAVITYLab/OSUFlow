@@ -1,0 +1,125 @@
+#----------------------------------------------------------------------------
+#
+# top-level makefile
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# (C) 2011 by Argonne National Laboratory.
+# See COPYRIGHT in top-level directory.
+#
+#----------------------------------------------------------------------------
+# makefile.  Generated from makefile.in by configure.
+
+# use the options set by configure
+include config_defs
+
+default: check
+
+Makefile: Makefile.in config.status
+	./config.status $@
+
+config.status: configure
+	./config.status --recheck
+
+check: FORCE all
+#	cd examples/C++_wrappers && $(MAKE)
+#	cd examples/C_wrappers && $(MAKE)
+#	cd examples/Fortran_wrappers && $(MAKE)
+	cd examples/block_io && $(MAKE)
+	cd examples/static && $(MAKE)
+	cd examples/time_varying && $(MAKE)
+
+all clean:
+ifeq ($(BIL), YES)
+	cd src/bil-0.6.0 && $(MAKE) $@
+endif
+	cd src/psort && $(MAKE) $@
+	cd src && $(MAKE) $@
+
+install: 
+	install -d $(prefix)/diy/lib
+	install -d $(prefix)/diy/include
+	install -m 0755 lib/libdiy.a $(prefix)/diy/lib
+	install -m 0755 include/*.h $(prefix)/diy/include
+
+uninstall:
+	rm -rf $(prefix)/diy
+
+dist: $(distdir).tar.gz
+
+$(distdir).tar.gz: $(distdir)
+	tar chof - $(distdir) | gzip -9 -c > $@
+	rm -rf $(distdir)
+
+$(distdir):
+	mkdir -p $(distdir)/examples
+	mkdir -p $(distdir)/examples/C++_wrappers
+	mkdir -p $(distdir)/examples/C_wrappers
+	mkdir -p $(distdir)/examples/Fortran_wrappers
+	mkdir -p $(distdir)/examples/block_io
+	mkdir -p $(distdir)/examples/static
+	mkdir -p $(distdir)/examples/time_varying
+	mkdir -p $(distdir)/lib
+	mkdir -p $(distdir)/include
+	mkdir -p $(distdir)/src
+	mkdir -p $(distdir)/src/bil-0.6.0
+	mkdir -p $(distdir)/src/bil-0.6.0/examples
+	mkdir -p $(distdir)/src/bil-0.6.0/src
+	mkdir -p $(distdir)/src/psort
+	cp src/psort/*.c $(distdir)/src/psort
+	cp src/psort/*.h $(distdir)/src/psort
+	cp src/psort/makefile $(distdir)/src/psort
+	cp src/bil-0.6.0/src/*.c $(distdir)/src/bil-0.6.0/src
+	cp src/bil-0.6.0/src/*.h $(distdir)/src/bil-0.6.0/src
+	cp src/bil-0.6.0/examples/*.c $(distdir)/src/bil-0.6.0/examples
+	cp src/bil-0.6.0/examples/*.h $(distdir)/src/bil-0.6.0/examples
+	cp src/bil-0.6.0/examples/makefile $(distdir)/src/bil-0.6.0/examples
+	cp src/bil-0.6.0/examples/README $(distdir)/src/bil-0.6.0/examples
+	cp src/bil-0.6.0/AUTHORS $(distdir)/src/bil-0.6.0
+	cp src/bil-0.6.0/COPYING $(distdir)/src/bil-0.6.0
+	cp src/bil-0.6.0/INSTALL $(distdir)/src/bil-0.6.0
+	cp src/bil-0.6.0/Makefile.am $(distdir)/src/bil-0.6.0
+	cp src/bil-0.6.0/Makefile.in $(distdir)/src/bil-0.6.0
+	cp src/bil-0.6.0/NEWS $(distdir)/src/bil-0.6.0
+	cp src/bil-0.6.0/README $(distdir)/src/bil-0.6.0
+	cp src/bil-0.6.0/configure $(distdir)/src/bil-0.6.0
+	cp src/bil-0.6.0/install-sh $(distdir)/src/bil-0.6.0
+	cp src/bil-0.6.0/libbil.a $(distdir)/src/bil-0.6.0
+	cp COPYRIGHT $(distdir)
+	cp README $(distdir)
+	cp makefile.in $(distdir)
+	cp configure $(distdir)
+	cp install.sh $(distdir)
+	cp lib/libdiy.a $(distdir)/lib
+	cp include/*.h $(distdir)/include
+	cp src/*.cpp $(distdir)/src
+	cp C++_example/main.cpp $(distdir)/C++_example
+	cp C++_example/makefile.in $(distdir)/C++_example
+	cp C_example/main.cpp $(distdir)/C_example
+	cp C_example/makefile.in $(distdir)/C_example
+	cp Fortran_example/main.cpp $(distdir)/Fortran_example
+	cp Fortran_example/makefile.in $(distdir)/Fortran_example
+
+distcheck: $(distdir).tar.gz
+	gzip -cd $(distdir).tar.gz | tar xvf -
+	cd $(distdir) && ./configure
+	cd $(distdir) && $(MAKE) all
+	cd $(distdir) && $(MAKE) clean
+	rm -rf $(distdir)
+	echo "*** Package $(distdir).tar.gz is ready for distribution"
+
+FORCE:
+	cd examples/C++_wrappers && $(MAKE) clean
+	cd examples/C_wrappers && $(MAKE) clean
+	cd examples/Fortran_wrappers && $(MAKE) clean
+	cd examples/block_io && $(MAKE) clean
+	cd examples/static && $(MAKE) clean
+	cd examples/time_varying && $(MAKE) clean
+	cd src/psort && $(MAKE) clean
+	cd src/bil-0.6.0 && $(MAKE) clean
+
+.PHONY: FORCE all clean check dist distcheck install uninstall

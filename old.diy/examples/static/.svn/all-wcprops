@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/repos/osuflow/!svn/ver/300/trunk/old.diy/examples/static
+END
+main.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/repos/osuflow/!svn/ver/300/trunk/old.diy/examples/static/main.cpp
+END
+test.dat
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/repos/osuflow/!svn/ver/300/trunk/old.diy/examples/static/test.dat
+END
+makefile
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/repos/osuflow/!svn/ver/300/trunk/old.diy/examples/static/makefile
+END

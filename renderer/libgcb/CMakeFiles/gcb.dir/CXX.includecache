@@ -1,0 +1,44 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/local/KHQ/chunming.chen/project/osuflow/trunk/renderer/libgcb/gcb.cpp
+string.h
+-
+gcb.h
+/home/local/KHQ/chunming.chen/project/osuflow/trunk/renderer/libgcb/gcb.h
+
+/home/local/KHQ/chunming.chen/project/osuflow/trunk/renderer/libgcb/gcb.h
+iostream
+-
+GL/glut.h
+-
+GL/freeglut.h
+-
+GLUT/glut.h
+-
+OpenGL/gl.h
+-
+GL/glut.h
+-
+GL/gl.h
+-
+GL/glut.h
+-
+GL/gl.h
+-
+stdio.h
+-
+stdlib.h
+-
+memory.h
+-
+math.h
+-
+assert.h
+-
+

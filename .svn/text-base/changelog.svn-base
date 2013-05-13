@@ -1,0 +1,22 @@
+1. Autoconf'ed the build system. 
+-Run ./configure before running make. The options for configure can be displaye with ./configure -h
+-Changed the name of the Core directory to src
+2. DIY'ed the project:
+-added a copy of DIY into the project
+-using neighbhorhoods.cpp for nearest neighbor communication
+-using assignment.cpp for block assignment
+-have not DIY'ed repartitioning yet
+-have not DIY'ed AMR yet
+-removed the old Partition.C from the project
+-removed dependence on Lattice4D.C, replaced only the needed functionality with partition.cpp; moved Lattice4D and LatticeAMR back to src (the new name for Core)
+-removed much of the dynamic array growing and replaced with STL containers
+3. Reorganization:
+-removed anlcom
+-Lattice(4D and AMR), Blocks, and Trace are in src (the new name for Core) now. Lattice is still used for the serial example. DIY is a parallel library and is not for serial
+-Trace.C is renamed to ParFlow.C, the Trace class is now to ParFlow class. Its purpose is a parallel wrapper around OSUFlow.
+-BIL moved inside of DIY
+4. Added desired total number of steps for each field line to have
+-The max number of rounds is still executed, but within each round, particles "age out" (are terminated) when they exceed the desired number of steps. Eventually, the rounds don't do anything anymore and execute very quickly, assuming the max_rounds is large enough. Eventually we can do a reduce to see if there are any particles remaining, but for now we simply run more than enough rounds (I am using 100)
+-changed ParFlow.C to support transmitting the current number of steps for each particle, along with the particle position
+-particles that exceed the desired total are terminated
+-changed program args: moved max_rounds to a constant in the program instead of an argument (const int max_rounds = 100), added an st argument for the desired number of steps (eg. 1000), moved the p argument (max number of points per trace in a single block) to a constant in the program (const int pf = 1000), and finally renamed the program argument t to tp in the run script.

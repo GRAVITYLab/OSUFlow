@@ -1,0 +1,73 @@
+#----------------------------------------------------------------------------
+#
+# regular grid parallel makefile
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+# @configure_input@
+
+# the way to use the options set by configure is to include them below
+include ../../config_defs
+
+# otherwise, the way to set user options when configure is not used is to
+# edit user_defs.mk manually and then include it below
+#include user_defs.mk
+
+include ../../system_defs.mk
+
+INCLUDE += -I. -I../../src -I../../renderer -I../../renderer/libgcb \
+	-I../../diy/include -I../../diy/src/bil-0.6.0/src
+
+LIBS += -L../../src -L../../renderer -L../../renderer/libgcb -lOSUFlow \
+	-L../../diy/lib -ldiy -L../../diy/src/bil-0.6.0
+
+
+ifeq ($(GRAPHICS), YES)
+LIBS += -lrenderer -llibgcb
+endif
+ifeq ($(PNETCDF), YES)
+LIBS += -lpnetcdf
+endif
+ifeq ($(HDF5), YES)
+LIBS += -lhdf5
+endif
+ifeq ($(ZOLTAN), YES)
+LIBS += -lzoltan
+endif
+ifeq ($(BIL), YES)
+LIBS += -lbil
+endif
+
+OBJS =  
+
+SRCS =  
+
+.SUFFIXES: .C.c
+
+default: all
+
+all: mpitest
+
+Makefile: Makefile.in ../../config.status
+	../../config.status $@
+
+config.status: ../../configure
+	../../config.status --recheck
+
+.C.o:
+	$(C++) $(CCFLAGS) $(INCLUDE) $<
+
+mpitest: MpiDraw.o
+	$(C++) -o mpitest MpiDraw.o -L. $(LIBS)
+	cp mpitest ../../bin
+
+clean:
+	rm -f *.o

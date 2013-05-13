@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 39
+/repos/osuflow/!svn/ver/217/trunk/tests
+END
+AMR_STATIC
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/repos/osuflow/!svn/ver/216/trunk/tests/AMR_STATIC
+END
+REGULAR_TIME_VAR
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/osuflow/!svn/ver/216/trunk/tests/REGULAR_TIME_VAR
+END
+ALL
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/repos/osuflow/!svn/ver/217/trunk/tests/ALL
+END
+REGULAR_STATIC
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/repos/osuflow/!svn/ver/216/trunk/tests/REGULAR_STATIC
+END

@@ -1,0 +1,105 @@
+#!/bin/bash
+
+#----------------------------------------------------------------------------
+#
+# mpi run script for testing OSUFlow + Swift
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+ARCH=MAC_OSX
+#ARCH=LINUX
+#ARCH=BGP
+#ARCH=EUREKA
+
+# number of procs
+num_procs=1
+
+# number of BG/P nodes for vn mode
+num_nodes=$[$num_procs / 4]
+if [ $num_nodes -lt 1 ]; then
+    num_nodes=1
+fi
+
+# executable
+exe=./mpitest
+
+# dataset
+if [ "$ARCH" = "LINUX" ] || [ "$ARCH" = "MAC_OSX" ]; then
+#data=../../sample_data/regular/test.list
+data=/Users/tpeterka/nek5000/200x200x200/nek5000.list
+fi
+if [ "$ARCH" = "BGP" ]; then
+data=/pvfs-surveyor/tpeterka/nek5000/100x100x100/nek5000.list
+fi
+
+# number of spatial blocks per process
+bf=1
+
+# total number of temporal blocks
+tb=8
+
+# total number of particles
+#tp=$[$num_procs * $bf * 1]
+#tp=256
+tp=131072
+
+# final number of steps in each field line
+st=1000
+
+# partition file
+if [ "$ARCH" = "LINUX" ] || [ "$ARCH" = "MAC_OSX" ]; then
+pf=! # indicates no partition file
+fi
+
+if [ "$ARCH" = "BGP" ]; then
+pf=! # indicates no partition file
+fi
+
+# seed file
+sf=! # indicates no seed file
+
+# data mode
+dm=0
+
+# all program args
+args="$data $bf $tb $tp $st $pf $dm $sf"
+
+if [ "$ARCH" = "MAC_OSX" ]; then
+
+export DYLD_LIBRARY_PATH=~/osuflow/src:~/osuflow/renderer:~/osuflow/renderer/libgcb:~/osuflow/diy/lib:$DYLD_LIBRARY_PATH
+
+mpiexec -l -n $num_procs $exe $args
+
+fi
+
+if [ "$ARCH" = "LINUX" ]; then
+
+export LD_LIBRARY_PATH=~/osuflow/src:~/osuflow/renderer:~/osuflow/renderer/libgcb:~/osuflow/diy/lib:$LD_LIBRARY_PATH
+
+mpiexec -n $num_procs $exe $args
+
+fi
+
+if [ "$ARCH" = "BGP" ]; then
+
+pvfs2-drop-caches -m /pvfs-surveyor
+cqsub -n $num_nodes -c $num_procs -p UltraVis -t 15 -m vn $exe $args
+
+fi
+
+if [ "$ARCH" = "EUREKA" ]; then
+
+export LD_LIBRARY_PATH=~/osuflow/src:~/osuflow/renderer:~/osuflow/renderer/libgcb:~/osuflow/diy/lib:$LD_LIBRARY_PATH;
+
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $args
+
+fi
+

@@ -1,0 +1,31 @@
+BIL examples - 05/29/2010
+=========
+
+
+Compiling:
+
+		-	For compilation of examples, type "make". The makefile defaults
+			to using mpicc. If this is not your MPI compiler, change the CC
+			variable inside the makefile.
+
+		-	If you compiled BIL WITHOUT netCDF support, you must open
+			the makefile and edit the DISABLE_NETCDF variable.
+
+Running:
+
+		-	To test BIL with raw files, type "make run_bil_test_raw". This
+			will create raw files in your local directory and call mpirun to
+			run BIL. If you wish to schedule the job to run with a queueing
+			system or wish to store the raw files in another directory, open
+			the makefile and change the parameters in the testing section
+			of the makefile.
+
+		- To test BIL with netcdf files, you must have the Parallel netCDF
+			and regular netCFD libraries installed. Type "make run_bil_test_nc"
+			to create the netcdf files and run the tests. For changing any
+			parameters, please refer to the instructions on running the raw
+			file tests.
+
+Contact:
+
+		-	Wesley Kendall, kendall@eecs.utk.edu

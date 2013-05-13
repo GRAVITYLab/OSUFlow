@@ -1,0 +1,42 @@
+FILE(REMOVE_RECURSE
+  "CMakeFiles/OSUFlow.dir/Grid.C.o"
+  "CMakeFiles/OSUFlow.dir/polynomials.C.o"
+  "CMakeFiles/OSUFlow.dir/TimeVaryingFieldLine.C.o"
+  "CMakeFiles/OSUFlow.dir/eigenvals.C.o"
+  "CMakeFiles/OSUFlow.dir/Interpolator.C.o"
+  "CMakeFiles/OSUFlow.dir/Rake.C.o"
+  "CMakeFiles/OSUFlow.dir/Topology.C.o"
+  "CMakeFiles/OSUFlow.dir/eigenvecs.C.o"
+  "CMakeFiles/OSUFlow.dir/IsoSurf.C.o"
+  "CMakeFiles/OSUFlow.dir/Solution.C.o"
+  "CMakeFiles/OSUFlow.dir/triangulator.C.o"
+  "CMakeFiles/OSUFlow.dir/Element.C.o"
+  "CMakeFiles/OSUFlow.dir/StreakLine.C.o"
+  "CMakeFiles/OSUFlow.dir/VectorMatrix.C.o"
+  "CMakeFiles/OSUFlow.dir/Field.C.o"
+  "CMakeFiles/OSUFlow.dir/PathLine.C.o"
+  "CMakeFiles/OSUFlow.dir/Streamline.C.o"
+  "CMakeFiles/OSUFlow.dir/FieldLine.C.o"
+  "CMakeFiles/OSUFlow.dir/Plot3DReader.C.o"
+  "CMakeFiles/OSUFlow.dir/TimeLine.C.o"
+  "CMakeFiles/OSUFlow.dir/OSUFlow.C.o"
+  "CMakeFiles/OSUFlow.dir/FileReader.C.o"
+  "CMakeFiles/OSUFlow.dir/calc_subvolume.C.o"
+  "CMakeFiles/OSUFlow.dir/FlashAMR.C.o"
+  "CMakeFiles/OSUFlow.dir/ParFlow.C.o"
+  "CMakeFiles/OSUFlow.dir/flashhdf5_float.C.o"
+  "CMakeFiles/OSUFlow.dir/Repartition.C.o"
+  "CMakeFiles/OSUFlow.dir/ComputeFieldLines.C.o"
+  "CMakeFiles/OSUFlow.dir/Blocks.C.o"
+  "CMakeFiles/OSUFlow.dir/Partition.C.o"
+  "CMakeFiles/OSUFlow.dir/Lattice4D.C.o"
+  "CMakeFiles/OSUFlow.dir/LatticeAMR.C.o"
+  "CMakeFiles/OSUFlow.dir/CurvilinearGrid.C.o"
+  "libOSUFlow.pdb"
+  "libOSUFlow.a"
+)
+
+# Per-language clean rules from dependency scanning.
+FOREACH(lang CXX)
+  INCLUDE(CMakeFiles/OSUFlow.dir/cmake_clean_${lang}.cmake OPTIONAL)
+ENDFOREACH(lang)

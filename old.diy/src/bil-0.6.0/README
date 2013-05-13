@@ -1,0 +1,35 @@
+BIL, the Block I/O Layer - 07/20/2010
+=========
+
+
+Release Notes:
+
+		- BIL is in beta testing and has only been tested on the Blue Gene/P
+			and MAC OS/X architectures.
+
+		- BIL relies on MPI-IO and a installed version of MPI that supports
+			this. ROMIO, the most common MPI-IO implementation, can be found
+			in MPICH2 and downloaded at 
+			http://www.mcs.anl.gov/research/projects/mpich2/.
+
+		- BIL is automatically built with Parallel netCDF support. If you
+			do not wish to perform I/O on netCDF files, you may pass the
+			--disable-pnetcdf flag to configure.
+
+		- Define the MPICC global variable if you wish to compile with an MPI
+			compiler that is not named "mpicc".
+
+		- For installations of MPI or Parallel netCDF that are not found
+			under the PATH variable, use the --with-mpi or --with-pnetcdf
+			flags to specify the installation directory of these when running
+			configure. For example, if pnetcdf.h is located under /usr/local/include,
+			use --with-pnetcdf=/usr/local.
+
+		-	For testing BIL on your system or for example code, look at the
+			files in the "example" directory. A simple makefile is included
+			for building the files. For more information, read the README
+			file in the examples directory.
+
+Contact:
+
+		-	Wesley Kendall, kendall@eecs.utk.edu

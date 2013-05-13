@@ -1,0 +1,2 @@
+/usr/bin/ar cr libgcb.a  CMakeFiles/gcb.dir/gcb.cpp.o
+/usr/bin/ranlib libgcb.a
