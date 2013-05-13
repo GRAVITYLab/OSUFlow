@@ -242,6 +242,7 @@ main(int argc, char* argv[])
 	// VTK
 
 	// Start by loading some data.
+	// Ref: VTK examples/VisualizationAlgorithms/Python/streamSurface.py
 	vtkPLOT3DReader *pl3dReader = vtkPLOT3DReader::New();
 #if 1
 	pl3dReader->SetXYZFileName(VTK_DATA_ROOT  "/Data/combxyz.bin");

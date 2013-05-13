@@ -198,6 +198,8 @@ public:
 
 #include <vtkXMLFileReadTester.h>
 #include <vtkXMLGenericDataObjectReader.h>
+#include <vtkMultiBlockDataGroupFilter.h>
+#include <vtkGenericDataObjectReader.h>
 
 class OSUFlowVTK: public OSUFlow
 {
@@ -217,7 +219,8 @@ public:
 		flowField = field;
 		has_data = true;
 	}
-	void loadVTKData(const char *fileName)
+
+	vtkDataSet *loadVTKData(const char *fileName)
 	{
 	    vtkXMLFileReadTester *vtkXMLFormatFileChecker = vtkXMLFileReadTester::New();
 
@@ -227,32 +230,32 @@ public:
 			//Logger.getLogger(getClass().getName()).log(Level.INFO, "[{0}] is of type [{1}]",
 			//		new Object[] { fileName, vtkXMLFormatFileChecker.GetFileDataType() });
 
-			vtkXMLGenericDataObjectReader vtkXMLFileReader = new vtkXMLGenericDataObjectReader();
+			vtkXMLGenericDataObjectReader *vtkXMLFileReader = vtkXMLGenericDataObjectReader::New();
 
-			vtkXMLFileReader.SetFileName(fileName);
-			vtkXMLFileReader.Update();
+			vtkXMLFileReader->SetFileName(fileName);
+			vtkXMLFileReader->Update();
 
-			if (vtkXMLFileReader->GetOutput()-> instanceof vtkMultiBlockDataSet) {
-				return vtkXMLFileReader;
+			if (vtkXMLFileReader->GetOutput()->IsA("vtkMultiBlockDataSet")) {
+				return vtkXMLFileReader->GetOutput();
 			} else {
-				vtkMultiBlockDataGroupFilter makeMultiblock = new vtkMultiBlockDataGroupFilter();
+				vtkMultiBlockDataGroupFilter *makeMultiblock = vtkMultiBlockDataGroupFilter::New();
 
-				makeMultiblock.SetInputConnection(vtkXMLFileReader.GetOutputPort());
+				makeMultiblock->SetInputConnection(vtkXMLFileReader->GetOutputPort());
 
-				return makeMultiblock;
+				return makeMultiblock->GetOutput();
 			}
 		} else // legacy format
 		{
-			vtkGenericDataObjectReader legacyVTKFileReader = new vtkGenericDataObjectReader();
+			vtkGenericDataObjectReader *legacyVTKFileReader = vtkGenericDataObjectReader::New();
 
-			legacyVTKFileReader.SetFileName(fileName);
-			legacyVTKFileReader.Update();
+			legacyVTKFileReader->SetFileName(fileName);
+			legacyVTKFileReader->Update();
 
-			vtkMultiBlockDataGroupFilter makeMultiblock = new vtkMultiBlockDataGroupFilter();
+			vtkMultiBlockDataGroupFilter *makeMultiblock = vtkMultiBlockDataGroupFilter::New();
 
-			makeMultiblock.SetInput(legacyVTKFileReader.GetOutput());
+			makeMultiblock->SetInput(legacyVTKFileReader->GetOutput());
 
-			return makeMultiblock;
+			return makeMultiblock->GetOutput();
 		}
 	}
 };
