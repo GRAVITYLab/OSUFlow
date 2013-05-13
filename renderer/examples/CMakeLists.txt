@@ -47,7 +47,7 @@ foreach(SAMPLE_NAME
 	# build the project as a library
 	add_executable(${SAMPLE_NAME} ${SAMPLE_NAME}.cpp)
 
-	# link the libraries
+	# link the libraies
 	if(DEFINED WIN32)
 		target_link_libraries(${SAMPLE_NAME} 
 			opengl32
@@ -67,7 +67,21 @@ foreach(SAMPLE_NAME
 		# DEL-BY-LEETEN 10/22/2012: renderer
 		gcb
 	) 
-
+      # ADD-BY-JIMMY 5/10/2013-BEGIN
+        if(DEFINED WIN32)
+                target_link_libraries(${SAMPLE_NAME} 
+                        opengl32
+                        glu32
+                        # DEL-BY-LEETEN 08/23/2012:     glut32
+                )
+        else()
+                target_link_libraries(${SAMPLE_NAME} 
+                        GL
+                        GLU
+                        glut
+                )
+        endif()
+      # END
       # ADD-BY-LEETEN 12/20/2011-BEGIN
       if( ${WITH_PNETCDF} )
 	target_link_libraries(${SAMPLE_NAME} 
