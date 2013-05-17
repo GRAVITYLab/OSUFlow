@@ -19,12 +19,13 @@ May, 2010
 #include "LineRendererInOpenGL.h"
 
 // VTK
+#include "vtkTesting.h"
 #include "vtkDataSet.h"
 #include "vtkStructuredGrid.h"
-#include "vtkPLOT3DReader.h"
+#include "vtkMultiBlockPLOT3DReader.h"
+#include "vtkMultiBlockDataSet.h"
 #include "vtkSmartPointer.h"
 #include "OSUFlowVTK.h"
-#define VTK_DATA_ROOT "/home/local/KHQ/chunming.chen/project/VTKData"
 // VTK
 
 
@@ -240,17 +241,19 @@ main(int argc, char* argv[])
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA | GLUT_ALPHA | GLUT_STENCIL );
 
 	// VTK
-
 	// Start by loading some data.
-	// Ref: VTK examples/VisualizationAlgorithms/Python/streamSurface.py
-	vtkPLOT3DReader *pl3dReader = vtkPLOT3DReader::New();
-#if 1
-	pl3dReader->SetXYZFileName(VTK_DATA_ROOT  "/Data/combxyz.bin");
-	pl3dReader->SetQFileName(VTK_DATA_ROOT  "/Data/combq.bin");
-#else
-	pl3dReader->SetXYZFileName(VTK_DATA_ROOT  "/Data/bluntfinxyz.bin");
-	pl3dReader->SetQFileName(VTK_DATA_ROOT  "/Data/bluntfinq.bin");
-#endif
+	vtkMultiBlockPLOT3DReader *pl3dReader = vtkMultiBlockPLOT3DReader::New();
+	// set data
+	{
+		char path[256];
+		vtkTesting *t = vtkTesting::New();
+		sprintf(path, "%s/Data/combxyz.bin", t->GetDataRoot());
+		printf("%s\n", path);
+		pl3dReader->SetXYZFileName(path);
+		sprintf(path, "%s/Data/combq.bin", t->GetDataRoot());
+		pl3dReader->SetQFileName(path);
+		t->Delete();
+	}
 	pl3dReader->SetScalarFunctionNumber(100);
 	pl3dReader->SetVectorFunctionNumber(202);
 	pl3dReader->Update();
@@ -258,11 +261,12 @@ main(int argc, char* argv[])
 	// random points
 	//vtkStructuredGrid *grid = pl3dReader->GetOutput();
 	//int *dim = grid->GetDimensions();
-	double *bounds = pl3dReader->GetOutput()->GetBounds();
+	vtkSmartPointer<vtkDataSet> sData = vtkDataSet::SafeDownCast(pl3dReader->GetOutput()->GetBlock(0));
+	double *bounds = sData->GetBounds();
 	printf("bounds: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 
 	osuflow = new OSUFlowVTK;
-	vtkSmartPointer<vtkDataSet> sData = pl3dReader->GetOutput();
+
 	osuflow->setData(sData);
 
 	// gen seeds

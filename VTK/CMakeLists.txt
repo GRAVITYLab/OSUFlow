@@ -4,7 +4,7 @@
 cmake_minimum_required (VERSION 2.8)
 project (OSUFlowVTK) 
 
-find_package(VTK REQUIRED)
+find_package(VTK 6 REQUIRED)
 include (${VTK_USE_FILE})
 
 set(OSUFLOWVTK_DIR	"${CMAKE_PROJECT_DIR}")

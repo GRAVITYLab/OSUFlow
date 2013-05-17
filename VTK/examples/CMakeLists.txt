@@ -32,5 +32,8 @@ if( ${WITH_GRAPHICS} )
 	add_executable(gcbStreamlineVTK gcbStreamlineVTK.cpp)
 	target_link_libraries( gcbStreamlineVTK ${VTK_LIBRARIES} OSUFlow OSUFlowVTK gcb renderer GL GLU glut  )
 
+	add_executable(StreamlineSimpleVTKPipeline StreamlineSimpleVTKPipeline.cpp)
+	target_link_libraries( StreamlineSimpleVTKPipeline OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
+
 endif( ${WITH_GRAPHICS} )
 

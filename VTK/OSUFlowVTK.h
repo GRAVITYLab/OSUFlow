@@ -1,3 +1,6 @@
+#ifndef OSUFLOW_VTK
+#define OSUFLOW_VTK
+
 #include <assert.h>
 
 #include <vtkDataSet.h>
@@ -220,7 +223,8 @@ public:
 		has_data = true;
 	}
 
-	vtkDataSet *loadVTKData(const char *fileName)
+#if 0
+	vtkObject *loadVTKData(const char *fileName)
 	{
 	    vtkXMLFileReadTester *vtkXMLFormatFileChecker = vtkXMLFileReadTester::New();
 
@@ -242,7 +246,7 @@ public:
 
 				makeMultiblock->SetInputConnection(vtkXMLFileReader->GetOutputPort());
 
-				return makeMultiblock->GetOutput();
+				return makeMultiblock;
 			}
 		} else // legacy format
 		{
@@ -255,7 +259,10 @@ public:
 
 			makeMultiblock->SetInput(legacyVTKFileReader->GetOutput());
 
-			return makeMultiblock->GetOutput();
+			return makeMultiblock;
 		}
 	}
+#endif
 };
+
+#endif //OSUFLOW_VTK

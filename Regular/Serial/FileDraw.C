@@ -172,6 +172,7 @@ void swap8(char *n) {
 // Swaps 4 bytes from 1-2-3-4 to 4-3-2-1 order.
 // cast the input as a char and use on any 4 byte variable
 //
+#if 0
 void swap4(char *n) {
 
   char *n1;
@@ -189,6 +190,7 @@ void swap4(char *n) {
   *n1 = c;
 
 }
+#endif
 //----------------------------------------------------------------------------
 //
 // Swaps 2 bytes from 1-2 to 2-1 order.

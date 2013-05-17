@@ -5,22 +5,21 @@
 #include <list>
 #include <iterator>
 
-#include "vtkOSUFlow.h"
 #include "vtkDataSet.h"
 #include "vtkStructuredGrid.h"
-#include "vtkMultiBlockPLOT3DReader.h"
-#include "vtkMultiBlockDataSet.h"
+#include "vtkPLOT3DReader.h"
 #include "vtkSmartPointer.h"
+#include "OSUFlowVTK.h"
 
 using namespace std;
 
-#define VTK_DATA_ROOT "/home/jchen/project/VTKData"
+#define VTK_DATA_ROOT "/home/local/KHQ/chunming.chen/project/VTKData"
 
 
 int main()
 {
 	// Start by loading some data.
-	vtkMultiBlockPLOT3DReader *pl3dReader = vtkMultiBlockPLOT3DReader::New();
+	vtkPLOT3DReader *pl3dReader = vtkPLOT3DReader::New();
 	pl3dReader->SetXYZFileName(VTK_DATA_ROOT  "/Data/combxyz.bin");
 	pl3dReader->SetQFileName(VTK_DATA_ROOT  "/Data/combq.bin");
 	pl3dReader->SetScalarFunctionNumber(100);
@@ -30,13 +29,11 @@ int main()
 	// random points
 	//vtkStructuredGrid *grid = pl3dReader->GetOutput();
 	//int *dim = grid->GetDimensions();
-	printf("Number of blocks=%d\n", pl3dReader->GetOutput()->GetNumberOfBlocks());
-	vtkDataSet *data = vtkDataSet::SafeDownCast(pl3dReader->GetOutput()->GetBlock(0));
-	double *bounds = data->GetBounds();
+	double *bounds = pl3dReader->GetOutput()->GetBounds();
 	printf("bounds: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 
 	OSUFlowVTK *osuflow = new OSUFlowVTK;
-	vtkSmartPointer<vtkDataSet> sData = data;
+	vtkSmartPointer<vtkDataSet> sData = pl3dReader->GetOutput();
 	osuflow->setData(sData);
 
 	// gen seeds
