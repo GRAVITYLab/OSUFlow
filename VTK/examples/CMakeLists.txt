@@ -18,22 +18,25 @@ link_directories (
 )
 
 add_executable(StreamlineSimpleVTK StreamlineSimpleVTK.cpp)
-target_link_libraries ( StreamlineSimpleVTK ${VTK_LIBRARIES} OSUFlow OSUFlowVTK )
+target_link_libraries ( StreamlineSimpleVTK OSUFlowVTK ${VTK_LIBRARIES} OSUFlow)
 
 if( ${WITH_GRAPHICS} )
 
 	add_executable(glStreamlineSimpleVTK glStreamlineSimpleVTK.cpp)
-	target_link_libraries ( glStreamlineSimpleVTK ${VTK_LIBRARIES} OSUFlow OSUFlowVTK GL GLU glut)
+	target_link_libraries ( glStreamlineSimpleVTK OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut)
 
 	# GCB related application
 	include_directories ( ${RENDERER_DIR} ${GCB_DIR} )
 	link_directories ( ${RENDERER_DIR} ${GCB_DIR} )
 
 	add_executable(gcbStreamlineVTK gcbStreamlineVTK.cpp)
-	target_link_libraries( gcbStreamlineVTK ${VTK_LIBRARIES} OSUFlow OSUFlowVTK gcb renderer GL GLU glut  )
+	target_link_libraries( gcbStreamlineVTK  OSUFlowVTK ${VTK_LIBRARIES} OSUFlow gcb renderer GL GLU glut  )
 
 	add_executable(StreamlineSimpleVTKPipeline StreamlineSimpleVTKPipeline.cpp)
 	target_link_libraries( StreamlineSimpleVTKPipeline OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
+
+	add_executable(StreamlineSimpleVTKPipelineWithLineWidget StreamlineSimpleVTKPipelineWithLineWidget.cpp)
+	target_link_libraries( StreamlineSimpleVTKPipelineWithLineWidget OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
 
 endif( ${WITH_GRAPHICS} )
 

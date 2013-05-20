@@ -58,14 +58,13 @@ int vtkOSUFlow::RequestData(
 	// assign seeds
 	int num_seeds = input->GetNumberOfPoints();
 	printf("num_seed=%d\n", num_seeds);
-	VECTOR3 *pSeed = new VECTOR3[num_seeds];  //TODO: delete
+	VECTOR3 *pSeed = new VECTOR3[num_seeds];
 	for (i=0; i < num_seeds; i++) {
 		double pos[3];
 		input->GetPoint(i,pos);
 		pSeed[i] = VECTOR3(pos[0], pos[1], pos[2]);
 	}
 	osuflow->SetSeedPoints(pSeed, num_seeds);
-	printf("!!");
 
 	// integrate
 	TRACE_DIR dir;
@@ -117,14 +116,15 @@ int vtkOSUFlow::RequestData(
 	//
 	// assign lines to output
 	//
-	output->SetPoints(newPts);
-	newPts->Delete();
-	//printf("points=%d\n", output->GetPoints()->GetNumberOfPoints());
-	//output->GetPointData()->SetVectors(newVectors);
-	//newVectors->Delete();
-	output->SetLines(newLines);
-	newLines->Delete();
-	//output->Squeeze();
+	if (newPts->GetNumberOfPoints() > 0)
+	{
+		output->SetPoints(newPts);
+		newPts->Delete();
+		printf("points=%d\n", output->GetPoints()->GetNumberOfPoints());
+		output->SetLines(newLines);
+		newLines->Delete();
+	}
+	//output->Squeeze();  // need it?
 	printf("Done\n");
 
 	return 1;

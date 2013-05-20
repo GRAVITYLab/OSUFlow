@@ -22,6 +22,7 @@ file(GLOB HEADER_FILES "*.h" )
 
 list(APPEND SRC_FILES
 	vtkOSUFlow.cxx
+	VectorFieldVTK.cxx
 	OSUFlowVTK.cxx
 	)
 	

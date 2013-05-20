@@ -29,20 +29,24 @@
 
 using namespace std;
 
+vtkLineWidget *lineWidget;
 vtkOSUFlow *streamer;
-void beginInteraction(vtkObject *caller, long unsigned int eventId, void *callData )
-{
-}
+vtkRenderWindow *renWin;
+vtkPolyData *seeds ;
 
 void computeStreamlines(vtkObject* caller, unsigned long eventId, void *clientdata, void *calldata)
 {
 	printf("compute\n");
+	lineWidget->GetPolyData(seeds);
+	renWin->Render();
 	streamer->Update();
 }
 
 
 int main()
 {
+	printf("Press 'i' to change the rake\n");
+
 	// Start by loading some data.
 	vtkMultiBlockPLOT3DReader *pl3dReader = vtkMultiBlockPLOT3DReader::New();
 	// set data
@@ -64,51 +68,29 @@ int main()
 	//
 	// Determine seeds
 	//
-#if 0
-	// use a static rake to generate streamlines
-	vtkLineSource *rake = vtkLineSource::New();
-	rake->SetPoint1(15, -5, 32);
-	rake->SetPoint2(15, 5, 32);
-	rake->SetResolution(21);
-	vtkPolyDataMapper *rakeMapper = vtkPolyDataMapper::New();
-	rakeMapper->SetInputConnection(rake->GetOutputPort());
-	vtkActor *rakeActor = vtkActor::New();
-	rakeActor->SetMapper(rakeMapper);
-	rakeActor->VisibilityOn();
-#else
 	// user can change the rake
-	vtkLineWidget *lineWidget = vtkLineWidget::New();
+	lineWidget = vtkLineWidget::New();
 	lineWidget->SetInputData(data);
+	lineWidget->SetResolution(21); // 22 seeds along the line
 	lineWidget->SetAlignToYAxis();
 	lineWidget->PlaceWidget();
 	lineWidget->ClampToBoundsOn();
-	vtkPolyData *rake = vtkPolyData::New();
-	lineWidget->GetPolyData(rake);
-#endif
+	seeds = vtkPolyData::New();
+	lineWidget->GetPolyData(seeds);
 
-#if 1
+
+	//
 	// vtkOSUFlow
+	//
 	streamer = vtkOSUFlow::New();
 	streamer->SetInputData(data);
-	streamer->SetSourceData(rake);
-//	/streamer->SetSourceConnection(rake->GetOutputPort());
+	streamer->SetSourceData(seeds);	//streamer->SetSourceConnection(rake->GetOutputPort());
 	streamer->SetStepLength(.001);
-	streamer->SetIntegrationDirectionToBackward();
+	streamer->SetIntegrationDirectionToForward();
 	streamer->SetMaximumPropagationTime(200);
 	streamer->SetNumberOfThreads(1);
-	streamer->SetIntegrationDirectionToBackward();//  IntegrateBothDirections();
 	streamer->VorticityOn();
-#else
-	vtkStreamLine *streamer = vtkStreamLine::New();
-	streamer->SetInputData(data);
-	streamer->SetSourceConnection(rake->GetOutputPort());
-	streamer->SetMaximumPropagationTime(200);
-	streamer->SetIntegrationStepLength(.2);
-	streamer->SetStepLength(.001);
-	streamer->SetNumberOfThreads(1);
-	streamer->SetIntegrationDirectionToBackward();//  IntegrateBothDirections();
-	streamer->VorticityOn();
-#endif
+
 	vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
 	mapper->SetInputConnection(streamer->GetOutputPort());
 	mapper->SetScalarRange(data->GetScalarRange());
@@ -131,25 +113,19 @@ int main()
 
 
 	//
-	// rake interactor
-	//
-
-
-
-	//
 	// renderer
 	//
-
 	vtkRenderer *ren = vtkRenderer::New();
-	vtkRenderWindow *renWin = vtkRenderWindow::New();
+	renWin = vtkRenderWindow::New();
 	renWin->AddRenderer(ren);
 	vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
 	iren->SetRenderWindow(renWin);
 	vtkInteractorStyleTrackballCamera *style = vtkInteractorStyleTrackballCamera::New();
 	iren->SetInteractorStyle(style);
 
-	// line widget
+	// line widget interactor
 	lineWidget->SetInteractor(iren);
+	lineWidget->SetDefaultRenderer(ren);
 	vtkCallbackCommand *callback = vtkCallbackCommand::New();
 	callback->SetCallback(computeStreamlines);
 	lineWidget->AddObserver(vtkCommand::EndInteractionEvent, callback);

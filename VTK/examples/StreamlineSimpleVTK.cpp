@@ -10,7 +10,6 @@
 #include "vtkStructuredGrid.h"
 #include "vtkMultiBlockPLOT3DReader.h"
 #include "vtkMultiBlockDataSet.h"
-#include "vtkSmartPointer.h"
 
 using namespace std;
 
@@ -36,8 +35,7 @@ int main()
 	printf("bounds: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 
 	OSUFlowVTK *osuflow = new OSUFlowVTK;
-	vtkSmartPointer<vtkDataSet> sData = data;
-	osuflow->setData(sData);
+	osuflow->setData(data);
 
 	// gen seeds
 	float from[3], to[3];
