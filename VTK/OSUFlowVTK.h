@@ -18,14 +18,14 @@ protected:
 	vtkInterpolatedVelocityField* interpolator;
 
 public:
-	vtkOSUFlowVectorField(vtkSmartPointer<vtkDataSet> sDataset_) {
+	vtkOSUFlowVectorField(vtkDataSet *sDataset_) {
 
 		this->Reset();
 
 		sDataset = sDataset_;
 
 		interpolator = vtkInterpolatedVelocityField::New();
-		interpolator->AddDataSet(sDataset.GetPointer());
+		interpolator->AddDataSet(sDataset);
 	}
 	virtual ~vtkOSUFlowVectorField () {
 		interpolator->Delete();
@@ -95,7 +95,7 @@ public:
 		double bounds[6];
 		sDataset->GetCellBounds(cellId, bounds);
 		float v = (bounds[1]-bounds[0])*(bounds[3]-bounds[2])*(bounds[5]-bounds[4]);
-		printf("v=%f\n", v);
+		//printf("v=%f\n", v);
 		return v;
 	}
 	virtual void NormalizeField(bool bLocal) {
@@ -207,7 +207,7 @@ public:
 class OSUFlowVTK: public OSUFlow
 {
 public:
-	void setData(vtkSmartPointer<vtkDataSet> input)
+	void setData(vtkDataSet* input)
 	{
 		double *bounds = input->GetBounds();
 

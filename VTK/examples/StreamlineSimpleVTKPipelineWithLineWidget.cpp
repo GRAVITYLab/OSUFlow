@@ -21,10 +21,24 @@
 #include "vtkStructuredGridOutlineFilter.h"
 #include "vtkTesting.h"
 #include "vtkProperty.h"
+#include "vtkLineWidget.h"
+#include "vtkCommand.h"
+#include "vtkCallbackCommand.h"
 // streamline
 #include "vtkStreamLine.h"
 
 using namespace std;
+
+vtkOSUFlow *streamer;
+void beginInteraction(vtkObject *caller, long unsigned int eventId, void *callData )
+{
+}
+
+void computeStreamlines(vtkObject* caller, unsigned long eventId, void *clientdata, void *calldata)
+{
+	printf("compute\n");
+	streamer->Update();
+}
 
 
 int main()
@@ -35,10 +49,10 @@ int main()
 	{
 		char path[256];
 		vtkTesting *t = vtkTesting::New();
-		sprintf(path, "%s/Data/combxyz.bin", t->GetDataRoot());
+		sprintf(path, "%s/Data/combxyz.bin", "/home/jchen/project/VTKData"); //t->GetDataRoot());
 		printf("%s\n", path);
 		pl3dReader->SetXYZFileName(path);
-		sprintf(path, "%s/Data/combq.bin", t->GetDataRoot());
+		sprintf(path, "%s/Data/combq.bin", "/home/jchen/project/VTKData"); //t->GetDataRoot());
 		pl3dReader->SetQFileName(path);
 		t->Delete();
 	}
@@ -50,6 +64,7 @@ int main()
 	//
 	// Determine seeds
 	//
+#if 0
 	// use a static rake to generate streamlines
 	vtkLineSource *rake = vtkLineSource::New();
 	rake->SetPoint1(15, -5, 32);
@@ -60,30 +75,39 @@ int main()
 	vtkActor *rakeActor = vtkActor::New();
 	rakeActor->SetMapper(rakeMapper);
 	rakeActor->VisibilityOn();
+#else
+	// user can change the rake
+	vtkLineWidget *lineWidget = vtkLineWidget::New();
+	lineWidget->SetInputData(data);
+	lineWidget->SetAlignToYAxis();
+	lineWidget->PlaceWidget();
+	lineWidget->ClampToBoundsOn();
+	vtkPolyData *rake = vtkPolyData::New();
+	lineWidget->GetPolyData(rake);
+#endif
 
-#if 0
-	// use vtkOSUFlow
-	vtkOSUFlow *streamer = vtkOSUFlow::New();
+#if 1
+	// vtkOSUFlow
+	streamer = vtkOSUFlow::New();
 	streamer->SetInputData(data);
-	streamer->SetSourceConnection(rake->GetOutputPort());
-	streamer->SetIntegrationStepLength(.001);
+	streamer->SetSourceData(rake);
+//	/streamer->SetSourceConnection(rake->GetOutputPort());
 	streamer->SetStepLength(.001);
 	streamer->SetIntegrationDirectionToBackward();
 	streamer->SetMaximumPropagationTime(200);
 	streamer->SetNumberOfThreads(1);
 	streamer->SetIntegrationDirectionToBackward();//  IntegrateBothDirections();
-	//streamer->VorticityOn();
+	streamer->VorticityOn();
 #else
-	// use vtkStreamLine
 	vtkStreamLine *streamer = vtkStreamLine::New();
 	streamer->SetInputData(data);
 	streamer->SetSourceConnection(rake->GetOutputPort());
 	streamer->SetMaximumPropagationTime(200);
-	streamer->SetIntegrationStepLength(.001);
+	streamer->SetIntegrationStepLength(.2);
 	streamer->SetStepLength(.001);
 	streamer->SetNumberOfThreads(1);
 	streamer->SetIntegrationDirectionToBackward();//  IntegrateBothDirections();
-	streamer->VorticityOff();
+	streamer->VorticityOn();
 #endif
 	vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
 	mapper->SetInputConnection(streamer->GetOutputPort());
@@ -105,9 +129,17 @@ int main()
 	outlineActor->SetMapper(outlineMapper);
 	outlineActor->GetProperty()->SetColor(0,0,0);
 
+
+	//
+	// rake interactor
+	//
+
+
+
 	//
 	// renderer
 	//
+
 	vtkRenderer *ren = vtkRenderer::New();
 	vtkRenderWindow *renWin = vtkRenderWindow::New();
 	renWin->AddRenderer(ren);
@@ -116,7 +148,13 @@ int main()
 	vtkInteractorStyleTrackballCamera *style = vtkInteractorStyleTrackballCamera::New();
 	iren->SetInteractorStyle(style);
 
-	ren->AddActor(rakeActor);
+	// line widget
+	lineWidget->SetInteractor(iren);
+	vtkCallbackCommand *callback = vtkCallbackCommand::New();
+	callback->SetCallback(computeStreamlines);
+	lineWidget->AddObserver(vtkCommand::EndInteractionEvent, callback);
+
+	//ren->AddActor(rakeActor);
 	ren->AddActor(actor);
 	ren->AddActor(outlineActor);
 	ren->SetBackground(.5,.5,.5);
