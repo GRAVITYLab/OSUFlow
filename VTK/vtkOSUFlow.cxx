@@ -14,6 +14,19 @@ vtkOSUFlow::vtkOSUFlow()
 	osuflow = new OSUFlowVTK();
 }
 
+vtkOSUFlow::~vtkOSUFlow()
+{
+	delete osuflow;
+}
+
+int vtkOSUFlow::FillInputPortInformation(int port, vtkInformation *info)
+{
+  info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
+  info->Set(vtkAlgorithm::INPUT_IS_OPTIONAL(), 1);
+  return 1;
+}
+
+
 int vtkOSUFlow::RequestData(
 	vtkInformation *,
 	vtkInformationVector **inputVector,
@@ -31,20 +44,19 @@ int vtkOSUFlow::RequestData(
 	vtkCellArray *newLines;
 	vtkPoints *newPts;
 
-	vtkInformation *outInfo = outputVector->GetInformationObject(0);	// data
-	vtkInformation *sourceInfo = inputVector[0]->GetInformationObject(0); // traces
+	vtkInformation *sourceInfo = inputVector[0]->GetInformationObject(0); // data
 	vtkInformation *inInfo = inputVector[1]->GetInformationObject(0);  // seeds
+	vtkInformation *outInfo = outputVector->GetInformationObject(0);	// trace
 
-	vtkDataSet *input = vtkDataSet::SafeDownCast(inInfo->Get(vtkDataObject::DATA_OBJECT()));
-	vtkPolyData *output = vtkPolyData::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
 	vtkDataSet *source = 0;
-	if (sourceInfo)
-	{
+	if (sourceInfo) {
 		source = vtkDataSet::SafeDownCast(sourceInfo->Get(vtkDataObject::DATA_OBJECT()));
-	} else {
-		printf("vtkOSUFlow: Output port not connected \n");
-		return 0;
 	}
+	vtkDataSet *input = 0;
+	if (inInfo) {
+		input = vtkDataSet::SafeDownCast(inInfo->Get(vtkDataObject::DATA_OBJECT()));
+	}
+	vtkPolyData *output = vtkPolyData::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
 	// make compatible to vtkStreamer
 	this->SavePointInterval = this->StepLength;
@@ -53,18 +65,33 @@ int vtkOSUFlow::RequestData(
 	// OSUFlow
 	//
 	// set data
-	osuflow->setData(source);
+	if (source)
+		osuflow->setData(source);
+	else if (! osuflow->getHasData() ) {
+		printf("vtkOSUFlow: no data\n");
+		return 0;
+	}
 
 	// assign seeds
-	int num_seeds = input->GetNumberOfPoints();
-	printf("num_seed=%d\n", num_seeds);
-	VECTOR3 *pSeed = new VECTOR3[num_seeds];
-	for (i=0; i < num_seeds; i++) {
-		double pos[3];
-		input->GetPoint(i,pos);
-		pSeed[i] = VECTOR3(pos[0], pos[1], pos[2]);
+	VECTOR3 *pSeed;
+	if (input) {
+		int num_seeds = input->GetNumberOfPoints();
+		printf("num_seed=%d\n", num_seeds);
+		if (num_seeds) {
+			pSeed = new VECTOR3[num_seeds];
+			for (i=0; i < num_seeds; i++) {
+				double pos[3];
+				input->GetPoint(i,pos);
+				pSeed[i] = VECTOR3(pos[0], pos[1], pos[2]);
+			}
+			osuflow->SetSeedPoints(pSeed, num_seeds);
+		}
+	} else {
+		int num_seeds;
+		osuflow->GetSeeds(num_seeds);
+		printf("vtkOSUFlow: No seeds\n");
+		if (num_seeds==0) return 0;
 	}
-	osuflow->SetSeedPoints(pSeed, num_seeds);
 
 	// integrate
 	TRACE_DIR dir;

@@ -24,51 +24,72 @@
 #include "vtkLineWidget.h"
 #include "vtkCommand.h"
 #include "vtkCallbackCommand.h"
+#include "vtkStructuredGrid.h"
+#include "vtkOutlineFilter.h"
+#include "vtkPlaneWidget.h"
 // streamline
 #include "vtkStreamLine.h"
 
 using namespace std;
 
 vtkLineWidget *lineWidget;
+vtkPlaneWidget *planeWidget;
 vtkOSUFlow *streamer;
 vtkRenderWindow *renWin;
-vtkPolyData *seeds ;
+vtkPolyData *seeds, *seeds2 ;
 
 void computeStreamlines(vtkObject* caller, unsigned long eventId, void *clientdata, void *calldata)
 {
-	printf("compute\n");
+	double *point1 = lineWidget->GetPoint1();
+	double *point2 = lineWidget->GetPoint2();
+	printf("LineWidget Point1: %lf %lf %lf, Point2: %lf %lf %lf\n", point1[0], point1[1], point1[2], point2[0], point2[1], point2[2]);
+
 	lineWidget->GetPolyData(seeds);
 	renWin->Render();
-	streamer->Update();
+}
+void computeStreamlines2(vtkObject* caller, unsigned long eventId, void *clientdata, void *calldata)
+{
+	printf("2\n");
+	planeWidget->GetPolyData(seeds);
+	renWin->Render();
+	planeWidget->On();
 }
 
 
-int main()
+int main(int argc, char **argv)
 {
 	printf("Press 'i' to change the rake\n");
 
-	// Start by loading some data.
-	vtkMultiBlockPLOT3DReader *pl3dReader = vtkMultiBlockPLOT3DReader::New();
-	// set data
-	{
-		char path[256];
-		vtkTesting *t = vtkTesting::New();
-		sprintf(path, "%s/Data/combxyz.bin", "/home/jchen/project/VTKData"); //t->GetDataRoot());
-		printf("%s\n", path);
-		pl3dReader->SetXYZFileName(path);
-		sprintf(path, "%s/Data/combq.bin", "/home/jchen/project/VTKData"); //t->GetDataRoot());
-		pl3dReader->SetQFileName(path);
-		t->Delete();
-	}
-	pl3dReader->SetScalarFunctionNumber(100);
-	pl3dReader->SetVectorFunctionNumber(202);
-	pl3dReader->Update();
-	vtkDataSet *data = vtkDataSet::SafeDownCast(pl3dReader->GetOutput()->GetBlock(0));
+	streamer = vtkOSUFlow::New();
+
+	// read data
+	OSUFlow *osuflow = streamer->getOSUFlow();
+	osuflow->LoadData(argv[1], true); //true: static dataset
+
+
+	// dummy dataset for boundary
+	VECTOR3 minB, maxB;
+	osuflow->Boundary(minB, maxB);
+
+	vtkPolyData *data = vtkPolyData::New();
+	vtkPoints *points = vtkPoints::New();
+	float p[3];
+	p[0] = minB[0]; p[1] = minB[1]; p[2] = minB[2];	points->InsertNextPoint(p);
+	p[0] = minB[0]; p[1] = minB[1]; p[2] = maxB[2];	points->InsertNextPoint(p);
+	p[0] = minB[0]; p[1] = maxB[1]; p[2] = minB[2];	points->InsertNextPoint(p);
+	p[0] = minB[0]; p[1] = maxB[1]; p[2] = maxB[2];	points->InsertNextPoint(p);
+	p[0] = maxB[0]; p[1] = minB[1]; p[2] = minB[2];	points->InsertNextPoint(p);
+	p[0] = maxB[0]; p[1] = minB[1]; p[2] = maxB[2];	points->InsertNextPoint(p);
+	p[0] = maxB[0]; p[1] = maxB[1]; p[2] = minB[2];	points->InsertNextPoint(p);
+	p[0] = maxB[0]; p[1] = maxB[1]; p[2] = maxB[2];	points->InsertNextPoint(p);
+	data->SetPoints(points);
+	points->Delete();
+
 
 	//
 	// Determine seeds
 	//
-	// user can change the rake
+	// rake
 	lineWidget = vtkLineWidget::New();
 	lineWidget->SetInputData(data);
 	lineWidget->SetResolution(21); // 22 seeds along the line
@@ -78,16 +99,24 @@ int main()
 	seeds = vtkPolyData::New();
 	lineWidget->GetPolyData(seeds);
 
+#if 0
+	// plane
+	planeWidget = vtkPlaneWidget::New();
+	planeWidget->SetInputData(data);
+	planeWidget->SetResolution(5);
+	planeWidget->PlaceWidget();
+	planeWidget->SetKeyPressActivationValue('j');
+	seeds2 = vtkPolyData::New();
+	planeWidget->GetPolyData(seeds2);
+#endif
 
 	//
 	// vtkOSUFlow
 	//
-	streamer = vtkOSUFlow::New();
-	streamer->SetInputData(data);
 	streamer->SetSourceData(seeds);	//streamer->SetSourceConnection(rake->GetOutputPort());
-	streamer->SetStepLength(.001);
+	streamer->SetStepLength(.1);
 	streamer->SetIntegrationDirectionToForward();
-	streamer->SetMaximumPropagationTime(200);
+	streamer->SetMaximumPropagationTime(1000);
 	streamer->SetNumberOfThreads(1);
 	streamer->VorticityOn();
 
@@ -101,7 +130,7 @@ int main()
 	//
 	// outline
 	//
-	vtkStructuredGridOutlineFilter *outline = vtkStructuredGridOutlineFilter::New();
+	vtkOutlineFilter *outline = vtkOutlineFilter ::New();
 	outline->SetInputData(data);
 
 	vtkPolyDataMapper *outlineMapper = vtkPolyDataMapper::New();
@@ -130,7 +159,16 @@ int main()
 	callback->SetCallback(computeStreamlines);
 	lineWidget->AddObserver(vtkCommand::EndInteractionEvent, callback);
 
-	//ren->AddActor(rakeActor);
+#if 0
+	// plane widget interactor
+	planeWidget->SetInteractor(iren);
+	planeWidget->SetDefaultRenderer(ren);
+	vtkCallbackCommand *callback2 = vtkCallbackCommand::New();
+	callback2->SetCallback(computeStreamlines2);
+	planeWidget->AddObserver(vtkCommand::EndInteractionEvent, callback2);
+#endif
+
+
 	ren->AddActor(actor);
 	ren->AddActor(outlineActor);
 	ren->SetBackground(.5,.5,.5);

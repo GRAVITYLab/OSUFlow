@@ -37,6 +37,8 @@ public:
 		has_data = true;
 	}
 
+	inline bool getHasData() { return this->has_data; }
+
 #if 0
 	vtkObject *loadVTKData(const char *fileName)
 	{

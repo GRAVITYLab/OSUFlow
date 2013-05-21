@@ -35,8 +35,11 @@ if( ${WITH_GRAPHICS} )
 	add_executable(StreamlineSimpleVTKPipeline StreamlineSimpleVTKPipeline.cpp)
 	target_link_libraries( StreamlineSimpleVTKPipeline OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
 
-	add_executable(StreamlineSimpleVTKPipelineWithLineWidget StreamlineSimpleVTKPipelineWithLineWidget.cpp)
-	target_link_libraries( StreamlineSimpleVTKPipelineWithLineWidget OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
+	add_executable(StreamlineRenderVec StreamlineRenderVec.cpp)
+	target_link_libraries( StreamlineRenderVec OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
+
+	add_executable(StreamlineRenderPlot3D StreamlineRenderPlot3D.cpp)
+	target_link_libraries( StreamlineRenderPlot3D OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
 
 endif( ${WITH_GRAPHICS} )
 

@@ -42,9 +42,15 @@ public:
 		this->SetNumberOfInputPorts(0);
 		osuflow->SetRandomSeedPoints(bMin, bMax, num_seeds);
 	}
+
+	// compatibility
+	inline OSUFlowVTK *getOSUFlow() { return osuflow; }
+
+	virtual int FillInputPortInformation(int port, vtkInformation *info);
+
 protected:
 	vtkOSUFlow();
-	~vtkOSUFlow() {};
+	~vtkOSUFlow() ;
 
 	// Convert streamer array into vtkPolyData
 	virtual int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);

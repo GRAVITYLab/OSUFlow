@@ -39,6 +39,8 @@ list(APPEND SRC_FILES
 	FileDraw
 	SerDraw
 	glPathlineSimple
+	gldraw_irregular
+	gldraw_curvilinear
 	# Incompatible w/ Lattice4D: glPathlinePartition1
 	# Incompatible w/ Lattice4D: glPathlinePartition2
 	# Incompatible w/ Lattice4D: glPathlinePartitionSimple
