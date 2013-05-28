@@ -114,7 +114,6 @@ int main(int argc, char **argv)
 	// vtkOSUFlow
 	//
 	streamer->SetSourceData(seeds);	//streamer->SetSourceConnection(rake->GetOutputPort());
-	streamer->SetStepLength(.1);
 	streamer->SetIntegrationDirectionToForward();
 	streamer->SetMaximumPropagationTime(1000);
 	streamer->SetNumberOfThreads(1);

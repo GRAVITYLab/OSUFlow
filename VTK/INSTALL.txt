@@ -11,8 +11,8 @@ Optional install:
 * MPI
 
 
-Install VTK6
-============
+Download & Install VTK6
+=======================
 git clone git://vtk.org/VTK.git
 
 * To successfully run some OSUFlow-VTK examples, please download VTK example data:
@@ -31,8 +31,8 @@ See more information in: http://www.vtk.org/VTK/resources/software.html
 
 
 
-Install OSUFlow
-===============
+Download & Install OSUFlow
+==========================
 git clone git@git.assembla.com:osuflowvtk.git
 
 * build:

@@ -31,13 +31,6 @@ public:
 	static vtkOSUFlow *New();
 
 
-	// Description:
-	// Specify the length of a line segment. The length is expressed in terms of
-	// elapsed time. Smaller values result in smoother appearing streamlines, but
-	// greater numbers of line primitives.
-	vtkSetClampMacro(StepLength,double,0.000001,VTK_DOUBLE_MAX);
-	vtkGetMacro(StepLength,double);
-
 	inline void SetRandomSeedPoints(float bMin[3], float bMax[3], int num_seeds) {
 		this->SetNumberOfInputPorts(0);
 		osuflow->SetRandomSeedPoints(bMin, bMax, num_seeds);
@@ -54,9 +47,6 @@ protected:
 
 	// Convert streamer array into vtkPolyData
 	virtual int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
-
-	// the length of line primitives
-	double StepLength;
 
 private:
 	// Not implemented:

@@ -61,13 +61,12 @@ int main()
 	rakeActor->SetMapper(rakeMapper);
 	rakeActor->VisibilityOn();
 
-#if 0
+#if 1
 	// use vtkOSUFlow
 	vtkOSUFlow *streamer = vtkOSUFlow::New();
 	streamer->SetInputData(data);
 	streamer->SetSourceConnection(rake->GetOutputPort());
 	streamer->SetIntegrationStepLength(.001);
-	streamer->SetStepLength(.001);
 	streamer->SetIntegrationDirectionToBackward();
 	streamer->SetMaximumPropagationTime(200);
 	streamer->SetNumberOfThreads(1);

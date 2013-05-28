@@ -4,12 +4,12 @@
 #include "vtkLine.h"
 #include "vtkInformation.h"
 #include "vtkObjectFactory.h"
+#include "vtkTimerLog.h"
 
 
 vtkStandardNewMacro(vtkOSUFlow);
 
 vtkOSUFlow::vtkOSUFlow()
-: StepLength(.1)
 {
 	osuflow = new OSUFlowVTK();
 }
@@ -59,7 +59,8 @@ int vtkOSUFlow::RequestData(
 	vtkPolyData *output = vtkPolyData::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
 	// make compatible to vtkStreamer
-	this->SavePointInterval = this->StepLength;
+	//this->SavePointInterval = this->IntegrationStepLength;
+	// Here we store every point
 
 	//
 	// OSUFlow
@@ -87,10 +88,13 @@ int vtkOSUFlow::RequestData(
 			osuflow->SetSeedPoints(pSeed, num_seeds);
 		}
 	} else {
+		// use pre-loaded seeds if exist
 		int num_seeds;
 		osuflow->GetSeeds(num_seeds);
-		printf("vtkOSUFlow: No seeds\n");
-		if (num_seeds==0) return 0;
+		if (num_seeds==0) {
+			printf("vtkOSUFlow: No seeds\n");
+			return 0;
+		}
 	}
 
 	// integrate
@@ -102,8 +106,8 @@ int vtkOSUFlow::RequestData(
 	default: dir = BACKWARD_AND_FORWARD; break;
 	};
 	list<vtListSeedTrace*> list;
-	osuflow->SetIntegrationParams(this->StepLength, this->StepLength);
-	osuflow->GenStreamLines(list , dir, this->GetMaximumPropagationTime(), 0);
+	osuflow->SetIntegrationParams(this->IntegrationStepLength, this->IntegrationStepLength);
+	osuflow->GenStreamLines(list , dir, this->GetMaximumPropagationTime(), 0); // default: RK45
 
 	delete[] pSeed;
 
@@ -154,7 +158,7 @@ int vtkOSUFlow::RequestData(
 	//output->Squeeze();  // need it?
 	printf("Done\n");
 
-	return 1;
+	return 1; // success
 }
 
 // code reference: vtkStreamLine.cxx
@@ -163,7 +167,5 @@ int vtkOSUFlow::RequestData(
 void vtkOSUFlow::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os,indent);
-
-  os << indent << "Step Length: " << this->StepLength << "\n";
 
 }

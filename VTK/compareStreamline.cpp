@@ -1,9 +1,10 @@
+#include <list>
+#include <iterator>
+#include <iostream>
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <list>
-#include <iterator>
 
 #include "vtkOSUFlow.h"
 #include "vtkDataSet.h"
@@ -26,25 +27,50 @@
 #include "vtkCallbackCommand.h"
 // streamline
 #include "vtkStreamLine.h"
+#include "vtkTimerLog.h"
 
 using namespace std;
 
 vtkLineWidget *lineWidget;
 vtkOSUFlow *streamer;
+vtkStreamLine *streamer2;
 vtkRenderWindow *renWin;
 vtkPolyData *seeds ;
+vtkTimerLog *timer = vtkTimerLog::New();
 
 void computeStreamlines(vtkObject* caller, unsigned long eventId, void *clientdata, void *calldata)
 {
-	printf("compute\n");
+	double *point1 = lineWidget->GetPoint1();
+	double *point2 = lineWidget->GetPoint2();
+	printf("LineWidget Point1: %lf %lf %lf, Point2: %lf %lf %lf\n", point1[0], point1[1], point1[2], point2[0], point2[1], point2[2]);
+
+
 	lineWidget->GetPolyData(seeds);
-	renWin->Render();
+
+	timer->StartTimer();
 	streamer->Update();
+	timer->StopTimer();
+	printf("OSUFlow Elapsed Time: %lf\n", timer->GetElapsedTime());
+
+	timer->StartTimer();
+	streamer2->Update();
+	timer->StopTimer();
+	printf("vtkStreamLine Elapsed Time: %lf\n", timer->GetElapsedTime());
+
+
+	renWin->Render();
+	//cout << *streamer2;
+
 }
 
 
 int main(int argc, char **argv)
 {
+	int rakeResolution = 100;
+	int steps = 100;
+	float stepsize = 0.001;
+
+
 	printf("Press 'i' to change the rake\n");
 
 	// read data
@@ -52,7 +78,7 @@ int main(int argc, char **argv)
 	int files;
 	if (argc<=1) { // load default data
 		vtkTesting *t = vtkTesting::New();
-		sprintf(file1, "%s/Data/combxyz.bin", "/home/jchen/project/VTKData"); //t->GetDataRoot());
+		sprintf(file1, "%s/Data/combxyz.bin", "/home/jchen/project/VTKData"); // t->GetDataRoot());
 		printf("%s\n", file1);
 		sprintf(file2, "%s/Data/combq.bin", "/home/jchen/project/VTKData"); //t->GetDataRoot());
 		t->Delete();
@@ -79,7 +105,7 @@ int main(int argc, char **argv)
 	// user can change the rake
 	lineWidget = vtkLineWidget::New();
 	lineWidget->SetInputData(data);
-	lineWidget->SetResolution(21); // 22 seeds along the line
+	lineWidget->SetResolution(rakeResolution); // 22 seeds along the line
 	lineWidget->SetAlignToYAxis();
 	lineWidget->PlaceWidget();
 	lineWidget->ClampToBoundsOn();
@@ -93,8 +119,9 @@ int main(int argc, char **argv)
 	streamer = vtkOSUFlow::New();
 	streamer->SetInputData(data);
 	streamer->SetSourceData(seeds);	//streamer->SetSourceConnection(rake->GetOutputPort());
+	streamer->SetIntegrationStepLength(stepsize);
 	streamer->SetIntegrationDirectionToForward();
-	streamer->SetMaximumPropagationTime(200);
+	streamer->SetMaximumPropagationTime(steps);
 	streamer->SetNumberOfThreads(1);
 	streamer->VorticityOn();
 
@@ -104,6 +131,31 @@ int main(int argc, char **argv)
 	vtkActor *actor = vtkActor::New();
 	actor->SetMapper(mapper);
 
+	//
+	// use vtkStreamLine
+	//
+	streamer2 = vtkStreamLine::New();
+	streamer2->SetInputData(data);
+	streamer2->SetSourceData(seeds);
+	streamer2->SetMaximumPropagationTime(steps*stepsize);
+	  // Description:
+	  // Specify a nominal integration step size (expressed as a fraction of
+	  // the size of each cell). This value can be larger than 1.
+	streamer2->SetIntegrationStepLength(stepsize);
+	  // Description:
+	  // Specify the length of a line segment. The length is expressed in terms of
+	  // elapsed time. Smaller values result in smoother appearing streamlines, but
+	  // greater numbers of line primitives.
+	streamer2->SetStepLength(stepsize);
+	streamer2->SetNumberOfThreads(1);
+	streamer2->SetIntegrationDirectionToForward();//  IntegrateBothDirections();
+	streamer2->VorticityOff();
+
+	vtkPolyDataMapper *mapper2 = vtkPolyDataMapper::New();
+	mapper2->SetInputConnection(streamer2->GetOutputPort());
+	mapper2->SetScalarRange((data->GetScalarRange()));
+	vtkActor *actor2 = vtkActor::New();
+	actor2->SetMapper(mapper2);
 
 	//
 	// outline
@@ -130,6 +182,7 @@ int main(int argc, char **argv)
 	vtkInteractorStyleTrackballCamera *style = vtkInteractorStyleTrackballCamera::New();
 	iren->SetInteractorStyle(style);
 
+
 	// line widget interactor
 	lineWidget->SetInteractor(iren);
 	lineWidget->SetDefaultRenderer(ren);
@@ -139,6 +192,7 @@ int main(int argc, char **argv)
 
 	//ren->AddActor(rakeActor);
 	ren->AddActor(actor);
+	ren->AddActor(actor2);
 	ren->AddActor(outlineActor);
 	ren->SetBackground(.5,.5,.5);
 

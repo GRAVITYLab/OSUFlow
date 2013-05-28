@@ -20,5 +20,10 @@ Simple example using vtkOSUFlow filter and VTK pipeline, derived from VTK exampl
 
 StreamlineRenderVec
 -------------------
-A tool that computes streamlines interactively using vtkLineWidgets, using vtkOSUFlow filter and VTK pipeline.
+A tool that computes streamlines interactively with vtkLineWidgets, using vtkOSUFlow filter and VTK pipeline.
+Usage: StreamlineRenderVec <.vec file>
 
+StreamlineRenderPlot3D
+----------------------
+A tool that computes streamlines interactively with vtkLineWidgets, using vtkOSUFlow filter and VTK pipeline.
+Usage: StreamlineRenderPlot3D <q file.bin> <xyz file.bin>

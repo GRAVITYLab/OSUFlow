@@ -46,3 +46,10 @@ install(
 # examples
 add_subdirectory (examples)
 
+# tests
+if( ${WITH_GRAPHICS} )
+
+	add_executable( compareStreamline compareStreamline.cpp )
+        target_link_libraries ( compareStreamline OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut)
+
+endif ()
