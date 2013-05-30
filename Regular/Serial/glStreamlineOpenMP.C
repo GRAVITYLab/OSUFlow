@@ -24,21 +24,14 @@
 #endif	// #ifdef WIN32
 // ADD-BY-LEETEN 12/20/2011-END
 
-// VTK
-#include "vtkDataSet.h"
-#include "vtkStructuredGrid.h"
-#include "vtkTesting.h"
-#include "vtkMultiBlockPLOT3DReader.h"
-#include "vtkMultiBlockDataSet.h"
-#include "vtkSmartPointer.h"
-#include "OSUFlowVTK.h"
-
-
-// VTK
+#include "OSUFlow.h"
 
 #include <list>
 #include <iterator>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 int press_x, press_y; 
 int release_x, release_y; 
@@ -52,7 +45,7 @@ int xform_mode = 0;
 #define XFORM_ROTATE  1
 #define XFORM_SCALE 2 
 
-OSUFlowVTK *osuflow;
+OSUFlow *osuflow; 
 VECTOR3 minLen, maxLen; 
 list<vtListSeedTrace*> sl_list; 
 
@@ -71,7 +64,7 @@ void compute_streamlines() {
   to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
 
   printf("generating seeds...\n"); 
-  osuflow->SetRandomSeedPoints(from, to, 300);
+  osuflow->SetRandomSeedPoints(from, to, 300); 
   int nSeeds; 
   VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
   for (int i=0; i<nSeeds; i++) 
@@ -81,8 +74,8 @@ void compute_streamlines() {
   sl_list.clear(); 
 
   printf("compute streamlines..\n"); 
-  osuflow->SetIntegrationParams(.001, .001);
-  osuflow->GenStreamLines(sl_list , BACKWARD_AND_FORWARD, 500, 0);
+  osuflow->SetIntegrationParams(1, 5); 
+  osuflow->GenStreamLines(sl_list , FORWARD_DIR, 500, 0); 
   printf(" done integrations\n"); 
   printf("list size = %d\n", (int)sl_list.size()); 
 }
@@ -92,7 +85,7 @@ void draw_streamlines() {
   glPushMatrix(); 
 
   glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
-  glTranslatef(-center[0], -center[1], -center[2]);
+  glTranslatef(-len[0]/2.0, -len[1]/2.0, -len[2]/2.0); 
 
   printf("draw streamlines.\n"); 
   glColor3f(1,1,0); 
@@ -124,7 +117,7 @@ void animate_streamlines() {
   glPushMatrix(); 
 
   glScalef(1/(float)len[0], 1/(float)len[0], 1/(float)len[0]); 
-  glTranslatef(-center[0], -center[1], -center[2]);
+  glTranslatef(-len[0]/2.0, -len[1]/2.0, -len[2]/2.0); 
 
   glColor3f(1,1,0); 
 
@@ -238,7 +231,7 @@ void display()
 }
 
 void timer(int val) {
-  //printf("call idle....\n");
+  printf("call idle....\n"); 
   if (toggle_animate_streamlines == true) {
     //    animate_streamlines(); 
     glutPostRedisplay(); 
@@ -310,57 +303,12 @@ void mykey(unsigned char key, int x, int y)
 
 int main(int argc, char** argv) 
 {
+  // read in the vector field 
 
-	// VTK
-	// Start by loading some data.
-	vtkMultiBlockPLOT3DReader *pl3dReader = vtkMultiBlockPLOT3DReader::New();
-	// set data
-	{
-		char path[256];
-		vtkTesting *t = vtkTesting::New();
-		sprintf(path, "%s/Data/combxyz.bin", t->GetDataRoot());
-		printf("%s\n", path);
-		pl3dReader->SetXYZFileName(path);
-		sprintf(path, "%s/Data/combq.bin", t->GetDataRoot());
-		pl3dReader->SetQFileName(path);
-		t->Delete();
-	}
-	pl3dReader->SetScalarFunctionNumber(100);
-	pl3dReader->SetVectorFunctionNumber(202);
-	pl3dReader->Update();
-
-
-	// random points
-	//vtkStructuredGrid *grid = pl3dReader->GetOutput();
-	//int *dim = grid->GetDimensions();
-	vtkSmartPointer<vtkDataSet> sData = vtkDataSet::SafeDownCast(pl3dReader->GetOutput()->GetBlock(0));
-	double *bounds = sData->GetBounds();
-	printf("bounds: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-
-	osuflow = new OSUFlowVTK;
-	osuflow->setData(sData);
-
-	// openmp
 #ifdef _OPENMP
-	osuflow->initOpenMP(1);
+	omp_set_num_threads(8);
+	printf("Openmp max threads = %d\n", omp_get_max_threads());
 #endif
-
-	// gen seeds
-	minLen[0] = bounds[0]; maxLen[0] = bounds[1];
-	minLen[1] = bounds[2]; maxLen[1] = bounds[3];
-	minLen[2] = bounds[4]; maxLen[2] = bounds[5];
-
-	center[0] = (minLen[0]+maxLen[0])/2.0;
-	center[1] = (minLen[1]+maxLen[1])/2.0;
-	center[2] = (minLen[2]+maxLen[2])/2.0;
-	printf("center is at %f %f %f \n", center[0], center[1], center[2]);
-	len[0] = maxLen[0]-minLen[0];
-	len[1] = maxLen[1]-minLen[1];
-	len[2] = maxLen[2]-minLen[2];
-
-#if 0
-
-	// read in the vector field
 
   VECTOR3 minB, maxB; 
 
@@ -385,7 +333,7 @@ int main(int argc, char** argv)
   len[0] = maxLen[0]-minLen[0]; 
   len[1] = maxLen[1]-minLen[1]; 
   len[2] = maxLen[2]-minLen[2]; 
-#endif
+
   glutInit(&argc, argv); 
   glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH); 
   glutInitWindowSize(600,600); 

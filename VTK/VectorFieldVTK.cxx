@@ -8,18 +8,32 @@
 #include <Field.h>
 #include "VectorFieldVTK.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
-VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_) {
+VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
+: sDataset(sDataset_)
+{
 
 	this->Reset();
 
-	sDataset = sDataset_;
-
-	interpolator = vtkInterpolatedVelocityField::New();
+#ifdef _OPENMP
+	for (size_t i=0; i<omp_get_max_threads(); i++)
+	{
+		vtkInterpolatedVelocityField *interpolator = vtkInterpolatedVelocityField::New();
+		interpolator->AddDataSet(sDataset);
+		this->interpolatorAry.push_back(interpolator);
+	}
+#else
+	vtkInterpolatedVelocityField *interpolator = vtkInterpolatedVelocityField::New();
 	interpolator->AddDataSet(sDataset);
+	this->interpolatorAry.push_back(interpolator);
+#endif
 }
  VectorFieldVTK::~VectorFieldVTK () {
-	interpolator->Delete();
+	for (size_t i=0; i < this->interpolatorAry.size(); i++)
+		this->interpolatorAry[i]->Delete();
 }
  int VectorFieldVTK::lerp_phys_coord(int cellId, CellTopoType eCellTopoType, float* coeff, VECTOR3& pos) {
 	printf("lerp_phys_coord Not implemented\n");
@@ -49,7 +63,7 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_) {
 	coords[2] = pos[2];
 	coords[3] = t;
 	double vel[3];
-	if ( !interpolator->FunctionValues(coords, vel) )
+	if ( ! this->interpolatorAry[ this->getThreadID() ]->FunctionValues(coords, vel) )
 		return -1;
 	vecData[0] = vel[0];
 	vecData[1] = vel[1];
@@ -58,22 +72,23 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_) {
 }
 // get vector
  int VectorFieldVTK::at_phys(const int fromCell, VECTOR3& pos, PointInfo& pInfo,const float t, VECTOR3& nodeData) {
-
+	bool success ;
+	double vel[3];
 	pInfo.Set(pos, pInfo.interpolant, fromCell, -1);
-	interpolator->SetLastCellId(fromCell);
+	this->interpolatorAry[ this->getThreadID() ]->SetLastCellId(fromCell);
 
 	double  coords[4];
 	coords[0] = pos[0];
 	coords[1] = pos[1];
 	coords[2] = pos[2];
 	coords[3] = t;
-	double vel[3];
-	if ( !interpolator->FunctionValues(coords, vel) )
-		return -1;
+	success = this->interpolatorAry[ this->getThreadID() ]->FunctionValues(coords, vel);
+	if (!success) return -1;
+
 	nodeData[0] = vel[0];
 	nodeData[1] = vel[1];
 	nodeData[2] = vel[2];
-	pInfo.inCell = interpolator->GetLastCellId();
+	pInfo.inCell = this->interpolatorAry[ this->getThreadID() ]->GetLastCellId();
 	return 1;
 }
  int VectorFieldVTK::at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue) {
@@ -186,4 +201,13 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_) {
 	printf("Not implemented\n");
 	assert(false);
 	return false;
+}
+
+int VectorFieldVTK::getThreadID()
+{
+#ifdef _OPENMP
+	return omp_get_thread_num();
+#else
+	return 0;
+#endif
 }

@@ -44,6 +44,11 @@ int main()
 	from[2]= bounds[4]; to[2] = bounds[5];
 	osuflow->SetRandomSeedPoints(from, to, 100);
 
+	// openmp
+#ifdef _OPENMP
+	osuflow->initOpenMP(8);
+#endif
+
 	// init results
 	list<vtListSeedTrace*> list;
 	osuflow->SetIntegrationParams(1, 5);

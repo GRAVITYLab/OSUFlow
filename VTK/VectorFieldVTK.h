@@ -11,8 +11,8 @@ class VectorFieldVTK : public CVectorField
 {
 protected:
 	vtkDataSet *sDataset;
-	vtkInterpolatedVelocityField* interpolator;
-
+	vector<vtkInterpolatedVelocityField*> interpolatorAry;
+	int getThreadID();
 public:
 	VectorFieldVTK(vtkDataSet *sDataset_) ;
 	virtual ~VectorFieldVTK () ;

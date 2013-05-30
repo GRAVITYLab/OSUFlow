@@ -63,9 +63,12 @@ int main(int argc, char **argv)
 	streamer = vtkOSUFlow::New();
 
 	// read data
-	OSUFlow *osuflow = streamer->getOSUFlow();
+	OSUFlowVTK *osuflow = streamer->getOSUFlow();
 	osuflow->LoadData(argv[1], true); //true: static dataset
 
+#ifdef _OPENMP
+	osuflow->initOpenMP(8);
+#endif
 
 	// dummy dataset for boundary
 	VECTOR3 minB, maxB;

@@ -19,6 +19,16 @@ set(BIL_DIR "/usr" CACHE PATH "The installed path of BIL")
 set(WITH_PNETCDF FALSE CACHE BOOL "Specify whether PNETCDF is used")
 set(PNETCDF_PATH "/usr" CACHE PATH "The installed path of PNETCDF")
 
+
+# ADD-BY-JIMMY 05/30/2013 - openmp support
+set (WITH_OPENMP 	OFF	CACHE BOOL "OpenMP support")
+if (WITH_OPENMP)
+    find_package ( OpenMP )        
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif () 
+
+
 if(NOT DEFINED WIN32 AND NOT DEFINED MAC_OSX_OMPI AND NOT DEFINED MAC_OSX_MPICH)
 	add_definitions(
 		-DLINUX

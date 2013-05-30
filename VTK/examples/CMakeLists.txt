@@ -7,7 +7,6 @@ project (VTK_examples)
 find_package(OpenGL)
 find_package(GLUT)
 
-
 # specify the path to the headers
 include_directories(
 	${OSUFLOWVTK_DIR}

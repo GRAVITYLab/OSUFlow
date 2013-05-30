@@ -34,7 +34,8 @@ list(APPEND SRC_FILES
 
 if( ${WITH_GRAPHICS} )
 list(APPEND SRC_FILES
-	glStreamlineSimple 
+	glStreamlineSimple
+	glStreamlineOpenMP 
 	# ADD-BY-LEETEN 01/06/2012-BEGIN
 	FileDraw
 	SerDraw

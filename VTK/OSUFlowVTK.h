@@ -16,11 +16,22 @@
 #include "OSUFlow.h"
 #include "VectorFieldVTK.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 
 class OSUFlowVTK: public OSUFlow
 {
 public:
+	// openmp support
+	inline void initOpenMP(int nproc) {
+#ifdef _OPENMP
+		omp_set_num_threads(nproc);
+		printf("Openmp max threads = %d\n", omp_get_max_threads());
+#endif
+	}
+
 	inline void setData(vtkDataSet* input)
 	{
 		double *bounds = input->GetBounds();
