@@ -2,9 +2,9 @@
 ARCH = LINUX
 
 # 2. Set your options here
-MPI = NO
+MPI = YES
 MPE = NO
-BIL = NO
+BIL = YES
 PNETCDF = NO
 HDF5 = NO
 ZOLTAN = NO
@@ -17,12 +17,12 @@ WARNINGS = NO
 HDF_INC = /usr/include
 ZOLTAN_INC = /usr/include
 NETCDF_INC = /usr/include
-BIL_INC =  # ADD-BY-LEETEN 12/22/2011
+BIL_INC = /home/jchen/project/osuflow/trunk/diy/src/bil-0.6.0/src/include # ADD-BY-LEETEN 12/22/2011
 MISC_INC = 
 
 HDF_LIB = /usr/lib
 ZOLTAN_LIB = /usr/lib
 NETCDF_LIB = /usr/lib
-BIL_LIB =  # ADD-BY-LEETEN 12/22/2011
+BIL_LIB = /home/jchen/project/osuflow/trunk/diy/src/bil-0.6.0/src/lib # ADD-BY-LEETEN 12/22/2011
 MISC_LIB = 
 
