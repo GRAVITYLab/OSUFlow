@@ -10,9 +10,10 @@
 class VectorFieldVTK : public CVectorField
 {
 protected:
-	vtkDataSet *sDataset;
+	vtkSmartPointer<vtkDataSet> sDataset;
 	vector<vtkInterpolatedVelocityField*> interpolatorAry;
 	int getThreadID();
+	float scaleFactor;
 public:
 	VectorFieldVTK(vtkDataSet *sDataset_) ;
 	virtual ~VectorFieldVTK () ;

@@ -10,7 +10,7 @@
 
 #include "FieldLine.h"
 
-#ifdef _OPENMP
+#ifdef WITH_OPENMP
 #include <omp.h>
 #endif
 
@@ -130,7 +130,7 @@ void vtCStreamLine::computeStreamLine(const void* userData,
 	if( !m_lSeedIds.empty() ) 
 		sIdIter = m_lSeedIds.begin();
 
-#ifdef _OPENMP
+#ifdef WITH_OPENMP
 	// serialize std::List
 	std::vector<vtParticleInfo*> seeds;
 	for (sIter = m_lSeeds.begin(); sIter != m_lSeeds.end(); ++sIter)
@@ -173,7 +173,7 @@ void vtCStreamLine::computeStreamLine(const void* userData,
 		}
 		if( !m_lSeedIds.empty() ) 
 			sIdIter++;
-#ifdef _OPENMP
+#ifdef WITH_OPENMP
 		} // omp for
 		#pragma omp critical
 		{

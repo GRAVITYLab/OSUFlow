@@ -7,7 +7,16 @@ project (OSUFlowVTK)
 find_package(VTK 6 REQUIRED)
 include (${VTK_USE_FILE})
 
+set(VTK_OVERRIDE_DIR	"" CACHE PATH VTK_DIR)
 set(OSUFLOWVTK_DIR	"${CMAKE_PROJECT_DIR}")
+
+if (${VTK_OVERRIDE_DIR} STREQUAL "")
+	include(${VTK_USE_FILE})
+else()
+	include_directories( ${VTK_OVERRIDE_DIR}/include )
+	link_directories ( ${VTK_OVERRIDE_DIR}/lib )	
+endif()
+
 
 # specify the path to the headers
 include_directories(

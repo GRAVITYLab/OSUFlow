@@ -80,6 +80,7 @@ ParFlow::ParFlow(Blocks *blocks,
   upperAngleAccuracy = 15.0;
   integrationOrder = RK45;
   useAdaptiveStepSize = true;
+  integrationDir = FORWARD_DIR;
 
   // performance stats
   n_block_stats = 5;
@@ -112,6 +113,7 @@ ParFlow::ParFlow(Lattice4D *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
+  integrationDir = FORWARD_DIR;
 
   // deleted TP 9/12/12  
 //   this->nbhds = NULL;
@@ -146,6 +148,7 @@ ParFlow::ParFlow(LatticeAMR *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
+  integrationDir = FORWARD_DIR;
 
   TotSeeds = 0;
   TotSteps = 0;
@@ -410,51 +413,54 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num,
 	  
     // perform the integration
     SetIntegrationParams(osuflow[block_num]);
-    osuflow[block_num]->GenStreamLines(temp_seeds, FORWARD_DIR, nseeds, pf, 
+    osuflow[block_num]->GenStreamLines(temp_seeds, this->integrationDir, nseeds, pf,
 				       list3); 
 
     // copy each 3D trace to a 4D trace and then to the streamline list
     // post end point of each trace to the send list
     int n = 0;
     for (trace_iter3 = list3.begin(); trace_iter3 != list3.end(); 
-	 trace_iter3++) {
+	 trace_iter3++)
+    {
 
-      TotSteps += (*trace_iter3)->size();
-      if (w != NULL)
-	*w += (*trace_iter3)->size(); // number of steps accrues to block weight
-      if (!(*trace_iter3)->size())
-	continue;
+    	TotSteps += (*trace_iter3)->size();
+    	if (w != NULL)
+    		*w += (*trace_iter3)->size(); // number of steps accrues to block weight
+    	if (!(*trace_iter3)->size())
+    		continue;
 
-      trace = new vtListTimeSeedTrace;
-      for (pt_iter3 = (*trace_iter3)->begin(); pt_iter3 != 
-	     (*trace_iter3)->end(); pt_iter3++) {
-	p3 = **pt_iter3;
-	p = new VECTOR4;
-	p->Set(p3[0], p3[1], p3[2], 0.0f);
-	trace->push_back(p);
-      }
+    	trace = new vtListTimeSeedTrace;
+    	for (pt_iter3 = (*trace_iter3)->begin(); pt_iter3 !=
+    			(*trace_iter3)->end(); pt_iter3++)
+    	{
+    		p3 = **pt_iter3;
+    		p = new VECTOR4;
+    		p->Set(p3[0], p3[1], p3[2], 0.0f);
+    		trace->push_back(p);
+    	}
 
-      // find the matching seed for the trace 
-      // (need the number of steps from the seed
-      p3 = **(*trace_iter3)->begin();
-      while (seeds[n].pt[0] != p3[0] || seeds[n].pt[1] != p3[1] ||
-	     seeds[n].pt[2] != p3[2])
-	n++;
+    	// find the matching seed for the trace
+    	// (need the number of steps from the seed
+    	p3 = **(*trace_iter3)->begin();
+    	while ((seeds[n].pt[0] != p3[0] ||
+    		  seeds[n].pt[1] != p3[1] ||
+    		  seeds[n].pt[2] != p3[2])
+    		  && n<nseeds ) // Jimmy modified: n stops when exceeding nseeds
+    	  	  n++;
+    	if (n == nseeds)
+  		  	 fprintf(stderr, "Error: cannot find a match between seeds and list. "
+  		  			 "This should not happen.\n");
 
-      if (n == nseeds)
-	fprintf(stderr, "Error: cannot find a match between seeds and list. "
-		"This should not happen.\n");
-
-      // enqueue last point in the trace
-      Item item;
-      item.pt[0] = (*p)[0];
-      item.pt[1] = (*p)[1];
-      item.pt[2] = (*p)[2];
-      item.pt[3] = (*p)[3];
-      item.steps = seeds[n].steps + (*trace_iter3)->size();
-      PostPoint(block_num, &item, 0, end_steps);
-      sl_list[block_num].push_back(trace); // for later rendering
-      n++;
+    	// enqueue last point in the trace
+    	Item item;
+    	item.pt[0] = (*p)[0];
+    	item.pt[1] = (*p)[1];
+    	item.pt[2] = (*p)[2];
+    	item.pt[3] = (*p)[3];
+    	item.steps = seeds[n].steps + (*trace_iter3)->size();
+    	PostPoint(block_num, &item, 0, end_steps);
+    	sl_list[block_num].push_back(trace); // for later rendering
+    	n++;
 
     }
 
@@ -821,7 +827,8 @@ void ParFlow::GatherPts(int *ntrace, int mynpt, int nblocks) {
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
-  assert((*pt = new VECTOR4[tot_npt]) != NULL);
+  *pt = new VECTOR4[tot_npt];
+  assert((*pt) != NULL);
   MPI_Gatherv(mypt, mynpt * 4, MPI_FLOAT, *pt, nflt, ofst,
 	      MPI_FLOAT, 0, MPI_COMM_WORLD);
 

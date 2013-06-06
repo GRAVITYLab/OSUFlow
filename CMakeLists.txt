@@ -26,6 +26,7 @@ if (WITH_OPENMP)
     find_package ( OpenMP )        
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    add_definitions( -DWITH_OPENMP )
 endif () 
 
 
@@ -116,6 +117,11 @@ if( WITH_MPI )
 	endif( )
 endif()
 # ADD-BY-LEETEN 08/17/2011-END
+
+#Jimmy: enable graphics when compiling OSUFlow src
+if( ${WITH_GRAPHICS} )
+	add_definitions(-DGRAPHICS)     
+endif() 
 
 # Recurse into the "src" subdirectory. This does not actually
 # cause another cmake executable to run. The same process will walk through

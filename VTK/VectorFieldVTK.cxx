@@ -3,22 +3,22 @@
 #include <vtkSmartPointer.h>
 #include <vtkInterpolatedVelocityField.h>
 #include <vtkCellType.h>
-
+#include <vtkStructuredGrid.h>
 
 #include <Field.h>
 #include "VectorFieldVTK.h"
 
-#ifdef _OPENMP
+#ifdef WITH_OPENMP
 #include <omp.h>
 #endif
 
 VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
-: sDataset(sDataset_)
+: scaleFactor(1)
 {
-
+	this->sDataset = sDataset_ ;
 	this->Reset();
 
-#ifdef _OPENMP
+#ifdef WITH_OPENMP
 	for (size_t i=0; i<omp_get_max_threads(); i++)
 	{
 		vtkInterpolatedVelocityField *interpolator = vtkInterpolatedVelocityField::New();
@@ -63,11 +63,13 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 	coords[2] = pos[2];
 	coords[3] = t;
 	double vel[3];
-	if ( ! this->interpolatorAry[ this->getThreadID() ]->FunctionValues(coords, vel) )
+	bool success = this->interpolatorAry[ this->getThreadID() ]->FunctionValues(coords, vel) ;
+	//printf("first querry success = %d, coord = %lf %lf %lf %lf,  vec = %lf %lf %lf\n", success, coords[0], coords[1], coords[2], coords[3], vel[0], vel[1], vel[2]);
+	if (!success)
 		return -1;
-	vecData[0] = vel[0];
-	vecData[1] = vel[1];
-	vecData[2] = vel[2];
+	vecData[0] = vel[0]*scaleFactor;
+	vecData[1] = vel[1]*scaleFactor;
+	vecData[2] = vel[2]*scaleFactor;
 	return 1;
 }
 // get vector
@@ -83,12 +85,14 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 	coords[2] = pos[2];
 	coords[3] = t;
 	success = this->interpolatorAry[ this->getThreadID() ]->FunctionValues(coords, vel);
+	//printf("querry success = %d, coord = %lf %lf %lf %lf,  vec = %lf %lf %lf\n", success, coords[0], coords[1], coords[2], coords[3], vel[0], vel[1], vel[2]);
 	if (!success) return -1;
 
-	nodeData[0] = vel[0];
-	nodeData[1] = vel[1];
-	nodeData[2] = vel[2];
+	nodeData[0] = vel[0]*scaleFactor;
+	nodeData[1] = vel[1]*scaleFactor;
+	nodeData[2] = vel[2]*scaleFactor;
 	pInfo.inCell = this->interpolatorAry[ this->getThreadID() ]->GetLastCellId();
+
 	return 1;
 }
  int VectorFieldVTK::at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue) {
@@ -109,8 +113,7 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 	assert(false);
 }
  void VectorFieldVTK::ScaleField(float scale) {
-	printf("Not implemented\n");
-	assert(false);
+	this->scaleFactor = scale;
 }
 
  bool VectorFieldVTK::IsNormalized(void) {
@@ -166,8 +169,21 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 	assert(false);
 }
  void VectorFieldVTK::Boundary(VECTOR3& minB, VECTOR3& maxB) {
-	printf("Not implemented\n");
-	assert(false);
+	vtkStructuredGrid *structuredGrid;
+
+	if ((structuredGrid = vtkStructuredGrid::SafeDownCast(sDataset)) != NULL) {
+		int *bounds = structuredGrid->GetExtent();
+		minB.Set(bounds[0], bounds[2], bounds[4]);
+		maxB.Set(bounds[1], bounds[3], bounds[5]);
+		printf("Structured Extent: %d %d %d %d %d %d\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
+
+	}
+	//else {
+		double *bounds = sDataset->GetBounds();
+		minB.Set(bounds[0], bounds[2], bounds[4]);
+		maxB.Set(bounds[1], bounds[3], bounds[5]);
+		printf("Bound: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
+	//	}
 }
  void VectorFieldVTK::SetBoundary(VECTOR3 minB, VECTOR3 maxB) {
 	printf("Not implemented\n");
@@ -192,10 +208,11 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 }
  bool VectorFieldVTK::IsInRealBoundaries(PointInfo& p)
 {
-	double *bounds = sDataset->GetBounds();
-	return (p.phyCoord[0] >= bounds[0] && p.phyCoord[0] <= bounds[1] &&
-			p.phyCoord[1] >= bounds[2] && p.phyCoord[1] <= bounds[3] &&
-			p.phyCoord[2] >= bounds[4] && p.phyCoord[2] <= bounds[5]);
+	VECTOR3 minB, maxB;
+	this->Boundary(minB, maxB);
+	return (p.phyCoord[0] >= minB[0] && p.phyCoord[0] <= maxB[0] &&
+		 p.phyCoord[1] >= minB[1] && p.phyCoord[1] <= maxB[1] &&
+		 p.phyCoord[2] >= minB[2] && p.phyCoord[2] <= maxB[2]);
 }
  bool VectorFieldVTK::IsInRealBoundaries(PointInfo& p, float time) {
 	printf("Not implemented\n");
@@ -205,7 +222,7 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 
 int VectorFieldVTK::getThreadID()
 {
-#ifdef _OPENMP
+#ifdef WITH_OPENMP
 	return omp_get_thread_num();
 #else
 	return 0;

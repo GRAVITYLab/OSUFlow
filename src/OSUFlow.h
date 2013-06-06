@@ -33,21 +33,21 @@ class OSUFlow
 
   ////////////////
   // data reader helper functions
-  void LoadData(const char* fname, bool bStatic, bool deferred = false);
-  void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
+  virtual void LoadData(const char* fname, bool bStatic, bool deferred = false);
+  virtual void LoadData(const char* fname, bool bStatic, VECTOR3 pMin,
 		VECTOR3 pMax, bool deferred = false);
-  void LoadData(const char* fname, bool bStatic, VECTOR3 pMin, 
+  virtual void LoadData(const char* fname, bool bStatic, VECTOR3 pMin,
 		VECTOR3 pMax, int min_t, int max_t, bool deferred = false);
-  void LoadData(const char* fname, bool bStatic, 
-		float *from, float *to, float *size, int bt_max, 
-		int t_min, int t_max);
-  void LoadData(const char* fname, float *sMin, float *sMax, 
+  //virtual void LoadData(const char* fname, bool bStatic,
+	//	float *from, float *to, float *size, int bt_max,
+	//	int t_min, int t_max);
+  virtual void LoadData(const char* fname, float *sMin, float *sMax,
 		float *dim, int min_t, int max_t, DataMode mode,
 		float **data = NULL);
-  void LoadData(char **dataset_files, int num_dataset_files, 
+  virtual void LoadData(char **dataset_files, int num_dataset_files,
 		float *sMin, float *sMax, float *dim, int min_t, int max_t, 
 		DataMode mode, float **data = NULL);
-  void LoadData(char **dataset_files, int num_dataset_files, 
+  virtual void LoadData(char **dataset_files, int num_dataset_files,
 		float *sMin, float *sMax, int* sRealMin, int* sRealMax,
 		float *dim, int min_t, int max_t, DataMode mode, 
 		float **data = NULL);
