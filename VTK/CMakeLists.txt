@@ -4,18 +4,31 @@
 cmake_minimum_required (VERSION 2.8)
 project (OSUFlowVTK) 
 
-find_package(VTK 6 REQUIRED)
-include (${VTK_USE_FILE})
+set(WITH_PARAVIEW_PLUGINS	OFF	CACHE	BOOL	"Use Paraview Package")
+#set(VTK_OVERRIDE_DIR    "" CACHE PATH "VTK DIR")
+set(OSUFLOWVTK_DIR      "${CMAKE_PROJECT_DIR}")
 
-set(VTK_OVERRIDE_DIR	"" CACHE PATH VTK_DIR)
-set(OSUFLOWVTK_DIR	"${CMAKE_PROJECT_DIR}")
+find_package(MPI REQUIRED)
+include_directories(${MPI_CXX_INCLUDE_PATH})
 
-if (${VTK_OVERRIDE_DIR} STREQUAL "")
-	include(${VTK_USE_FILE})
+
+
+if (${WITH_PARAVIEW_PLUGINS})
+	find_package(ParaView REQUIRED)
+	include (${PARAVIEW_USE_FILE})
+	# should enable argument -fPIC
 else()
-	include_directories( ${VTK_OVERRIDE_DIR}/include )
-	link_directories ( ${VTK_OVERRIDE_DIR}/lib )	
+	find_package(VTK 6 REQUIRED)
+	include (${VTK_USE_FILE})
 endif()
+
+
+#if (${VTK_OVERRIDE_DIR} STREQUAL "")
+#	include(${VTK_USE_FILE})
+#else()
+#	include_directories( ${VTK_OVERRIDE_DIR}/include )
+#	link_directories ( ${VTK_OVERRIDE_DIR}/lib )	
+#endif()
 
 
 # specify the path to the headers
@@ -34,9 +47,46 @@ list(APPEND SRC_FILES
 	VectorFieldVTK.cxx
 	OSUFlowVTK.cxx
 	)
+
+# setup link libraries
+message(STATUS "VTKLIBS: ${PARAVIEW_LIBRARIES}")
+list (APPEND LINK_LIBS
+	OSUFlowVTK 
+	${PARAVIEW_LIBRARIES}
+	${VTK_LIBRARIES}
+	OSUFlow
+	${MPI_C_LIBRARIES}
+	)
+if (WITH_GRAPHICS)
+        if(DEFINED WIN32)
+            list (APPEND LINK_LIBS
+                opengl32
+                glu32
+                glut32
+                )
+        else()
+            list (APPEND LINK_LIBS
+                GL
+                GLU
+                glut
+                )
+        endif()
+endif ()
+if (WITH_MPI)
+	list (APPEND LINK_LIBS
+		diy
+		bil
+		)
+endif ()
+if (WITH_PNETCDF)
+	list (APPEND LINK_LIBS
+		 pnetcdf 
+		)
+endif ()
+
 	
 # build the project as a library
-add_library(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
+add_library(${PROJECT_NAME} ${LIB_TYPE}  ${SRC_FILES} ${HEADER_FILES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES 
 	DEBUG_OUTPUT_NAME 	"${PROJECT_NAME}_d"
@@ -55,10 +105,13 @@ install(
 # examples
 add_subdirectory (examples)
 
+# plugins
+if (${WITH_PARAVIEW_PLUGINS})
+	add_subdirectory (plugins)
+endif()
+
 # tests
 if( ${WITH_GRAPHICS} )
-
 	add_executable( compareStreamline compareStreamline.cpp )
-        target_link_libraries ( compareStreamline OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut)
-
+        target_link_libraries ( compareStreamline ${LINK_LIBS})
 endif ()

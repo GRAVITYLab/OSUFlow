@@ -4,6 +4,10 @@
 #include <vtkInterpolatedVelocityField.h>
 #include <vtkCellType.h>
 #include <vtkStructuredGrid.h>
+#include <vtkOverlappingAMR.h>
+#include <vtkAMRInterpolatedVelocityField.h>
+#include <vtkCellLocatorInterpolatedVelocityField.h>
+#include <vtkImageData.h>
 
 #include <Field.h>
 #include "VectorFieldVTK.h"
@@ -20,21 +24,38 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 
 #ifdef WITH_OPENMP
 	for (size_t i=0; i<omp_get_max_threads(); i++)
-	{
-		vtkInterpolatedVelocityField *interpolator = vtkInterpolatedVelocityField::New();
-		interpolator->AddDataSet(sDataset);
-		this->interpolatorAry.push_back(interpolator);
-	}
+		this->push_interpolatorAry(sDataset_);
 #else
-	vtkInterpolatedVelocityField *interpolator = vtkInterpolatedVelocityField::New();
-	interpolator->AddDataSet(sDataset);
-	this->interpolatorAry.push_back(interpolator);
+	this->push_interpolatorAry(sDataset_);
 #endif
 }
  VectorFieldVTK::~VectorFieldVTK () {
 	for (size_t i=0; i < this->interpolatorAry.size(); i++)
 		this->interpolatorAry[i]->Delete();
 }
+void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
+{
+	vtkOverlappingAMR* amrData = vtkOverlappingAMR::SafeDownCast(data);
+	vtkAbstractInterpolatedVelocityField *interpolator;
+	if(amrData)
+	{
+		vtkAMRInterpolatedVelocityField *func = vtkAMRInterpolatedVelocityField::New();
+		func->SetAMRData(amrData);
+		interpolator = func;
+	}
+	else
+	{
+		vtkInterpolatedVelocityField *func = vtkInterpolatedVelocityField::New();
+		func->AddDataSet(data);
+		interpolator = func;
+		printf("Mesh Data\n");
+	}
+
+	this->interpolatorAry.push_back(interpolator);
+
+}
+
+//////////////////////////////////
  int VectorFieldVTK::lerp_phys_coord(int cellId, CellTopoType eCellTopoType, float* coeff, VECTOR3& pos) {
 	printf("lerp_phys_coord Not implemented\n");
 	assert(false);
@@ -171,18 +192,18 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
  void VectorFieldVTK::Boundary(VECTOR3& minB, VECTOR3& maxB) {
 	vtkStructuredGrid *structuredGrid;
 
-	if ((structuredGrid = vtkStructuredGrid::SafeDownCast(sDataset)) != NULL) {
+	/*if ((structuredGrid = vtkStructuredGrid::SafeDownCast(sDataset)) != NULL) {
 		int *bounds = structuredGrid->GetExtent();
 		minB.Set(bounds[0], bounds[2], bounds[4]);
 		maxB.Set(bounds[1], bounds[3], bounds[5]);
 		printf("Structured Extent: %d %d %d %d %d %d\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 
-	}
+	}*/
 	//else {
 		double *bounds = sDataset->GetBounds();
 		minB.Set(bounds[0], bounds[2], bounds[4]);
 		maxB.Set(bounds[1], bounds[3], bounds[5]);
-		printf("Bound: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
+		//printf("Bound: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 	//	}
 }
  void VectorFieldVTK::SetBoundary(VECTOR3 minB, VECTOR3 maxB) {

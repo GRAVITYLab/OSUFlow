@@ -16,8 +16,10 @@ link_directories (
 	${OSUFLOWVTK_DIR}
 )
 
+
+# all executables
 add_executable(StreamlineSimpleVTK StreamlineSimpleVTK.cpp)
-target_link_libraries ( StreamlineSimpleVTK OSUFlowVTK ${VTK_LIBRARIES} OSUFlow)
+target_link_libraries ( StreamlineSimpleVTK ${LINK_LIBS})
 
 add_executable(testVTS testVTS.cpp)
 target_link_libraries ( testVTS ${VTK_LIBRARIES} )
@@ -32,53 +34,30 @@ target_link_libraries ( vec2vti ${VTK_LIBRARIES} )
 if( ${WITH_GRAPHICS} )
 
 	add_executable(glStreamlineSimpleVTK glStreamlineSimpleVTK.cpp)
-	target_link_libraries ( glStreamlineSimpleVTK OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut)
+	target_link_libraries ( glStreamlineSimpleVTK ${LINK_LIBS})
 
 	# GCB related application
 	include_directories ( ${RENDERER_DIR} ${GCB_DIR} )
 	link_directories ( ${RENDERER_DIR} ${GCB_DIR} )
 
 	add_executable(gcbStreamlineVTK gcbStreamlineVTK.cpp)
-	target_link_libraries( gcbStreamlineVTK  OSUFlowVTK ${VTK_LIBRARIES} OSUFlow gcb renderer GL GLU glut  )
+	target_link_libraries( gcbStreamlineVTK  gcb renderer ${LINK_LIBS}  )
 
 	add_executable(StreamlineSimpleVTKPipeline StreamlineSimpleVTKPipeline.cpp)
-	target_link_libraries( StreamlineSimpleVTKPipeline OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
+	target_link_libraries( StreamlineSimpleVTKPipeline  ${LINK_LIBS} )
 
 	add_executable(StreamlineRenderVec StreamlineRenderVec.cpp)
-	target_link_libraries( StreamlineRenderVec OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
+	target_link_libraries( StreamlineRenderVec  ${LINK_LIBS} )
 
 	add_executable(StreamlineRenderPlot3D StreamlineRenderPlot3D.cpp)
-	target_link_libraries( StreamlineRenderPlot3D OSUFlowVTK ${VTK_LIBRARIES} OSUFlow GL GLU glut )
+	target_link_libraries( StreamlineRenderPlot3D  ${LINK_LIBS})
 
 endif( ${WITH_GRAPHICS} )
 
 ### MPI Examples ###
 if ( WITH_MPI )
 	add_executable(MpiDrawVTK MpiDrawVTK.C)
-	target_link_libraries ( MpiDrawVTK OSUFlowVTK ${VTK_LIBRARIES} OSUFlow 
-				 diy bil )
-
-	if (WITH_PNETCDF)
-		target_link_libraries( MpiDrawVTK pnetcdf )
-	endif ()
-
-	if (WITH_GRAPHICS)
-		target_link_libraries( MpiDrawVTK renderer gcb )
-		
-		if(DEFINED WIN32)
-		    target_link_libraries(MpiDrawVTK
-		        opengl32
-		        glu32
-		        glut32
-		        )
-		else()
-		      target_link_libraries(MpiDrawVTK
-		        GL
-		        GLU
-		        glut
-		        )
-		endif()
-	endif ()
+	target_link_libraries ( MpiDrawVTK renderer gcb ${LINK_LIBS} )
 endif (WITH_MPI)
 
 
@@ -88,3 +67,4 @@ endif (WITH_MPI)
 ###
 file (COPY	${CMAKE_CURRENT_SOURCE_DIR}/README.txt
 	DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
+

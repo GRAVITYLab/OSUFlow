@@ -41,7 +41,24 @@ public:
 
 	virtual int FillInputPortInformation(int port, vtkInformation *info);
 
+	void SetIntegratorOrder(int type);
+	int GetIntegratorOrder();
+
+	vtkSetClampMacro(MinimumIntegrationStep,double,0.0000001,VTK_DOUBLE_MAX);
+	vtkGetMacro(MinimumIntegrationStep,double);
+
+	vtkSetClampMacro(MaximumIntegrationStep,double,0.0000001,VTK_DOUBLE_MAX);
+	vtkGetMacro(MaximumIntegrationStep,double);
+
+	vtkSetMacro(MaximumError, double);
+	vtkGetMacro(MaximumError, double);
 protected:
+	double MinimumIntegrationStep;
+	double MaximumIntegrationStep;
+	double MaximumError;
+
+	enum INTEG_ORD integratorOrder;
+
 	vtkOSUFlow();
 	~vtkOSUFlow() ;
 

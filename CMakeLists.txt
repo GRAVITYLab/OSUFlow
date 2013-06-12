@@ -11,7 +11,7 @@ project (osuflow)
 
 # ADD-BY-LEETEN 08/17/2011-BEGIN
 set(WITH_MPI FALSE CACHE BOOL "Specify whether MPI is used")
-set(DIY_DIR "/usr" CACHE PATH "The installed path of DIY")
+set(DIY_DIR "/usr/local/diy" CACHE PATH "The installed path of DIY")
 
 set(WITH_BIL	FALSE CACHE BOOL "Specify whether BIL is used.")	# ADD-BY-LEETEN 12/17/2011
 set(BIL_DIR "/usr" CACHE PATH "The installed path of BIL")
@@ -60,6 +60,16 @@ set(OSUFLOW_INC		"${OSUFLOW_DIR}/include")
 # MOD-BY-LEETEN 09/01/2011-END
 set(RENDERER_DIR	"${OSUFLOW_DIR}/renderer" 	)
 set(GCB_DIR 		"${RENDERER_DIR}/libgcb" 	)
+
+# ADDED-BY-JIMMY 6/10/2013-BEGIN : SHARED OSUFLOW
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build into shared libraries (for Paraview plugin)")
+if (${BUILD_SHARED_LIBS})
+	set(LIB_TYPE SHARED)
+else ()
+	set(LIB_TYPE STATIC)
+endif ()
+# ADDED-BY-JIMMY 6/10/2013-END : SHARED OSUFLOW
+
 
 include_directories(
 	# ADD-BY-LEETEN 09/01/2011-BEGIN

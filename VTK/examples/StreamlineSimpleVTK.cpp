@@ -93,30 +93,22 @@ vtkSmartPointer<vtkDataSet> getData_vts()
 vtkSmartPointer<vtkDataSet> getData_vti()
 {
 	vtkXMLImageDataReader *reader = vtkXMLImageDataReader::New();
-//	reader->SetFileName("/home/jchen/flow/isabel/20.vti"); //TODO
-	reader->SetFileName("output.vti"); //TODO
-
-#if 0
-	int extent[6];
-	extent[0] = sMin[0]; extent[1] = sMax[0];
-	extent[2] = sMin[1]; extent[3] = sMax[1];
-	extent[4] = sMin[2]; extent[5] = sMax[2];
-	printf("Set Extent: %d %d %d %d %d %d\n", extent[0], extent[1], extent[2], extent[3], extent[4], extent[5]);
-	reader->SetUpdateExtent(0, extent);
-#endif
-	//reader->UpdateInformation();
+//	reader->SetFileName("/home/jchen/flow/isabel/1.vti"); //TODO
+	reader->SetFileName("/home/jchen/flow/tornado/1.vti"); //TODO
+	reader->UpdateInformation();
 	reader->Update();
-
-	//reader->PrintSelf(std::cout, vtkIndent(2));
 
 	int *ext = reader->GetOutput()->GetExtent();
 	printf("Extent: %d %d %d %d %d %d\n", ext[0], ext[1], ext[2], ext[3], ext[4], ext[5]);
 
-	vtkSmartPointer<vtkDataSet> data = vtkDataSet::SafeDownCast( reader->GetOutput() );
+	vtkSmartPointer<vtkImageData > data = reader->GetOutput() ;
 
 	printf("File read\n");
 	// show content
 	data->PrintSelf(std::cout, vtkIndent(2));
+	// debug
+	printf("pointer: %p\n", data->GetScalarPointer());
+
 
 	reader->Delete();
 
@@ -125,11 +117,13 @@ vtkSmartPointer<vtkDataSet> getData_vti()
 	return data;
 }
 
+
+
 int main()
 {
 	//vtkSmartPointer<vtkDataSet> data = getData_plot3d();
-	vtkSmartPointer<vtkDataSet> data = getData_vts();
-	//vtkSmartPointer<vtkDataSet> data = getData_vti(); // NOT WORKING : image and polydata are interpolated differently
+	//vtkSmartPointer<vtkDataSet> data = getData_vts();
+	vtkSmartPointer<vtkDataSet> data = getData_vti(); // NOT WORKING : image and polydata are interpolated differently
 
 
 	OSUFlowVTK *osuflow = new OSUFlowVTK;

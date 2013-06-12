@@ -58,7 +58,7 @@ void compute_streamlines()
   to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
 
   printf("generating seeds...\n"); 
-  osuflow->SetRandomSeedPoints(from, to, 5000);
+  osuflow->SetRandomSeedPoints(from, to, 500);
   int nSeeds; 
   VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
   for (int i=0; i<nSeeds; i++) 

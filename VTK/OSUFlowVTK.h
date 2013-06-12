@@ -40,7 +40,40 @@ public:
 
 	inline void setData(vtkDataSet* input)
 	{
-		this->flowField = new VectorFieldVTK(input);
+		vtkImageData *imageData = vtkImageData::SafeDownCast(input);
+		if (NULL == imageData) {
+			this->flowField = new VectorFieldVTK(input);
+
+		} else
+		{
+			// this is a RAW data format.  Use OSUFlow's CFlowField interpolator
+			int numPoints = imageData->GetNumberOfPoints();
+
+			// copy data
+			float *pData = new float[numPoints*3];
+			assert(pData);
+			memcpy(pData, imageData->GetScalarPointer(), numPoints*12);
+
+			// get info
+			float sMin[3], sMax[3], dim[3];
+			int sRealMin[3], sRealMax[3];
+			int *bound = imageData->GetExtent();
+
+			sMin[0] = bound[0]; sMax[0] = bound[1];
+			sMin[1] = bound[2]; sMax[1] = bound[3];
+			sMin[2] = bound[4]; sMax[2] = bound[5];
+			sRealMin[0] = sMin[0]; sRealMax[0] = sMax[0];
+			sRealMin[1] = sMin[1]; sRealMax[1] = sMax[1];
+			sRealMin[2] = sMin[2]; sRealMax[2] = sMax[2];
+			dim[0] = sRealMax[0]-sRealMin[0]+1;
+			dim[1] = sRealMax[1]-sRealMin[1]+1;
+			dim[2] = sRealMax[2]-sRealMin[2]+1;
+			int t_min =0;
+			int t_max = 0;
+
+			this->InitFlowField(sMin, sMax, sRealMin, sRealMax, dim, t_min, t_max, RAW, &pData);
+
+		}
 
 		// entire data, static
 		this->flowField->Boundary(gMin, gMax);
@@ -83,6 +116,9 @@ public:
 			       float *dim, int min_t, int max_t, DataMode mode,
 			       float **data = NULL)
 	{
+		if (has_data)
+			this->DeleteData();
+
 		// currently: load in VTI data format
 		printf("sMin: %f %f %f\n", sMin[0], sMin[1], sMin[2]);
 		printf("sMax: %f %f %f\n", sMax[0], sMax[1], sMax[2]);

@@ -66,8 +66,15 @@ foreach(SAMPLE_NAME
 		OSUFlow
 		# DEL-BY-LEETEN 10/22/2012: renderer
 		gcb
-	) 
-      # ADD-BY-JIMMY 5/10/2013-BEGIN
+	)
+
+        # ADDED-BY-JIMMY 6/10/2013 : SHARED OSUFLOW
+	if (WITH_MPI)
+		target_link_libraries(${SAMPLE_NAME} diy)
+	endif ()
+			
+ 
+	# ADD-BY-JIMMY 5/10/2013-BEGIN
         if(DEFINED WIN32)
                 target_link_libraries(${SAMPLE_NAME} 
                         opengl32

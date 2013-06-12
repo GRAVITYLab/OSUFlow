@@ -84,7 +84,7 @@ list(APPEND SRC_FILES
 # DEL-BY-LEETEN 01/06/2012-END
 
 # build the project as a library
-add_library(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
+add_library(${PROJECT_NAME} ${LIB_TYPE} ${SRC_FILES} ${HEADER_FILES})
 
 # ADD-BY-LEETEN 09/01/2011-BEGIN
 set_target_properties(${PROJECT_NAME} PROPERTIES 

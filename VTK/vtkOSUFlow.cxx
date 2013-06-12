@@ -1,3 +1,5 @@
+// code reference: vtkStreamLine.cxx
+
 #include "vtkOSUFlow.h"
 #include "OSUFlowVTK.h"
 #include "vtkCellArray.h"
@@ -12,6 +14,7 @@ vtkStandardNewMacro(vtkOSUFlow);
 vtkOSUFlow::vtkOSUFlow()
 {
 	osuflow = new OSUFlowVTK();
+	this->SetMaximumPropagationTime(500);
 }
 
 vtkOSUFlow::~vtkOSUFlow()
@@ -106,8 +109,9 @@ int vtkOSUFlow::RequestData(
 	default: dir = BACKWARD_AND_FORWARD; break;
 	};
 	list<vtListSeedTrace*> list;
-	osuflow->SetIntegrationParams(this->IntegrationStepLength, this->IntegrationStepLength);
-	osuflow->GenStreamLines(list , dir, this->GetMaximumPropagationTime(), 0); // default: RK45
+	osuflow->SetMaxError(this->MaximumError);
+	osuflow->SetIntegrationParams(this->IntegrationStepLength, this->MinimumIntegrationStep, this->MaximumIntegrationStep);
+	osuflow->GenStreamLines(list , dir, this->MaximumPropagationTime, 0); // default: RK45
 
 	delete[] pSeed;
 
@@ -116,14 +120,14 @@ int vtkOSUFlow::RequestData(
 	//
 	newLines = vtkCellArray::New();
 	newPts = vtkPoints::New();
+	pts = vtkIdList::New();
 
+#if 1
 	std::list<vtListSeedTrace*>::iterator pIter;
 	pIter = list.begin();
 	for (; pIter!=list.end(); pIter++) {
 		vtListSeedTrace *trace = *pIter;
 		std::list<VECTOR3*>::iterator pnIter;
-
-		vtkLine *line = vtkLine::New();
 
 		for (pnIter = trace->begin(); pnIter!=trace->end(); pnIter++) {
 			VECTOR3 &p = **pnIter;
@@ -131,18 +135,35 @@ int vtkOSUFlow::RequestData(
 
 			//vtk
 			ptId = newPts->InsertNextPoint((float *)&p[0]);
-			line->GetPointIds()->InsertNextId(ptId);
+			pts->InsertNextId(ptId);
 
 			// clear up
 			delete *pnIter;
 		}
-		newLines->InsertNextCell(line);
-		line->Delete();
+		newLines->InsertNextCell(pts);
+		pts->Reset();
 		//printf("\n");
 
 		// clear up
 		delete trace;
 	}
+#else
+	// test
+	for (int j=0; j<3; j++)
+	{
+		for (int i=0; i<100; i++)
+		{
+			float p[3];
+			p[0]=p[1]=p[2]=i;
+			p[0]+=j*2;
+			ptId = newPts->InsertNextPoint(p);
+			//line->GetPointIds()->InsertNextId(ptId);
+			pts->InsertNextId(ptId);
+		}
+		newLines->InsertNextCell(pts);
+		pts->Reset();
+	}
+#endif
 
 	//
 	// assign lines to output
@@ -151,17 +172,21 @@ int vtkOSUFlow::RequestData(
 	{
 		output->SetPoints(newPts);
 		newPts->Delete();
-		printf("points=%d\n", output->GetPoints()->GetNumberOfPoints());
+		printf("points=%lld\n", output->GetPoints()->GetNumberOfPoints());
 		output->SetLines(newLines);
 		newLines->Delete();
 	}
-	//output->Squeeze();  // need it?
+	output->Squeeze();  // need it?
 	printf("Done\n");
 
 	return 1; // success
 }
 
-// code reference: vtkStreamLine.cxx
+
+
+void vtkOSUFlow::SetIntegratorOrder(int order) {	this->integratorOrder = (INTEG_ORD)order; osuflow->SetIntegrationOrder((INTEG_ORD)order); }
+int vtkOSUFlow::GetIntegratorOrder() { return (int)this->integratorOrder; }
+
 
 
 void vtkOSUFlow::PrintSelf(ostream& os, vtkIndent indent)
@@ -169,3 +194,4 @@ void vtkOSUFlow::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os,indent);
 
 }
+

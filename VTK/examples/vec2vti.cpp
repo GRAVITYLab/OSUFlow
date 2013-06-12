@@ -65,6 +65,6 @@ int main ( int argc, char *argv[] )
 
 	fclose(fp);
 
-  printf("Done\n");
+  printf("Done.  Output: output.vti\n");
   return EXIT_SUCCESS;
 }
