@@ -5,7 +5,6 @@ cmake_minimum_required (VERSION 2.8)
 project (OSUFlowVTK) 
 
 set(WITH_PARAVIEW_PLUGINS	OFF	CACHE	BOOL	"Use Paraview Package")
-#set(VTK_OVERRIDE_DIR    "" CACHE PATH "VTK DIR")
 set(OSUFLOWVTK_DIR      "${CMAKE_PROJECT_DIR}")
 
 find_package(MPI REQUIRED)
@@ -16,19 +15,14 @@ include_directories(${MPI_CXX_INCLUDE_PATH})
 if (${WITH_PARAVIEW_PLUGINS})
 	find_package(ParaView REQUIRED)
 	include (${PARAVIEW_USE_FILE})
+	include (ParaViewBranding)
+	include (ParaViewPlugins)
 	# should enable argument -fPIC
+
 else()
-	find_package(VTK 6 REQUIRED)
+	find_package(VTK REQUIRED)
 	include (${VTK_USE_FILE})
 endif()
-
-
-#if (${VTK_OVERRIDE_DIR} STREQUAL "")
-#	include(${VTK_USE_FILE})
-#else()
-#	include_directories( ${VTK_OVERRIDE_DIR}/include )
-#	link_directories ( ${VTK_OVERRIDE_DIR}/lib )	
-#endif()
 
 
 # specify the path to the headers
@@ -43,13 +37,35 @@ include_directories(
 file(GLOB HEADER_FILES "*.h" )
 
 list(APPEND SRC_FILES
-	vtkOSUFlow.cxx
 	VectorFieldVTK.cxx
 	OSUFlowVTK.cxx
+	vtkPOSUFlow.cxx
+	vtkOSUFlow.cxx
 	)
 
+# build the project as a library
+add_library(${PROJECT_NAME} ${LIB_TYPE}  ${SRC_FILES} ${HEADER_FILES})
+
+set_target_properties(${PROJECT_NAME} PROPERTIES 
+        DEBUG_OUTPUT_NAME       "${PROJECT_NAME}_d"
+        RELEASE_OUTPUT_NAME "${PROJECT_NAME}"
+        )
+
+install(
+        FILES ${HEADER_FILES}
+        DESTINATION include/VTK)
+
+install(
+        TARGETS ${PROJECT_NAME}
+        DESTINATION lib)
+
+
+#########################################################
+# setup for dependent codes:
+#########################################################
+
 # setup link libraries
-message(STATUS "VTKLIBS: ${PARAVIEW_LIBRARIES}")
+#message(STATUS "VTKLIBS: ${PARAVIEW_LIBRARIES}")
 list (APPEND LINK_LIBS
 	OSUFlowVTK 
 	${PARAVIEW_LIBRARIES}
@@ -58,49 +74,29 @@ list (APPEND LINK_LIBS
 	${MPI_C_LIBRARIES}
 	)
 if (WITH_GRAPHICS)
+	include_directories ( 
+		${OSUFLOW_DIR}/renderer 
+		${OSUFLOW_DIR}/renderer/libgcb
+	)
+	list (APPEND LINK_LIBS
+		renderer
+		gcb
+	)
         if(DEFINED WIN32)
-            list (APPEND LINK_LIBS
-                opengl32
-                glu32
-                glut32
-                )
+            list (APPEND LINK_LIBS opengl32 glu32 glut32 )
         else()
-            list (APPEND LINK_LIBS
-                GL
-                GLU
-                glut
-                )
+            list (APPEND LINK_LIBS GL GLU glut  )
         endif()
 endif ()
+
 if (WITH_MPI)
-	list (APPEND LINK_LIBS
-		diy
-		bil
-		)
+	list (APPEND LINK_LIBS diy bil)
 endif ()
 if (WITH_PNETCDF)
-	list (APPEND LINK_LIBS
-		 pnetcdf 
-		)
+	list (APPEND LINK_LIBS  pnetcdf )
 endif ()
 
 	
-# build the project as a library
-add_library(${PROJECT_NAME} ${LIB_TYPE}  ${SRC_FILES} ${HEADER_FILES})
-
-set_target_properties(${PROJECT_NAME} PROPERTIES 
-	DEBUG_OUTPUT_NAME 	"${PROJECT_NAME}_d"
-	RELEASE_OUTPUT_NAME "${PROJECT_NAME}"
-	)
-
-install(
-	FILES ${HEADER_FILES}
-	DESTINATION include/VTK)
-	
-install(
-	TARGETS ${PROJECT_NAME}
-	DESTINATION lib)
-
 
 # examples
 add_subdirectory (examples)
@@ -114,4 +110,8 @@ endif()
 if( ${WITH_GRAPHICS} )
 	add_executable( compareStreamline compareStreamline.cpp )
         target_link_libraries ( compareStreamline ${LINK_LIBS})
+endif ()
+if ( ${WITH_MPI} )
+	add_executable( testMPI testMPI.cpp )
+	target_link_libraries ( testMPI ${LINK_LIBS} )
 endif ()

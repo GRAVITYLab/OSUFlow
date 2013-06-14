@@ -16,55 +16,41 @@ link_directories (
 	${OSUFLOWVTK_DIR}
 )
 
-
-# all executables
-add_executable(StreamlineSimpleVTK StreamlineSimpleVTK.cpp)
-target_link_libraries ( StreamlineSimpleVTK ${LINK_LIBS})
-
-add_executable(testVTS testVTS.cpp)
-target_link_libraries ( testVTS ${VTK_LIBRARIES} )
-
-add_executable(vec2vts vec2vts.cpp )
-target_link_libraries ( vec2vts ${VTK_LIBRARIES} )
-
-add_executable(vec2vti vec2vti.cpp )
-target_link_libraries ( vec2vti ${VTK_LIBRARIES} )
-
-
+# List all simple targets
+LIST(APPEND SIMPLE_TARGETS
+	StreamlineSimpleVTK
+	testVTS
+	vec2vts
+	vec2vti
+)
 if( ${WITH_GRAPHICS} )
-
-	add_executable(glStreamlineSimpleVTK glStreamlineSimpleVTK.cpp)
-	target_link_libraries ( glStreamlineSimpleVTK ${LINK_LIBS})
-
-	# GCB related application
-	include_directories ( ${RENDERER_DIR} ${GCB_DIR} )
-	link_directories ( ${RENDERER_DIR} ${GCB_DIR} )
-
-	add_executable(gcbStreamlineVTK gcbStreamlineVTK.cpp)
-	target_link_libraries( gcbStreamlineVTK  gcb renderer ${LINK_LIBS}  )
-
-	add_executable(StreamlineSimpleVTKPipeline StreamlineSimpleVTKPipeline.cpp)
-	target_link_libraries( StreamlineSimpleVTKPipeline  ${LINK_LIBS} )
-
-	add_executable(StreamlineRenderVec StreamlineRenderVec.cpp)
-	target_link_libraries( StreamlineRenderVec  ${LINK_LIBS} )
-
-	add_executable(StreamlineRenderPlot3D StreamlineRenderPlot3D.cpp)
-	target_link_libraries( StreamlineRenderPlot3D  ${LINK_LIBS})
-
-endif( ${WITH_GRAPHICS} )
-
-### MPI Examples ###
-if ( WITH_MPI )
-	add_executable(MpiDrawVTK MpiDrawVTK.C)
-	target_link_libraries ( MpiDrawVTK renderer gcb ${LINK_LIBS} )
-endif (WITH_MPI)
+        LIST (APPEND SIMPLE_TARGETS
+                glStreamlineSimpleVTK
+                gcbStreamlineVTK
+                StreamlineSimpleVTKPipeline
+                StreamlineRenderVec
+                StreamlineRenderPlot3D
+        )
+endif ()
+if ( ${WITH_MPI} )
+	LIST (APPEND SIMPLE_TARGETS
+        	MpiDrawVTK
+	        StreamlineSimpleVTKPipelineMPI
+	)
+	# MPI Script
+        file (COPY      ${CMAKE_CURRENT_SOURCE_DIR}/MPI_TEST
+                DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
+endif ()
 
 
+# all targets
+foreach(TARGET ${SIMPLE_TARGETS} )
+	add_executable (${TARGET} ${TARGET}.cpp)
+	target_link_libraries (${TARGET} ${LINK_LIBS})
+endforeach(TARGET)
 
 
-
-###
+### README
 file (COPY	${CMAKE_CURRENT_SOURCE_DIR}/README.txt
 	DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 

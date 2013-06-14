@@ -3,9 +3,8 @@ cmake_minimum_required(VERSION 2.8)
 # The followings are pre-defined in the upper folder
 #FIND_PACKAGE(ParaView REQUIRED)
 #INCLUDE(${PARAVIEW_USE_FILE})
-
-include ( ParaViewBranding )
-include ( ParaViewPlugins )
+#include ( ParaViewBranding )
+#include ( ParaViewPlugins )
 
 #add_subdirectory ( GenStreamlines )
 SET(PLUGIN_NAME OSUFlowVTKPlugins)
@@ -15,6 +14,7 @@ SET(SM_XML GenStreamlines/GenStreamlines.xml )
 
 SET(SM_SRC
   ../vtkOSUFlow.cxx
+  ../vtkPOSUFlow.cxx
   )
 
 ADD_PARAVIEW_PLUGIN(${PLUGIN_NAME} ${PLUGIN_VERSION}

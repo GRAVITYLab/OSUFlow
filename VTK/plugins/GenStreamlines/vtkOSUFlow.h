@@ -20,29 +20,29 @@ class vtkDataSet;
 class vtkOSUFlow: public vtkStreamer   //vtkPolyDataAlgorithm
 {
 	vtkTypeMacro(vtkOSUFlow,vtkStreamer);
-	OSUFlowVTK *osuflow;
 
 public:
-
-	void PrintSelf(ostream& os, vtkIndent indent);
-
-	// Description:
-	// Construct object with step size set to 1.0.
 	static vtkOSUFlow *New();
 
-
+	// Description
+	// Use OSUFlow's seeding function
 	inline void SetRandomSeedPoints(float bMin[3], float bMax[3], int num_seeds) {
-		this->SetNumberOfInputPorts(0);
 		osuflow->SetRandomSeedPoints(bMin, bMax, num_seeds);
 	}
 
-	// compatibility
 	inline OSUFlowVTK *getOSUFlow() { return osuflow; }
 
+	// Description
+	// Tells VTK pipeline that both input ports are optional (Data can be assigned to OSUFlowVTK in advance)
+	// The number of ports (2) are assigned in the super class vtkStreamer
 	virtual int FillInputPortInformation(int port, vtkInformation *info);
 
-	void SetIntegratorOrder(int type);
-	int GetIntegratorOrder();
+	void PrintSelf(ostream& os, vtkIndent indent);
+
+
+	// Set/get variables
+	vtkSetMacro(IntegratorOrder, int);
+	vtkGetMacro(IntegratorOrder, int);
 
 	vtkSetClampMacro(MinimumIntegrationStep,double,0.0000001,VTK_DOUBLE_MAX);
 	vtkGetMacro(MinimumIntegrationStep,double);
@@ -52,16 +52,31 @@ public:
 
 	vtkSetMacro(MaximumError, double);
 	vtkGetMacro(MaximumError, double);
+
+	vtkSetMacro(MaximumNumberOfSteps, vtkIdType);
+	vtkGetMacro(MaximumNumberOfSteps, vtkIdType);
+
 protected:
+	OSUFlowVTK *osuflow;
 	double MinimumIntegrationStep;
 	double MaximumIntegrationStep;
+
+	// Description
+	// Used in RK45
 	double MaximumError;
 
-	enum INTEG_ORD integratorOrder;
+	// Description
+	// Specify the maximum number of steps for integrating a streamline.
+	int MaximumNumberOfSteps;
+
+	// Description
+	// RK2, RK4, RK45 (INTEG_ORD)
+	int IntegratorOrder;
 
 	vtkOSUFlow();
 	~vtkOSUFlow() ;
 
+	// Description
 	// Convert streamer array into vtkPolyData
 	virtual int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
 
