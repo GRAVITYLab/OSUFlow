@@ -4,18 +4,14 @@
 #include <assert.h>
 
 #include <vtkStreamer.h>
-#include <vtkPolyDataAlgorithm.h>
-#include <vtkDataSet.h>
 #include <vtkSmartPointer.h>
-#include <vtkInterpolatedVelocityField.h>
-#include <vtkCellType.h>
-#include <vtkInformationVector.h>
 
 #include <OSUFlowVTK.h>
 #include <Field.h>
 
-
 class vtkDataSet;
+class vtcInformationVector;
+class vtkInformation;
 
 class vtkOSUFlow: public vtkStreamer   //vtkPolyDataAlgorithm
 {

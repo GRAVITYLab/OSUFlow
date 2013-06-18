@@ -1,19 +1,16 @@
 #ifndef VTK_P_OSUFLOW
 #define VTK_P_OSUFLOW
 
-#include <assert.h>
-
-#include <vtkStreamer.h>
-#include <vtkPolyDataAlgorithm.h>
-#include <vtkDataSet.h>
+#include <vector>
 #include <vtkSmartPointer.h>
-#include <vtkInterpolatedVelocityField.h>
-#include <vtkCellType.h>
-#include <vtkInformationVector.h>
-#include <vtkInformation.h>
 
+#include "diy.h"
 #include "vtkOSUFlow.h"
 
+
+class vtkInformation;
+class vtkInformationVector;
+class vtkTableExtentTranslator;
 
 class vtkPOSUFlow: public vtkOSUFlow //vtkPolyDataAlgorithm
 {
@@ -25,7 +22,6 @@ public:
 	void PrintSelf(ostream& os, vtkIndent indent);
 
 protected:
-
 	vtkPOSUFlow();
 	~vtkPOSUFlow() ;
 
@@ -33,8 +29,12 @@ protected:
 	virtual int RequestInformation(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
 	virtual int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
 
+	vtkTableExtentTranslator *extentTable;
+	void getNeighborIds(std::vector<gb_t> &neighborIdAry, vtkExtentTranslator *translator, int rank);
+	void initExtentTable(vtkExtentTranslator *translator);
 
 private:
+
 	// Not implemented:
 	//vtkPOSUFlow(const vtkPOSUFlow&);
 	//void operator=(const vtkPOSUFlow&);

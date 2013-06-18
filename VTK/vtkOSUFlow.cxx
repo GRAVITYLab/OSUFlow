@@ -1,86 +1,44 @@
 // code reference: vtkStreamLine.cxx
 
-#include "vtkPOSUFlow.h"
+#include "vtkOSUFlow.h"
 #include "OSUFlowVTK.h"
 #include "vtkCellArray.h"
 #include "vtkLine.h"
 #include "vtkInformation.h"
 #include "vtkObjectFactory.h"
 #include "vtkTimerLog.h"
-#include "vtkMultiProcessController.h"
-#include "vtkStreamingDemandDrivenPipeline.h"
+#include "vtkInformationVector.h"
 
-// Defines static vtkPOSUFlow::New() here
-vtkStandardNewMacro(vtkPOSUFlow);
+// Defines static vtkOSUFlow::New() here
+vtkStandardNewMacro(vtkOSUFlow);
 
-
-
-#if 0
-vtkPOSUFlow* vtkPOSUFlow::New()
+vtkOSUFlow::vtkOSUFlow()
+: IntegratorOrder((int)RK45)
+, MaximumIntegrationStep(0.2)
+, MinimumIntegrationStep(0.001)
+, MaximumError(1e-6)
+, MaximumNumberOfSteps(1000)
 {
-	printf("!!New!!\n");
-	VTK_STANDARD_NEW_BODY(vtkPOSUFlow)
-}
-vtkInstantiatorNewMacro(vtkPOSUFlow)
-#endif
-
-
-vtkPOSUFlow::vtkPOSUFlow()
-{
+	osuflow = new OSUFlowVTK();
 }
 
-vtkPOSUFlow::~vtkPOSUFlow()
+vtkOSUFlow::~vtkOSUFlow()
 {
+	delete osuflow;
 }
 
-
-int vtkPOSUFlow::RequestUpdateExtent(
-  vtkInformation *vtkNotUsed(request),
-  vtkInformationVector **inputVector,
-  vtkInformationVector *outputVector)
+// Description
+// Tells VTK pipeline that both input ports are optional (Data can be assigned to OSUFlowVTK in advance)
+// The number of ports (2) are assigned in the super class vtkStreamer
+int vtkOSUFlow::FillInputPortInformation(int port, vtkInformation *info)
 {
-  vtkInformation *outInfo = outputVector->GetInformationObject(0);
-  int piece =      outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER());
-  int numPieces =  outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES());
-  int ghostLevel = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS());
-  printf("Piece=%d, numPieces=%d, ghostLevel=%d\n", piece, numPieces, ghostLevel);
-
-  int numInputs = this->GetNumberOfInputConnections(0);
-  for (int idx = 0; idx < numInputs; ++idx)
-    {
-    vtkInformation *info = inputVector[0]->GetInformationObject(idx);
-    if (info)
-      {
-      info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(),           piece);
-      info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(),       numPieces);
-      info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), ghostLevel);
-      }
-    }
-
-  vtkInformation *sourceInfo = inputVector[1]->GetInformationObject(0);
-  if (sourceInfo)
-    {
-    sourceInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(),           1);
-    sourceInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(),       0);
-    sourceInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), ghostLevel);
-    }
-
+  info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
+  info->Set(vtkAlgorithm::INPUT_IS_OPTIONAL(), 1);
   return 1;
 }
 
 
-int vtkPOSUFlow::RequestInformation(
-  vtkInformation *vtkNotUsed(request),
-  vtkInformationVector **vtkNotUsed(inputVector),
-  vtkInformationVector *outputVector)
-{
-  vtkInformation *outInfo = outputVector->GetInformationObject(0);
-  outInfo->Set(vtkStreamingDemandDrivenPipeline::MAXIMUM_NUMBER_OF_PIECES(), -1);
-
-  return 1;
-}
-
-int vtkPOSUFlow::RequestData(
+int vtkOSUFlow::RequestData(
 	vtkInformation *,
 	vtkInformationVector **inputVector,
 	vtkInformationVector *outputVector)
@@ -111,13 +69,6 @@ int vtkPOSUFlow::RequestData(
 	}
 	vtkPolyData *output = vtkPolyData::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
-	// Parallel
-	vtkMultiProcessController *controller = vtkMultiProcessController::GetGlobalController();
-	if (controller)
-		printf("Rank=%d, numprocs=%d\n", controller->GetLocalProcessId(), controller->GetNumberOfProcesses());
-	else
-		printf("Controller=NULL\n");
-
 	//
 	// OSUFlow
 	//
@@ -125,7 +76,7 @@ int vtkPOSUFlow::RequestData(
 	if (source)
 		osuflow->setData(source);
 	else if (! osuflow->getHasData() ) {
-		printf("vtkPOSUFlow: no data\n");
+		printf("vtkOSUFlow: no data\n");
 		return 0;
 	}
 
@@ -148,7 +99,7 @@ int vtkPOSUFlow::RequestData(
 		int num_seeds;
 		osuflow->GetSeeds(num_seeds);
 		if (num_seeds==0) {
-			printf("vtkPOSUFlow: No seeds\n");
+			printf("vtkOSUFlow: No seeds\n");
 			return 0;
 		}
 	}
@@ -242,7 +193,7 @@ int vtkPOSUFlow::RequestData(
 
 
 
-void vtkPOSUFlow::PrintSelf(ostream& os, vtkIndent indent)
+void vtkOSUFlow::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os,indent);
 

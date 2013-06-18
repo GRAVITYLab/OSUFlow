@@ -29,7 +29,7 @@ class OSUFlow
  public:
   // constructor and destructor
   OSUFlow();
-  ~OSUFlow();
+  virtual ~OSUFlow();
 
   ////////////////
   // data reader helper functions

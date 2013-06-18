@@ -12,6 +12,7 @@
 #include "vtkMultiBlockDataSet.h"
 #include <vtkInterpolatedVelocityField.h>
 #include <vtkXMLImageDataReader.h>
+#include <vtkXMLStructuredGridReader.h>
 #include <vtkImageData.h>
 #include <vtkImageDataGeometryFilter.h>
 #include <vtkFunctionSet.h>

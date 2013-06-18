@@ -192,13 +192,13 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
  void VectorFieldVTK::Boundary(VECTOR3& minB, VECTOR3& maxB) {
 	vtkStructuredGrid *structuredGrid;
 
-	/*if ((structuredGrid = vtkStructuredGrid::SafeDownCast(sDataset)) != NULL) {
+	if ((structuredGrid = vtkStructuredGrid::SafeDownCast(sDataset)) != NULL || vtkImageData::SafeDownCast(sDataset)!=NULL) {
 		int *bounds = structuredGrid->GetExtent();
 		minB.Set(bounds[0], bounds[2], bounds[4]);
 		maxB.Set(bounds[1], bounds[3], bounds[5]);
 		printf("Structured Extent: %d %d %d %d %d %d\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 
-	}*/
+	}
 	//else {
 		double *bounds = sDataset->GetBounds();
 		minB.Set(bounds[0], bounds[2], bounds[4]);

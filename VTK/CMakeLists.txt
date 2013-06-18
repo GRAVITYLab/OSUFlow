@@ -15,7 +15,7 @@ include_directories(${MPI_CXX_INCLUDE_PATH})
 if (${WITH_PARAVIEW_PLUGINS})
 	find_package(ParaView REQUIRED)
 	include (${PARAVIEW_USE_FILE})
-	include (ParaViewBranding)
+	# include (ParaViewBranding)
 	include (ParaViewPlugins)
 	# should enable argument -fPIC
 
@@ -39,7 +39,6 @@ file(GLOB HEADER_FILES "*.h" )
 list(APPEND SRC_FILES
 	VectorFieldVTK.cxx
 	OSUFlowVTK.cxx
-	vtkPOSUFlow.cxx
 	vtkOSUFlow.cxx
 	)
 
