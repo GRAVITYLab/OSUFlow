@@ -345,6 +345,7 @@ int vtkPOSUFlow::RequestData(
 	case VTK_INTEGRATE_BACKWARD: dir=BACKWARD_DIR; break;
 	default: dir = BACKWARD_AND_FORWARD; break;
 	};
+	parflow->SetIntegrationDir(dir);
 
 
 	vector< vector<Particle> > Seeds(loc_npart); // seeds in current round for all local blocks

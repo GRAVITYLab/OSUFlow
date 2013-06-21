@@ -6,11 +6,10 @@ cmake_minimum_required(VERSION 2.8)
 #include ( ParaViewBranding )
 #include ( ParaViewPlugins )
 
-#add_subdirectory ( GenStreamlines )
 SET(PLUGIN_NAME OSUFlowVTKPlugins)
 SET(PLUGIN_VERSION "0.1")
 
-SET(SM_XML GenStreamlines/GenStreamlines.xml )
+SET(SM_XML GenStreamlines.xml )
 
 SET(SM_SRC
   ../vtkOSUFlow.cxx

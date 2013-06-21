@@ -65,7 +65,7 @@
         integration.</Documentation>
       </IntVectorProperty-->
       <IntVectorProperty command="SetIntegrationDirection"
-                         default_values="2"
+                         default_values="0"
                          name="IntegrationDirection"
                          number_of_elements="1">
         <EnumerationDomain name="enum">
@@ -312,7 +312,7 @@
         integration.</Documentation>
       </IntVectorProperty-->
       <IntVectorProperty command="SetIntegrationDirection"
-                         default_values="2"
+                         default_values="0"
                          name="IntegrationDirection"
                          number_of_elements="1">
         <EnumerationDomain name="enum">
