@@ -22,7 +22,6 @@ LIST(APPEND SIMPLE_TARGETS
 	testVTS
 	vec2vts
 	vec2vti
-	cone
 )
 if( ${WITH_GRAPHICS} )
         LIST (APPEND SIMPLE_TARGETS
