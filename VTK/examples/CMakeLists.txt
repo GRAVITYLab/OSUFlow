@@ -22,6 +22,7 @@ LIST(APPEND SIMPLE_TARGETS
 	testVTS
 	vec2vts
 	vec2vti
+	cone
 )
 if( ${WITH_GRAPHICS} )
         LIST (APPEND SIMPLE_TARGETS
@@ -35,7 +36,6 @@ endif ()
 if ( ${WITH_MPI} )
 	LIST (APPEND SIMPLE_TARGETS
         	MpiDrawVTK
-	        #StreamlineSimpleVTKPipelineMPI
 	)
 	# MPI Script
         file (COPY      ${CMAKE_CURRENT_SOURCE_DIR}/MPI_TEST
@@ -49,7 +49,18 @@ foreach(TARGET ${SIMPLE_TARGETS} )
 	target_link_libraries (${TARGET} ${LINK_LIBS})
 endforeach(TARGET)
 
+########################
+# plugin examples
+#if ( ${WITH_PARAVIEW_PLUGINS} )
+        include_directories(../plugins/)
+	add_executable (StreamlineSimpleVTKPipelineMPI 
+		StreamlineSimpleVTKPipelineMPI.cpp ../plugins/vtkPOSUFlow.cxx)
+	target_link_libraries( StreamlineSimpleVTKPipelineMPI ${LINK_LIBS})
 
+	add_executable (MPIStreamlineRender 
+		MPIStreamlineRender.cpp ../plugins/vtkPOSUFlow.cxx)
+	target_link_libraries( MPIStreamlineRender ${LINK_LIBS})
+#endif ()
 ### README
 file (COPY	${CMAKE_CURRENT_SOURCE_DIR}/README.txt
 	DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)

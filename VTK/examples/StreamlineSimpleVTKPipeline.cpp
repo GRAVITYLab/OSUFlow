@@ -1,3 +1,7 @@
+// Compatibility with Paraview
+#define vtkRenderingCore_AUTOINIT 4(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL)
+#define vtkRenderingVolume_AUTOINIT 1(vtkRenderingVolumeOpenGL) 
+// Compatibility with Paraview
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,7 +65,7 @@ int main()
 	rakeActor->SetMapper(rakeMapper);
 	rakeActor->VisibilityOn();
 
-#if 1
+#if 0
 	// use vtkOSUFlow
 	vtkOSUFlow *streamer = vtkOSUFlow::New();
 	streamer->SetInputData(data);

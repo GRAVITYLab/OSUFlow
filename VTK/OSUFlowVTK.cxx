@@ -24,9 +24,10 @@ void OSUFlowVTK::setData(vtkDataSet *input)
 		int numPoints = imageData->GetNumberOfPoints();
 
 		// copy data
-		float *pData = new float[numPoints*3];
-		assert(pData);
-		memcpy(pData, imageData->GetScalarPointer(), numPoints*12);
+		float **ppData = new float*[1]; // time varying
+		ppData[0] = new float[numPoints*3];
+		assert(ppData[0]);
+		memcpy(ppData[0], imageData->GetScalarPointer(), numPoints*12);
 
 		// get info
 		float sMin[3], sMax[3], dim[3];
@@ -45,7 +46,7 @@ void OSUFlowVTK::setData(vtkDataSet *input)
 		int t_min =0;
 		int t_max = 0;
 
-		this->InitFlowField(sMin, sMax, sRealMin, sRealMax, dim, t_min, t_max, RAW, &pData);
+		this->InitFlowField(sMin, sMax, sRealMin, sRealMax, dim, t_min, t_max, RAW, ppData);
 
 	}
 

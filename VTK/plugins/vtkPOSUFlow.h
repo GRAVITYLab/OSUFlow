@@ -32,7 +32,20 @@ protected:
 	vtkTableExtentTranslator *extentTable;
 	void getNeighborIds(std::vector<gb_t> &neighborIdAry, vtkExtentTranslator *translator, int rank);
 	void initExtentTable(vtkExtentTranslator *translator);
+	void initExtentTableByDIY(vtkExtentTranslator *translator);
 
+	vtkSetMacro(useDIYPartition, bool);
+	vtkGetMacro(useDIYPartition, bool);
+protected:
+	bool useDIYPartition; // partition the data by diy or by the input extent
+	float waitFactor; // wait factor for nonblocking communication
+	                // wait for this portion of messages to arrive each round
+	bool diy_initialized;
+
+	double totTime;
+	double totInTime;
+	double totCompCommTime;	// computation and communication time
+	double totOutTime; 		// gathering time
 private:
 
 	// Not implemented:

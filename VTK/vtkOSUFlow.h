@@ -52,6 +52,9 @@ public:
 	vtkSetMacro(MaximumNumberOfSteps, vtkIdType);
 	vtkGetMacro(MaximumNumberOfSteps, vtkIdType);
 
+	vtkSetMacro(scale, double);
+	vtkGetMacro(scale, double);
+
 protected:
 	OSUFlowVTK *osuflow;
 	double MinimumIntegrationStep;
@@ -68,6 +71,9 @@ protected:
 	// Description
 	// RK2, RK4, RK45 (INTEG_ORD)
 	int IntegratorOrder;
+
+	int maxRounds;
+	double scale;
 
 	vtkOSUFlow();
 	~vtkOSUFlow() ;

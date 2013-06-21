@@ -17,6 +17,8 @@
 
 #include "vtkPOSUFlow.h"
 #include "OSUFlowVTK.h"
+#include "Blocks.h"
+#include "ParFlow.h"
 
 using namespace std;
 
@@ -25,6 +27,13 @@ using namespace std;
 vtkStandardNewMacro(vtkPOSUFlow);
 
 vtkPOSUFlow::vtkPOSUFlow()
+: useDIYPartition(true)
+, diy_initialized(false)
+, waitFactor(0.1)
+, totTime(0)
+, totInTime(0)
+, totOutTime(0)
+, totCompCommTime(0)
 {
 	this->extentTable = vtkTableExtentTranslator::New();
 	//this->pcontroller = new POSUFlowController;
@@ -34,6 +43,8 @@ vtkPOSUFlow::~vtkPOSUFlow()
 {
 	this->extentTable->Delete();
 	//delete this->pcontroller;
+	if (this->diy_initialized)
+		DIY_Finalize();
 }
 
 // message sent downstream to Paraview
@@ -70,60 +81,100 @@ int vtkPOSUFlow::RequestUpdateExtent(
   vtkInformationVector **inputVector,
   vtkInformationVector *outputVector)
 {
-  vtkInformation *outInfo = outputVector->GetInformationObject(0);
-  int piece =      outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER());
-  int numPieces =  outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES());
-  int ghostLevel = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS());
-  int pieceId =    outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER());
+	vtkInformation *outInfo = outputVector->GetInformationObject(0);
+	int piece =      outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER());
+	int numPieces =  outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES());
+	int ghostLevel = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS());
 
-  printf("Piece=%d, numPieces=%d, ghostLevel=%d\n", piece, numPieces, ghostLevel);
-  int wholeExtent[6], extent[6];
-  outInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT(), wholeExtent);
+	printf("[RequestUpdateExtent] outInfo: Piece=%d, numPieces=%d, ghostLevel=%d\n", piece, numPieces, ghostLevel);
+	int wholeExtent[6], extent[6];
+	outInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT(), wholeExtent);
 
-  // data
-  int numInputs = this->GetNumberOfInputConnections(0);
-  printf("[vtkPOSUFlow::RequestUpdateExtent] whole extent=%d %d %d %d %d %d, numInputs=%d \n",
+	//
+	// Deterine extents
+	//
+	vtkExtentTranslator *translator = vtkStreamingDemandDrivenPipeline::GetExtentTranslator(outInfo);
+	if (this->useDIYPartition) {
+		// init DIY
+
+		if (this->diy_initialized) DIY_Finalize();
+
+		vtkMultiProcessController *controller = vtkMultiProcessController::GetGlobalController();
+		int nproc = controller->GetNumberOfProcesses();
+		MPI_Comm comm;
+		vtkMPICommunicator *vtkcomm = vtkMPICommunicator::SafeDownCast( controller->GetCommunicator() );
+		if (vtkcomm)
+			comm = *vtkcomm->GetMPIComm()->GetHandle();
+		else {
+			comm = MPI_COMM_WORLD;
+			printf("communicator is not vtkMPICommunicator!  Use MPI_COMM_WORLD\n");
+		}
+
+		int dims = 4; // 4D
+		int data_size[3];
+		data_size[0] = wholeExtent[1]-wholeExtent[0]+1;
+		data_size[1] = wholeExtent[3]-wholeExtent[2]+1;
+		data_size[2] = wholeExtent[5]-wholeExtent[4]+1;
+		data_size[3] = 1;
+		DIY_Init(dims, data_size, 1, comm);
+
+
+		int npart = nproc;
+		int loc_npart = 1;
+		int given[4] = {0, 0, 0, 1}; // constraints in x, y, z, t
+		int ghost_list[8] = {1, 1, 1, 1, 1, 1, 0, 0}; // -x, +x, -y, +y, -z, +z, -t, +t
+
+		DIY_Decompose(ROUND_ROBIN_ORDER, npart, &loc_npart, 1, ghost_list, given);
+
+		assert(loc_npart==1); // TODO
+
+		initExtentTableByDIY(translator);
+
+		this->diy_initialized = true;
+
+	} else {
+
+		// determine all extents
+		initExtentTable(translator);
+
+	}
+	this->extentTable->GetExtent(extent);
+	translator->Delete();
+
+
+	// data
+	int numInputs = this->GetNumberOfInputConnections(0);
+	printf("[vtkPOSUFlow::RequestUpdateExtent] whole extent=%d %d %d %d %d %d, numInputs=%d \n",
 		  wholeExtent[0], wholeExtent[1], wholeExtent[2], wholeExtent[3], wholeExtent[4], wholeExtent[5], numInputs);
 
-#if 1
-  // determine all extents
-  vtkExtentTranslator *translator = vtkStreamingDemandDrivenPipeline::GetExtentTranslator(outInfo);
+	for (int idx = 0; idx < numInputs; ++idx)
+	{
+		vtkInformation *info = inputVector[0]->GetInformationObject(idx);
+		if (info)
+		{
+		  // not needed
+		  //info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(),           piece);
+		  //info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(),       numPieces);
+		  //info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), ghostLevel);
 
-  initExtentTable(translator);
+		  info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT(), extent, 6);
+		  //vtkStreamingDemandDrivenPipeline::SetExtentTranslator(info, this->extentTable);
 
-  translator->Delete();
+		  //info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT_INITIALIZED(), 1); // not needed
+		}
+	}
 
-  this->extentTable->GetExtent(extent);
-#endif
-
-  for (int idx = 0; idx < numInputs; ++idx)
-  {
-    vtkInformation *info = inputVector[0]->GetInformationObject(idx);
-    if (info)
-    {
-      // not needed
-      //info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(),           piece);
-      //info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(),       numPieces);
-      //info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), ghostLevel);
-
-      info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT(), extent, 6);
-      vtkStreamingDemandDrivenPipeline::SetExtentTranslator(info, this->extentTable);
-
-      //info->Set(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT_INITIALIZED(), 1); // not needed
-    }
-  }
-
-  // seed
-  vtkInformation *sourceInfo = inputVector[1]->GetInformationObject(0);
-  if (sourceInfo)
-    {
-    sourceInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(),           0);
-    sourceInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(),       1);
-    sourceInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), ghostLevel);
-  }
+	// seed
+	vtkInformation *sourceInfo = inputVector[1]->GetInformationObject(0);
+	if (sourceInfo)
+	{
+		sourceInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER(),           0);
+		sourceInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_PIECES(),       1);
+		sourceInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_NUMBER_OF_GHOST_LEVELS(), ghostLevel);
+	}
 
 
-  return 1;
+	return 1;
 }
 
 
@@ -132,7 +183,7 @@ int vtkPOSUFlow::RequestData(
 	vtkInformationVector **inputVector,
 	vtkInformationVector *outputVector)
 {
-
+	assert(this->diy_initialized);
 	//
 	// process inputs
 	//
@@ -166,66 +217,85 @@ int vtkPOSUFlow::RequestData(
 	//
 	// init
 	//
+	int rank=0, nproc=1, npart=1;
+	MPI_Comm comm = MPI_COMM_WORLD;
+	{
+		// get MPI controller, rank, nproc
+		vtkMultiProcessController *controller = vtkMultiProcessController::GetGlobalController();
+		if (controller && controller->GetNumberOfProcesses()>1) {
+			rank = controller->GetLocalProcessId();
+			nproc = controller->GetNumberOfProcesses();
+		} else {
+			// If only one process, use sequential codes
+			printf("Use serial OSUFlow\n");
+			int result = vtkOSUFlow::RequestData(request,inputVector,outputVector);
+			return result;
+		}
+		npart = nproc; // for now
 
-	// get MPI controller, rank, nproc
-	int rank, nproc, npart;
-	vtkMultiProcessController *controller = vtkMultiProcessController::GetGlobalController();
-	if (controller && controller->GetNumberOfProcesses()>1) {
-		rank = controller->GetLocalProcessId();
-		nproc = controller->GetNumberOfProcesses();
-	} else {
-		// If only one process, use sequential codes
-		int result = vtkOSUFlow::RequestData(request,inputVector,outputVector);
-		return result;
-	}
-	npart = nproc;
-
-	// Debug information
-	//data->PrintSelf(cout, (vtkIndent)0);
-	double *bounds = data->GetBounds();
-	printf("[RequestData] Rank=%d, numprocs=%d\n", rank, nproc);
-	printf("[RequestData] Data bounds: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-
-	//
-	// init DIY
-	//
-	MPI_Comm comm;
-	vtkMPICommunicator *vtkcomm = vtkMPICommunicator::SafeDownCast( controller->GetCommunicator() );
-	if (vtkcomm)
-		comm = *vtkcomm->GetMPIComm()->GetHandle();
-	else {
-		comm = MPI_COMM_WORLD;
-		printf("communicator is not vtkMPICommunicator.  Use MPI_COMM_WORLD\n");
+		//
+		// init DIY
+		//
+		vtkMPICommunicator *vtkcomm = vtkMPICommunicator::SafeDownCast( controller->GetCommunicator() );
+		if (vtkcomm)
+			comm = *vtkcomm->GetMPIComm()->GetHandle();
+		else {
+			printf("communicator is not vtkMPICommunicator!\n");
+		}
 	}
 
-	// determine extent
+	// get extent
 	int *wholeExtent, *extent;
 	wholeExtent = extentTable->GetWholeExtent();
-	printf("nPieces = %d, Piece = %d,  rank=%d\n", extentTable->GetNumberOfPieces(),  extentTable->GetPiece(), rank);
+	extent = extentTable->GetExtent();
 
-
-	int dims = 4; // 4D
-	DIY_Init(dims, wholeExtent, nproc, comm);
-
-	// set DIY decomposition
-	// - currently one processor handles one block
-	// - To process multiple blocks per processor, we will use vtkMultiBlock... in the pipeline
+	// Debug information
 	{
-		bb_t diyBound;
-		diyBound.min[0] = bounds[0]; diyBound.max[0] = bounds[1];
-		diyBound.min[1] = bounds[2]; diyBound.max[1] = bounds[3];
-		diyBound.min[2] = bounds[4]; diyBound.max[2] = bounds[5];
-		int glo_npart = nproc;
-		vector<gb_t> neighborIdAry;
-		getNeighborIds(neighborIdAry, this->extentTable, rank);
-		gb_t *pNeighborId = &neighborIdAry[0];
-		int num_neighborId = neighborIdAry.size();
+		//data->PrintSelf(cout, (vtkIndent)0);
+		double *bounds = data->GetBounds();
+		printf("[RequestData] Rank=%d, numprocs=%d\n", rank, nproc);
+		printf("[RequestData] Data bounds: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
+		assert(bounds[0] == extent[0] && bounds[1] == extent[1] && bounds[2] == extent[2]
+		          && bounds[3] == extent[3] && bounds[4]==extent[4] && bounds[5] == extent[5]);
+	}
 
-		DIY_Decomposed(1, &rank, &diyBound,
-				(ri_t**)NULL, (int*)NULL, (int **)NULL, (int *)NULL,
-				&pNeighborId , &num_neighborId,
-				0);
+	if (this->useDIYPartition == false) {
 
+
+		int dims = 4; // 4D
+		int data_size[3];
+		data_size[0] = wholeExtent[1]-wholeExtent[0]+1;
+		data_size[1] = wholeExtent[3]-wholeExtent[2]+1;
+		data_size[2] = wholeExtent[5]-wholeExtent[4]+1;
+		data_size[3] = 1;
+		DIY_Init(dims, data_size, 1, comm);
+
+		// set DIY decomposition
+		// - currently one processor handles one block
+		// - To process multiple blocks per processor, we will use vtkMultiBlock... in the pipeline
+		{
+			bb_t diyBound;
+#if 1
+			diyBound.min[0] = extent[0]; diyBound.max[0] = extent[1];
+			diyBound.min[1] = extent[2]; diyBound.max[1] = extent[3];
+			diyBound.min[2] = extent[4]; diyBound.max[2] = extent[5];
+#else
+			diyBound.min[0] = bounds[0]; diyBound.max[0] = bounds[1];
+			diyBound.min[1] = bounds[2]; diyBound.max[1] = bounds[3];
+			diyBound.min[2] = bounds[4]; diyBound.max[2] = bounds[5];
+#endif
+			vector<gb_t> neighborIdAry;
+			getNeighborIds(neighborIdAry, this->extentTable, rank);
+			gb_t *pNeighborId = &neighborIdAry[0];
+			int num_neighborId = neighborIdAry.size();
+
+			DIY_Decomposed(1, &rank, &diyBound,
+					(ri_t**)NULL, (int*)NULL, (int **)NULL, (int *)NULL,
+					&pNeighborId , &num_neighborId,
+					0);
+
+		}
+		this->diy_initialized = true;
 	}
 
 	//
@@ -234,90 +304,231 @@ int vtkPOSUFlow::RequestData(
 	// set data.  Since there is only one block per process, we create one osuflow
 	OSUFlowVTK *osuflow = new OSUFlowVTK;
 	osuflow->setData(data);
-	{
-		//Blocks *blocks = new Blocks(npart, (void *)osuflow, OSUFLOW, )
-		//ParFlow *parflow = new ParFlow()
-	}
-
-
     //request->Set(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING(), 1 );
 
 
-
 	// assign seeds
-	VECTOR3 *pSeed;
-	if (input) {
-		int num_seeds = input->GetNumberOfPoints();
-		printf("num_seed=%d\n", num_seeds);
-		if (num_seeds) {
-			pSeed = new VECTOR3[num_seeds];
-			for (i=0; i < num_seeds; i++) {
-				double pos[3];
-				input->GetPoint(i,pos);
-				pSeed[i] = VECTOR3(pos[0], pos[1], pos[2]);
-			}
-			osuflow->SetSeedPoints(pSeed, num_seeds);
-		}
-	} else {
-		// use pre-loaded seeds if exist
-		int num_seeds;
-		osuflow->GetSeeds(num_seeds);
-		if (num_seeds==0) {
-			printf("vtkPOSUFlow: No seeds\n");
-			return 0;
-		}
+	int num_seeds = input->GetNumberOfPoints();
+	printf("num_seed=%d\n", num_seeds);
+	if (num_seeds==0)
+		return 1;
+	VECTOR3 *pSeed = new VECTOR3[num_seeds];
+	for (i=0; i < num_seeds; i++) {
+		double pos[3];
+		input->GetPoint(i,pos);
+		pSeed[i] = VECTOR3(pos[0], pos[1], pos[2]);  // convert to floats
 	}
 
-#if 0
+	// init parflow
+	printf("init parflow\n");
+	int loc_npart = 1;
+	int tsize = 1;  // total time steps
+
+	list<vtListTimeSeedTrace*> *sl_list = new list<vtListTimeSeedTrace*>[loc_npart];
+	Blocks *blocks = new Blocks(loc_npart, (void *)osuflow, OSUFLOW, 0, 0, (DataMode)0); // 0 : load OSUFlow manually
+	VECTOR4 *pt = NULL; // resulting traced points
+	int *npt = NULL; // resulting number of points per trace
+	int tot_ntrace;
+	ParFlow *parflow = new ParFlow(blocks, (OSUFlow**) &osuflow, sl_list, &pt, &npt, &tot_ntrace, loc_npart, 0);
+
+	parflow->SetMaxError(this->MaximumError);
+	parflow->SetInitialStepSize(this->IntegrationStepLength);
+	parflow->SetMinStepSize(this->MinimumIntegrationStep);
+	parflow->SetMaxStepSize(this->MaximumIntegrationStep);
+	parflow->SetIntegrationOrder((INTEG_ORD)this->IntegratorOrder);
+	parflow->SetUseAdaptiveStepSize(true);
 	// integrate
-	TRACE_DIR dir;
+	TRACE_DIR dir; // not used currently
 	switch (this->IntegrationDirection)
 	{
 	case VTK_INTEGRATE_FORWARD: dir=FORWARD_DIR; break;
 	case VTK_INTEGRATE_BACKWARD: dir=BACKWARD_DIR; break;
 	default: dir = BACKWARD_AND_FORWARD; break;
 	};
-	list<vtListSeedTrace*> list;
-	osuflow->SetIntegrationOrder((INTEG_ORD)this->IntegratorOrder);
-	osuflow->SetMaxError(this->MaximumError);
-	osuflow->SetIntegrationParams(this->IntegrationStepLength, this->MinimumIntegrationStep, this->MaximumIntegrationStep);
 
-	osuflow->GenStreamLines(list , dir, this->MaximumNumberOfSteps, 0); // default: RK45
 
-	delete[] pSeed;
+	vector< vector<Particle> > Seeds(loc_npart); // seeds in current round for all local blocks
+
+	// set Seeds from pSeed array.  tf is ignored.
+	parflow->InitTraces(Seeds, 0, loc_npart, tsize, 1, pSeed, num_seeds);
+
+	//delete[] pSeed;
+
 
 	//
-	// convert traces from list-of-list to vtkPolyData
+	// RUN
 	//
+	printf("Run\n");
+	this->totCompCommTime = 0;
+	// for all time groups
+	//for (g = 0; g < ntpart; g++)
+	{
+		double t0;
+
+		// check if there is any work to be done for this time group
+		//if(!isSeedInTimeGroupTotal(g))
+		//  continue;  // go to next time group
+
+		// synchronize before starting I/O
+		//MPI_Barrier(comm);
+		//t0 = MPI_Wtime();
+
+		// delete blocks from previous time group
+		//if (g > 0) {
+		//  blocks->DeleteBlocks(g_io+1, tsize, ntpart, npart);
+		//}
+
+		// todo: change seeds to vector in repartition
+		// #ifdef REPARTITION
+		//     parflow->Repartition(g, &npart, &Seeds, 0, &osuflow,
+		// 		       block, OSUFLOW, MPI_COMM_WORLD, wgts);
+		// #endif
+
+		// inform loaded blocks for this time group
+		blocks->SetLoad(rank);
+
+		//g_io = g;
+
+		// synchronize after I/O
+		MPI_Barrier(comm);
+		//TotInTime += (MPI_Wtime() - t0);
+		t0 = MPI_Wtime();
+
+		// scale blocks to improve visibility
+		//if (this->scale!=1.0) {
+		//	for (i = 0; i < npart; i++) {
+		//		if (blocks->GetLoad(i))
+		//			osuflow->ScaleField(scale);
+		//	}
+		//}
+
+#ifdef REPARTITION
+		assert(nblocks <= MAX_BLK);
+		for (i = 0; i < nblocks; i++)
+		  wgts[i] = 0;
+#endif
+
+		// for all rounds
+		for (j = 0; j < this->maxRounds; j++)
+		{
+
+			// for all blocks
+			for (i = 0; i < loc_npart; i++)
+			{
+
+#ifdef MPE
+				MPE_Log_event(compute_begin, 0, NULL);
+#endif
+
+		// compute fieldlines
+				if (tsize > 1) {
+#ifdef REPARTITION
+					assert(i < MAX_BLK);
+					parflow->ComputePathlines(Seeds[i], i, this->MaximumNumberOfSteps, this->MaximumNumberOfSteps, &wgts[i]);
+#else
+					parflow->ComputePathlines(Seeds[i], i, this->MaximumNumberOfSteps, this->MaximumNumberOfSteps);
+#endif
+				}
+				else {
+#ifdef REPARTITION
+					assert(i < MAX_BLK);
+					parflow->ComputeStreamlines(Seeds[i], i, this->MaximumNumberOfSteps, this->MaximumNumberOfSteps, &wgts[i]);
+#else
+					parflow->ComputeStreamlines(Seeds[i], i, this->MaximumNumberOfSteps, this->MaximumNumberOfSteps);
+#endif
+				}
+
+#ifdef MPE
+				MPE_Log_event(compute_end, 0, NULL);
+#endif
+
+			} // for all blocks
+
+			// exchange neighbors
+			//printf("Start exchanging\n");
+			parflow->ExchangeNeighbors(Seeds, waitFactor);
+			//printf("End exchanging\n");
+
+		} // for all rounds
+
+		// flush any remaining messages
+		parflow->FlushNeighbors(Seeds);
+
+#ifdef REPARTITION
+		AdvanceWeights(g);
+#endif
+
+		// end time group synchronized to get accurate timing
+		MPI_Barrier(comm);
+		totCompCommTime += (MPI_Wtime() - t0);
+
+    } //for all time groups
+
+
+	// gather fieldlines for rendering
+	printf("Gather traces\n");
+	{
+		// synchronize prior to gathering
+		MPI_Barrier(comm);
+		this->totOutTime = MPI_Wtime();
+
+		float size[3];
+		size[0] = wholeExtent[1]-wholeExtent[0]+1;
+		size[1] = wholeExtent[3]-wholeExtent[2]+1;
+		size[2] = wholeExtent[5]-wholeExtent[4]+1;
+		//xxxxparflow->GatherFieldlines(loc_npart, size, tsize);
+
+		int *ntrace = NULL; // number of traces for each proc
+		int n; // total number of my points
+
+		// gather number of points in each trace at the root => ntrace
+		int all_gather = 0;
+		n = parflow->GatherNumPts(ntrace, all_gather, loc_npart);
+
+		// gather the actual points in each trace at the root
+		parflow->GatherPts(ntrace, n, loc_npart);
+
+		MPI_Barrier(comm);
+		this->totOutTime = MPI_Wtime() - this->totOutTime;
+
+		if (ntrace)
+			delete[] ntrace;
+
+		parflow->PrintPerf(this->totTime, this->totInTime, this->totOutTime, this->totCompCommTime, num_seeds, size);
+
+	}
+
+
+	//
+	// convert traces from pt, npt, tot_ntrace to vtkPolyData
+	//
+	printf("convert traces\n");
+#if 1
+
 	newLines = vtkCellArray::New();
 	newPts = vtkPoints::New();
 	pts = vtkIdList::New();
 
-	std::list<vtListSeedTrace*>::iterator pIter;
-	pIter = list.begin();
-	for (; pIter!=list.end(); pIter++) {
-		vtListSeedTrace *trace = *pIter;
-		std::list<VECTOR3*>::iterator pnIter;
 
-		for (pnIter = trace->begin(); pnIter!=trace->end(); pnIter++) {
-			VECTOR3 &p = **pnIter;
-			//printf(" %f %f %f ", p[0], p[1], p[2]);
-
-			//vtk
-			ptId = newPts->InsertNextPoint((float *)&p[0]);
-			pts->InsertNextId(ptId);
-
-			// clear up
-			delete *pnIter;
+	if (rank==0 && pt)
+	{
+		int count = 0;
+		printf("ntrace=%d\n", tot_ntrace);
+		for (i = 0; i < tot_ntrace; i++)
+		{
+			//printf("length[%d]=%d\n", i, npt[i]);
+			for (j = 0; j < npt[i]; j++)
+			{
+				//printf("(%f %f %f) ", pt[count][0], pt[count][1], pt[count][2]);
+				ptId = newPts->InsertNextPoint((float *)&pt[count++][0]);
+				pts->InsertNextId(ptId);
+			}
+			newLines->InsertNextCell(pts);
+			pts->Reset();
 		}
-		newLines->InsertNextCell(pts);
-		pts->Reset();
-		//printf("\n");
-
-		// clear up
-		delete trace;
 	}
-#elif 1
+
+#elif 0
 	// test
 	newLines = vtkCellArray::New();
 	newPts = vtkPoints::New();
@@ -337,19 +548,21 @@ int vtkPOSUFlow::RequestData(
 	newPts = vtkPoints::New();
 	pts = vtkIdList::New();
 
-	for (int j=0; j<3; j++)
-	{
-		for (int i=0; i<100; i++)
+	if (rank==0) {
+		for (int j=0; j<30; j++)
 		{
-			float p[3];
-			p[0]=p[1]=p[2]=i;
-			p[0]+=j*2;
-			ptId = newPts->InsertNextPoint(p);
-			//line->GetPointIds()->InsertNextId(ptId);
-			pts->InsertNextId(ptId);
+			for (int i=0; i<100; i++)
+			{
+				float p[3];
+				p[0]=p[1]=p[2]=i;
+				p[0]+=j*2;
+				ptId = newPts->InsertNextPoint(p);
+				//line->GetPointIds()->InsertNextId(ptId);
+				pts->InsertNextId(ptId);
+			}
+			newLines->InsertNextCell(pts);
+			pts->Reset();
 		}
-		newLines->InsertNextCell(pts);
-		pts->Reset();
 	}
 	//output->GetPointData()->SetNormals()
 #endif
@@ -360,21 +573,33 @@ int vtkPOSUFlow::RequestData(
 	if (newPts->GetNumberOfPoints() > 0)
 	{
 		output->SetPoints(newPts);
-		newPts->Delete();
 		printf("output points=%lld\n", output->GetPoints()->GetNumberOfPoints());
 		output->SetLines(newLines);
-		newLines->Delete();
 	}
-	output->Squeeze();  // need it?
+
+	output->Squeeze();
 	printf("Done\n");
 
-	// clean up
+#if 0 // segfault happens sometimes after deleting these stuff
+	if (pt)
+		delete[] pt;
+	if (npt)
+		delete[] npt;
+	//delete blocks;
+	delete[] sl_list;
+	delete parflow;
 	delete osuflow;
+#endif
+
+	// clean up
+	DIY_Finalize();
+	this->diy_initialized = false;
 
 	// why deleting causes segfault?
-	//newLines->Delete();
-	//newPts->Delete();
-	//pts->Delete();
+	newLines->Delete();
+	newPts->Delete();
+	pts->Delete();
+
 
 	return 1; // success
 }
@@ -442,6 +667,57 @@ void vtkPOSUFlow::initExtentTable(vtkExtentTranslator *translator)
     }
 #endif
 
+}
+
+void vtkPOSUFlow::initExtentTableByDIY(vtkExtentTranslator *translator)
+{
+    vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
+    int nproc = controller->GetNumberOfProcesses();
+    int rank = controller->GetLocalProcessId();
+    int npart = nproc;
+    int loc_npart = 1;
+
+	this->extentTable->SetNumberOfPieces(npart);
+	this->extentTable->SetNumberOfPiecesInTable(npart);
+
+    int wholeExtent[6], extent[6];
+
+    translator->GetWholeExtent(wholeExtent);
+    this->extentTable->SetWholeExtent(wholeExtent);
+
+	// assign extentTable
+	bb_t bounds;
+	//DIY_Block_bounds(0, rank, &bounds);  // did is always 0
+	//extent[0] = bounds.min[0]; extent[1] = bounds.max[0];
+	//extent[2] = bounds.min[1]; extent[3] = bounds.max[1];
+	//extent[4] = bounds.min[2]; extent[5] = bounds.max[2];
+	int starts[3], sizes[3];
+	DIY_Block_starts_sizes(0, 0, starts, sizes);
+	extent[0] = starts[0]; extent[1] = starts[0] + sizes[0] -1;
+	extent[2] = starts[1]; extent[3] = starts[1] + sizes[1] -1;
+	extent[4] = starts[2]; extent[5] = starts[2] + sizes[2] -1;
+	printf("DIY: rank=%d, Extent=%d %d %d %d %d %d\n", rank, extent[0], extent[1], extent[2], extent[3], extent[4], extent[5]);
+
+	// sync extent
+    int *gatheredExtents = new int[nproc * 6];
+	controller->AllGather(extent, gatheredExtents, 6);
+
+	// assign extentTable
+	for (int cc=0; cc < nproc; cc++)
+	{
+		this->extentTable->SetExtentForPiece(cc, gatheredExtents + 6*cc);
+	}
+	this->extentTable->SetPiece(rank);
+	this->extentTable->PieceToExtent();
+	delete[] gatheredExtents;
+
+#if 1
+    if (rank == 0)
+    {
+    	this->extentTable->Print(cout);
+    }
+#endif
+    controller->Delete();
 }
 
 void vtkPOSUFlow::getNeighborIds(vector<gb_t> &neighborIdAry, vtkExtentTranslator *translator, int rank)

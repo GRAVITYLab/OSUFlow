@@ -19,8 +19,12 @@ if (${WITH_PARAVIEW_PLUGINS})
 	include (ParaViewPlugins)
 	# should enable argument -fPIC
 
+	# Build VTK rendering modules when using Paraview package
+	add_definitions(-DvtkRenderingCore_AUTOINIT=4\(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL\))
+	add_definitions(-DvtkRenderingVolume_AUTOINIT=1\(vtkRenderingVolumeOpenGL\))
+
 else()
-	find_package(VTK REQUIRED)
+	find_package(VTK 6 REQUIRED)
 	include (${VTK_USE_FILE})
 endif()
 
@@ -110,7 +114,7 @@ if( ${WITH_GRAPHICS} )
 	add_executable( compareStreamline compareStreamline.cpp )
         target_link_libraries ( compareStreamline ${LINK_LIBS})
 endif ()
-if ( ${WITH_MPI} )
+if ( ${WITH_MPI} AND ${WITH_PARAVIEW_PLUGINS})
 	add_executable( testMPI testMPI.cpp )
 	target_link_libraries ( testMPI ${LINK_LIBS} )
 endif ()

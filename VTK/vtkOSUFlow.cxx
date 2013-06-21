@@ -18,6 +18,8 @@ vtkOSUFlow::vtkOSUFlow()
 , MinimumIntegrationStep(0.001)
 , MaximumError(1e-6)
 , MaximumNumberOfSteps(1000)
+, scale(1.0)
+, maxRounds(100)
 {
 	osuflow = new OSUFlowVTK();
 }
