@@ -247,7 +247,7 @@
       <!-- End StreamTracer -->
     </SourceProxy>
 
-    <!-- ==================================================================== -->
+    <!-- =================================================================== -->
     <SourceProxy class="vtkPOSUFlow"
                  label="Parallel OSUFlow Streamlines"
                  name="ParallelOSUFlowStreamlines">
@@ -358,7 +358,19 @@
         to the arc length that a particle travels/advects within a single step.
         The Cell Length unit represents the step size as a number of
         cells.</Documentation>
+
       </IntVectorProperty-->
+      <!-- BEGIN - new property added by Jimmy -->
+      <IntVectorProperty command="SetMaxRounds"
+                         default_values="100"
+                         label="Maximum Rounds"
+                         name="MaxRounds"
+                         number_of_elements="1">
+        <IntRangeDomain name="range" />
+        <Documentation>This property specifies the maximum number of rounds w.r.t. seed interchanges among blocks.</Documentation>
+      </IntVectorProperty>
+      <!-- END - new property added by Jimmy -->
+
       <DoubleVectorProperty command="SetIntegrationStepLength"
                             default_values="0.2"
                             label="Initial Step Length"
@@ -473,6 +485,7 @@
       </PropertyGroup>
 
       <PropertyGroup label="Integration Parameters">
+        <Property name="MaxRounds" />
         <Property name="IntegrationDirection" />
         <Property name="IntegratorOrder" />
         <!--Property name="IntegrationStepUnit" /-->

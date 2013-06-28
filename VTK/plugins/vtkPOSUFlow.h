@@ -21,6 +21,12 @@ public:
 
 	void PrintSelf(ostream& os, vtkIndent indent);
 
+	vtkSetMacro(UseDIYPartition, bool);
+	vtkGetMacro(UseDIYPartition, bool);
+
+	//vtkSetClampMacro(MaxRounds, int, 0, VTK_INT_MAX);
+	vtkSetMacro(MaxRounds, int);
+	vtkGetMacro(MaxRounds, int);
 protected:
 	vtkPOSUFlow();
 	~vtkPOSUFlow() ;
@@ -34,11 +40,10 @@ protected:
 	void initExtentTable(vtkExtentTranslator *translator);
 	void initExtentTableByDIY(vtkExtentTranslator *translator);
 
-	vtkSetMacro(useDIYPartition, bool);
-	vtkGetMacro(useDIYPartition, bool);
 protected:
-	bool useDIYPartition; // partition the data by diy or by the input extent
-	float waitFactor; // wait factor for nonblocking communication
+	int MaxRounds;	// max number of rounds (seed interchanges)
+	bool UseDIYPartition; // partition the data by diy or by the input extent
+	float WaitFactor; // wait factor for nonblocking communication
 	                // wait for this portion of messages to arrive each round
 	bool diy_initialized;
 

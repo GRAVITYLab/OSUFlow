@@ -16,7 +16,6 @@
 #include "vtkTableExtentTranslator.h"
 
 #include "vtkPOSUFlow.h"
-#include "OSUFlowVTK.h"
 #include "Blocks.h"
 #include "ParFlow.h"
 
@@ -27,13 +26,14 @@ using namespace std;
 vtkStandardNewMacro(vtkPOSUFlow);
 
 vtkPOSUFlow::vtkPOSUFlow()
-: useDIYPartition(true)
+: UseDIYPartition(true)
 , diy_initialized(false)
-, waitFactor(0.1)
+, WaitFactor(0.1)
 , totTime(0)
 , totInTime(0)
 , totOutTime(0)
 , totCompCommTime(0)
+, MaxRounds(100)
 {
 	this->extentTable = vtkTableExtentTranslator::New();
 	//this->pcontroller = new POSUFlowController;
@@ -43,8 +43,10 @@ vtkPOSUFlow::~vtkPOSUFlow()
 {
 	this->extentTable->Delete();
 	//delete this->pcontroller;
-	if (this->diy_initialized)
+	if (this->diy_initialized) {
 		DIY_Finalize();
+		this->diy_initialized = false;
+	}
 }
 
 // message sent downstream to Paraview
@@ -94,10 +96,13 @@ int vtkPOSUFlow::RequestUpdateExtent(
 	// Deterine extents
 	//
 	vtkExtentTranslator *translator = vtkStreamingDemandDrivenPipeline::GetExtentTranslator(outInfo);
-	if (this->useDIYPartition) {
+	if (this->UseDIYPartition) {
 		// init DIY
 
-		if (this->diy_initialized) DIY_Finalize();
+		if (this->diy_initialized) {
+			DIY_Finalize();
+			this->diy_initialized = false;
+		}
 
 		vtkMultiProcessController *controller = vtkMultiProcessController::GetGlobalController();
 		int nproc = controller->GetNumberOfProcesses();
@@ -139,7 +144,6 @@ int vtkPOSUFlow::RequestUpdateExtent(
 
 	}
 	this->extentTable->GetExtent(extent);
-	translator->Delete();
 
 
 	// data
@@ -183,7 +187,6 @@ int vtkPOSUFlow::RequestData(
 	vtkInformationVector **inputVector,
 	vtkInformationVector *outputVector)
 {
-	assert(this->diy_initialized);
 	//
 	// process inputs
 	//
@@ -215,7 +218,7 @@ int vtkPOSUFlow::RequestData(
 
 
 	//
-	// init
+	// init.  Get comm
 	//
 	int rank=0, nproc=1, npart=1;
 	MPI_Comm comm = MPI_COMM_WORLD;
@@ -259,8 +262,12 @@ int vtkPOSUFlow::RequestData(
 		          && bounds[3] == extent[3] && bounds[4]==extent[4] && bounds[5] == extent[5]);
 	}
 
-	if (this->useDIYPartition == false) {
+	if (this->UseDIYPartition == false ) {
 
+		if (this->diy_initialized) {
+			DIY_Finalize();
+			this->diy_initialized = false;
+		}
 
 		int dims = 4; // 4D
 		int data_size[3];
@@ -297,13 +304,18 @@ int vtkPOSUFlow::RequestData(
 		}
 		this->diy_initialized = true;
 	}
+	else
+		assert(this->diy_initialized);
 
 	//
 	// OSUFlow
 	//
 	// set data.  Since there is only one block per process, we create one osuflow
-	OSUFlowVTK *osuflow = new OSUFlowVTK;
-	osuflow->setData(data);
+	int loc_npart = 1;
+	OSUFlowVTK **pposuflow = new OSUFlowVTK*[loc_npart];
+	pposuflow[0] = new OSUFlowVTK;
+	pposuflow[0]->setData(data);
+
     //request->Set(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING(), 1 );
 
 
@@ -321,15 +333,14 @@ int vtkPOSUFlow::RequestData(
 
 	// init parflow
 	printf("init parflow\n");
-	int loc_npart = 1;
 	int tsize = 1;  // total time steps
 
 	list<vtListTimeSeedTrace*> *sl_list = new list<vtListTimeSeedTrace*>[loc_npart];
-	Blocks *blocks = new Blocks(loc_npart, (void *)osuflow, OSUFLOW, 0, 0, (DataMode)0); // 0 : load OSUFlow manually
+	Blocks *blocks = new Blocks(loc_npart, (void *)pposuflow[0], OSUFLOW, 0, 0, (DataMode)0); // 0 : load OSUFlow manually
 	VECTOR4 *pt = NULL; // resulting traced points
 	int *npt = NULL; // resulting number of points per trace
 	int tot_ntrace;
-	ParFlow *parflow = new ParFlow(blocks, (OSUFlow**) &osuflow, sl_list, &pt, &npt, &tot_ntrace, loc_npart, 0);
+	ParFlow *parflow = new ParFlow(blocks, (OSUFlow **)pposuflow, sl_list, &pt, &npt, &tot_ntrace, loc_npart, 0);
 
 	parflow->SetMaxError(this->MaximumError);
 	parflow->SetInitialStepSize(this->IntegrationStepLength);
@@ -343,7 +354,7 @@ int vtkPOSUFlow::RequestData(
 	{
 	case VTK_INTEGRATE_FORWARD: dir=FORWARD_DIR; break;
 	case VTK_INTEGRATE_BACKWARD: dir=BACKWARD_DIR; break;
-	default: dir = BACKWARD_AND_FORWARD; break;
+	default: dir = BACKWARD_AND_FORWARD; printf("[vktPOSUFlow] Warning: BOTH dir is not supported yet.\n"); break;
 	};
 	parflow->SetIntegrationDir(dir);
 
@@ -410,7 +421,7 @@ int vtkPOSUFlow::RequestData(
 #endif
 
 		// for all rounds
-		for (j = 0; j < this->maxRounds; j++)
+		for (j = 0; j < this->MaxRounds; j++)
 		{
 
 			// for all blocks
@@ -447,7 +458,7 @@ int vtkPOSUFlow::RequestData(
 
 			// exchange neighbors
 			//printf("Start exchanging\n");
-			parflow->ExchangeNeighbors(Seeds, waitFactor);
+			parflow->ExchangeNeighbors(Seeds, WaitFactor);
 			//printf("End exchanging\n");
 
 		} // for all rounds
@@ -495,7 +506,7 @@ int vtkPOSUFlow::RequestData(
 		if (ntrace)
 			delete[] ntrace;
 
-		parflow->PrintPerf(this->totTime, this->totInTime, this->totOutTime, this->totCompCommTime, num_seeds, size);
+		//parflow->PrintPerf(this->totTime, this->totInTime, this->totOutTime, this->totCompCommTime, num_seeds, size);
 
 	}
 
@@ -505,6 +516,7 @@ int vtkPOSUFlow::RequestData(
 	//
 	printf("convert traces\n");
 #if 1
+	// normal output
 
 	newLines = vtkCellArray::New();
 	newPts = vtkPoints::New();
@@ -544,7 +556,7 @@ int vtkPOSUFlow::RequestData(
 
 	//output->GetPointData()->SetNormals()
 #else
-	// test
+	// test #2
 	newLines = vtkCellArray::New();
 	newPts = vtkPoints::New();
 	pts = vtkIdList::New();
@@ -581,16 +593,43 @@ int vtkPOSUFlow::RequestData(
 	output->Squeeze();
 	printf("Done\n");
 
-#if 0 // segfault happens sometimes after deleting these stuff
+	//
+// segfault happens sometimes after deleting these stuff
 	if (pt)
 		delete[] pt;
 	if (npt)
 		delete[] npt;
-	//delete blocks;
-	delete[] sl_list;
+#if 0
+
+	for(i=0; i<loc_npart; i++)
+	{
+		list<vtListTimeSeedTrace*>::iterator trace_iter;
+		for(trace_iter=sl_list[i].begin();trace_iter!=sl_list[i].end();trace_iter++)
+		{
+			vtListTimeSeedTrace::iterator pt_iter;
+			for(pt_iter = (*trace_iter)->begin(); pt_iter != (*trace_iter)->end();
+					pt_iter++)
+				delete *pt_iter;
+			(*trace_iter)->clear();
+			delete *trace_iter;
+		}
+		sl_list[i].clear();
+	}
+	delete [] sl_list;
+
+	for (i = 0; i < loc_npart; i++)
+		if (pposuflow[i] != NULL)
+			delete pposuflow[i];
+	for (i = 0; i < Seeds.size(); i++)
+		Seeds[i].clear();
+	Seeds.clear();
+
+	delete blocks;
 	delete parflow;
-	delete osuflow;
+	delete[] pposuflow;
+
 #endif
+	MPI_Barrier(comm);
 
 	// clean up
 	DIY_Finalize();
@@ -718,7 +757,6 @@ void vtkPOSUFlow::initExtentTableByDIY(vtkExtentTranslator *translator)
     	this->extentTable->Print(cout);
     }
 #endif
-    controller->Delete();
 }
 
 void vtkPOSUFlow::getNeighborIds(vector<gb_t> &neighborIdAry, vtkExtentTranslator *translator, int rank)

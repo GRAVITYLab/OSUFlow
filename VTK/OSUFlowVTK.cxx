@@ -46,8 +46,9 @@ void OSUFlowVTK::setData(vtkDataSet *input)
 		int t_min =0;
 		int t_max = 0;
 
-		this->InitFlowField(sMin, sMax, sRealMin, sRealMax, dim, t_min, t_max, RAW, ppData);
+		assert(numPoints == dim[0]*dim[1]*dim[2]);
 
+		this->InitFlowField(sMin, sMax, sRealMin, sRealMax, dim, t_min, t_max, RAW, ppData);
 	}
 
 	// entire data, static
@@ -171,43 +172,3 @@ void OSUFlowVTK::LoadData(char **dataset_files, int num_dataset_files,
 	has_data = true;
 
 }
-#if 0
-vtkMultiBlockDataSet *OSUFlowVTK::loadVTKData(const char *fileName)
-{
-	vtkXMLFileReadTester *vtkXMLFormatFileChecker = vtkXMLFileReadTester::New();
-
-	vtkXMLFormatFileChecker->SetFileName(fileName);
-
-	if (vtkXMLFormatFileChecker->TestReadFile() > 0) {
-		//Logger.getLogger(getClass().getName()).log(Level.INFO, "[{0}] is of type [{1}]",
-		//		new Object[] { fileName, vtkXMLFormatFileChecker.GetFileDataType() });
-
-		vtkXMLGenericDataObjectReader *vtkXMLFileReader = vtkXMLGenericDataObjectReader::New();
-
-		vtkXMLFileReader->SetFileName(fileName);
-		vtkXMLFileReader->Update();
-
-		if (vtkXMLFileReader->GetOutput()->IsA("vtkMultiBlockDataSet")) {
-			return vtkXMLFileReader->GetOutput();
-		} else {
-			vtkMultiBlockDataGroupFilter *makeMultiblock = vtkMultiBlockDataGroupFilter::New();
-
-			makeMultiblock->SetInputConnection(vtkXMLFileReader->GetOutputPort());
-
-			return makeMultiblock;
-		}
-	} else // legacy format
-	{
-		vtkGenericDataObjectReader *legacyVTKFileReader = vtkGenericDataObjectReader::New();
-
-		legacyVTKFileReader->SetFileName(fileName);
-		legacyVTKFileReader->Update();
-
-		vtkMultiBlockDataGroupFilter *makeMultiblock = vtkMultiBlockDataGroupFilter::New();
-
-		makeMultiblock->SetInput(legacyVTKFileReader->GetOutput());
-
-		return makeMultiblock;
-	}
-}
-#endif

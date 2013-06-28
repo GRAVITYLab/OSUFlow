@@ -56,7 +56,6 @@ public:
 	vtkGetMacro(scale, double);
 
 protected:
-	OSUFlowVTK *osuflow;
 	double MinimumIntegrationStep;
 	double MaximumIntegrationStep;
 
@@ -72,7 +71,6 @@ protected:
 	// RK2, RK4, RK45 (INTEG_ORD)
 	int IntegratorOrder;
 
-	int maxRounds;
 	double scale;
 
 	vtkOSUFlow();
@@ -83,6 +81,8 @@ protected:
 	virtual int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
 
 private:
+	OSUFlowVTK *osuflow;
+
 	// Not implemented:
 	//vtkOSUFlow(const vtkOSUFlow&);
 	//void operator=(const vtkOSUFlow&);

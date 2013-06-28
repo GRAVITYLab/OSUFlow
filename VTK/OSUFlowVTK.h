@@ -64,9 +64,7 @@ public:
 				       float *dim, int min_t, int max_t, DataMode mode,
 				       float **data = NULL);
 
-#if 0
-	vtkMultiBlockDataSet *loadVTKData(const char *fileName);
-#endif
+
 };
 
 #endif //OSUFLOW_VTK
