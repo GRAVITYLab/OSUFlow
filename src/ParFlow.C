@@ -32,6 +32,13 @@
 // todo: replace 2D vector of seeds with pointer to it?
 // or pass by reference (need these functions to modify seeds)
 
+//Jimmy added: putting new() in assert() is totally wrong.  In release mode everything inside assert() will be ignored.
+// We bypass the problem as follows
+#ifdef NDEBUG
+#undef assert
+#define assert(S) S
+#endif
+
 //-----------------------------------------------------------------------
 
 #ifdef _MPI
