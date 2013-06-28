@@ -26,7 +26,6 @@ void OSUFlowVTK::setData(vtkDataSet *input)
 		// copy data
 		float **ppData = new float*[1]; // time varying
 		ppData[0] = new float[numPoints*3];
-		assert(ppData[0]);
 		memcpy(ppData[0], imageData->GetScalarPointer(), numPoints*12);
 
 		// get info

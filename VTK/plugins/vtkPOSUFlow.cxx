@@ -121,6 +121,7 @@ int vtkPOSUFlow::RequestUpdateExtent(
 		data_size[1] = wholeExtent[3]-wholeExtent[2]+1;
 		data_size[2] = wholeExtent[5]-wholeExtent[4]+1;
 		data_size[3] = 1;
+
 		DIY_Init(dims, data_size, 1, comm);
 
 
@@ -129,7 +130,9 @@ int vtkPOSUFlow::RequestUpdateExtent(
 		int given[4] = {0, 0, 0, 1}; // constraints in x, y, z, t
 		int ghost_list[8] = {1, 1, 1, 1, 1, 1, 0, 0}; // -x, +x, -y, +y, -z, +z, -t, +t
 
-		DIY_Decompose(ROUND_ROBIN_ORDER, npart, &loc_npart, 1, ghost_list, given);
+		int diy_did = DIY_Decompose(ROUND_ROBIN_ORDER, npart, &loc_npart, 1, ghost_list, given);
+		assert(diy_did==0);
+
 
 		assert(loc_npart==1); // TODO
 
@@ -236,9 +239,7 @@ int vtkPOSUFlow::RequestData(
 		}
 		npart = nproc; // for now
 
-		//
-		// init DIY
-		//
+		// get comm
 		vtkMPICommunicator *vtkcomm = vtkMPICommunicator::SafeDownCast( controller->GetCommunicator() );
 		if (vtkcomm)
 			comm = *vtkcomm->GetMPIComm()->GetHandle();
@@ -262,6 +263,9 @@ int vtkPOSUFlow::RequestData(
 		          && bounds[3] == extent[3] && bounds[4]==extent[4] && bounds[5] == extent[5]);
 	}
 
+	//
+	// init DIY
+	//
 	if (this->UseDIYPartition == false ) {
 
 		if (this->diy_initialized) {
@@ -282,24 +286,19 @@ int vtkPOSUFlow::RequestData(
 		// - To process multiple blocks per processor, we will use vtkMultiBlock... in the pipeline
 		{
 			bb_t diyBound;
-#if 1
 			diyBound.min[0] = extent[0]; diyBound.max[0] = extent[1];
 			diyBound.min[1] = extent[2]; diyBound.max[1] = extent[3];
 			diyBound.min[2] = extent[4]; diyBound.max[2] = extent[5];
-#else
-			diyBound.min[0] = bounds[0]; diyBound.max[0] = bounds[1];
-			diyBound.min[1] = bounds[2]; diyBound.max[1] = bounds[3];
-			diyBound.min[2] = bounds[4]; diyBound.max[2] = bounds[5];
-#endif
 			vector<gb_t> neighborIdAry;
 			getNeighborIds(neighborIdAry, this->extentTable, rank);
 			gb_t *pNeighborId = &neighborIdAry[0];
 			int num_neighborId = neighborIdAry.size();
 
-			DIY_Decomposed(1, &rank, &diyBound,
+			int diy_did = DIY_Decomposed(1, &rank, &diyBound,
 					(ri_t**)NULL, (int*)NULL, (int **)NULL, (int *)NULL,
 					&pNeighborId , &num_neighborId,
 					0);
+			assert(diy_did==0);
 
 		}
 		this->diy_initialized = true;
@@ -313,9 +312,11 @@ int vtkPOSUFlow::RequestData(
 	// set data.  Since there is only one block per process, we create one osuflow
 	int loc_npart = 1;
 	OSUFlowVTK **pposuflow = new OSUFlowVTK*[loc_npart];
-	pposuflow[0] = new OSUFlowVTK;
-	pposuflow[0]->setData(data);
-
+	for (i=0; i<loc_npart; i++)
+	{
+		pposuflow[i] = new OSUFlowVTK;
+		pposuflow[i]->setData(data); // TODO
+	}
     //request->Set(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING(), 1 );
 
 
@@ -341,6 +342,7 @@ int vtkPOSUFlow::RequestData(
 	int *npt = NULL; // resulting number of points per trace
 	int tot_ntrace;
 	ParFlow *parflow = new ParFlow(blocks, (OSUFlow **)pposuflow, sl_list, &pt, &npt, &tot_ntrace, loc_npart, 0);
+	parflow->SetComm(comm);
 
 	parflow->SetMaxError(this->MaximumError);
 	parflow->SetInitialStepSize(this->IntegrationStepLength);
@@ -359,13 +361,17 @@ int vtkPOSUFlow::RequestData(
 	parflow->SetIntegrationDir(dir);
 
 
-	vector< vector<Particle> > Seeds(loc_npart); // seeds in current round for all local blocks
+	vector< vector<Particle> > Seeds; // seeds in current round for all local blocks
+	Seeds.resize(loc_npart);
 
 	// set Seeds from pSeed array.  tf is ignored.
 	parflow->InitTraces(Seeds, 0, loc_npart, tsize, 1, pSeed, num_seeds);
 
 	//delete[] pSeed;
 
+
+
+	MPI_Barrier(comm);
 
 	//
 	// RUN
@@ -402,7 +408,7 @@ int vtkPOSUFlow::RequestData(
 		//g_io = g;
 
 		// synchronize after I/O
-		MPI_Barrier(comm);
+		//MPI_Barrier(comm);
 		//TotInTime += (MPI_Wtime() - t0);
 		t0 = MPI_Wtime();
 
@@ -478,6 +484,7 @@ int vtkPOSUFlow::RequestData(
 
 
 	// gather fieldlines for rendering
+#if 1
 	printf("Gather traces\n");
 	{
 		// synchronize prior to gathering
@@ -494,7 +501,7 @@ int vtkPOSUFlow::RequestData(
 		int n; // total number of my points
 
 		// gather number of points in each trace at the root => ntrace
-		int all_gather = 0;
+		int all_gather = 0;  // 0: only root collects the data
 		n = parflow->GatherNumPts(ntrace, all_gather, loc_npart);
 
 		// gather the actual points in each trace at the root
@@ -506,101 +513,105 @@ int vtkPOSUFlow::RequestData(
 		if (ntrace)
 			delete[] ntrace;
 
-		//parflow->PrintPerf(this->totTime, this->totInTime, this->totOutTime, this->totCompCommTime, num_seeds, size);
+		parflow->PrintPerf(this->totTime, this->totInTime, this->totOutTime, this->totCompCommTime, num_seeds, size);
 
 	}
-
+#endif
 
 	//
 	// convert traces from pt, npt, tot_ntrace to vtkPolyData
 	//
-	printf("convert traces\n");
-#if 1
-	// normal output
-
-	newLines = vtkCellArray::New();
-	newPts = vtkPoints::New();
-	pts = vtkIdList::New();
-
-
-	if (rank==0 && pt)
+	if (rank==0)
 	{
-		int count = 0;
-		printf("ntrace=%d\n", tot_ntrace);
-		for (i = 0; i < tot_ntrace; i++)
+		printf("convert traces\n");
+		newLines = vtkCellArray::New();
+		newPts = vtkPoints::New();
+		pts = vtkIdList::New();
+#if 1
+		// normal output
+		if (pt)
 		{
-			//printf("length[%d]=%d\n", i, npt[i]);
-			for (j = 0; j < npt[i]; j++)
+
+			int count = 0;
+			printf("ntrace=%d\n", tot_ntrace);
+			for (i = 0; i < tot_ntrace; i++)
 			{
-				//printf("(%f %f %f) ", pt[count][0], pt[count][1], pt[count][2]);
-				ptId = newPts->InsertNextPoint((float *)&pt[count++][0]);
-				pts->InsertNextId(ptId);
+				//printf("length[%d]=%d\n", i, npt[i]);
+				for (j = 0; j < npt[i]; j++)
+				{
+					//printf("(%f %f %f) ", pt[count][0], pt[count][1], pt[count][2]);
+					ptId = newPts->InsertNextPoint((float *)&pt[count++][0]);
+					pts->InsertNextId(ptId);
+				}
+				newLines->InsertNextCell(pts);
+				pts->Reset();
 			}
-			newLines->InsertNextCell(pts);
-			pts->Reset();
 		}
-	}
 
 #elif 0
 	// test
-	newLines = vtkCellArray::New();
-	newPts = vtkPoints::New();
-	pts = vtkIdList::New();
 
-	for (int i=0; i<input->GetNumberOfPoints(); i++)
-	{
-		ptId = newPts->InsertNextPoint(input->GetPoint(i));
-		pts->InsertNextId(ptId);
-	}
-	newLines->InsertNextCell(pts);
-
-	//output->GetPointData()->SetNormals()
-#else
-	// test #2
-	newLines = vtkCellArray::New();
-	newPts = vtkPoints::New();
-	pts = vtkIdList::New();
-
-	if (rank==0) {
-		for (int j=0; j<30; j++)
+		for (int i=0; i<input->GetNumberOfPoints(); i++)
 		{
-			for (int i=0; i<100; i++)
-			{
-				float p[3];
-				p[0]=p[1]=p[2]=i;
-				p[0]+=j*2;
-				ptId = newPts->InsertNextPoint(p);
-				//line->GetPointIds()->InsertNextId(ptId);
-				pts->InsertNextId(ptId);
-			}
-			newLines->InsertNextCell(pts);
-			pts->Reset();
+			ptId = newPts->InsertNextPoint(input->GetPoint(i));
+			pts->InsertNextId(ptId);
 		}
-	}
-	//output->GetPointData()->SetNormals()
+		newLines->InsertNextCell(pts);
+
+		//output->GetPointData()->SetNormals()
+#else
+		// test #2
+
+		if (rank==0) {
+			for (int j=0; j<30; j++)
+			{
+				for (int i=0; i<100; i++)
+				{
+					float p[3];
+					p[0]=p[1]=p[2]=i;
+					p[0]+=j*2;
+					ptId = newPts->InsertNextPoint(p);
+					//line->GetPointIds()->InsertNextId(ptId);
+					pts->InsertNextId(ptId);
+				}
+				newLines->InsertNextCell(pts);
+				pts->Reset();
+			}
+		}
+		//output->GetPointData()->SetNormals()
 #endif
 
-	//
-	// assign lines to output
-	//
-	if (newPts->GetNumberOfPoints() > 0)
-	{
-		output->SetPoints(newPts);
-		printf("output points=%lld\n", output->GetPoints()->GetNumberOfPoints());
-		output->SetLines(newLines);
-	}
+		//
+		// assign lines to output
+		//
+		if (newPts->GetNumberOfPoints() > 0)
+		{
+			output->SetPoints(newPts);
+			printf("output points=%lld\n", output->GetPoints()->GetNumberOfPoints());
+			output->SetLines(newLines);
+		}
 
-	output->Squeeze();
-	printf("Done\n");
+		output->Squeeze();
+
+		newLines->Delete();
+		newPts->Delete();
+		pts->Delete();
+
+	} // rank==0
 
 	//
+	// Clean up
+	//
+
+
 // segfault happens sometimes after deleting these stuff
+	printf("rank:%d, 1\n", rank);
 	if (pt)
 		delete[] pt;
 	if (npt)
 		delete[] npt;
-#if 0
 
+#if 0
 	for(i=0; i<loc_npart; i++)
 	{
 		list<vtListTimeSeedTrace*>::iterator trace_iter;
@@ -615,31 +626,32 @@ int vtkPOSUFlow::RequestData(
 		}
 		sl_list[i].clear();
 	}
+	printf("rank:%d, 4\n", rank);
 	delete [] sl_list;
+	printf("rank:%d, 5\n", rank);
+	//for (i = 0; i < Seeds.size(); i++)
+	//	Seeds[i].clear();
+	//Seeds.clear();
+
+	printf("rank:%d, 6\n", rank);
+	//delete blocks;
+	printf("rank:%d, 7\n", rank);
+	delete parflow;
+	printf("rank:%d, 8\n", rank);
 
 	for (i = 0; i < loc_npart; i++)
 		if (pposuflow[i] != NULL)
 			delete pposuflow[i];
-	for (i = 0; i < Seeds.size(); i++)
-		Seeds[i].clear();
-	Seeds.clear();
-
-	delete blocks;
-	delete parflow;
 	delete[] pposuflow;
-
 #endif
-	MPI_Barrier(comm);
+
+	//MPI_Barrier(comm);
 
 	// clean up
 	DIY_Finalize();
 	this->diy_initialized = false;
 
-	// why deleting causes segfault?
-	newLines->Delete();
-	newPts->Delete();
-	pts->Delete();
-
+	printf("Done\n");
 
 	return 1; // success
 }

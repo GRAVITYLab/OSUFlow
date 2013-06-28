@@ -132,8 +132,12 @@ class ParFlow {
   inline void SetUpperAngleAccuracy(float angle) {this->upperAngleAccuracy = angle;}
   inline void SetIntegrationOrder(INTEG_ORD order) {this->integrationOrder = order;}
   inline void SetUseAdaptiveStepSize(bool adapt) {this->useAdaptiveStepSize = adapt;}
-  // Jimmy-added:
+  // Jimmy-added begin:
   inline void SetIntegrationDir(TRACE_DIR dir) {this->integrationDir = dir; }
+#ifdef _MPI
+  inline void SetComm(MPI_Comm &comm_) {this->comm = comm_;}
+#endif
+  // Jimmy added end
 
   void SetIntegrationParams(OSUFlow* osuflow);
 
@@ -195,6 +199,9 @@ class ParFlow {
   bool useAdaptiveStepSize;
   TRACE_DIR integrationDir;
 
+#ifdef _MPI //Jimmy-added
+  MPI_Comm comm;
+#endif
 };
 
 #ifdef _MPI
