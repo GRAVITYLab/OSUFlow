@@ -131,6 +131,9 @@ class OSUFlow
   void DeleteData(void);
 
   //used by curvilinear code  
+  void AttachCurvilinearGridData
+       ( int tmStpId0,    int     nTmSteps,    
+         int gridSizs[3], float * gridData, float ** vec_data ); // added by Zhanping Liu on 06/11/2013 ZPL
   void LoadDataCurvilinear(const char* fname, bool bStatic, 
 		       VECTOR3 sMin, VECTOR3 sMax)  ;  //added by lijie
   void LoadDataIrregular(const char* fname, bool bStatic, 

@@ -70,6 +70,8 @@ ParFlow::ParFlow(Blocks *blocks,
   TotSeeds = 0;
   TotSteps = 0;
   TotItemsSent = 0;
+  numStrms = 0;	    // added by Zhanping Liu on 05/30/2013 ZPL
+  curvlinr = 0;     // added by Zhanping Liu on 07/11/2013 ZPL
 
   // integration parameters
   initialStepSize = 1.0;
@@ -283,7 +285,7 @@ void ParFlow::InitTraces(vector< vector<Particle> >& Seeds, int tf,
 	// edited TP 10/12/12
 // 	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
 	#ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
-	osuflow[i]->SetRandomSeedPoints(bb.min, bb.max, tf); 
+	osuflow[i]->SetRandomSeedPoints(bb.min, bb.max, tf);
 	// ADD-BY-LEETEN 10/29/2012-BEGIN
 	#else // #ifdef _MPI
  	osuflow[i]->SetRandomSeedPoints(from, to, tf); 
@@ -397,6 +399,7 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num,
 #endif
 
   if (nseeds > 0) {
+	
 
     TotSeeds += nseeds;
 
@@ -410,8 +413,7 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num,
 	  
     // perform the integration
     SetIntegrationParams(osuflow[block_num]);
-    osuflow[block_num]->GenStreamLines(temp_seeds, FORWARD_DIR, nseeds, pf, 
-				       list3); 
+    osuflow[block_num]->GenStreamLines(temp_seeds, FORWARD_DIR, nseeds, pf, list3);
 
     // copy each 3D trace to a 4D trace and then to the streamline list
     // post end point of each trace to the send list
@@ -422,8 +424,29 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num,
       TotSteps += (*trace_iter3)->size();
       if (w != NULL)
 	*w += (*trace_iter3)->size(); // number of steps accrues to block weight
-      if (!(*trace_iter3)->size())
-	continue;
+
+
+      // any  degenerate  'streamline' (with only one sample,  i.e.,  the  seed point) ZPL begin
+      // MUST / SHOULD be discarded,  otherwise the  'current'  block A  would  manage
+      // to forward its 'ending point' (actually the seed point, possibly still within
+      // the REAL / non-ghost boundary of the 'current' block A) to the 'next' block B
+      // which would not be able to locate the 'ending point' within its (even  ghost)
+      // boundary and then would produce and forward a new 'ending point' (i.e., the
+      // same as the seed point, due to the bug with the line above) back to block A
+      //
+      // flow line integration would be stuck by such endless end-point forwarding 
+      // between neighborng blocks OVER CURVILINEAR GRIDS
+      // 
+      // the fix below discards degenerate streamlines such that only REAL end points
+      // (different from the seed points) are forwarded to the 'next' block
+      //
+      // the fix also prevents single points (seed points) from being treated & hence
+      // exported as streamlines, cleaning up the flow line integration result
+      //
+      // added by Zhanping Liu on 07/03/2013
+      //
+      if (    int(  ( *trace_iter3 )->size()  )    <    2    )    continue; 	    // ZPL end
+
 
       trace = new vtListTimeSeedTrace;
       for (pt_iter3 = (*trace_iter3)->begin(); pt_iter3 != 
@@ -603,12 +626,12 @@ void ParFlow::ComputePathlines(const vector<Particle>& seeds, int block_num,
 // tsize: temporal data size
 //
 void ParFlow::GatherFieldlines(int nblocks, float *size, int tsize) {
-
+  
   static int *ntrace = NULL; // number of traces for each proc
   int n; // total number of my points
 
 #ifdef GRAPHICS
-
+  
   // gather number of points in each trace at the root
   n = GatherNumPts(ntrace, 0, nblocks);
   
@@ -620,13 +643,14 @@ void ParFlow::GatherFieldlines(int nblocks, float *size, int tsize) {
 
 #elif defined TRACK_SEED_ID
 //#ifdef TRACK_SEED_ID
+  
   DistributedWriteFieldlines((char *)"field_lines.out",
 			     (char *)"field_line_ids.out", nblocks, size,
 			     tsize);
 #else
   // gather number of points in each trace to everyone
   n = GatherNumPts(ntrace, 1, nblocks);
-  
+   
   // write the traces collectively
   WriteFieldlines(ntrace, n, (char *)"field_lines.out", nblocks, size, tsize);
 #endif
@@ -715,6 +739,8 @@ int ParFlow::GatherNumPts(int* &ntrace, int all, int nblocks) {
   // compute number of my traces
   for (i = 0; i < nblocks; i++)
     myntrace += sl_list[i].size();
+
+  numStrms = myntrace;	// added by Zhanping Liu on 05/30/2013 ZPL
 
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 
@@ -805,31 +831,34 @@ void ParFlow::GatherPts(int *ntrace, int mynpt, int nblocks) {
   }
 
   // gather the points at the root
-  if (rank == 0) {
+  if (rank == 0) 
+  {
+    	k = 0;
+    	for (i = 0; i < nproc; i++) 
+   	{
+      		nflt[i] = 0;
 
-    k = 0;
-    for (i = 0; i < nproc; i++) {
-      nflt[i] = 0;
-      for (j = 0; j < ntrace[i]; j++)
-	nflt[i] += ((*npt)[k++] * 4);
-      ofst[i] = (i == 0) ? 0 : ofst[i - 1] + nflt[i - 1];
-    }
+      		for (j = 0; j < ntrace[i]; j++)
+		nflt[i] += ((*npt)[k++] * 4);
 
+      		ofst[i] = (i == 0) ? 0 : ofst[i - 1] + nflt[i - 1];
+    	}
   }
+
   for(i = 0; i < *tot_ntrace; i++)
     tot_npt += (*npt)[i];
+
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 
-	// ADD-BY-LEETEN 04/09/2011-END
-  assert((*pt = new VECTOR4[tot_npt]) != NULL);
-  MPI_Gatherv(mypt, mynpt * 4, MPI_FLOAT, *pt, nflt, ofst,
-	      MPI_FLOAT, 0, MPI_COMM_WORLD);
+		// ADD-BY-LEETEN 04/09/2011-END
+  		assert((*pt = new VECTOR4[tot_npt]) != NULL);
+  		MPI_Gatherv(mypt, mynpt * 4, MPI_FLOAT, *pt, nflt, ofst,
+	      		    MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-  delete[] mypt;
-	// ADD-BY-LEETEN 04/09/2011-BEGIN
+  		delete[] mypt;
+		// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#endif	// #ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
-
 }
 
 // ADD-BY-LEETEN 04/09/2011-BEGIN
@@ -1974,20 +2003,57 @@ void ParFlow::PostPoint(int lid, Item *item, int recirc, int end_steps) {
 
 #ifdef _MPI
 
-  // start edited TP 9/12/12
-  int gid = DIY_Gid(0, lid);
-  bb_t bounds;
-  DIY_No_ghost_block_bounds(0, lid, &bounds);
-  if (!recirc) { // check if point is in lid and not recirculating
-    int i;
-    for (i = 0; i < 4; i++) { 
-      if (item->pt[i] < bounds.min[i] || item->pt[i] > bounds.max[i])
-	break;
-    }
-    if (i == 4)
-      return;
-  }
 
+  // NOTE: due to the current  'back-off'  problem with  OSUFlow,  the ending ZPL begin
+  //       point  of  a flow line (still within the 'current' block) fails to
+  //       be   forwarded   to   the  'next'  block  FOR  CURVILINEAR  GRIDS:
+  //
+  //       ( i == 4 ) always holds!!!
+  //
+  //       it is what I call a 'block-bound' point:  a point bound to a block
+  //
+  //       once the 'back-off' problem is fixed,  the ending point  will be a
+  //       little bit  beyond the REAL (non-ghost) boundary  of the 'current'
+  //       block --- into the ghost cell (that is shared by the 'next' block)
+  //       such that the 'next' block  will  successfully  catch  and  accept
+  //       such an ending point (as we expect very much)
+  //
+  //       above commented by Zhanping Liu on 07/03/2013 for CURVILINEAR GRID
+  //
+  // the if-statement code segment below is executed ONLY IF  NOT circulation
+  // and NOT curvilinear
+  // 
+  // this  combined  logical  condition  supports curvilinear grids (with the
+  // 'back-off' problem  ALLEVIATED)  without  affecting  the  original  code 
+  // (NON-curvilinear grids) AND without any performance penalty AT ALL
+  //
+  // curvlinr: an  instance variable of the class  initialized  to  0  (MUST)
+  //           while  it can be explicitly specified (by the user of ParFlow)
+  //           to 1 through a public member function: SetGrid2Curvilinear(  )
+  //
+  // combined logical condition added by Zhanping Liu on 07/11/2013
+  //
+  int  toExecut = !( recirc + curvlinr );                                  // ZPL end
+
+
+  // start edited TP 9/12/12
+  if ( toExecut )  // modified (from a single condition to the current combined one) by Zhanping Liu on 07/11/2013  ZPL
+  {   	
+	// the 3 lines below were moved from outside in, by Zhanping Liu on 07/11/2013 ZPL begin
+	// without any influence on the flow of execution
+        //
+	int gid = DIY_Gid(0, lid);                   
+  	bb_t bounds;
+  	DIY_No_ghost_block_bounds(0, lid, &bounds);                                 // ZPL end
+
+  	// check if point is in lid and not recirculating
+      	int i;
+      	for (i = 0; i < 4; i++) 
+      	if (item->pt[i] < bounds.min[i] || item->pt[i] > bounds.max[i]) break;
+
+      	if (i == 4) return;
+  }
+  
   if (item->steps < end_steps)
     DIY_Enqueue_item_points(0, lid, item, NULL, sizeof(Item), item->pt, 
 			    1, NULL);
