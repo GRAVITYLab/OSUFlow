@@ -1,0 +1,3 @@
+21 20 20 1 # CURVILINEAR grid size (x, y, z, t; t is number of timesteps)
+1.0 # vector scaling factor
+curvGrid_office.vtk # list of file names, only one for the static case (particularly the grid part)
