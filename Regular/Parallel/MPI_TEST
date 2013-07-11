@@ -14,8 +14,8 @@
 # without permission
 #
 #----------------------------------------------------------------------------
-ARCH=MAC_OSX
-#ARCH=LINUX
+#ARCH=MAC_OSX
+ARCH=LINUX
 #ARCH=BGP
 #ARCH=EUREKA
 
@@ -34,8 +34,16 @@ exe=./mpitest
 # dataset
 if [ "$ARCH" = "LINUX" ] || [ "$ARCH" = "MAC_OSX" ]; then
 #data=$HOME/flame/flame.list
-data=$HOME/tornado/tornado.list
-#data=../../sample_data/regular/test.list
+#data=$HOME/tornado/tornado.list
+#data=../../sample_data/regular/test.list		    # steady  case: _VTKIO_INTEGRATION_ OFF in MpiDraw.C
+#data=/home/zhanping/Tornado/tornado.list		    # time-varying: _VTKIO_INTEGRATION_ OFF in MpiDraw.C
+#data=/home/zhanping/Tornado/tornado_vtk.list		    # time-varying: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ OFF in MpiDraw.C
+#data=/home/zhanping/Integration/Data/vtkDataRaw.list	    # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ OFF; _CURVILINEAR_GRIDS_ OFF in MpiDraw.C
+#data=/home/zhanping/Integration/Data/RectGrid2.list	    # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ OFF in MpiDraw.C
+#data=/home/zhanping/Integration/Data/curvGridRaw.list      # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ OFF; _CURVILINEAR_GRIDS_ ON  in MpiDraw.C
+#data=/home/zhanping/Integration/Data/curvGridVTK.list      # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ ON  in MpiDraw.C
+#data=/home/zhanping/Integration/Data/curvGrid_office.list  # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ ON  in MpiDraw.C
+data=/home/zhanping/Integration/Data/curvGrid_bluntFin.list # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ ON  in MpiDraw.C
 #data=$HOME/tornado/tornado_rep.list
 #data=$HOME/plume/plume.list
 #data=$HOME/nek5000/200x200x200/nek5000.list
@@ -62,7 +70,7 @@ fi
 bf=4
 
 # total number of temporal blocks
-tb=8
+tb=10
 
 # total number of particles
 #tp=$[$num_procs * $bf * 1]
