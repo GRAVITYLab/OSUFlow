@@ -1,7 +1,7 @@
 10
 
 dir
-314
+317
 https://svn.mcs.anl.gov/repos/osuflow/trunk/old.diy/examples
 https://svn.mcs.anl.gov/repos/osuflow
 
@@ -26,6 +26,9 @@ tpeterka
 
 6b533941-e25a-0410-8d37-8675ae1e3315
 
+static
+dir
+
 C++_wrappers
 dir
 
@@ -39,8 +42,5 @@ block_io
 dir
 
 C_wrappers
-dir
-
-static
 dir
 

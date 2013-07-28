@@ -59,6 +59,9 @@ class ParFlow {
   ParFlow(Blocks *blocks, 
 	  OSUFlow **osuflow, list<vtListTimeSeedTrace*> *sl_list, VECTOR4 **pt,
 	  int **npt, int *tot_ntrace, int nb, int track_seed_id = 0);
+  int    SetGrid2Curvilinear ()  {  curvlinr = 1;      }  // added by Zhanping Liu on 07/11/2013 ZPL
+  int    GetNumberOfFlowLines()  {  return  numStrms;  }  // added by Zhanping Liu on 05/30/2013 ZPL
+
 #endif
   ParFlow(Lattice4D *lat, OSUFlow **osuflow, 
 	  list<vtListTimeSeedTrace*> *sl_list, VECTOR4 **pt, 
@@ -140,7 +143,6 @@ class ParFlow {
   // Jimmy added end
 
   void SetIntegrationParams(OSUFlow* osuflow);
-
   int* flowMatrix; 
 
 #ifdef ZOLTAN
@@ -162,6 +164,8 @@ class ParFlow {
   double *time_stats; // time stats
   int n_block_stats;// number of block stats
   int n_time_stats; // number of time stats
+  int curvlinr; // curvilinear grid (1) or not (0 by default): added by Zhanping Liu on 07/11/2013 ZPL
+  int numStrms; // total number of flow lines from ALL blocks (possibly less than that of seeds): added by Zhanping Liu on 05/30/2013 ZPL
   int TotSeeds; // total number of seeds for all blocks and all rounds
   int TotSteps; // total number of integration steps for all seeds,
                 // for all blocks and all rounds in this process

@@ -8,6 +8,7 @@
 #include "vtkObjectFactory.h"
 #include "vtkTimerLog.h"
 #include "vtkInformationVector.h"
+#include "vtkNew.h"
 
 // Defines static vtkOSUFlow::New() here
 vtkStandardNewMacro(vtkOSUFlow);
@@ -49,26 +50,23 @@ int vtkOSUFlow::RequestData(
 	//vtkFloatArray *newScalars=NULL;
 	vtkIdType ptId;
 	int j;
-	vtkIdList *pts;
 	//vtkPolyLine* lineNormalGenerator = NULL;
 	//vtkFloatArray* normals = NULL;
 	//vtkFloatArray* rotation = 0;
-	vtkCellArray *newLines;
-	vtkPoints *newPts;
 
-	vtkInformation *sourceInfo = inputVector[0]->GetInformationObject(0); // data
-	vtkInformation *inInfo = inputVector[1]->GetInformationObject(0);  // seeds
-	vtkInformation *outInfo = outputVector->GetInformationObject(0);	// trace
+	vtkSmartPointer<vtkInformation> sourceInfo = inputVector[0]->GetInformationObject(0); // data
+	vtkSmartPointer<vtkInformation> inInfo = inputVector[1]->GetInformationObject(0);  // seeds
+	vtkSmartPointer<vtkInformation> outInfo = outputVector->GetInformationObject(0);	// trace
 
-	vtkDataSet *source = 0;
-	if (sourceInfo) {
+	vtkSmartPointer<vtkDataSet> source;
+	if (sourceInfo.GetPointer()) {
 		source = vtkDataSet::SafeDownCast(sourceInfo->Get(vtkDataObject::DATA_OBJECT()));
 	}
-	vtkDataSet *input = 0;
-	if (inInfo) {
+	vtkSmartPointer<vtkDataSet> input;
+	if (inInfo.GetPointer()) {
 		input = vtkDataSet::SafeDownCast(inInfo->Get(vtkDataObject::DATA_OBJECT()));
 	}
-	vtkPolyData *output = vtkPolyData::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
+	vtkSmartPointer<vtkPolyData> output = vtkPolyData::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
 	//
 	// OSUFlow
@@ -125,9 +123,9 @@ int vtkOSUFlow::RequestData(
 	//
 	// convert traces from list-of-list to vtkPolyData
 	//
-	newLines = vtkCellArray::New();
-	newPts = vtkPoints::New();
-	pts = vtkIdList::New();
+	vtkSmartPointer<vtkCellArray> newLines = vtkSmartPointer<vtkCellArray>::New();
+	vtkSmartPointer<vtkPoints> newPts = vtkSmartPointer<vtkPoints>::New();
+	vtkSmartPointer<vtkIdList> pts = vtkSmartPointer<vtkIdList>::New();
 
 #if 1
 	std::list<vtListSeedTrace*>::iterator pIter;
@@ -179,10 +177,8 @@ int vtkOSUFlow::RequestData(
 	if (newPts->GetNumberOfPoints() > 0)
 	{
 		output->SetPoints(newPts);
-		newPts->Delete();
 		printf("points=%lld\n", output->GetPoints()->GetNumberOfPoints());
 		output->SetLines(newLines);
-		newLines->Delete();
 	}
 	output->Squeeze();  // need it?
 	printf("Done\n");

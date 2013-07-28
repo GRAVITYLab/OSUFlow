@@ -41,6 +41,7 @@
 #include "diy.h"
 #endif
 
+
 // headers for computational libs
 #ifdef _OSUFLOW
 #include "OSUFlow.h"
@@ -91,6 +92,16 @@ class Blocks {
   int LoadBlock4D(int grp, int blk, double *time, float *size,
 		  int tsize, int tb, int nblocks, float **data = NULL);
   int LoadBlocksAMR(int grp, double *time, DataMode dm);
+
+
+  // added by Zhanping Liu for VTK I/O integration ZPL begin
+  int AttachDataBlocks4D( int   time_grp, double * timeUsed,  // added on 05/28/2013 for CARTESIAN grids
+			  int   numBlcks, float  * volSizes, float *** dataBlks );
+  int AttachCurvilinearGridDataBlocks4D            // added on 06/12/2013 and last updated on 06/19/2013
+			( int   time_grp, double * timeUsed, int       numBlcks, 
+			  int * sBlckIds, float ** gridBlks, float *** dataBlks );
+  // ZPL end
+
 
   /* removed by TP 10/10/12
 /*   int IsBlockInTimeGroup(int g, int b, int tsize, int tb); */

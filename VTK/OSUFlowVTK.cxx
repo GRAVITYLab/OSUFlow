@@ -6,8 +6,8 @@
 #include <vtkXMLFileReadTester.h>
 #include <vtkXMLGenericDataObjectReader.h>
 #include <vtkMultiBlockDataGroupFilter.h>
-#include <vtkGenericDataObjectReader.h>
 #endif
+#include <vtkGenericDataObjectReader.h>
 
 #include "OSUFlowVTK.h"
 
@@ -20,11 +20,15 @@ void OSUFlowVTK::setData(vtkDataSet *input)
 
 	} else
 	{
+		if (imageData->GetScalarType() != VTK_FLOAT) {
+			printf("[OSUFlowVTK] Error: Currently OSUFlow only supports dataset type = FLOAT\n");
+		}
+
 		// this is a RAW data format.  Use OSUFlow's CFlowField interpolator
 		int numPoints = imageData->GetNumberOfPoints();
 
 		// copy data
-		float **ppData = new float*[1]; // time varying
+		float *ppData[1]; // time varying
 		ppData[0] = new float[numPoints*3];
 		memcpy(ppData[0], imageData->GetScalarPointer(), numPoints*12);
 
@@ -100,7 +104,7 @@ void OSUFlowVTK::LoadData(char **dataset_files, int num_dataset_files,
 	float **ppData = new float *[numTimesteps];
 	for (int t=MinT; t<=MaxT; t++)
 	{
-		vtkXMLImageDataReader *reader = vtkXMLImageDataReader::New();
+		vtkSmartPointer<vtkXMLImageDataReader> reader = vtkXMLImageDataReader::New();
 		reader->SetFileName(dataset_files[t]); //TODO: now assuming timesteps always start from 0
 		reader->UpdateInformation();
 
@@ -116,7 +120,7 @@ void OSUFlowVTK::LoadData(char **dataset_files, int num_dataset_files,
 		int *ext = reader->GetOutput()->GetExtent();
 		printf("Extent: %d %d %d %d %d %d\n", ext[0], ext[1], ext[2], ext[3], ext[4], ext[5]);
 
-		vtkImageData *image = reader->GetOutput() ;
+		vtkSmartPointer<vtkImageData> image = reader->GetOutput() ;
 
 		// show content
 		//data->PrintSelf(std::cout, vtkIndent(2));

@@ -188,196 +188,94 @@ Blocks::~Blocks() {
 // float array
 //
 float ***Blocks::BilLoadTimeGroupBlocks(int t_group, int nblocks,
-					float *size, int tsize, int tb) {
+					float *size, int tsize, int tb) 
+{
+  	MPI_Datatype 	bil_datatype;
+  	MPI_Type_contiguous(3, MPI_FLOAT, &bil_datatype );
+  	float     ***   data = new float ** [nblocks];
 
-  MPI_Datatype bil_datatype;
-  MPI_Type_contiguous(3, MPI_FLOAT, &bil_datatype);
-  float ***data = new float**[nblocks];
+  	// edited TP 10/12/12
+	// int64_t block_min[4], block_size[4]; // block extents
+  	int block_min[4], block_size[4]; // block extents
 
-  // edited TP 10/12/12
-//   int64_t block_min[4], block_size[4]; // block extents
-  int block_min[4], block_size[4]; // block extents
+  	// account for a header if necessary
+  	// DIY does not provide this function, use BIL directly for it
+  	if(data_mode == RAW_HEADER)
+    	BIL_Set_io_header_size(12);  // header is 3 ints
 
-  // account for a header if necessary
-  // DIY does not provide this function, use BIL directly for it
-  if(data_mode == RAW_HEADER)
-    BIL_Set_io_header_size(12);  // header is 3 ints
+  	// load blocks for this time block
+  	for (int i = 0; i < nblocks; i++) 
+	{ 	
+    		// edited TP 10/12/12
+    		int time_block;
+    		DIY_In_time_block(0, i, &time_block);
+		//     if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
+    		if (time_block == t_group) 
+		{
+			// blocking->BlockStartsSizes(i, block_min, block_size);
+      			DIY_Block_starts_sizes(0, i, block_min, block_size);
+      			// end TP
 
-  // load blocks for this time block
-  for (int i = 0; i < nblocks; i++) { // for all my blocks
+      			data[i] = new float*[block_size[3]];
 
-    // edited TP 10/12/12
-    int time_block;
-    DIY_In_time_block(0, i, &time_block);
-//     if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
-    if (time_block == t_group) {
-//       blocking->BlockStartsSizes(i, block_min, block_size);
-      DIY_Block_starts_sizes(0, i, block_min, block_size);
-      // end TP
+      			// edited TP 10/12/12
+			//       // convert from int64_t to int, and also reverse order for BIL
+			//       int bil_data_size[3] = { size[2], size[1], size[0] };
+			//       int bil_min[3] = { block_min[2], block_min[1], block_min[0] };
+			//       int bil_size[3] = { block_size[2], block_size[1], block_size[0] };
+			//       // post a BIL read for each time step in this block
+			//       for (int j = 0; j < block_size[3]; j++) { // for all timesteps
+			// 	data[i][j] = new float[block_size[0] * block_size[1] * 
+			// 			       block_size[2] * 3];
+			// 	BIL_Add_block_raw(3, bil_data_size, bil_min, bil_size, 
+			// 			  dataset_files[block_min[3] + j], bil_datatype, 
+			// 			  (void **)&data[i][j]);
 
-      data[i] = new float*[block_size[3]];
+      			// post a read for each time step in this block
+      			for (int j = 0; j < block_size[3]; j++) 
+			{ 	// for all timesteps
+				data[i][j] = new float[block_size[0] * block_size[1] * block_size[2] * 3];
+				DIY_Add_data_raw(  block_min,  block_size, 
+			  	                   dataset_files[ block_min[3] + j ], bil_datatype, (void **)&data[i][j]);
+      			} // for all timesteps
+    		} // in time block
+  	} // for all blocks
 
-      // edited TP 10/12/12
-//       // convert from int64_t to int, and also reverse order for BIL
-//       int bil_data_size[3] = { size[2], size[1], size[0] };
-//       int bil_min[3] = { block_min[2], block_min[1], block_min[0] };
-//       int bil_size[3] = { block_size[2], block_size[1], block_size[0] };
-//       // post a BIL read for each time step in this block
-//       for (int j = 0; j < block_size[3]; j++) { // for all timesteps
-// 	data[i][j] = new float[block_size[0] * block_size[1] * 
-// 			       block_size[2] * 3];
-// 	BIL_Add_block_raw(3, bil_data_size, bil_min, bil_size, 
-// 			  dataset_files[block_min[3] + j], bil_datatype, 
-// 			  (void **)&data[i][j]);
+  	// edited TP 10/12/12
+	//   BIL_Read();
+  	DIY_Read_data_all();
 
-      // post a read for each time step in this block
-      for (int j = 0; j < block_size[3]; j++) { // for all timesteps
-	data[i][j] = new float[block_size[0] * block_size[1] * 
-			       block_size[2] * 3];
-	DIY_Add_data_raw(block_min, block_size, 
-			  dataset_files[block_min[3] + j], bil_datatype, 
-			  (void **)&data[i][j]);
+  	// swap bytes
+	#ifdef BYTE_SWAP
+  	for (int i = 0; i < nblocks; i++) 
+	{ 	// for all my blocks
+    		// edited TP 10/12/12
+    		DIY_In_time_block(i, &time_block)
+		//     if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
+    		if (time_block == t_group) 
+		{
+			// blocking->BlockStartsSizes(i, block_min, block_size);
+      			DIY_Block_starts_sizes(i, block_min, block_size);
+      			// end TP
 
+      			for (int j = 0; j < block_size[3]; j++) 
+			{
+				for (int k = 0; k < block_size[0] * block_size[1] * block_size[2] * 3; k++)
+	  			swap4((char *)&data[i][j][k]);
+      			}
+    		}
+  	}
+	#endif
 
-      } // for all timesteps
-    } // in time block
-  } // for all blocks
+  	MPI_Type_free(&bil_datatype);
 
-  // edited TP 10/12/12
-//   BIL_Read();
-  DIY_Read_data_all();
-
-  // swap bytes
-#ifdef BYTE_SWAP
-  for (int i = 0; i < nblocks; i++) { // for all my blocks
-
-    // edited TP 10/12/12
-    DIY_In_time_block(i, &time_block)
-//     if (blocking->InTimeBlock(t_group, i, tsize, tb)) {
-    if (time_block == t_group) {
-//       blocking->BlockStartsSizes(i, block_min, block_size);
-      DIY_Block_starts_sizes(i, block_min, block_size);
-      // end TP
-
-      for (int j = 0; j < block_size[3]; j++) {
-	for (int k = 0; k < block_size[0] * block_size[1] * block_size[2] * 3; 
-	     k++)
-	  swap4((char *)&data[i][j][k]);
-      }
-    }
-  }
-#endif
-
-  MPI_Type_free(&bil_datatype);
-
-  return data;
-
+  	return data;
 }
 //-----------------------------------------------------------------------
 
 #endif
 #endif
 
-//----------------------------------------------------------------------------
-//
-// DEPRECATED, removed by TP 10/10/12
-//
-// //
-// // tests whether block b is in time block g
-// //
-// // g: current time block
-// // blk: local block id
-// // tsize: total number of timesteps
-// // tb: total number of global time blocks
-// //
-// int Blocks::IsBlockInTimeGroup(int g, int b, int tsize, int tb) {
-
-//   int64_t from[4]; // block starts
-//   int64_t to[4]; // block starts
-//   int min_t, max_t; // time range of the block
-
-// #ifdef _MPI
-//   int64_t time_group_start;
-//   int64_t time_group_end;
-//   blocking->GetRealBlockBounds(b, from, to);
-//   min_t = from[3];
-//   max_t = to[3];
-//   blocking->GetRealTimeBounds(g, &time_group_start, &time_group_end);
-// #else
-//   int time_group_start;
-//   int time_group_end;
-//   if (lat4D) {
-//     lat4D->GetRealTB(b, &min_t, &max_t);
-//     lat4D->GetRealTimeGroupBounds(g, &time_group_start, &time_group_end);
-//   }
-//   else {
-//     latAMR->GetTB(b, &min_t, &max_t);
-//     time_group_start = g * tsize / tb;
-//   }
-// #endif
-
-//   if (tsize == 1 || tb == 1 || (min_t == time_group_start && 
-// 	                        max_t == time_group_end))
-//     return 1;
-
-//   return 0;
-
-// }
-//-----------------------------------------------------------------------
-//
-// evicts blocks in time group just prior to the current group
-//
-// grp: current group
-// tsize: number of time steps
-// tb: total number of global time blocks
-// nblocks: number of local blocks
-// ntblocks: total number of global time blocks
-//
-void Blocks::DeleteBlocks(int grp, int tsize, int tb, int nblocks) {
-
-  int i;
-  int loaded; // whehter a block is loaded
-
-  if (grp == 0)
-    return;
-
-  for (i = 0; i < nblocks; i++) {
-
-#ifdef _MPI
-    loaded = GetLoad(i);
-#else
-    loaded = lat4D ? lat4D->GetLoad(i) : latAMR->GetLoad(i);
-#endif
-
-    #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
-    // edited by TP 10/10/20
-    int time_block;
-    DIY_In_time_block(0, i, &time_block);
-//     if (loaded && IsBlockInTimeGroup(grp - 1, i, tsize, tb)) {
-    if (loaded && time_block == grp - 1) {
-      // end TP
-    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
-
-#ifdef _MPI
-      ClearLoad(i);
-#else
-      lat4D ? lat4D->ClearLoad(i) : latAMR->ClearLoad(i);
-#endif
-
-      switch (compute_type) {
-      case OSUFLOW:
-	block_osuflow[i]->DeleteData();
-	break;
-      default:
-	break;
-      }
-    #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
-    }
-    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
-
-  }
-
-}
 //-----------------------------------------------------------------------
 //
 // loads blocks in this time group
@@ -502,7 +400,7 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
 	else
 	  block_osuflow[i]->LoadData(dataset_files, num_dataset_files, from, 
 				     to, real_from, real_to, size, min_t,
-				     max_t, data_mode, data[i]); 
+				     max_t, data_mode, data[i]); 	
 	break;
       default:
 	break;
@@ -527,6 +425,308 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
   return s;
 
 }
+
+
+// ======================================================================= // ZPL begin
+//                                                                         //
+//                         below are the functions                         //
+//                                                                         //
+//                              in support of                              //
+//                                                                         //
+//                    integrating  VTK I/O with OSUFlow                    //
+//                                                                         //
+//             added by Zhanping Liu (05/23/2013 ~ 07/08/2013)             //
+//                                                                         //
+// ======================================================================= //
+
+
+// -----------------------------------------------------------------------
+//
+// attach DIY data blocks (distributed to THIS process from process #0) to
+// the OSUFlow engine
+//
+// time_grp: index of the time group (or time block)
+// timeUsed: time used for this attachment process
+// numBlcks: number of spatial-temporal blocks of THIS process
+//           (NOTE: in the time-varying case, NOT all these blocks are ACTIVE)
+// volSizes: size of the WHOLE volume (NOT that of any individual block)
+// dataBlks: [numBlcks][timeGroupSize][blockSize]
+// 
+// added by Zhanping Liu on 05/26/2013 and last updated on 06/04/2013
+//
+int 	Blocks::AttachDataBlocks4D
+	( int time_grp, double * timeUsed, 
+	  int numBlcks, float  * volSizes, float *** dataBlks )
+{	
+	cout << endl << "==== attaching DIY data blocks (time group #" 
+	             << time_grp << ") to the OSUFlow engine ====" << endl;
+
+	int  i, tmGrpIdx;
+	int  blockMin[4], blockSiz[4];
+
+
+	#ifdef BYTE_SWAP
+  	for ( i = 0; i < numBlcks; i ++ )
+	{ 
+    		DIY_In_time_block( 0, i, &tmGrpIdx );
+    		if ( tmGrpIdx != time_grp ) continue;
+
+      		DIY_Block_starts_sizes( 0, i, blockMin, blockSiz );
+      		for ( int j = 0; j < blockSiz[3]; j ++ ) 
+		for ( int k = 0; k < blockSiz[0] * blockSiz[1] * blockSiz[2] * 3; k ++ )
+	  	swap4(  ( char * ) &dataBlks[i][j][k]  );
+  	}
+	#endif
+
+
+ 	int 	dataSize = 0;
+  	int 	beLoaded;
+	int	minTmStp;
+	int	maxTmStp;
+	int     real_min[4];
+      	int     real_max[4];
+	float   spaceMin[3];
+	float   spaceMax[3];
+  	double 	start_tm;
+	struct  bb_t real_bb4;
+
+  	*timeUsed = 0.0;
+  	for ( i = 0; i < numBlcks; i ++ ) 
+	{
+    		beLoaded = GetLoad( i );	// get the flag
+    		DIY_In_time_block ( 0, i, &tmGrpIdx );
+
+    		if (  ( !beLoaded )  &&  ( tmGrpIdx == time_grp )  ) 
+		{
+			// DIY block info
+      			DIY_Block_starts_sizes( 0,  i,  blockMin,   blockSiz );
+      			spaceMin[0] = blockMin[0];    	spaceMax[0] = blockMin[0] + blockSiz[0] - 1;
+			spaceMin[1] = blockMin[1];	spaceMax[1] = blockMin[1] + blockSiz[1] - 1;
+			spaceMin[2] = blockMin[2];	spaceMax[2] = blockMin[2] + blockSiz[2] - 1;
+      			minTmStp    = blockMin[3];	maxTmStp    = blockMin[3] + blockSiz[3] - 1;
+ 
+			// real (non-ghost) block info
+      			DIY_No_ghost_block_bounds( 0, i, &real_bb4 );
+      			real_min[0] = real_bb4.min[0];	real_max[0] = real_bb4.max[0];
+      			real_min[1] = real_bb4.min[1];	real_max[1] = real_bb4.max[1];
+      			real_min[2] = real_bb4.min[2];	real_max[2] = real_bb4.max[2];
+      			real_min[3] = real_bb4.min[3];	real_max[3] = real_bb4.max[3];
+      			
+			// attach the data blocks to the OSUFlow engine
+      			start_tm = MPI_Wtime();
+      			block_osuflow[i]->LoadData(  dataset_files, num_dataset_files, 
+						     spaceMin,  spaceMax, 
+						     real_min,  real_max,  volSizes,
+						     minTmStp,  maxTmStp,  data_mode,  
+						     dataBlks[i]  );
+      			*timeUsed += ( MPI_Wtime() - start_tm );
+		
+			// update the flag
+      			SetLoad( i );
+      			dataSize += ( spaceMax[0] - spaceMin[0] ) * 
+				    ( spaceMax[1] - spaceMin[1] ) * 
+				    ( spaceMax[2] - spaceMin[2] ) * 3 * sizeof(float);
+    		}
+  	}
+
+  	return  dataSize;
+}
+
+
+// -----------------------------------------------------------------------
+//
+// attach DIY curvilinear blocks (GRID blocks and DATA blocks, distributed
+// to THIS process from process #0) to the OSUFlow engine
+//
+// the caller MUST destroy gridBlks, but must NOT destroy dataBlks
+//
+// time_grp:    index of the time group (or time block)
+// timeUsed:    time used for this attachment process
+// numBlcks:    number of spatial-temporal blocks of THIS process
+//              (NOTE: in the time-varying case, NOT all these blocks are ACTIVE)
+// sBlckIds[i]: ID of the SPATIAL block corresponding to spatial-temporal block #i
+// gridBlks[i]: array of grid coordinates of the i-th (out of nsBlocks) SPATIAL 
+//              block on THIS process
+// dataBlks:    [numBlcks][timeGroupSize][blockSize]
+//
+// added by Zhanping Liu on 06/12/2013 and last updated on 06/19/2013
+//
+int 	Blocks::AttachCurvilinearGridDataBlocks4D
+	( int   time_grp, double * timeUsed, int       numBlcks, 
+	  int * sBlckIds, float ** gridBlks, float *** dataBlks )
+{	
+	cout << endl << "==== attaching DIY curvilinear blocks (time group #" 
+	             << time_grp << ") to the OSUFlow engine ====" << endl;
+	
+	int  i, tmGrpIdx;
+	int  blockMin[4], blockSiz[4];
+
+
+	#ifdef BYTE_SWAP
+  	for ( i = 0; i < numBlcks; i ++ )
+	{ 
+    		DIY_In_time_block( 0, i, &tmGrpIdx );
+    		if ( tmGrpIdx != time_grp ) continue;
+
+      		DIY_Block_starts_sizes( 0, i, blockMin, blockSiz );
+		// solution data
+      		for ( int j = 0; j < blockSiz[3]; j ++ ) 
+		for ( int k = 0; k < blockSiz[0] * blockSiz[1] * blockSiz[2] * 3; k ++ )
+	  	swap4(  ( char * ) &dataBlks[i][j][k]  );
+  	}
+	#endif
+
+
+ 	int 	dataSize = 0;
+  	int 	beLoaded = 0;
+  	double 	start_tm;
+
+  	*timeUsed = 0.0;
+  	for ( i = 0; i < numBlcks; i ++ ) 
+	{
+    		beLoaded = GetLoad( i );	// get the flag
+    		DIY_In_time_block ( 0, i, &tmGrpIdx );
+
+    		if (  ( !beLoaded )  &&  ( tmGrpIdx == time_grp )  ) 
+		{
+			// DIY block info
+      			DIY_Block_starts_sizes( 0, i, blockMin, blockSiz );
+
+			// attach the curvilinear blocks (GRID and DATA) to the OSUFlow engine
+      			start_tm = MPI_Wtime();
+			block_osuflow[i]->AttachCurvilinearGridData
+              				  ( blockMin[3], blockSiz[3], blockSiz,    
+		                            gridBlks[ sBlckIds[i] ],  dataBlks[i] );
+      			*timeUsed += ( MPI_Wtime() - start_tm );
+		
+			// update the flag
+      			SetLoad( i );
+      			dataSize += blockSiz[0] * blockSiz[1] 
+			          * blockSiz[2] * 3 * sizeof( float );
+    		}
+  	}
+
+  	return  dataSize;
+}
+
+
+// ======================================================================= //
+//                                                                         //
+//                         above are the functions                         //
+//                                                                         //
+//                              in support of                              //
+//                                                                         //
+//                    integrating  VTK I/O with OSUFlow                    //
+//                                                                         //
+//             added by Zhanping Liu (05/23/2013 ~ 07/08/2013)             //
+//                                                                         //
+// ======================================================================= // ZPL end
+
+
+//----------------------------------------------------------------------------
+//
+// DEPRECATED, removed by TP 10/10/12
+//
+// //
+// // tests whether block b is in time block g
+// //
+// // g: current time block
+// // blk: local block id
+// // tsize: total number of timesteps
+// // tb: total number of global time blocks
+// //
+// int Blocks::IsBlockInTimeGroup(int g, int b, int tsize, int tb) {
+
+//   int64_t from[4]; // block starts
+//   int64_t to[4]; // block starts
+//   int min_t, max_t; // time range of the block
+
+// #ifdef _MPI
+//   int64_t time_group_start;
+//   int64_t time_group_end;
+//   blocking->GetRealBlockBounds(b, from, to);
+//   min_t = from[3];
+//   max_t = to[3];
+//   blocking->GetRealTimeBounds(g, &time_group_start, &time_group_end);
+// #else
+//   int time_group_start;
+//   int time_group_end;
+//   if (lat4D) {
+//     lat4D->GetRealTB(b, &min_t, &max_t);
+//     lat4D->GetRealTimeGroupBounds(g, &time_group_start, &time_group_end);
+//   }
+//   else {
+//     latAMR->GetTB(b, &min_t, &max_t);
+//     time_group_start = g * tsize / tb;
+//   }
+// #endif
+
+//   if (tsize == 1 || tb == 1 || (min_t == time_group_start && 
+// 	                        max_t == time_group_end))
+//     return 1;
+
+//   return 0;
+
+// }
+//-----------------------------------------------------------------------
+//
+// evicts blocks in time group just prior to the current group
+//
+// grp: current group
+// tsize: number of time steps
+// tb: total number of global time blocks
+// nblocks: number of local blocks
+// ntblocks: total number of global time blocks
+//
+void Blocks::DeleteBlocks(int grp, int tsize, int tb, int nblocks) {
+
+  int i;
+  int loaded; // whehter a block is loaded
+
+  if (grp == 0)
+    return;
+
+  for (i = 0; i < nblocks; i++) 
+  {
+
+#ifdef _MPI
+    loaded = GetLoad(i);
+#else
+    loaded = lat4D ? lat4D->GetLoad(i) : latAMR->GetLoad(i);
+#endif
+
+    #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
+    // edited by TP 10/10/20
+    int time_block;
+    DIY_In_time_block(0, i, &time_block);
+//     if (loaded && IsBlockInTimeGroup(grp - 1, i, tsize, tb)) {
+    if (loaded && time_block == grp - 1) 
+    {
+      // end TP
+    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
+
+#ifdef _MPI
+      ClearLoad(i);
+#else
+      lat4D ? lat4D->ClearLoad(i) : latAMR->ClearLoad(i);
+#endif
+
+      switch (compute_type) 
+      {
+        case OSUFLOW:
+	  block_osuflow[i]->DeleteData();
+	  break;
+        default:
+	  break;
+      }
+    #ifdef _MPI		// ADD-BY-LEETEN 10/29/2012
+    }
+    #endif // #ifdef _MPI	// ADD-BY-LEETEN 10/29/2012
+
+  }
+
+}
+
 //-----------------------------------------------------------------------
 //
 // loads a new block

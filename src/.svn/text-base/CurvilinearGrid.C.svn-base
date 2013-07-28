@@ -567,6 +567,24 @@ void CurvilinearGrid::SetBoundary(VECTOR3& minB, VECTOR3& maxB)
 	m_vMinBound = minB;
 	m_vMaxBound = maxB;
 
+
+	// the  following  code segment  is  a  MUST  for  the  parallel  case ZPL begin
+	//
+        // CurvilinearGrid is a sub-class of RegularCartesianGrid (defined in  Grid.h/C)
+	// CurvilinearGrid::SetBoundary() overwrites RegularCartesianGrid::SetBoundary()
+ 	// 
+	// RegularCartesianGrid::SetBoundary() sets  m_vMinRealBound and m_vMaxRealBound
+	// which ARE referenced  by  RegularCartesianGrid::isInRealBBox( VECTOR3 & pos )
+	// for the PRELIMINARY check on a point against the physical domain
+	//
+	// this function,  CurvilinearGrid::SetBoundary(),  is  invoked  at  the  end of
+	// CurvilinearGrid::ComputeBBox() to update the PHYSICAL bounding box  and hence
+	// it MUST update m_vMinRealBound and m_vMaxRealBound as well
+	//        
+	// added by Zhanping Liu on 06/17/2013
+	//
+	m_vMinRealBound.Set( minB[0], minB[1], minB[2], 0.0 );
+  	m_vMaxRealBound.Set( maxB[0], maxB[1], maxB[2], 0.0 );                // ZPL end
 }
 
 void CurvilinearGrid::Reset(void)

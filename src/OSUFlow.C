@@ -1155,6 +1155,83 @@ void Error(const char *fmt, ...){
 
 }
 
+
+// ------------------------------------------------------------------------ ZPL begin
+// 
+// attach a curvilinear grid dataset (either static or time-varying) to the
+// OSUFlow engine
+//
+// tmStpId0:    index  of the first time step (of the current time group)
+// nTmSteps:    number of the time steps (of the current time group)
+// gridSizs:    (ghost) LOGICAL size of the curvilinear grid block
+// gridData:    grid coordinates of the block
+// vec_data[i]: vector data for time step #i ( 0 ~ nTmSteps - 1)
+//
+// NOTE: Solution destroys vec_data through its destructor,
+//       but CurvilinearGrid does NOT destroy gridData by its destructor
+//
+// added by Zhanping Liu on 06/11/2013 and last updated on 07/03/2013
+// 
+void OSUFlow::AttachCurvilinearGridData
+              ( int tmStpId0,    int     nTmSteps,    
+                int gridSizs[3], float * gridData, float ** vec_data )
+{	
+	// time dimension
+	has_data     = true; 
+	MinT         = tmStpId0;
+	MaxT         = tmStpId0 + nTmSteps - 1;
+	numTimesteps = nTmSteps; 
+	bStaticFlow  = ( nTmSteps <= 1 ) ? true : false;
+	
+	
+	// the (ghost) physical bounding box is RE-calculated by CurvilinearGrid::
+	// ComputeBBox() that is invoked by the constructor of CurvilinearGrid,
+	// while this bounding box is also used as the real (non-ghost) bounding 
+	// box (please see the next section below for why it is currently the case)
+	//
+	// to do: to add an argument to the constructor of CurvilinearGrid or 
+	//        create a new constructor, while the common goal is to prevent
+	//        the (ghost and real) physical bounding box from being calculated 
+	//        again by CurvilinearGrid but instead explicitly provide / specify
+	//        it through some interface functions like CurvilinearGrid::
+	//	  SetBoundary( ... ) and CurvilinearGrid::SetRealBoundary( ... )
+	//
+        CurvilinearGrid * curvGrid = new 
+        CurvilinearGrid(  gridSizs,  ( CVertex * ) gridData  );
+
+
+	// this code segment will NOT be turned on until the overshooting & back-off
+	// problems are fixed, otherwise  the accurate  (real / non-ghost)  physical
+	// boundary provided below to 'curvGrid'  would  make the particle advection 
+	// scope smaller than allowed currently by the ghost physical boundary --- a
+	// smaller scope would cause more ending points (of flow lines) to fall within
+	// the 'current' block (instead of the ghost cells) and hence would prevent
+        // them from being 'caught' and accepted by the 'next' block
+	//
+	// if the aforemetioned problems are fixed, all ending points should / must run
+	// beyond the 'current' block into the ghost cells (shared by the 'current'
+	// block and the 'next' block) and hence will be definitely caught and accepted
+	// by the 'next' block
+	//
+	// once this code segment is turned on, this function will need to be extended
+	// with two more arguments --- rbb_mins and rbb_maxs
+	//
+	// VECTOR4 realMins = VECTOR4( rbb_mins[0], rbb_mins[1], rbb_mins[2], rbb_mins[3] );
+	// VECTOR4 realMaxs = VECTOR4( rbb_maxs[0], rbb_maxs[1], rbb_maxs[2], rbb_maxs[3] );
+	// curvGrid->SetRealBoundary( realMins, realMaxs );
+	
+
+	// provide vector data as a solution object
+	Solution * solution = new 
+        Solution(  ( VECTOR3 ** ) vec_data,  
+                   gridSizs[0]  * gridSizs[1] * gridSizs[2],  nTmSteps  );
+	
+
+	// create a curvilinear vector field: grid coordinates + vector data
+	flowField = new CVectorField( curvGrid, solution, nTmSteps );
+} // ZPL end
+
+
 //code added for curvilinear grid
 //added by lijie for curvilinear grid
 void OSUFlow::LoadDataCurvilinear(const char* fname, bool bStatic, 

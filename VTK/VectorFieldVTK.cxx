@@ -4,11 +4,11 @@
 #include <vtkInterpolatedVelocityField.h>
 #include <vtkCellType.h>
 #include <vtkStructuredGrid.h>
+#include <vtkUnstructuredGrid.h>
 #include <vtkOverlappingAMR.h>
 #include <vtkAMRInterpolatedVelocityField.h>
 #include <vtkCellLocatorInterpolatedVelocityField.h>
 #include <vtkImageData.h>
-
 #include <Field.h>
 #include "VectorFieldVTK.h"
 
@@ -37,6 +37,7 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 {
 	vtkOverlappingAMR* amrData = vtkOverlappingAMR::SafeDownCast(data);
 	vtkAbstractInterpolatedVelocityField *interpolator;
+
 	if(amrData)
 	{
 		vtkAMRInterpolatedVelocityField *func = vtkAMRInterpolatedVelocityField::New();
@@ -45,10 +46,20 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	}
 	else
 	{
-		vtkInterpolatedVelocityField *func = vtkInterpolatedVelocityField::New();
-		func->AddDataSet(data);
-		interpolator = func;
-		printf("Mesh Data\n");
+		vtkUnstructuredGrid *unstructured = vtkUnstructuredGrid::SafeDownCast(data);
+		if (unstructured) {
+			vtkCellLocatorInterpolatedVelocityField *func = vtkCellLocatorInterpolatedVelocityField::New();
+			func->AddDataSet(data);
+			interpolator = func;
+			printf("Unstrcutred data\n");
+
+		} else
+		{
+			vtkInterpolatedVelocityField *func = vtkInterpolatedVelocityField::New();
+			func->AddDataSet(data);
+			interpolator = func;
+			printf("Mesh Data\n");
+		}
 	}
 
 	this->interpolatorAry.push_back(interpolator);
@@ -196,7 +207,7 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 		int *bounds = structuredGrid->GetExtent();
 		minB.Set(bounds[0], bounds[2], bounds[4]);
 		maxB.Set(bounds[1], bounds[3], bounds[5]);
-		printf("Structured Extent: %d %d %d %d %d %d\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
+		//printf("Structured Extent: %d %d %d %d %d %d\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 
 	}
 	//else {

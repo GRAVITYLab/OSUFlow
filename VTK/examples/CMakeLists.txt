@@ -22,6 +22,7 @@ LIST(APPEND SIMPLE_TARGETS
 	testVTS
 	vec2vts
 	vec2vti
+	StreamlineSimpleVTKUnstructured
 )
 if( ${WITH_GRAPHICS} )
         LIST (APPEND SIMPLE_TARGETS
@@ -30,6 +31,7 @@ if( ${WITH_GRAPHICS} )
                 StreamlineSimpleVTKPipeline
                 StreamlineRenderVec
                 StreamlineRenderPlot3D
+		StreamlineRenderUnstructured
         )
 endif ()
 if ( ${WITH_MPI} )
