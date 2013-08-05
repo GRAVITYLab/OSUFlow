@@ -259,8 +259,9 @@ int vtkPOSUFlow::RequestData(
 		double *bounds = data->GetBounds();
 		printf("[RequestData] Rank=%d, numprocs=%d\n", rank, nproc);
 		printf("[RequestData] Data bounds: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-		assert(bounds[0] == extent[0] && bounds[1] == extent[1] && bounds[2] == extent[2]
-		          && bounds[3] == extent[3] && bounds[4]==extent[4] && bounds[5] == extent[5]);
+		if (!(bounds[0] == extent[0] && bounds[1] == extent[1] && bounds[2] == extent[2]
+		          && bounds[3] == extent[3] && bounds[4]==extent[4] && bounds[5] == extent[5]))
+			printf("Warning: bounds are different from extent\n");
 	}
 
 	//
@@ -403,7 +404,7 @@ int vtkPOSUFlow::RequestData(
 		// #endif
 
 		// inform loaded blocks for this time group
-		blocks->SetLoad(rank);
+		blocks->SetLoad(0); // lid
 
 		//g_io = g;
 
@@ -430,6 +431,7 @@ int vtkPOSUFlow::RequestData(
 		for (j = 0; j < this->MaxRounds; j++)
 		{
 
+			printf("Round %d, Rank %d: tracing seeds: %d\n", j, rank, Seeds[0].size());
 			// for all blocks
 			for (i = 0; i < loc_npart; i++)
 			{
@@ -466,6 +468,7 @@ int vtkPOSUFlow::RequestData(
 			//printf("Start exchanging\n");
 			parflow->ExchangeNeighbors(Seeds, WaitFactor);
 			//printf("End exchanging\n");
+			MPI_Barrier(comm);
 
 		} // for all rounds
 
@@ -605,13 +608,12 @@ int vtkPOSUFlow::RequestData(
 
 
 // segfault happens sometimes after deleting these stuff
-	printf("rank:%d, 1\n", rank);
+	printf("rank:%d, cleanup\n", rank);
 	if (pt)
 		delete[] pt;
 	if (npt)
 		delete[] npt;
 
-#if 0
 	for(i=0; i<loc_npart; i++)
 	{
 		list<vtListTimeSeedTrace*>::iterator trace_iter;
@@ -626,26 +628,20 @@ int vtkPOSUFlow::RequestData(
 		}
 		sl_list[i].clear();
 	}
-	printf("rank:%d, 4\n", rank);
 	delete [] sl_list;
-	printf("rank:%d, 5\n", rank);
-	//for (i = 0; i < Seeds.size(); i++)
-	//	Seeds[i].clear();
-	//Seeds.clear();
+	for (i = 0; i < Seeds.size(); i++)
+		Seeds[i].clear();
+	Seeds.clear();
 
-	printf("rank:%d, 6\n", rank);
-	//delete blocks;
-	printf("rank:%d, 7\n", rank);
+	delete blocks;
 	delete parflow;
-	printf("rank:%d, 8\n", rank);
 
 	for (i = 0; i < loc_npart; i++)
 		if (pposuflow[i] != NULL)
 			delete pposuflow[i];
 	delete[] pposuflow;
-#endif
 
-	//MPI_Barrier(comm);
+	MPI_Barrier(comm);
 
 	// clean up
 	DIY_Finalize();

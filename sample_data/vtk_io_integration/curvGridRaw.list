@@ -1,0 +1,4 @@
+47 33 11 1 # CURVILINEAR grid size (x, y, z, t; t is number of timesteps)
+1.0 # vector scaling factor
+# curvGridRaw.grd # the grid file name, the same for all time steps
+curvGridRaw.vec # list of file names, one per time step

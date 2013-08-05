@@ -18,6 +18,7 @@ set(BIL_DIR "/usr" CACHE PATH "The installed path of BIL")
 
 set(WITH_PNETCDF FALSE CACHE BOOL "Specify whether PNETCDF is used")
 set(PNETCDF_PATH "/usr" CACHE PATH "The installed path of PNETCDF")
+set(SAMPLE_DATA_DIR      "${CMAKE_SOURCE_DIR}/sample_data" CACHE STRING "Path to datasets for testing and examples")  # ADDED-BY-JIMMY 08/05/2013
 
 
 # ADD-BY-JIMMY 05/30/2013 - openmp support
@@ -47,6 +48,7 @@ endif()
 
 add_definitions(
 	-D_OSUFLOW
+	-DSAMPLE_DATA_DIR="${SAMPLE_DATA_DIR}" # ADDED-BY-JIMMY 08/05/2013
 	)
 
 set(OSUFLOW_DIR 	"${CMAKE_SOURCE_DIR}")
@@ -141,6 +143,7 @@ add_subdirectory (src)
 # ADD-BY-LEETEN 12/16/2011-BEGIN
 set(WITH_EXAMPLES  TRUE CACHE BOOL "Specify whether sample programs should be built as well.") # MOD-BY-LEETEN 12/16/2011-FROM: set(WITH_EXAMPLE  TRUE CACHE BOOL "Specify whether sample programs should be built as well.")
 set(WITH_GRAPHICS TRUE CACHE BOOL "Specify whether Graphics-related libraries should be built.")
+
 if( ${WITH_GRAPHICS} )
 # ADD-BY-LEETEN 12/16/2011-END
 

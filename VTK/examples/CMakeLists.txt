@@ -7,6 +7,11 @@ project (VTK_examples)
 find_package(OpenGL)
 find_package(GLUT)
 
+
+set(VTK_DATA_ROOT      "$ENV{HOME}/project/VTKData" CACHE STRING "Root to VTKData for testing the examples")
+set(PARAVIEW_DATA_ROOT      "$ENV{HOME}/project/VTKData" CACHE STRING "Root to VTKData for testing the examples")
+
+
 # specify the path to the headers
 include_directories(
 	${OSUFLOWVTK_DIR}
@@ -15,6 +20,8 @@ include_directories(
 link_directories (
 	${OSUFLOWVTK_DIR}
 )
+
+add_definitions (-DVTK_DATA_ROOT=${VTK_DATA_ROOT})
 
 # List all simple targets
 LIST(APPEND SIMPLE_TARGETS

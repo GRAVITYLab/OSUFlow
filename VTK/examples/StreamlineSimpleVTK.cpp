@@ -90,7 +90,7 @@ vtkSmartPointer<vtkDataSet> getData_vts()
 }
 
 
-// structured VTK format
+// VTK image format
 vtkSmartPointer<vtkDataSet> getData_vti()
 {
 	vtkXMLImageDataReader *reader = vtkXMLImageDataReader::New();
