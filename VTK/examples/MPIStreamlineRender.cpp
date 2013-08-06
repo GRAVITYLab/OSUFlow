@@ -121,7 +121,7 @@ void MyMain( vtkMultiProcessController *controller, void *arg )
 #endif
 
 
-#if 1
+#if 0
 	//
 	// vtkOSUFlow
 	//

@@ -17,12 +17,12 @@ WARNINGS = NO
 HDF_INC = /usr/include
 ZOLTAN_INC = /usr/include
 NETCDF_INC = /usr/include
-BIL_INC = /home/jchen/project/osuflow/trunk/diy/src/bil-0.6.0/src/include # ADD-BY-LEETEN 12/22/2011
+BIL_INC = /home/jchen/project/osuflow/diy/src/bil-0.6.0/src/include # ADD-BY-LEETEN 12/22/2011
 MISC_INC = 
 
 HDF_LIB = /usr/lib
 ZOLTAN_LIB = /usr/lib
 NETCDF_LIB = /usr/lib
-BIL_LIB = /home/jchen/project/osuflow/trunk/diy/src/bil-0.6.0/src/lib # ADD-BY-LEETEN 12/22/2011
+BIL_LIB = /home/jchen/project/osuflow/diy/src/bil-0.6.0/src/lib # ADD-BY-LEETEN 12/22/2011
 MISC_LIB = 
 
