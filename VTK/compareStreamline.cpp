@@ -83,9 +83,9 @@ int main(int argc, char **argv)
 	int files;
 	if (argc<=1) { // load default data
 		vtkTesting *t = vtkTesting::New();
-		sprintf(file1, "%s/curvilinear/combxyz.bin", SAMPLE_DATA_DIR); // t->GetDataRoot());
+		sprintf(file1, "%s/curvilinear/combxyz.bin", SAMPLE_DATA_DIR);
 		printf("%s\n", file1);
-		sprintf(file2, "%s/curvilinear/combq.bin", SAMPLE_DATA_DIR); //t->GetDataRoot());
+		sprintf(file2, "%s/curvilinear/combq.bin", SAMPLE_DATA_DIR);
 		t->Delete();
 		files = 2;
 	} else {

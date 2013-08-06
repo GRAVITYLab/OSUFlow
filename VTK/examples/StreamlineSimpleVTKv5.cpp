@@ -1,3 +1,4 @@
+// This program only works for old VTK version 5
 
 #include <stdio.h>
 #include <stdlib.h>

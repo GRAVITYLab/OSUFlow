@@ -17,18 +17,16 @@
 #include <vtkImageDataGeometryFilter.h>
 #include <vtkFunctionSet.h>
 #include <vtkImageInterpolator.h>
+#include <vtkPointData.h>
 
 using namespace std;
-
-#define VTK_DATA_ROOT "/home/jchen/project/VTKData"
-
 
 vtkSmartPointer<vtkDataSet> getData_plot3d()
 {
 	// Start by loading some data.
 	vtkMultiBlockPLOT3DReader *pl3dReader = vtkMultiBlockPLOT3DReader::New();
-	pl3dReader->SetXYZFileName(VTK_DATA_ROOT  "/Data/combxyz.bin");
-	pl3dReader->SetQFileName(VTK_DATA_ROOT  "/Data/combq.bin");
+	pl3dReader->SetXYZFileName(	SAMPLE_DATA_DIR "/curvilinear/combxyz.bin");
+	pl3dReader->SetQFileName(SAMPLE_DATA_DIR "/curvilinear/combq.bin");
 	pl3dReader->SetScalarFunctionNumber(100);
 	pl3dReader->SetVectorFunctionNumber(202);
 	pl3dReader->Update();
@@ -48,7 +46,7 @@ vtkSmartPointer<vtkDataSet> getData_plot3d()
 vtkSmartPointer<vtkDataSet> getData_vts()
 {
 	vtkXMLStructuredGridReader *reader = vtkXMLStructuredGridReader::New();
-	reader->SetFileName("/home/jchen/flow/comb.vts"); //TODO
+	reader->SetFileName(SAMPLE_DATA_DIR "/curvilinear/comb.vts"); //TODO
 
 #if 0
 	int extent[6];
@@ -67,6 +65,7 @@ vtkSmartPointer<vtkDataSet> getData_vts()
 	printf("Extent: %d %d %d %d %d %d\n", ext[0], ext[1], ext[2], ext[3], ext[4], ext[5]);
 
 	vtkSmartPointer<vtkDataSet> data = vtkDataSet::SafeDownCast( reader->GetOutput() );
+	//data->GetPointData()->SetActiveAttribute("Momentum", vtkDataSetAttributes::VECTORS);
 
 	printf("File read\n");
 	// show content
@@ -94,8 +93,7 @@ vtkSmartPointer<vtkDataSet> getData_vts()
 vtkSmartPointer<vtkDataSet> getData_vti()
 {
 	vtkXMLImageDataReader *reader = vtkXMLImageDataReader::New();
-//	reader->SetFileName("/home/jchen/flow/isabel/1.vti"); //TODO
-	reader->SetFileName("/home/jchen/flow/tornado/1.vti"); //TODO
+	reader->SetFileName(SAMPLE_DATA_DIR "/regular/tornado/1.vti"); //TODO
 	reader->UpdateInformation();
 	reader->Update();
 
@@ -122,9 +120,10 @@ vtkSmartPointer<vtkDataSet> getData_vti()
 
 int main()
 {
-	//vtkSmartPointer<vtkDataSet> data = getData_plot3d();
+	// choose one of the following:
+	vtkSmartPointer<vtkDataSet> data = getData_plot3d();
 	//vtkSmartPointer<vtkDataSet> data = getData_vts();
-	vtkSmartPointer<vtkDataSet> data = getData_vti(); // NOT WORKING : image and polydata are interpolated differently
+	//vtkSmartPointer<vtkDataSet> data = getData_vti();
 
 
 	OSUFlowVTK *osuflow = new OSUFlowVTK;

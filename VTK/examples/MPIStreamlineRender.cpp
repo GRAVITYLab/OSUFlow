@@ -18,7 +18,6 @@
 #include "vtkActor.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkStructuredGridOutlineFilter.h"
-#include "vtkTesting.h"
 #include "vtkProperty.h"
 #include "vtkLineWidget.h"
 #include "vtkCommand.h"

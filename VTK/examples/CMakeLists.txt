@@ -60,11 +60,7 @@ endforeach(TARGET)
 ########################
 # plugin examples
 #if ( ${WITH_PARAVIEW_PLUGINS} )
-        include_directories(../plugins/)
-	add_executable (StreamlineSimpleVTKPipelineMPI 
-		StreamlineSimpleVTKPipelineMPI.cpp ../plugins/vtkPOSUFlow.cxx)
-	target_link_libraries( StreamlineSimpleVTKPipelineMPI ${LINK_LIBS})
-
+	include_directories ( ../plugins )
 	add_executable (MPIStreamlineRender 
 		MPIStreamlineRender.cpp ../plugins/vtkPOSUFlow.cxx)
 	target_link_libraries( MPIStreamlineRender ${LINK_LIBS})

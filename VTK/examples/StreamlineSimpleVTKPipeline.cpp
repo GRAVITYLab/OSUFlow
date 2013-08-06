@@ -40,18 +40,18 @@ int main()
 	// set data
 	{
 		char path[256];
-		vtkTesting *t = vtkTesting::New();
-		sprintf(path, "%s/Data/combxyz.bin", t->GetDataRoot());
+		sprintf(path, "%s/curvilinear/combxyz.bin", SAMPLE_DATA_DIR);
 		printf("%s\n", path);
 		pl3dReader->SetXYZFileName(path);
-		sprintf(path, "%s/Data/combq.bin", t->GetDataRoot());
+		sprintf(path, "%s/curvilinear/combq.bin", SAMPLE_DATA_DIR);
 		pl3dReader->SetQFileName(path);
-		t->Delete();
 	}
 	pl3dReader->SetScalarFunctionNumber(100);
 	pl3dReader->SetVectorFunctionNumber(202);
 	pl3dReader->Update();
 	vtkDataSet *data = vtkDataSet::SafeDownCast(pl3dReader->GetOutput()->GetBlock(0));
+	data->Register(NULL);
+	pl3dReader->Delete();
 
 	//
 	// Determine seeds

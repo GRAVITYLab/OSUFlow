@@ -19,7 +19,6 @@ May, 2010
 #include "LineRendererInOpenGL.h"
 
 // VTK
-#include "vtkTesting.h"
 #include "vtkDataSet.h"
 #include "vtkStructuredGrid.h"
 #include "vtkMultiBlockPLOT3DReader.h"
@@ -246,13 +245,11 @@ main(int argc, char* argv[])
 	// set data
 	{
 		char path[256];
-		vtkTesting *t = vtkTesting::New();
-		sprintf(path, "%s/Data/combxyz.bin", t->GetDataRoot());
+		sprintf(path, "%s/curvilinear/combxyz.bin", SAMPLE_DATA_DIR);
 		printf("%s\n", path);
 		pl3dReader->SetXYZFileName(path);
-		sprintf(path, "%s/Data/combq.bin", t->GetDataRoot());
+		sprintf(path, "%s/curvilinear/combq.bin", SAMPLE_DATA_DIR);
 		pl3dReader->SetQFileName(path);
-		t->Delete();
 	}
 	pl3dReader->SetScalarFunctionNumber(100);
 	pl3dReader->SetVectorFunctionNumber(202);

@@ -64,7 +64,12 @@ int main(int argc, char **argv)
 
 	// read data
 	OSUFlowVTK *osuflow = streamer->getOSUFlow();
-	osuflow->LoadData(argv[1], true); //true: static dataset
+	const char *filename;
+	if (argc>1)
+		filename = argv[1];
+	else
+		filename = SAMPLE_DATA_DIR "/regular/tornado/1.vec";
+	osuflow->LoadData(filename, true); //true: static dataset
 
 #ifdef _OPENMP
 	osuflow->initOpenMP(8);
