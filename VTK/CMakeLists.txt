@@ -24,7 +24,7 @@ if (${WITH_PARAVIEW_PLUGINS})
 	add_definitions(-DvtkRenderingVolume_AUTOINIT=1\(vtkRenderingVolumeOpenGL\))
 
 else()
-	find_package(VTK 6 REQUIRED)
+	find_package(VTK REQUIRED)
 	include (${VTK_USE_FILE})
 endif()
 
