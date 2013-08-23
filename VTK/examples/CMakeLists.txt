@@ -59,12 +59,12 @@ endforeach(TARGET)
 
 ########################
 # plugin examples
-#if ( ${WITH_PARAVIEW_PLUGINS} )
+if ( ${WITH_PARAVIEW_PLUGINS} AND ${WITH_MPI})
 	include_directories ( ../plugins )
 	add_executable (MPIStreamlineRender 
 		MPIStreamlineRender.cpp ../plugins/vtkPOSUFlow.cxx)
 	target_link_libraries( MPIStreamlineRender ${LINK_LIBS})
-#endif ()
+endif ()
 ### README
 file (COPY	${CMAKE_CURRENT_SOURCE_DIR}/README.txt
 	DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)

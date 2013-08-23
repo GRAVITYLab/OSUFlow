@@ -25,7 +25,6 @@
 #include "vtkActor.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkStructuredGridOutlineFilter.h"
-#include "vtkTesting.h"
 #include "vtkProperty.h"
 #include "vtkLineWidget.h"
 #include "vtkCommand.h"
@@ -82,11 +81,9 @@ int main(int argc, char **argv)
 	char file1[256], file2[256];
 	int files;
 	if (argc<=1) { // load default data
-		vtkTesting *t = vtkTesting::New();
 		sprintf(file1, "%s/curvilinear/combxyz.bin", SAMPLE_DATA_DIR);
 		printf("%s\n", file1);
 		sprintf(file2, "%s/curvilinear/combq.bin", SAMPLE_DATA_DIR);
-		t->Delete();
 		files = 2;
 	} else {
 		strcpy(file1, argv[1]);

@@ -4,7 +4,7 @@ ARCH = LINUX
 # 2. Set your options here
 MPI = NO
 MPE = NO
-BIL = NO
+BIL = YES
 PNETCDF = NO
 HDF5 = NO
 ZOLTAN = NO

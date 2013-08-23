@@ -55,10 +55,7 @@ foreach(SAMPLE_NAME
 			# DEL-BY-LEETEN 08/23/2012:	glut32
 		)
 	else()
-		target_link_libraries(${SAMPLE_NAME} 
-			GL
-			GLU
-			glut
+		target_link_libraries(${SAMPLE_NAME} ${OPENGL_LIBRARIES} ${GLUT_LIBRARY}
 		)
 	endif()
 	target_link_libraries(${SAMPLE_NAME} 
@@ -82,10 +79,7 @@ foreach(SAMPLE_NAME
                         # DEL-BY-LEETEN 08/23/2012:     glut32
                 )
         else()
-                target_link_libraries(${SAMPLE_NAME} 
-                        GL
-                        GLU
-                        glut
+                target_link_libraries(${SAMPLE_NAME} ${OPENGL_LIBRARIES} ${GLUT_LIBRARY}
                 )
         endif()
       # END
