@@ -64,7 +64,6 @@ ParFlow::ParFlow(Blocks *blocks,
   // deleted by TP 9/12/12  
 //   this->blocking = blocking;
 //   this->assign = assignment;
-  // nbhds = new Neighborhoods(blocking, assign, MPI_COMM_WORLD);
   // end TP 9/12/12
 
   TotSeeds = 0;
@@ -148,6 +147,7 @@ ParFlow::ParFlow(LatticeAMR *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
+  integrationDir = FORWARD_DIR;
 
   TotSeeds = 0;
   TotSteps = 0;
@@ -413,18 +413,18 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num,
 	  
     // perform the integration
     SetIntegrationParams(osuflow[block_num]);
-    osuflow[block_num]->GenStreamLines(temp_seeds, FORWARD_DIR, nseeds, pf, list3);
+    osuflow[block_num]->GenStreamLines(temp_seeds, this->integrationDir, nseeds, pf, list3);
 
     // copy each 3D trace to a 4D trace and then to the streamline list
     // post end point of each trace to the send list
     int n = 0;
     for (trace_iter3 = list3.begin(); trace_iter3 != list3.end(); 
-	 trace_iter3++) {
+	 trace_iter3++)
+    {
 
       TotSteps += (*trace_iter3)->size();
       if (w != NULL)
 	*w += (*trace_iter3)->size(); // number of steps accrues to block weight
-
 
       // any  degenerate  'streamline' (with only one sample,  i.e.,  the  seed point) ZPL begin
       // MUST / SHOULD be discarded,  otherwise the  'current'  block A  would  manage
@@ -457,27 +457,28 @@ void ParFlow::ComputeStreamlines(const vector<Particle>& seeds, int block_num,
 	trace->push_back(p);
       }
 
-      // find the matching seed for the trace 
-      // (need the number of steps from the seed
-      p3 = **(*trace_iter3)->begin();
-      while (seeds[n].pt[0] != p3[0] || seeds[n].pt[1] != p3[1] ||
-	     seeds[n].pt[2] != p3[2])
-	n++;
+    	// find the matching seed for the trace
+    	// (need the number of steps from the seed
+    	p3 = **(*trace_iter3)->begin();
+    	while ((seeds[n].pt[0] != p3[0] ||
+    		  seeds[n].pt[1] != p3[1] ||
+    		  seeds[n].pt[2] != p3[2])
+    		  && n<nseeds ) // Jimmy modified: n stops when exceeding nseeds
+    	  	  n++;
+    	if (n == nseeds)
+  		  	 fprintf(stderr, "Error: cannot find a match between seeds and list. "
+  		  			 "This should not happen.\n");
 
-      if (n == nseeds)
-	fprintf(stderr, "Error: cannot find a match between seeds and list. "
-		"This should not happen.\n");
-
-      // enqueue last point in the trace
-      Item item;
-      item.pt[0] = (*p)[0];
-      item.pt[1] = (*p)[1];
-      item.pt[2] = (*p)[2];
-      item.pt[3] = (*p)[3];
-      item.steps = seeds[n].steps + (*trace_iter3)->size();
-      PostPoint(block_num, &item, 0, end_steps);
-      sl_list[block_num].push_back(trace); // for later rendering
-      n++;
+    	// enqueue last point in the trace
+    	Item item;
+    	item.pt[0] = (*p)[0];
+    	item.pt[1] = (*p)[1];
+    	item.pt[2] = (*p)[2];
+    	item.pt[3] = (*p)[3];
+    	item.steps = seeds[n].steps + (*trace_iter3)->size();
+    	PostPoint(block_num, &item, 0, end_steps);
+    	sl_list[block_num].push_back(trace); // for later rendering
+    	n++;
 
     }
 
@@ -723,8 +724,8 @@ int ParFlow::GatherNumPts(int* &ntrace, int all, int nblocks) {
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+  MPI_Comm_rank(this->comm, &rank);
+  MPI_Comm_size(this->comm, &nproc);
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#endif	// #ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
@@ -746,7 +747,7 @@ int ParFlow::GatherNumPts(int* &ntrace, int all, int nblocks) {
 	#ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
   // gather number of traces
-  MPI_Allgather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, MPI_COMM_WORLD);
+  MPI_Allgather(&myntrace, 1, MPI_INT, ntrace, 1, MPI_INT, this->comm);
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#endif	// #ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
@@ -775,7 +776,7 @@ int ParFlow::GatherNumPts(int* &ntrace, int all, int nblocks) {
 	#ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
   MPI_Allgatherv(mynpt, myntrace, MPI_INT, *npt, ntrace, ofst, MPI_INT,
-		 MPI_COMM_WORLD);
+		  this->comm);
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#endif	// #ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
@@ -808,8 +809,8 @@ void ParFlow::GatherPts(int *ntrace, int mynpt, int nblocks) {
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+  MPI_Comm_rank(this->comm, &rank);
+  MPI_Comm_size(this->comm, &nproc);
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#endif	// #ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
@@ -850,10 +851,11 @@ void ParFlow::GatherPts(int *ntrace, int mynpt, int nblocks) {
 
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 
-		// ADD-BY-LEETEN 04/09/2011-END
-  		assert((*pt = new VECTOR4[tot_npt]) != NULL);
-  		MPI_Gatherv(mypt, mynpt * 4, MPI_FLOAT, *pt, nflt, ofst,
-	      		    MPI_FLOAT, 0, MPI_COMM_WORLD);
+	// ADD-BY-LEETEN 04/09/2011-END
+  *pt = new VECTOR4[tot_npt];
+  assert((*pt) != NULL);
+  MPI_Gatherv(mypt, mynpt * 4, MPI_FLOAT, *pt, nflt, ofst,
+	      MPI_FLOAT, 0, this->comm);
 
   		delete[] mypt;
 		// ADD-BY-LEETEN 04/09/2011-BEGIN
@@ -889,7 +891,7 @@ void ParFlow::DistributedWriteFieldlines(char *filename, char *id_filename,
   int delim = -1; // delimits numbers of points from the points in the file
   int i, j, n;
     
-  MPI_Comm_rank(MPI_COMM_WORLD, &myproc);
+  MPI_Comm_rank(this->comm, &myproc);
   
   int myntrace = 0; // my number of traces
   // compute number of my traces
@@ -897,12 +899,12 @@ void ParFlow::DistributedWriteFieldlines(char *filename, char *id_filename,
     myntrace += sl_list[i].size();	// write numbers of points in each trace
 
   int totntrace = 0;
-  MPI_Allreduce(&myntrace, &totntrace, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(&myntrace, &totntrace, 1, MPI_INT, MPI_SUM, this->comm);
 
   char filename2[1024];
   sprintf(filename2, "fieldlines.%d.out", totntrace);
 
-  assert(MPI_File_open(MPI_COMM_WORLD, filename2, MPI_MODE_CREATE | 
+  assert(MPI_File_open(this->comm, filename2, MPI_MODE_CREATE |
 		       MPI_MODE_WRONLY, MPI_INFO_NULL, &fd) == MPI_SUCCESS);
   MPI_File_set_size(fd, 0); // start with an empty file every time
 
@@ -937,7 +939,7 @@ void ParFlow::DistributedWriteFieldlines(char *filename, char *id_filename,
   int64_t myntrace64 = myntrace;
   int64_t header_offset = 0;
   MPI_Scan(&myntrace64, &header_offset, 1, MPI_LONG_LONG, 
-	   MPI_SUM, MPI_COMM_WORLD);
+	   MPI_SUM, this->comm);
   header_offset -= myntrace64;
   header_offset *= sizeof(int);
   header_offset += sizeof(float) * 8;
@@ -948,7 +950,7 @@ void ParFlow::DistributedWriteFieldlines(char *filename, char *id_filename,
 
   int64_t total_header_size;
   MPI_Allreduce(&myntrace64, &total_header_size, 1, MPI_LONG_LONG, MPI_SUM,
-		MPI_COMM_WORLD);
+		  this->comm);
 
   total_header_size *= sizeof(int);
   total_header_size += sizeof(float) * 8;
@@ -961,7 +963,7 @@ void ParFlow::DistributedWriteFieldlines(char *filename, char *id_filename,
   int64_t my_point_offset = 0;
   int64_t my_num_points = tot_mynpt;
   MPI_Scan(&my_num_points, &my_point_offset, 1, MPI_LONG_LONG, 
-	   MPI_SUM, MPI_COMM_WORLD);
+	   MPI_SUM, this->comm);
   my_point_offset -= my_num_points;
   my_point_offset *= sizeof(float) * 4;
   my_point_offset += total_header_size;
@@ -997,7 +999,7 @@ void ParFlow::DistributedWriteFieldlines(char *filename, char *id_filename,
 
     char id_filename2[1024];
     sprintf(id_filename2, "fieldline_ids.%d.out", totntrace);
-    assert(MPI_File_open(MPI_COMM_WORLD, id_filename2, MPI_MODE_CREATE | 
+    assert(MPI_File_open(this->comm, id_filename2, MPI_MODE_CREATE |
 			 MPI_MODE_WRONLY, MPI_INFO_NULL, &fd) == MPI_SUCCESS);
     int64_t *my_trace_ids = (int64_t *)malloc(sizeof(int64_t) * myntrace);
     assert(my_trace_ids != NULL);
@@ -1067,10 +1069,10 @@ void ParFlow::WriteFieldlines(int *ntrace, int mynpt, char *filename,
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
-  MPI_Comm_rank(MPI_COMM_WORLD, &myproc);
-  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+  MPI_Comm_rank(this->comm, &myproc);
+  MPI_Comm_size(this->comm, &nproc);
 
-  assert(MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_CREATE | 
+  assert(MPI_File_open(this->comm, filename, MPI_MODE_CREATE |
 		       MPI_MODE_WRONLY, MPI_INFO_NULL, &fd) == MPI_SUCCESS);
   MPI_File_set_size(fd, 0); // start with an empty file every time
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
@@ -1632,7 +1634,7 @@ void ParFlow::Repartition(int grp, int *nblocks, vector< vector<VECTOR4> >& seed
 
 //   ChangePartition(grp, nblocks, block_ranks, neighbor_ranks, neighbor_procs, 
 // 		  part, seeds, size_seeds, num_seeds, avg_neigh, alloc_blocks, 
-// 		  alloc_neighbors, MPI_COMM_WORLD, osuflow, &AddNeighbor, wgts);
+// 		  alloc_neighbors, this->comm, osuflow, &AddNeighbor, wgts);
 
 //   // update number of blocks
 //   nb = *nblocks; //ParFlow's version
@@ -1749,8 +1751,8 @@ void ParFlow::PrintPerf(double TotTime, double TotInTime, double TotOutTime,
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+  MPI_Comm_rank(this->comm, &rank);
+  MPI_Comm_size(this->comm, &nproc);
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#endif	// #ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
@@ -1782,9 +1784,9 @@ void ParFlow::PrintPerf(double TotTime, double TotInTime, double TotOutTime,
 	#ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END
   MPI_Gather(block_stats, n_block_stats, MPI_INT, all_block_stats, 
-	     n_block_stats, MPI_INT, 0, MPI_COMM_WORLD);
+	     n_block_stats, MPI_INT, 0, this->comm);
   MPI_Gather(time_stats, n_time_stats, MPI_DOUBLE, all_time_stats, 
-	     n_time_stats, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	     n_time_stats, MPI_DOUBLE, 0, this->comm);
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#endif	// #ifdef _MPI 
 	// ADD-BY-LEETEN 04/09/2011-END

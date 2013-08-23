@@ -1,0 +1,97 @@
+cvs diff -wb -- LineRendererInOpenGL.cpp LineRendererInOpenGL.h opengl.h TubeRendererInOpenGL.h (in directory E:\project\osuflow\renderer)
+Index: LineRendererInOpenGL.cpp
+===================================================================
+RCS file: /raidhome1/leeten/CVS/osuflow/renderer/LineRendererInOpenGL.cpp,v
+retrieving revision 1.6
+diff -w -b -r1.6 LineRendererInOpenGL.cpp
+154a155,158
+> 	// ADD-BY-LEETEN 08/26/2010-BEGIN
+
+> 	cVertexArray.iNrOfVertices = pv4Coords.size();
+
+> 	// ADD-BY-LEETEN 08/26/2010-END
+
+> 
+
+351c355,359
+< 		glDrawArrays(GL_LINES, 0, iNrOfRenderedParticles);
+---
+> 		// MOD-BY-LEETEN 08/26/2010-FROM:
+
+> 			// glDrawArrays(GL_LINES, 0, iNrOfRenderedParticles);
+
+> 		// TO:
+
+> 		glDrawArrays(GL_LINES, 0, cVertexArray.iNrOfVertices);
+
+> 		// MOD-BY-LEETEN 08/26/2010-END
+
+430c438,442
+< 	glDrawArrays(GL_LINES, 0, iNrOfRenderedParticles);
+---
+> 	// MOD-BY-LEETEN 08/26/2010-FROM:
+
+> 		// glDrawArrays(GL_LINES, 0, iNrOfRenderedParticles);
+
+> 	// TO:
+
+> 	glDrawArrays(GL_LINES, 0, cVertexArray.iNrOfVertices);
+
+> 	// MOD-BY-LEETEN 08/26/2010-END
+
+Index: LineRendererInOpenGL.h
+===================================================================
+RCS file: /raidhome1/leeten/CVS/osuflow/renderer/LineRendererInOpenGL.h,v
+retrieving revision 1.7
+diff -w -b -r1.7 LineRendererInOpenGL.h
+20a21,27
+> // ADD-BY-LEETEN 08/26/2010-BEGIN
+> #ifdef WIN32
+> #include <GL/glut.h>
+> #endif
+> // ADD-BY-LEETEN 08/26/2010-END
+> 
+> 
+50a58,61
+> 		// ADD-BY-LEETEN 08/26/2010-BEGIN
+
+> 		int iNrOfVertices;
+
+> 		// ADD-BY-LEETEN 08/26/2010-END
+
+> 
+
+58a70,72
+> 			// ADD-BY-LEETEN 08/26/2010-BEGIN
+
+> 			iNrOfVertices = 0;
+
+> 			// ADD-BY-LEETEN 08/26/2010-END
+
+Index: opengl.h
+===================================================================
+RCS file: /raidhome1/leeten/CVS/osuflow/renderer/opengl.h,v
+retrieving revision 1.3
+diff -w -b -r1.3 opengl.h
+21a22,27
+> // ADD-BY-LEETEN 08/26/2010-BEGIN
+> #ifdef WIN32
+> #include <GL/glut.h>
+> #endif
+> // ADD-BY-LEETEN 08/26/2010-END
+> 
+Index: TubeRendererInOpenGL.h
+===================================================================
+RCS file: /raidhome1/leeten/CVS/osuflow/renderer/TubeRendererInOpenGL.h,v
+retrieving revision 1.6
+diff -w -b -r1.6 TubeRendererInOpenGL.h
+22a23,28
+> // ADD-BY-LEETEN 08/26/2010-BEGIN
+> #ifdef WIN32
+> #include <GL/glut.h>
+> #endif
+> // ADD-BY-LEETEN 08/26/2010-END
+> 
+
+***** CVS exited normally with code 1 *****
+

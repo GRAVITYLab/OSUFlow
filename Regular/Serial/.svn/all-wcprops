@@ -1,0 +1,131 @@
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/repos/osuflow/!svn/ver/313/trunk/Regular/Serial
+END
+glPathlinePartition1.C
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/repos/osuflow/!svn/ver/210/trunk/Regular/Serial/glPathlinePartition1.C
+END
+glStreamlinePartition2.C
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/repos/osuflow/!svn/ver/210/trunk/Regular/Serial/glStreamlinePartition2.C
+END
+glPathlinePartition2.C
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/repos/osuflow/!svn/ver/210/trunk/Regular/Serial/glPathlinePartition2.C
+END
+StreamlineSimplePartition.C
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/repos/osuflow/!svn/ver/239/trunk/Regular/Serial/StreamlineSimplePartition.C
+END
+SerDraw.C
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/repos/osuflow/!svn/ver/245/trunk/Regular/Serial/SerDraw.C
+END
+SER_TEST
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/repos/osuflow/!svn/ver/245/trunk/Regular/Serial/SER_TEST
+END
+StreamlineSimple.C
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/repos/osuflow/!svn/ver/239/trunk/Regular/Serial/StreamlineSimple.C
+END
+PathlineSimple.C
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/repos/osuflow/!svn/ver/245/trunk/Regular/Serial/PathlineSimple.C
+END
+gldraw_curvilinear.C
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/repos/osuflow/!svn/ver/259/trunk/Regular/Serial/gldraw_curvilinear.C
+END
+StreamlineSimplePartition1.C
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/repos/osuflow/!svn/ver/243/trunk/Regular/Serial/StreamlineSimplePartition1.C
+END
+StreamlineSimplePartition2.C
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/repos/osuflow/!svn/ver/243/trunk/Regular/Serial/StreamlineSimplePartition2.C
+END
+glStreamlinePartitionSimple.C
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/repos/osuflow/!svn/ver/210/trunk/Regular/Serial/glStreamlinePartitionSimple.C
+END
+glPathlinePartitionSimple.C
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/repos/osuflow/!svn/ver/210/trunk/Regular/Serial/glPathlinePartitionSimple.C
+END
+CMakeLists.txt
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/repos/osuflow/!svn/ver/294/trunk/Regular/Serial/CMakeLists.txt
+END
+gldraw_irregular.C
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/repos/osuflow/!svn/ver/259/trunk/Regular/Serial/gldraw_irregular.C
+END
+FileDraw.C
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/repos/osuflow/!svn/ver/313/trunk/Regular/Serial/FileDraw.C
+END
+glStreamlineSimple.C
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/repos/osuflow/!svn/ver/239/trunk/Regular/Serial/glStreamlineSimple.C
+END
+glStreamlinePartition1.C
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/repos/osuflow/!svn/ver/210/trunk/Regular/Serial/glStreamlinePartition1.C
+END
+glPathlineSimple.C
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/repos/osuflow/!svn/ver/245/trunk/Regular/Serial/glPathlineSimple.C
+END
+Makefile.in
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/repos/osuflow/!svn/ver/210/trunk/Regular/Serial/Makefile.in
+END
+CURVILINEAR_TEST
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/repos/osuflow/!svn/ver/210/trunk/Regular/Serial/CURVILINEAR_TEST
+END

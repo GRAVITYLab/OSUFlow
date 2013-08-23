@@ -1,0 +1,137 @@
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/repos/osuflow/!svn/ver/310/trunk/diy/src/bil-0.6.0
+END
+configure.ac
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/configure.ac
+END
+INSTALL
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/INSTALL
+END
+COPYING
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/COPYING
+END
+Makefile.am
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/Makefile.am
+END
+missing
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/missing
+END
+NEWS
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/NEWS
+END
+aclocal.m4
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/aclocal.m4
+END
+Makefile
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/repos/osuflow/!svn/ver/308/trunk/diy/src/bil-0.6.0/Makefile
+END
+install-sh
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/install-sh
+END
+configure
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/configure
+END
+Makefile.in
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/repos/osuflow/!svn/ver/308/trunk/diy/src/bil-0.6.0/Makefile.in
+END
+AUTHORS
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/AUTHORS
+END
+ChangeLog
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/ChangeLog
+END
+depcomp
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/depcomp
+END
+compile
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/compile
+END
+config.guess
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/config.guess
+END
+stamp-h1
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/stamp-h1
+END
+config.h
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/config.h
+END
+config.sub
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/config.sub
+END
+README
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/README
+END
+ltmain.sh
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/ltmain.sh
+END
+config.h.in
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/config.h.in
+END

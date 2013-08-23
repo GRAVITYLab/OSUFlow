@@ -1,0 +1,110 @@
+#!/bin/bash
+
+#----------------------------------------------------------------------------
+#
+# mpi run script
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+ARCH=LINUX
+#ARCH=BGP
+#ARCH=EUREKA
+
+# number of procs
+num_procs=1
+
+# number of BG/P nodes
+num_nodes=$[$num_procs / 4]
+
+# executable
+exe=./mpitest
+
+# dataset
+if [ "$ARCH" = "LINUX" ]; then
+data=$HOME/flame/flame.list
+#data=$HOME/tornado/tornado1.list
+#data=$HOME/plume/plume.list
+#data=$HOME/nek5000/200x200x200/nek5000.list
+#data=$HOME/rmi/rmi.list
+#data=$HOME/work/datasets/tornado_raw/tornado.list # path on Wes's mac
+#data=$HOME/work/datasets/jets/jets.list # path on Wes's mac
+#data=$HOME/work/datasets/downsampled_ocean/ocean.list
+#data=$HOME/work/datasets/pflotran/pflotran.list # path on Wes's mac
+fi
+if [ "$ARCH" = "BGP" ]; then
+#data=/pvfs-surveyor/tpeterka/plume/plume.list
+#data=/pvfs-surveyor/tpeterka/nek5000/512x512x512/nek5000.list
+#data=/pvfs-surveyor/tpeterka/1024x1024x1024/nek5000.list
+#data=/pvfs-surveyor/tpeterka/nek5000/2048x2048x2048/nek5000.list
+data=/pvfs-surveyor/tpeterka/rmi/dd07g/rstrt0193/rmi.list
+fi
+
+# number of spatial blocks per process
+bf=1
+
+# total number of temporal blocks
+tb=32
+
+# total number of particles
+t=512
+
+# number of points per trace
+p=1000
+
+# number of rounds per time group
+r=20
+
+# partition file
+if [ "$ARCH" = "LINUX" ]; then
+#pf=/homes/tpeterka/plume/partitions-npart16-blocksize32-15plume3d421.bin
+pf=! # indicates no partition file
+fi
+if [ "$ARCH" = "BGP" ]; then
+#pf=/home/tpeterka/plume/partitions-npart16-blocksize32-15plume3d421.bin
+pf=! # indicates no partition file
+fi
+
+# data mode
+# 0 = raw with no header data
+# 1 = raw with dimensions at start
+# 2 = netCDF
+# 3 = HDF5 float (32 bit)
+# 4 = HDF5 double (64 bit)
+dm=0
+
+if [ "$ARCH" = "LINUX" ]; then
+
+mpiexec -l -n $num_procs $exe $data $bf $tb $t $p $r $pf $dm
+
+#mpiexec -l -n $num_procs valgrind -q --leak-check=yes $exe $data $bf $tb $t $p $r $pf $dm
+
+#mpiexec -l -n $num_procs valgrind -q $exe $data $bf $tb $t $p $r $pf $dm
+
+#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $data $bf $tb $t $p $r $pf $dm
+
+#cp *out ~/work/vis10/merge_fieldlines
+
+fi
+
+if [ "$ARCH" = "BGP" ]; then
+
+pvfs2-drop-caches -m /pvfs-surveyor
+cqsub -n $num_nodes -c $num_procs -p UltraVis -t 30 -m vn $exe $data $bf $tb $t $p $r $pf $dm
+
+fi
+
+if [ "$ARCH" = "EUREKA" ]; then
+
+pvfs2-drop-caches -m /pvfs-surveyor
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $data $bf $tb $t $p $r $pf $dm
+
+fi
+

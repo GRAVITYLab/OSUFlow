@@ -18,7 +18,7 @@
 #define HAVE_MEMSET 1
 
 /* Define to 1 if you have the <pnetcdf.h> header file. */
-#define HAVE_PNETCDF_H 1
+/* #undef HAVE_PNETCDF_H */
 
 /* Define to 1 if your system has a GNU libc compatible `realloc' function,
    and to 0 otherwise. */

@@ -1,0 +1,41 @@
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/examples
+END
+README
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/examples/README
+END
+makefile
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/examples/makefile
+END
+create_raw_files.c
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/examples/create_raw_files.c
+END
+test_bil_raw.c
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/examples/test_bil_raw.c
+END
+create_nc_files.c
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/examples/create_nc_files.c
+END
+test_bil_nc.c
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/repos/osuflow/!svn/ver/301/trunk/diy/src/bil-0.6.0/examples/test_bil_nc.c
+END

@@ -34,11 +34,14 @@ list(APPEND SRC_FILES
 
 if( ${WITH_GRAPHICS} )
 list(APPEND SRC_FILES
-	glStreamlineSimple 
+	glStreamlineSimple
+	glStreamlineOpenMP 
 	# ADD-BY-LEETEN 01/06/2012-BEGIN
 	FileDraw
 	SerDraw
 	glPathlineSimple
+	gldraw_irregular
+	gldraw_curvilinear
 	# Incompatible w/ Lattice4D: glPathlinePartition1
 	# Incompatible w/ Lattice4D: glPathlinePartition2
 	# Incompatible w/ Lattice4D: glPathlinePartitionSimple
@@ -74,6 +77,24 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 			# DEL-BY-LEETEN 01/07/2011: renderer
 		)
 		# ADD-BY-LEETEN 01/06/2012-END
+
+		# ADD-BY-JIMMY START 5/14/2013
+		 # link the libraries
+                if(DEFINED WIN32)
+                        target_link_libraries(${SAMPLE_NAME} 
+                                opengl32
+                                glu32
+                                # DEL-BY-LEETEN 08/23/2012:     glut32
+                        )
+                else()
+                        target_link_libraries(${SAMPLE_NAME} 
+                                GL
+                                GLU
+                                glut
+                        )
+                endif()
+		# ADD-BY-JIMMY END 5/14/2013
+
 	endif()
 	target_link_libraries(${SAMPLE_NAME} 
 		OSUFlow

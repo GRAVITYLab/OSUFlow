@@ -1,0 +1,50 @@
+##########################################
+# OSUFlow VTK Integration
+# 
+##########################################
+Required install:
+* git
+* ccmake
+
+Optional install:
+* OpenGL, freeglut/GLUT
+* MPI
+
+
+Download & Install VTK6
+=======================
+git clone git://vtk.org/VTK.git
+
+* To successfully run some OSUFlow-VTK examples, please download VTK example data:
+git clone git://vtk.org/VTKData.git
+
+* build:
+mkdir vtk_build
+cd vtk_build
+cmake ../VTK
+make
+make install
+
+
+See more information in: http://www.vtk.org/VTK/resources/software.html
+
+
+
+
+Download & Install OSUFlow
+==========================
+git clone git@git.assembla.com:osuflowvtk.git
+
+* build:
+mkdir build
+cd build
+cmake ../osuflowvtk
+make
+
+
+Examples are in osuflowvtk/VTK/examples
+See README in the directory for more information
+
+
+Chun-Ming Chen @ Kitware
+May 21, 2013

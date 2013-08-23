@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/repos/osuflow/!svn/ver/245/trunk/AMR/Serial
+END
+Makefile.in
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/osuflow/!svn/ver/210/trunk/AMR/Serial/Makefile.in
+END
+SER_AMR_TEST
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/repos/osuflow/!svn/ver/210/trunk/AMR/Serial/SER_AMR_TEST
+END
+SerAmrDraw.C
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/repos/osuflow/!svn/ver/245/trunk/AMR/Serial/SerAmrDraw.C
+END

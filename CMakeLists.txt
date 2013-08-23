@@ -11,13 +11,25 @@ project (osuflow)
 
 # ADD-BY-LEETEN 08/17/2011-BEGIN
 set(WITH_MPI FALSE CACHE BOOL "Specify whether MPI is used")
-set(DIY_DIR "/usr" CACHE PATH "The installed path of DIY")
+set(DIY_DIR "/usr/local/diy" CACHE PATH "The installed path of DIY")
 
 set(WITH_BIL	FALSE CACHE BOOL "Specify whether BIL is used.")	# ADD-BY-LEETEN 12/17/2011
 set(BIL_DIR "/usr" CACHE PATH "The installed path of BIL")
 
 set(WITH_PNETCDF FALSE CACHE BOOL "Specify whether PNETCDF is used")
 set(PNETCDF_PATH "/usr" CACHE PATH "The installed path of PNETCDF")
+set(SAMPLE_DATA_DIR      "${CMAKE_SOURCE_DIR}/sample_data" CACHE STRING "Path to datasets for testing and examples")  # ADDED-BY-JIMMY 08/05/2013
+
+
+# ADD-BY-JIMMY 05/30/2013 - openmp support
+set (WITH_OPENMP 	OFF	CACHE BOOL "OpenMP support")
+if (WITH_OPENMP)
+    find_package ( OpenMP )        
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    add_definitions( -DWITH_OPENMP )
+endif () 
+
 
 if(NOT DEFINED WIN32 AND NOT DEFINED MAC_OSX_OMPI AND NOT DEFINED MAC_OSX_MPICH)
 	add_definitions(
@@ -36,6 +48,7 @@ endif()
 
 add_definitions(
 	-D_OSUFLOW
+	-DSAMPLE_DATA_DIR="${SAMPLE_DATA_DIR}" # ADDED-BY-JIMMY 08/05/2013
 	)
 
 set(OSUFLOW_DIR 	"${CMAKE_SOURCE_DIR}")
@@ -49,6 +62,16 @@ set(OSUFLOW_INC		"${OSUFLOW_DIR}/include")
 # MOD-BY-LEETEN 09/01/2011-END
 set(RENDERER_DIR	"${OSUFLOW_DIR}/renderer" 	)
 set(GCB_DIR 		"${RENDERER_DIR}/libgcb" 	)
+
+# ADDED-BY-JIMMY 6/10/2013-BEGIN : SHARED OSUFLOW
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build into shared libraries (for Paraview plugin)")
+if (${BUILD_SHARED_LIBS})
+	set(LIB_TYPE SHARED)
+else ()
+	set(LIB_TYPE STATIC)
+endif ()
+# ADDED-BY-JIMMY 6/10/2013-END : SHARED OSUFLOW
+
 
 include_directories(
 	# ADD-BY-LEETEN 09/01/2011-BEGIN
@@ -64,8 +87,16 @@ link_directories(
 if( WITH_MPI )
    find_package(MPI REQUIRED) 
    # ADD-BY-LEETEN 01/07/2011-BEGIN
-	set(CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS})
-	set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS})
+	set(CMAKE_CXX_COMPILE_FLAGS "${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}")
+	set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS}")
+# ADD-BY-JIMMY 08/19/2013 - osx support
+#list(REMOVE_DUPLICATES CMAKE_CXX_LINK_FLAGS)
+string(REPLACE ";" " " CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
+message(STATUS link: "${CMAKE_CXX_LINK_FLAGS}")
+message(STATUS exe: "${CMAKE_EXE_LINK_FLAGS}")
+message(STATUS shared: "${CMAKE_SHARED_LINK_FLAGS}")
+message(STATUS lib: "${STATIC_LIBRARY_FLAGS}")
+
 	include_directories(MPI_INCLUDE_PATH)
 	# ADD-BY-LEETEN 01/07/2011-END
 	
@@ -107,6 +138,11 @@ if( WITH_MPI )
 endif()
 # ADD-BY-LEETEN 08/17/2011-END
 
+#Jimmy: enable graphics when compiling OSUFlow src
+if( ${WITH_GRAPHICS} )
+	add_definitions(-DGRAPHICS)     
+endif() 
+
 # Recurse into the "src" subdirectory. This does not actually
 # cause another cmake executable to run. The same process will walk through
 # the project's entire directory structure.
@@ -115,6 +151,7 @@ add_subdirectory (src)
 # ADD-BY-LEETEN 12/16/2011-BEGIN
 set(WITH_EXAMPLES  TRUE CACHE BOOL "Specify whether sample programs should be built as well.") # MOD-BY-LEETEN 12/16/2011-FROM: set(WITH_EXAMPLE  TRUE CACHE BOOL "Specify whether sample programs should be built as well.")
 set(WITH_GRAPHICS TRUE CACHE BOOL "Specify whether Graphics-related libraries should be built.")
+
 if( ${WITH_GRAPHICS} )
 # ADD-BY-LEETEN 12/16/2011-END
 
@@ -143,6 +180,10 @@ if( ${WITH_MPI} ) # MOD-BY-LEETEN 12/16/2011-FROM: if( WITH_MPI )
     endif() # ADD-BY-LEETEN 12/16/2011
 endif()
 # ADD-BY-LEETEN 08/17/2011-END
+
+# ADD-BY-CHENCHU 05/08/2013-BEGIN
+add_subdirectory (VTK)
+# ADD-BY-CHENCHU 05/08/2013-END
 
 # ADD-BY-LEETEN 12/17/2011-BEGIN
 set(ARCH	 "LINUX" CACHE STRING	"Specify the architecture.")

@@ -41,6 +41,11 @@ endif()
 
 # ADD-BY-LEETEN 01/07/2012-BEGIN
 if( ${WITH_GRAPHICS} )
+   target_link_libraries(${PROJECT_NAME} 
+      renderer
+      gcb
+      )
+
     if(DEFINED WIN32)
       target_link_libraries(${PROJECT_NAME} 
 	opengl32
@@ -54,10 +59,6 @@ if( ${WITH_GRAPHICS} )
 	glut
 	)
     endif()
-    target_link_libraries(${PROJECT_NAME} 
-      renderer
-      gcb
-      )
 endif()
 # ADD-BY-LEETEN 01/07/2012-END
 

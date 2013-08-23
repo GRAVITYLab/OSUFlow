@@ -1,0 +1,47 @@
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/repos/osuflow/!svn/ver/300/trunk/old.diy/include
+END
+merge.hpp
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/repos/osuflow/!svn/ver/300/trunk/old.diy/include/merge.hpp
+END
+diy.h
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/repos/osuflow/!svn/ver/300/trunk/old.diy/include/diy.h
+END
+io.hpp
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/repos/osuflow/!svn/ver/300/trunk/old.diy/include/io.hpp
+END
+assignment.hpp
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/repos/osuflow/!svn/ver/300/trunk/old.diy/include/assignment.hpp
+END
+blocking.hpp
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/repos/osuflow/!svn/ver/300/trunk/old.diy/include/blocking.hpp
+END
+neighborhoods.hpp
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/repos/osuflow/!svn/ver/300/trunk/old.diy/include/neighborhoods.hpp
+END
+util.hpp
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/repos/osuflow/!svn/ver/300/trunk/old.diy/include/util.hpp
+END

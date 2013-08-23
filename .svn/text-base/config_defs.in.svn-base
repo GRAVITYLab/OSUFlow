@@ -1,0 +1,49 @@
+
+# the way to set user options when configure is used is to set defaults below
+# and to let configure substitute for them during the configure phase
+CXX = @MPICXX@
+CC = @MPICC@
+ARCH = @arch@
+MPI = @with_mpi@
+MPE = @enable_mpe@
+BIL = @enable_bil@
+PNETCDF = @with_pnetcdf@
+HDF5 = @with_hdf5@
+ZOLTAN = @with_zoltan@
+GRAPHICS = @enable_graphics@
+DEBUG = @enable_debug@
+BYTE_SWAP = @enable_byteswap@
+WARNINGS = @enable_warnings@
+HDF_INC = @hdf5_inc@
+ZOLTAN_INC = @zoltan_inc@
+NETCDF_INC = @pnetcdf_inc@
+HDF_LIB = @hdf5_lib@
+ZOLTAN_LIB = @zoltan_lib@
+NETCDF_LIB = @pnetcdf_lib@
+SO = @enable_so@
+
+# override the user defs to force serial mode
+ifeq ($(MPI), NO)
+MPE = NO
+BIL = NO
+PNETCDF = NO
+HDF5 = NO
+ZOLTAN = NO
+endif
+
+# build shared object
+ifeq ($(SO), YES)
+FPIC = YES
+endif
+
+package = @PACKAGE_NAME@
+version = @PACKAGE_VERSION@
+tarname = @PACKAGE_TARNAME@
+distdir = $(tarname)-$(version)
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+tarname = $(package)
+distdir = $(tarname)-$(version)
+bindir = @bindir@
+srcdir = @srcdir@
+VPATH = @srcdir@

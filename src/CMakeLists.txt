@@ -65,7 +65,7 @@ list(APPEND SRC_FILES
 	Repartition.C
 	ComputeFieldLines.C 
 	# Blocks.C
-	Blocks.C # ADD-BY-LEETEN 01/06/2012
+	# Blocks.C # ADD-BY-LEETEN 01/06/2012
 	Partition.C
 	Lattice4D.C
 	LatticeAMR.C 
@@ -75,16 +75,16 @@ list(APPEND SRC_FILES
 
 # DEL-BY-LEETEN 01/06/2012-BEGIN
 	# # ADD-BY-LEETEN 08/17/2011-BEGIN
-	# if( WITH_MPI )
-	  # list(APPEND SRC_FILES
-		# Blocks.C
-	  # )
-	# endif()
+	if( WITH_MPI )
+	  list(APPEND SRC_FILES
+		Blocks.C
+	  )
+	endif()
 	# # ADD-BY-LEETEN 08/17/2011-END
 # DEL-BY-LEETEN 01/06/2012-END
 
 # build the project as a library
-add_library(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
+add_library(${PROJECT_NAME} ${LIB_TYPE} ${SRC_FILES} ${HEADER_FILES})
 
 # ADD-BY-LEETEN 09/01/2011-BEGIN
 set_target_properties(${PROJECT_NAME} PROPERTIES 

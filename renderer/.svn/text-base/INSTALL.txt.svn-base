@@ -1,0 +1,57 @@
+[INTRODUCTION]
+This file introduces the steps to compile the rendering components for OSUFlow and the sample code. 
+
+Teng-Yok Lee
+08/14/2010
+
+[Prerequiste] 
+
+To use the rendering components and to try the sample code, first, it is recommended to  place the following folders under the same folder with the folder "Core"
+
+examples/
+libgcb/
+renderer/
+
+Otherwise, the path of the Core folder should be manually specified, which will be explained in later sections.
+
+[Installation of the rendering components in OSUFlow]
+
+To create the rendering component for OSUFlow, 
+
+1) switch to the folder renderer/ 
+2) compilied and linked the library via the command "make".
+
+[Installation of LIBGCB]
+
+Before the compilation of the sample codes, an extra library LIBGCB should be created. LIBGCB is a simple library for the sample codes that provides basic user interface and windows management for the sample code, which is based on GLUT. To compile LIBGCB, 
+
+1) switch the folder libgcb/ 
+2) make LIBGCB via the command "make".
+
+[Installation of the sample codes]
+
+Please follow the following steps to compile and run the sample codes. Currently the following five sample codes are tested on Linux:
+
+gcb_template
+gcbStreamline
+gcbLineAnimator
+gcbPathLine
+gcbTube
+
+To compile the sample code, first, specify the path of the Core part in OSUFlow in the following makefile
+
+examples/example_common_option.mak
+
+Next, to compile the individual sample code (gcbStreamline, for instance):
+
+1) switch to the folder examples/gcb/gcbStreamlines/
+2) make gcbStreamline via the command "make"
+
+To run the sample code gcbStreamline, execute the command "examples/gcb/gcbStreamlines/gcbStreamlines.exe <input.vec>"
+
+[NOTES]
+
+1. If the application is intended to be execured with MPI, it is needed to modify the makefiles of individual sample code by changing g++ to mpicxx.
+
+2. Currently the library and the sample codes have been only tested on Linux and Windows. 
+

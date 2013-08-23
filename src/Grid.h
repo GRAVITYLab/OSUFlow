@@ -22,7 +22,7 @@ enum CellType
 {
 	TRIANGLE,
 	CUBE,
-	POLYGONE,
+	POLYGON,
 	TETRAHEDRON
 };
 
