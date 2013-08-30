@@ -50,9 +50,9 @@ int main(int argc, char **argv)
 	char file1[256], file2[256];
 	int files;
 	if (argc<=1) { // load default data
-		sprintf(file1, "%s/Data/combxyz.bin", "/home/jchen/project/VTKData"); //t->GetDataRoot());
+		sprintf(file1, "%s/curvilinear/combxyz.bin", SAMPLE_DATA_DIR); //t->GetDataRoot());
 		printf("%s\n", file1);
-		sprintf(file2, "%s/Data/combq.bin", "/home/jchen/project/VTKData"); //t->GetDataRoot());
+		sprintf(file2, "%s/curvilinear/combq.bin", SAMPLE_DATA_DIR); //t->GetDataRoot());
 		files = 2;
 	} else {
 		strcpy(file1, argv[1]);
