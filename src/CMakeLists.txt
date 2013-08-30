@@ -64,8 +64,7 @@ list(APPEND SRC_FILES
 	flashhdf5_float.C 
 	Repartition.C
 	ComputeFieldLines.C 
-	# Blocks.C
-	# Blocks.C # ADD-BY-LEETEN 01/06/2012
+	Blocks.C # ADD-BY-LEETEN 01/06/2012
 	Partition.C
 	Lattice4D.C
 	LatticeAMR.C 

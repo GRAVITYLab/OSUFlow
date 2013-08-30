@@ -54,7 +54,7 @@ void computeStreamlines(vtkObject* caller, unsigned long eventId, void *clientda
 vtkDataSet *getData_vtu()
 {
 	vtkXMLUnstructuredGridReader *reader = vtkXMLUnstructuredGridReader::New();
-	reader->SetFileName("/home/jchen/project/data/disk/disk_0_0.vtu");
+	reader->SetFileName(SAMPLE_DATA_DIR "/unstructured/disk.vtu");
 	reader->Update();
 
 	vtkUnstructuredGrid *data = reader->GetOutput();

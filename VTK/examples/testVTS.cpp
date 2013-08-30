@@ -17,7 +17,7 @@
 int main()
 {
 vtkXMLStructuredGridReader *reader = vtkXMLStructuredGridReader::New();
-reader->SetFileName("/home/jchen/flow/comb.vts");
+reader->SetFileName(SAMPLE_DATA_DIR "/curvilinear/comb.vts");
 reader->UpdateInformation();
 
 //int extent[6] = {14, 28, 16, 32, 12, 24};
