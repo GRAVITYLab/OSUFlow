@@ -344,7 +344,6 @@ int main(int argc, char *argv[]) {
 
 #endif
 
-  printf("cleaning up\n");
   Cleanup();
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -352,12 +351,10 @@ int main(int argc, char *argv[]) {
 // #ifdef USE_BIL
 //   BIL_Finalize();
 // #endif
-  printf("DIY_Finalize\n");
   DIY_Finalize();
   // end TP
 
   MPI_Finalize();
-
 
 }
 //-----------------------------------------------------------------------
