@@ -1,4 +1,0 @@
-100 100 100 1 # grid size (x, y, z, t; t is number of timesteps)
-1.0 # vector scaling factor
-test.raw #list of file names, one per timestep
-

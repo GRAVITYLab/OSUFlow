@@ -1045,17 +1045,6 @@ int DIY_Finalize() {
   num_dids = 0;
   tot_blocks = 0;
 
-
-  ///////
-
-  // diy global data
-  tb.clear(); // total number of blocks in each domain
-  nb.clear(); // my local number of blocks in ach domain
-  maxb.clear(); // max. num. of blocks in any process in each domain
-  items_v.clear();
-  comp_buf_v.clear();
-  decomp_buf_v.clear();
-
   return 0;
 
 }

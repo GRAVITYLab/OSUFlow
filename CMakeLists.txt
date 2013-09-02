@@ -19,17 +19,7 @@ set(BIL_DIR "/usr" CACHE PATH "The installed path of BIL")
 set(WITH_PNETCDF FALSE CACHE BOOL "Specify whether PNETCDF is used")
 set(PNETCDF_PATH "/usr" CACHE PATH "The installed path of PNETCDF")
 set(SAMPLE_DATA_DIR      "${CMAKE_SOURCE_DIR}/sample_data" CACHE STRING "Path to datasets for testing and examples")  # ADDED-BY-JIMMY 08/05/2013
-
-
-# ADD-BY-JIMMY 05/30/2013 - openmp support
-set (WITH_OPENMP 	OFF	CACHE BOOL "OpenMP support")
-if (WITH_OPENMP)
-    find_package ( OpenMP )        
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    add_definitions( -DWITH_OPENMP )
-endif () 
-
+set(WITH_VTK FALSE CACHE BOOL "Compile with VTK integration in VTK/")
 
 if(NOT DEFINED WIN32 AND NOT DEFINED MAC_OSX_OMPI AND NOT DEFINED MAC_OSX_MPICH)
 	add_definitions(
@@ -63,14 +53,14 @@ set(OSUFLOW_INC		"${OSUFLOW_DIR}/include")
 set(RENDERER_DIR	"${OSUFLOW_DIR}/renderer" 	)
 set(GCB_DIR 		"${RENDERER_DIR}/libgcb" 	)
 
-# ADDED-BY-JIMMY 6/10/2013-BEGIN : SHARED OSUFLOW
+# ADDED-BY-JIMMY 6/10/2013-BEGIN : SHARED-LIBRARY OSUFLOW  (for Paraview Plugin)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build into shared libraries (for Paraview plugin)")
 if (${BUILD_SHARED_LIBS})
 	set(LIB_TYPE SHARED)
 else ()
 	set(LIB_TYPE STATIC)
 endif ()
-# ADDED-BY-JIMMY 6/10/2013-END : SHARED OSUFLOW
+# ADDED-BY-JIMMY 6/10/2013-END : SHARED-LIBRARY OSUFLOW
 
 
 include_directories(
@@ -86,16 +76,9 @@ link_directories(
 
 if( WITH_MPI )
    find_package(MPI REQUIRED) 
-   # ADD-BY-LEETEN 01/07/2011-BEGIN
-	set(CMAKE_CXX_COMPILE_FLAGS "${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}")
+	# Corrected by Jimmy: use "..." for not creating CMake list
+	set(CMAKE_CXX_COMPILE_FLAGS "${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}")  
 	set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS}")
-# ADD-BY-JIMMY 08/19/2013 - osx support
-#list(REMOVE_DUPLICATES CMAKE_CXX_LINK_FLAGS)
-string(REPLACE ";" " " CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
-message(STATUS link: "${CMAKE_CXX_LINK_FLAGS}")
-message(STATUS exe: "${CMAKE_EXE_LINK_FLAGS}")
-message(STATUS shared: "${CMAKE_SHARED_LINK_FLAGS}")
-message(STATUS lib: "${STATIC_LIBRARY_FLAGS}")
 
 	include_directories(MPI_INCLUDE_PATH)
 	# ADD-BY-LEETEN 01/07/2011-END
@@ -182,7 +165,9 @@ endif()
 # ADD-BY-LEETEN 08/17/2011-END
 
 # ADD-BY-CHENCHU 05/08/2013-BEGIN
+if (WITH_VTK)
 add_subdirectory (VTK)
+endif (WITH_VTK)
 # ADD-BY-CHENCHU 05/08/2013-END
 
 # ADD-BY-LEETEN 12/17/2011-BEGIN

@@ -1,3 +1,0 @@
-47 33 11 1 # CURVILINEAR grid size (x, y, z, t; t: number of time steps)
-1.0 # vector scaling factor
-curvGridVTK.vtk # list of vector file names, one per time step

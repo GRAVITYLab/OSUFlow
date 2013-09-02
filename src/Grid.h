@@ -20,6 +20,7 @@
 
 enum CellType
 {
+	CELLTYPE_UNKNOWN,
 	TRIANGLE,
 	CUBE,
 	POLYGON,
