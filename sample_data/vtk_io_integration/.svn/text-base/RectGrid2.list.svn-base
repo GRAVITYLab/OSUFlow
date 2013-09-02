@@ -1,3 +1,0 @@
-47 33 11 1 # grid size (x, y, z, t; t is number of timesteps)
-1.0 # vector scaling factor
-RectGrid2.vtk #list of file names, one per timestep

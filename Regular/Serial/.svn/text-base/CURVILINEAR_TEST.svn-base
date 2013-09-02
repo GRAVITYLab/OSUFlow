@@ -1,8 +1,0 @@
-#!/bin/bash
-
-#./gldraw_curvilinear /home/xul/curvilinear/Datasets/shuttle_conv 0 # 0 means it is a steady data
- ./gldraw_curvilinear /home/xul/curvilinear/Datasets/post 1	     # 1 means it is a timevarying data	
-#./gldraw_irregular   /home/xul/curvilinear/Datasets/b8.graph.bin \
-					 /home/xul/curvilinear/Datasets/b8_tetra
-					 
-
