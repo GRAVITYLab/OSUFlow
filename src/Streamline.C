@@ -10,10 +10,6 @@
 
 #include "FieldLine.h"
 
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif
-
 #pragma warning(disable : 4251 4100 4244 4101)
 
 FILE* fDebugOut;
@@ -130,24 +126,9 @@ void vtCStreamLine::computeStreamLine(const void* userData,
 	if( !m_lSeedIds.empty() ) 
 		sIdIter = m_lSeedIds.begin();
 
-#ifdef WITH_OPENMP
-	// serialize std::List
-	std::vector<vtParticleInfo*> seeds;
-	for (sIter = m_lSeeds.begin(); sIter != m_lSeeds.end(); ++sIter)
-		seeds.push_back(*sIter);
-	#pragma omp parallel
-	{
-		list<vtListSeedTrace*> myListSeedTraces; // local variable
-		#pragma omp for nowait
-		for (size_t i=0; i<seeds.size(); i++)
-		{
-			vtParticleInfo * thisSeed = seeds[i];
-#else
-	list<vtListSeedTrace*> myListSeedTraces;
 	for(sIter = m_lSeeds.begin(); sIter != m_lSeeds.end(); ++sIter)
 	{
 		vtParticleInfo* thisSeed = *sIter;
-#endif
 		if(thisSeed->itsValidFlag == 1)			// valid seed
 		{
 			if(m_itsTraceDir & BACKWARD_DIR)
@@ -156,7 +137,7 @@ void vtCStreamLine::computeStreamLine(const void* userData,
 				backTrace = new vtListSeedTrace;
 				computeFieldLine(BACKWARD,m_integrationOrder, STEADY, 
 				                 *backTrace, thisSeed->m_pointInfo);
-				myListSeedTraces.push_back(backTrace);
+				listSeedTraces.push_back(backTrace);
 				if (listSeedIds != NULL)
 					(*listSeedIds).push_back(*sIdIter);
 			}
@@ -166,24 +147,14 @@ void vtCStreamLine::computeStreamLine(const void* userData,
 				forwardTrace = new vtListSeedTrace;
 				computeFieldLine(FORWARD, m_integrationOrder, STEADY,
 								 *forwardTrace, thisSeed->m_pointInfo);
-				myListSeedTraces.push_back(forwardTrace);
+				listSeedTraces.push_back(forwardTrace);
 				if (listSeedIds != NULL)
 					(*listSeedIds).push_back(*sIdIter);
 			}
 		}
 		if( !m_lSeedIds.empty() ) 
 			sIdIter++;
-#ifdef WITH_OPENMP
-		} // omp for
-		#pragma omp critical
-		{
-			listSeedTraces.splice(listSeedTraces.end(), myListSeedTraces);
-		}
-	} // omp parallel
-#else
-	} // for loop
-	listSeedTraces.splice(listSeedTraces.end(), myListSeedTraces);
-#endif
+	}
 }
 
 int vtCStreamLine::computeFieldLine(TIME_DIR time_dir,
