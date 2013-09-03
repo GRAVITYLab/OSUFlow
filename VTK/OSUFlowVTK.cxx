@@ -2,11 +2,6 @@
 #include <vtkStructuredGrid.h>
 #include <vtkXMLImageDataReader.h>
 #include <vtkImageData.h>
-#if 0
-#include <vtkXMLFileReadTester.h>
-#include <vtkXMLGenericDataObjectReader.h>
-#include <vtkMultiBlockDataGroupFilter.h>
-#endif
 #include <vtkGenericDataObjectReader.h>
 
 #include "OSUFlowVTK.h"
@@ -65,6 +60,7 @@ void OSUFlowVTK::setData(vtkDataSet *input)
 	has_data = true;
 }
 
+#if 0
 void OSUFlowVTK::LoadData(char **dataset_files, int num_dataset_files,
 			       float *sMin, float *sMax, int* sRealMin, int* sRealMax,
 			       float *dim, int min_t, int max_t, DataMode mode,
@@ -175,3 +171,4 @@ void OSUFlowVTK::LoadData(char **dataset_files, int num_dataset_files,
 	has_data = true;
 
 }
+#endif

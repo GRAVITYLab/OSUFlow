@@ -127,14 +127,14 @@ class ParFlow {
   list<VECTOR4> *seedlists4D; 
 
   // integration parameters
-  inline void SetMaxError(float maxError) {this->maxError = maxError;}
-  inline void SetInitialStepSize(float step) {this->initialStepSize = step;}
-  inline void SetMinStepSize(float step) {this->minStepSize = step;}
-  inline void SetMaxStepSize(float step) {this->maxStepSize = step;}
-  inline void SetLowerAngleAccuracy(float angle) {this->lowerAngleAccuracy = angle;}
-  inline void SetUpperAngleAccuracy(float angle) {this->upperAngleAccuracy = angle;}
-  inline void SetIntegrationOrder(INTEG_ORD order) {this->integrationOrder = order;}
-  inline void SetUseAdaptiveStepSize(bool adapt) {this->useAdaptiveStepSize = adapt;}
+  void SetMaxError(float maxError) {this->maxError = maxError;}
+  void SetInitialStepSize(float step) {this->initialStepSize = step;}
+  void SetMinStepSize(float step) {this->minStepSize = step;}
+  void SetMaxStepSize(float step) {this->maxStepSize = step;}
+  void SetLowerAngleAccuracy(float angle) {this->lowerAngleAccuracy = angle;}
+  void SetUpperAngleAccuracy(float angle) {this->upperAngleAccuracy = angle;}
+  void SetIntegrationOrder(INTEG_ORD order) {this->integrationOrder = order;}
+  void SetUseAdaptiveStepSize(bool adapt) {this->useAdaptiveStepSize = adapt;}
   // Jimmy-added begin:
   inline void SetIntegrationDir(TRACE_DIR dir) {this->integrationDir = dir; }
 #ifdef _MPI

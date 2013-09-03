@@ -43,7 +43,7 @@ if( ${WITH_GRAPHICS} )
 endif ()
 if ( ${WITH_MPI} )
 	LIST (APPEND SIMPLE_TARGETS
-        	MpiDrawVTK
+        	#MpiDrawVTK
 	)
 	# MPI Script
         file (COPY      ${CMAKE_CURRENT_SOURCE_DIR}/MPI_TEST

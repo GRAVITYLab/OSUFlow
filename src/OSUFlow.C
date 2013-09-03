@@ -122,7 +122,7 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
 //  sMin/sMax are local min and max range of the data that are held
 //  t_min/t_max are the time range (for time-varying field) 
 //
-void OSUFlow::LoadData(const char* fname, bool bStatic,
+void OSUFlow::LoadData(const char* fname, bool bStatic, 
 		       VECTOR3 sMin, VECTOR3 sMax, int min_t, int max_t, 
 		       bool deferred)  
 {
@@ -179,7 +179,7 @@ void OSUFlow::LoadData(const char* fname, bool bStatic,
 // data: data that has already been read in (defaults to NULL)
 // currently only modes 0, 1, and 2 are implemented
 //
-void OSUFlow::LoadData(const char* fname, float *sMin, float *sMax,
+void OSUFlow::LoadData(const char* fname, float *sMin, float *sMax, 
 		       float *dim, int min_t, int max_t, DataMode mode,
 		       float **data) {
   

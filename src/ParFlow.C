@@ -64,6 +64,7 @@ ParFlow::ParFlow(Blocks *blocks,
   // deleted by TP 9/12/12  
 //   this->blocking = blocking;
 //   this->assign = assignment;
+  // nbhds = new Neighborhoods(blocking, assign, MPI_COMM_WORLD);
   // end TP 9/12/12
 
   TotSeeds = 0;

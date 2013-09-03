@@ -36,6 +36,7 @@ public:
 
 	inline bool getHasData() { return this->has_data; }
 
+#if 0
 	virtual void LoadData(const char* fname, bool bStatic, bool deferred = false)
 	{	OSUFlow::LoadData(fname, bStatic, deferred);}
 
@@ -63,7 +64,7 @@ public:
 				       float *sMin, float *sMax, int* sRealMin, int* sRealMax,
 				       float *dim, int min_t, int max_t, DataMode mode,
 				       float **data = NULL);
-
+#endif
 
 };
 
