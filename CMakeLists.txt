@@ -96,10 +96,14 @@ if( WITH_MPI )
 		${MPI_INCLUDE_PATH}
 		${DIY_INC}
 		${BIL_INC}
+		${BIL_DIR}/src # compiled location
+		${DIY_DIR}/src # compiled location
 	)
 	link_directories(
 		${DIY_LIB}
 		${BIL_LIB}
+		${DIY_DIR} # compiled location
+		${BIL_DIR} # compiled location
 	)
 
 	if( WITH_PNETCDF )

@@ -23,7 +23,7 @@ include_directories(
 	)
 
 # build the project as a library
-add_executable(${PROJECT_NAME} MpiDraw.C)
+add_executable(${PROJECT_NAME} SimpleMpiDraw.C)
 
 # link the libraries
 target_link_libraries(${PROJECT_NAME} 
