@@ -12,6 +12,7 @@
 #include <Field.h>
 #include "VectorFieldVTK.h"
 
+// OPENMP currently not used, because core OSUFlow has to be modified too
 #ifdef WITH_OPENMP
 #include <omp.h>
 #endif

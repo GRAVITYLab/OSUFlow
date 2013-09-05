@@ -1,7 +1,6 @@
 // code reference: vtkStreamLine.cxx
 
 #include "vtkOSUFlow.h"
-#include "OSUFlowVTK.h"
 #include "vtkCellArray.h"
 #include "vtkLine.h"
 #include "vtkInformation.h"
@@ -9,6 +8,8 @@
 #include "vtkTimerLog.h"
 #include "vtkInformationVector.h"
 #include "vtkNew.h"
+
+#include "VectorFieldVTK.h"
 
 // Defines static vtkOSUFlow::New() here
 vtkStandardNewMacro(vtkOSUFlow);
@@ -21,7 +22,7 @@ vtkOSUFlow::vtkOSUFlow()
 , MaximumNumberOfSteps(1000)
 , scale(1.0)
 {
-	osuflow = new OSUFlowVTK();
+	osuflow = new OSUFlow();
 }
 
 vtkOSUFlow::~vtkOSUFlow()
@@ -30,7 +31,7 @@ vtkOSUFlow::~vtkOSUFlow()
 }
 
 // Description
-// Tells VTK pipeline that both input ports are optional (Data can be assigned to OSUFlowVTK in advance)
+// Tells VTK pipeline that both input ports are optional (Data can be assigned to OSUFlow in advance)
 // The number of ports (2) are assigned in the super class vtkStreamer
 int vtkOSUFlow::FillInputPortInformation(int port, vtkInformation *info)
 {
@@ -72,9 +73,10 @@ int vtkOSUFlow::RequestData(
 	// OSUFlow
 	//
 	// set data
-	if (source)
-		osuflow->setData(source);
-	else if (! osuflow->getHasData() ) {
+	if (source) {
+		CVectorField *field = new VectorFieldVTK( source );
+		osuflow->SetFlowField( field );
+	} else if (! osuflow->HasData() ) {
 		printf("vtkOSUFlow: no data\n");
 		return 0;
 	}

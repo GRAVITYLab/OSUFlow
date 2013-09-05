@@ -63,7 +63,7 @@ int main(int argc, char **argv)
 	streamer = vtkOSUFlow::New();
 
 	// read data
-	OSUFlowVTK *osuflow = streamer->getOSUFlow();
+	OSUFlow *osuflow = streamer->getOSUFlow();
 	const char *filename;
 	if (argc>1)
 		filename = argv[1];

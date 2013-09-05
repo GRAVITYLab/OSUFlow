@@ -24,12 +24,12 @@ May, 2010
 #include "vtkMultiBlockPLOT3DReader.h"
 #include "vtkMultiBlockDataSet.h"
 #include "vtkSmartPointer.h"
-#include "OSUFlowVTK.h"
+#include "VectorFieldVTK.h"
 // VTK
 
 
 char *szVecFilePath;	// ADD-BY-LEETEN 09/29/2012
-OSUFlowVTK *osuflow;
+OSUFlow *osuflow;
 VECTOR3 minLen, maxLen; 
 list<vtListSeedTrace*> sl_list; 
 float center[3], len[3]; 
@@ -262,9 +262,9 @@ main(int argc, char* argv[])
 	double *bounds = sData->GetBounds();
 	printf("bounds: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 
-	osuflow = new OSUFlowVTK;
-
-	osuflow->setData(sData);
+	osuflow = new OSUFlow;
+	CVectorField *field = new VectorFieldVTK( sData );
+	osuflow->SetFlowField( field );
 
 	// openmp
 #ifdef _OPENMP

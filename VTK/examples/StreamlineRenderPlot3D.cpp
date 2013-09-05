@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 	streamer->SetMaximumPropagationTime(200);
 	streamer->SetNumberOfThreads(1);
 	streamer->VorticityOn();
-	streamer->getOSUFlow()->initOpenMP(8); // set number of processes to 8
+	//streamer->getOSUFlow()->initOpenMP(8); // set number of processes to 8
 
 	vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
 	mapper->SetInputConnection(streamer->GetOutputPort());

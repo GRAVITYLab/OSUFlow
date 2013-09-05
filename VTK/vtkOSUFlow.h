@@ -6,7 +6,7 @@
 #include <vtkStreamer.h>
 #include <vtkSmartPointer.h>
 
-#include <OSUFlowVTK.h>
+#include <OSUFlow.h>
 #include <Field.h>
 
 class vtkDataSet;
@@ -26,10 +26,10 @@ public:
 		osuflow->SetRandomSeedPoints(bMin, bMax, num_seeds);
 	}
 
-	inline OSUFlowVTK *getOSUFlow() { return osuflow; }
+	inline OSUFlow *getOSUFlow() { return osuflow; }
 
 	// Description
-	// Tells VTK pipeline that both input ports are optional (Data can be assigned to OSUFlowVTK in advance)
+	// Tells VTK pipeline that both input ports are optional (Data can be assigned to OSUFlow in advance)
 	// The number of ports (2) are assigned in the super class vtkStreamer
 	virtual int FillInputPortInformation(int port, vtkInformation *info);
 
@@ -81,7 +81,7 @@ protected:
 	virtual int RequestData(vtkInformation *, vtkInformationVector **, vtkInformationVector *);
 
 private:
-	OSUFlowVTK *osuflow;
+	OSUFlow *osuflow;
 
 	// Not implemented:
 	//vtkOSUFlow(const vtkOSUFlow&);

@@ -5,7 +5,8 @@
 #include <list>
 #include <iterator>
 
-#include "OSUFlowVTK.h"
+#include "OSUFlow.h"
+#include "VectorFieldVTK.h"
 #include "vtkDataSet.h"
 #include "vtkStructuredGrid.h"
 #include "vtkMultiBlockPLOT3DReader.h"
@@ -126,8 +127,9 @@ int main()
 	//vtkSmartPointer<vtkDataSet> data = getData_vti();
 
 
-	OSUFlowVTK *osuflow = new OSUFlowVTK;
-	osuflow->setData(data);
+	OSUFlow *osuflow = new OSUFlow;
+	CVectorField *field = new VectorFieldVTK( data );
+	osuflow->SetFlowField( field );
 
 	// gen seeds
 	VECTOR3 minB, maxB;

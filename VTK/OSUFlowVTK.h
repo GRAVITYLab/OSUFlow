@@ -1,4 +1,7 @@
-	#ifndef OSUFLOW_VTK
+// A class that inherits OSUFlow to load VTK datasets.
+// However in simple use cases this class is unnecessary
+
+#ifndef OSUFLOW_VTK
 #define OSUFLOW_VTK
 
 #include <assert.h>
