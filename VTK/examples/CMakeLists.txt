@@ -27,8 +27,8 @@ add_definitions (-DVTK_DATA_ROOT=${VTK_DATA_ROOT})
 LIST(APPEND SIMPLE_TARGETS
 	StreamlineSimpleVTK
 	testVTS
-	vec2vts
 	vec2vti
+	vti2vec
 	StreamlineSimpleVTKUnstructured
 )
 if( ${WITH_GRAPHICS} )

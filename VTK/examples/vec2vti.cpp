@@ -1,4 +1,4 @@
-// convert .vec files to VTS format
+// convert .vec files to vti format
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -15,7 +15,8 @@
 
 int main ( int argc, char *argv[] )
 {
-	printf("Usage: vec2vts file.vec\n");
+	printf("Usage: vec2vti file.vec\n");
+	printf("Output: output.vti\n");
 	FILE *fp = fopen(argv[1], "rb");
 	if (!fp) {
 		perror(argv[1]);
