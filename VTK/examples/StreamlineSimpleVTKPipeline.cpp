@@ -25,7 +25,6 @@
 #include "vtkActor.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkStructuredGridOutlineFilter.h"
-#include "vtkTesting.h"
 #include "vtkProperty.h"
 // streamline
 #include "vtkStreamLine.h"
