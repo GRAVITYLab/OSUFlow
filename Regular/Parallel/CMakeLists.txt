@@ -2,6 +2,12 @@
 cmake_minimum_required (VERSION 2.8)
 project (mpitest) 
 
+if (${WITH_GRAPHICS})
+ find_package(OpenGL)
+ find_package(GLU)
+ find_package(GLUT)
+endif (${WITH_GRAPHICS})
+
 # DEL-BY-LEETEN 01/07/2012-BEGIN
 # if( WITH_MPI )
 # 	# find the mpi package
@@ -46,19 +52,10 @@ if( ${WITH_GRAPHICS} )
       gcb
       )
 
-    if(DEFINED WIN32)
-      target_link_libraries(${PROJECT_NAME} 
-	opengl32
-	glu32
-	glut32
-	)
-    else()
-      target_link_libraries(${PROJECT_NAME} 
-	GL
-	GLU
-	glut
-	)
-    endif()
+      # ADD-BY-JIMMY START 5/14/2013
+      # link the opengl libraries
+      target_link_libraries(${PROJECT_NAME} ${OPENGL_LIBRARY} ${GLU_LIBRARY} ${GLUT_LIBRARY})
+      # ADD-BY-JIMMY END 5/14/2013
 endif()
 # ADD-BY-LEETEN 01/07/2012-END
 

@@ -13,6 +13,12 @@ if (${WITH_MPI})
 	include_directories(${MPI_CXX_INCLUDE_PATH})
 endif (${WITH_MPI})
 
+if (${WITH_GRAPHICS})
+ find_package(OpenGL)
+ find_package(GLUT)
+endif (${WITH_GRAPHICS})
+
+
 
 if (${WITH_PARAVIEW_PLUGINS})
 	find_package(ParaView REQUIRED)
@@ -86,12 +92,7 @@ if (WITH_GRAPHICS)
 		renderer
 		gcb
 	)
-        list (APPEND LINK_LIBS ${GLUT_LIBRARY} )
-#        if(DEFINED WIN32)
-#            list (APPEND LINK_LIBS opengl32 glu32 glut32 ${GLUT_LIBRARY} )
-#        else()
-#            list (APPEND LINK_LIBS GL GLU ${GLUT_LIBRARY}  )
-#        endif()
+        list (APPEND LINK_LIBS ${OPENGL_LIBRARY} ${GLU_LIBRARY} ${GLUT_LIBRARY})
 endif ()
 
 if (WITH_MPI)

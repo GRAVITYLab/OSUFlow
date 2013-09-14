@@ -145,12 +145,6 @@ if( ${WITH_GRAPHICS} )
 add_definitions(-DGRAPHICS)	# ADD-BY-LEETEN 01/06/2012-BEGIN
 
 add_subdirectory (renderer)
-add_subdirectory (renderer/libgcb)
-		 if( ${WITH_EXAMPLES} ) # ADD-BY-LEETEN 12/16/2011
-		     add_subdirectory (renderer/examples)
-
-# ADD-BY-LEETEN 12/16/2011-BEGIN
-		 endif() 
 endif() 
 # ADD-BY-LEETEN 12/16/2011-END
 

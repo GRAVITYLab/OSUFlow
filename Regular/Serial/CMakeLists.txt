@@ -2,8 +2,11 @@
 cmake_minimum_required (VERSION 2.8)
 project (regular_serial_examples) 
 
-find_package(OpenGL)
-find_package(GLUT)
+if (${WITH_GRAPHICS})
+ find_package(OpenGL)
+ find_package(GLU)
+ find_package(GLUT)
+endif (${WITH_GRAPHICS})
 
 # specify the path to the headers
 include_directories(
@@ -65,8 +68,8 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 		# ADD-BY-LEETEN 01/06/2012-END
 
 		# ADD-BY-JIMMY START 5/14/2013
-		# link the libraries
-		target_link_libraries(${SAMPLE_NAME} ${GLUT_LIBRARY})
+		# link the opengl libraries
+                target_link_libraries(${SAMPLE_NAME} ${OPENGL_LIBRARY} ${GLU_LIBRARY} ${GLUT_LIBRARY})
 		# ADD-BY-JIMMY END 5/14/2013
 
 	endif()

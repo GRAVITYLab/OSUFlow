@@ -4,9 +4,6 @@
 cmake_minimum_required (VERSION 2.8)
 project (VTK_examples) 
 
-find_package(OpenGL)
-find_package(GLUT)
-
 
 set(VTK_DATA_ROOT      "$ENV{HOME}/project/VTKData" CACHE STRING "Root to VTKData for testing the examples")
 set(PARAVIEW_DATA_ROOT      "$ENV{HOME}/project/VTKData" CACHE STRING "Root to VTKData for testing the examples")

@@ -20,9 +20,10 @@ endif()
 include_directories(
 		. 
 		${OSUFLOW_DIR}/src
+		${OPENGL_INCLUDE_PATH}
+		${GLU_INCLUDE_PATH}
 		${GLUT_INCLUDE_PATH}
 	)
-message(status "${GLUT_INCLUDE_PATH}")
 
 # grab all the header files
 file(GLOB HEADER_FILES "*.h" )
@@ -59,6 +60,13 @@ install(
 	TARGETS ${PROJECT_NAME}
 	DESTINATION lib)
 # ADD-BY-LEETEN 09/01/2011-END
+
+# subdirectories
+add_subdirectory (libgcb)
+
+if( ${WITH_EXAMPLES} ) # ADD-BY-LEETEN 12/16/2011
+	add_subdirectory (examples)
+endif ()
 
 #
 # $Log$

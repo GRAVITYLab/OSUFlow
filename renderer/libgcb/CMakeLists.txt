@@ -4,9 +4,6 @@
 cmake_minimum_required (VERSION 2.8)
 project (gcb) 
 
-find_package(OpenGL)
-find_package(GLUT)
-
 if(NOT DEFINED WIN32 AND NOT DEFINED MAC_OSX_OMPI AND NOT DEFINED MAC_OSX_MPICH)
 	add_definitions(
 		-DLINUX
@@ -22,17 +19,16 @@ endif()
 # specify the path to the headers
 include_directories(
 		. 
-		${GLUT_INCLUDE_PATH}
 	)
 
 # grab all the header files
 file(GLOB HEADER_FILES "*.h" )
 
 # grab all the source codes
-AUX_SOURCE_DIRECTORY ("." 	SRC_FILES)
+AUX_SOURCE_DIRECTORY ("." 	LIBGCB_SRC_FILES)
 
 # build the project as a library
-add_library(${PROJECT_NAME} ${SRC_FILES} ${HEADER_FILES})
+add_library(${PROJECT_NAME} ${LIBGCB_SRC_FILES} ${HEADER_FILES})
 
 # ADD-BY-LEETEN 09/01/2011-BEGIN
 set_target_properties(${PROJECT_NAME} PROPERTIES 

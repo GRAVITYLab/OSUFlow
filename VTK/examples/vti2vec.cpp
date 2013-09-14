@@ -64,7 +64,7 @@ int main ( int argc, char *argv[] )
 
 	fwrite(dims, 3, 4, fp);
 	if (imageData->GetScalarType() == VTK_FLOAT) {
-		fwrite(imageData->GetScalarPointer(), size, 4*3, fp);
+		fwrite(imageData->GetScalarPointer(), size, 4*3	, fp);
 	} else {
 		double3 *p = (double3 *)imageData->GetScalarPointer();
 		for (i=0; i<size; i++) {
