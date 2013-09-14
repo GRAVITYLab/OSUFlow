@@ -4,7 +4,6 @@ project (mpitest)
 
 if (${WITH_GRAPHICS})
  find_package(OpenGL)
- find_package(GLU)
  find_package(GLUT)
 endif (${WITH_GRAPHICS})
 
