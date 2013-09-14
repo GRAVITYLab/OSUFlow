@@ -22,6 +22,7 @@ endif()
 # specify the path to the headers
 include_directories(
 		. 
+		${GLUT_INCLUDE_PATH}
 	)
 
 # grab all the header files

@@ -7,9 +7,11 @@ project (OSUFlowVTK)
 set(WITH_PARAVIEW_PLUGINS	OFF	CACHE	BOOL	"Use Paraview Package")
 set(OSUFLOWVTK_DIR      "${CMAKE_PROJECT_DIR}")
 
-find_package(MPI REQUIRED)
-include_directories(${MPI_CXX_INCLUDE_PATH})
 
+if (${WITH_MPI})
+	find_package(MPI REQUIRED)
+	include_directories(${MPI_CXX_INCLUDE_PATH})
+endif (${WITH_MPI})
 
 
 if (${WITH_PARAVIEW_PLUGINS})
@@ -74,7 +76,6 @@ list (APPEND LINK_LIBS
 	${PARAVIEW_LIBRARIES}
 	${VTK_LIBRARIES}
 	OSUFlow
-	${MPI_C_LIBRARIES}
 	)
 if (WITH_GRAPHICS)
 	include_directories ( 
@@ -85,15 +86,16 @@ if (WITH_GRAPHICS)
 		renderer
 		gcb
 	)
-        if(DEFINED WIN32)
-            list (APPEND LINK_LIBS opengl32 glu32 glut32 )
-        else()
-            list (APPEND LINK_LIBS GL GLU glut  )
-        endif()
+        list (APPEND LINK_LIBS ${GLUT_LIBRARY} )
+#        if(DEFINED WIN32)
+#            list (APPEND LINK_LIBS opengl32 glu32 glut32 ${GLUT_LIBRARY} )
+#        else()
+#            list (APPEND LINK_LIBS GL GLU ${GLUT_LIBRARY}  )
+#        endif()
 endif ()
 
 if (WITH_MPI)
-	list (APPEND LINK_LIBS diy bil)
+	list (APPEND LINK_LIBS diy bil ${MPI_C_LIBRARIES})
 endif ()
 if (WITH_PNETCDF)
 	list (APPEND LINK_LIBS  pnetcdf )

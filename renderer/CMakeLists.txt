@@ -20,7 +20,9 @@ endif()
 include_directories(
 		. 
 		${OSUFLOW_DIR}/src
+		${GLUT_INCLUDE_PATH}
 	)
+message(status "${GLUT_INCLUDE_PATH}")
 
 # grab all the header files
 file(GLOB HEADER_FILES "*.h" )

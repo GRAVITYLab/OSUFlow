@@ -12,6 +12,7 @@ include_directories(
 		${RENDERER_DIR}
 		${GCB_DIR}
 		# ADD-BY-LEETEN 01/06/2012-END
+		${GLUT_INCLUDE_PATH}
 )
 
 # specify the path to the libraries
@@ -55,20 +56,6 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 	add_executable(${SAMPLE_NAME} ${SAMPLE_NAME}.C)
 
 	if( ${WITH_GRAPHICS} )
-		# link the libraries
-		if(DEFINED WIN32)
-			target_link_libraries(${SAMPLE_NAME} 
-				opengl32
-				glu32
-				# DEL-BY-LEETEN 08/23/2012:	glut32
-			)
-		else()
-			target_link_libraries(${SAMPLE_NAME} 
-				GL
-				GLU
-				glut
-			)
-		endif()
 		# ADD-BY-LEETEN 01/06/2012-BEGIN
 		target_link_libraries(${SAMPLE_NAME} 
 		  renderer # ADD-BY-LEETEN 01/07/2011
@@ -78,20 +65,8 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 		# ADD-BY-LEETEN 01/06/2012-END
 
 		# ADD-BY-JIMMY START 5/14/2013
-		 # link the libraries
-                if(DEFINED WIN32)
-                        target_link_libraries(${SAMPLE_NAME} 
-                                opengl32
-                                glu32
-                                # DEL-BY-LEETEN 08/23/2012:     glut32
-                        )
-                else()
-                        target_link_libraries(${SAMPLE_NAME} 
-                                GL
-                                GLU
-                                glut
-                        )
-                endif()
+		# link the libraries
+		target_link_libraries(${SAMPLE_NAME} ${GLUT_LIBRARY})
 		# ADD-BY-JIMMY END 5/14/2013
 
 	endif()

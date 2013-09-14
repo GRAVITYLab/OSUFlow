@@ -23,6 +23,7 @@ include_directories(
 		# DEL-BY-LEETEN 08/17/2011		${OSUFLOW_DIR}/src
 		${RENDERER_DIR}
 		${GCB_DIR}
+		${GLUT_INCLUDE_PATH}
 	)
 
 # specify the path to the libraries
@@ -72,17 +73,8 @@ foreach(SAMPLE_NAME
 			
  
 	# ADD-BY-JIMMY 5/10/2013-BEGIN
-        if(DEFINED WIN32)
                 target_link_libraries(${SAMPLE_NAME} 
-                        opengl32
-                        glu32
-                        # DEL-BY-LEETEN 08/23/2012:     glut32
-                )
-        else()
-                target_link_libraries(${SAMPLE_NAME} ${OPENGL_LIBRARIES} ${GLUT_LIBRARY}
-                )
-        endif()
-      # END
+				${GLUT_LIBRARY} )
       # ADD-BY-LEETEN 12/20/2011-BEGIN
       if( ${WITH_PNETCDF} )
 	target_link_libraries(${SAMPLE_NAME} 
