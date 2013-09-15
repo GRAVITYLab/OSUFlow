@@ -21,6 +21,8 @@ set(PNETCDF_PATH "/usr" CACHE PATH "The installed path of PNETCDF")
 set(SAMPLE_DATA_DIR      "${CMAKE_SOURCE_DIR}/sample_data" CACHE STRING "Path to datasets for testing and examples")  # ADDED-BY-JIMMY 08/05/2013
 set(WITH_VTK FALSE CACHE BOOL "Compile with VTK integration in VTK/")
 
+set(WITH_TESTING FALSE CACHE BOOL "Enable testing")
+
 if(NOT DEFINED WIN32 AND NOT DEFINED MAC_OSX_OMPI AND NOT DEFINED MAC_OSX_MPICH)
 	add_definitions(
 		-DLINUX
@@ -167,6 +169,10 @@ if (WITH_VTK)
 add_subdirectory (VTK)
 endif (WITH_VTK)
 # ADD-BY-CHENCHU 05/08/2013-END
+
+if (${WITH_TESTING})
+    add_subdirectory (tests)
+endif ()
 
 # ADD-BY-LEETEN 12/17/2011-BEGIN
 set(ARCH	 "LINUX" CACHE STRING	"Specify the architecture.")

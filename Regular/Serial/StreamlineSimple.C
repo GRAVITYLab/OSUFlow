@@ -48,11 +48,11 @@ main(int argc, char**argv) {
     for (; pnIter!=trace->end(); pnIter++) {
 
       VECTOR3 p = **pnIter; 
-      //      printf(" %f %f %f ", p[0], p[1], p[2]); 
+      printf("%f %f %f, ", p[0], p[1], p[2]); 
 
 
     }
-
+    printf("\n");
   }
   return 0;	// ADD-BY-LEETEN 12/20/2011
 }

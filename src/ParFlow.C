@@ -60,6 +60,7 @@ ParFlow::ParFlow(Blocks *blocks,
   this->track_seed_id = track_seed_id;
   this->nb = nb;
   this->blocks = blocks;
+  this->comm = MPI_COMM_WORLD; // Jimmy added for default comm.
 
   // deleted by TP 9/12/12  
 //   this->blocking = blocking;

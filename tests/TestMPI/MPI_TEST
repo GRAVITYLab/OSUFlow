@@ -1,0 +1,139 @@
+#!/bin/bash
+
+#----------------------------------------------------------------------------
+#
+# mpi run script
+#
+# Tom Peterka
+# Argonne National Laboratory
+# 9700 S. Cass Ave.
+# Argonne, IL 60439
+# tpeterka@mcs.anl.gov
+#
+# All rights reserved. May not be used, modified, or copied
+# without permission
+#
+#----------------------------------------------------------------------------
+#ARCH=MAC_OSX
+ARCH=LINUX
+#ARCH=BGP
+#ARCH=EUREKA
+
+# number of procs
+num_procs=4
+
+# number of BG/P nodes for vn mode
+num_nodes=$[$num_procs / 4]
+if [ $num_nodes -lt 1 ]; then
+    num_nodes=1
+fi
+
+# executable
+exe=./TestMPI
+
+# dataset
+if [ "$ARCH" = "LINUX" ] || [ "$ARCH" = "MAC_OSX" ]; then
+#data=$HOME/flame/flame.list
+#data=$HOME/tornado/tornado.list
+#data=../../sample_data/regular/test.list		    # steady  case: _VTKIO_INTEGRATION_ OFF in MpiDraw.C
+data=/data/flow2/tornado/all.list		    # time-varying: _VTKIO_INTEGRATION_ OFF in MpiDraw.C
+#data=/home/zhanping/Tornado/tornado_vtk.list		    # time-varying: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ OFF in MpiDraw.C
+#data=/home/zhanping/Integration/Data/vtkDataRaw.list	    # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ OFF; _CURVILINEAR_GRIDS_ OFF in MpiDraw.C
+#data=/home/zhanping/Integration/Data/RectGrid2.list	    # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ OFF in MpiDraw.C
+#data=/home/zhanping/Integration/Data/curvGridRaw.list      # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ OFF; _CURVILINEAR_GRIDS_ ON  in MpiDraw.C
+#data=/home/zhanping/Integration/Data/curvGridVTK.list      # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ ON  in MpiDraw.C
+#data=/home/zhanping/Integration/Data/curvGrid_office.list  # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ ON  in MpiDraw.C
+#data=/home/zhanping/Integration/Data/curvGrid_bluntFin.list # steady  case: _VTKIO_INTEGRATION_ ON; _LOAD_VTK_DATA_SET_ ON;  _CURVILINEAR_GRIDS_ ON  in MpiDraw.C
+#data=$HOME/tornado/tornado_rep.list
+#data=$HOME/plume/plume.list
+#data=$HOME/nek5000/200x200x200/nek5000.list
+#data=$HOME/nek5000/100x100x100/nek5000_rep.list
+#data=$HOME/nek5000/100x100x100/nek5000.list
+#data=$HOME/nek5000/100x100x100/nek5000_rep.list
+#data=$HOME/rti/rti.list
+#data=$HOME/work/datasets/tornado_raw/tornado.list # path on Wes's mac
+#data=$HOME/work/datasets/jets/jets.list # path on Wes's mac
+#data=$HOME/work/datasets/downsampled_ocean/ocean.list
+#data=$HOME/work/datasets/pflotran/pflotran.list # path on Wes's mac
+fi
+if [ "$ARCH" = "BGP" ]; then
+#data=/pvfs-surveyor/tpeterka/plume/plume.list
+#data=/pvfs-surveyor/tpeterka/tornado/tornado.list
+data=/pvfs-surveyor/tpeterka/nek5000/100x100x100/nek5000.list
+#data=/pvfs-surveyor/tpeterka/nek5000/512x512x512/nek5000.list
+#data=/pvfs-surveyor/tpeterka/nek5000/1024x1024x1024/nek5000.list
+#data=/pvfs-surveyor/tpeterka/nek5000/2048x2048x2048/nek5000.list
+#data=/pvfs-surveyor/tpeterka/rmi/dd07g/rstrt0193/rmi.list
+fi
+
+# number of spatial blocks per process
+bf=4
+
+# total number of temporal blocks
+tb=10
+
+# total number of particles
+#tp=$[$num_procs * $bf * 1]
+tp=256
+
+# final number of steps in each field line
+st=1000
+
+# partition file
+if [ "$ARCH" = "LINUX" ] || [ "$ARCH" = "MAC_OSX" ]; then
+#pf=/homes/tpeterka/plume/partitions-npart16-blocksize32-15plume3d421.bin
+pf=! # indicates no partition file
+fi
+if [ "$ARCH" = "BGP" ]; then
+#pf=/home/tpeterka/plume/partitions-npart16-blocksize32-15plume3d421.bin
+pf=! # indicates no partition file
+fi
+
+# seed file
+sf=! # indicates no seed file
+
+# data mode
+# 0 = raw with no header data
+# 1 = raw with dimensions at start
+# 2 = netCDF
+# 3 = HDF5 float (32 bit)
+# 4 = HDF5 double (64 bit)
+dm=0
+
+# all program args
+args="$data $bf $tb $tp $st $pf $dm $sf"
+
+if [ "$ARCH" = "MAC_OSX" ]; then
+
+mpiexec -l -n $num_procs $exe $args
+#dsymutil $exe; mpiexec -l -n $num_procs xterm -e gdb -x gdb.run --args $exe $args
+#dsymutil $exe; mpiexec -l -n $num_procs valgrind -q $exe $args
+#dsymutil $exe; mpiexec -l -n $num_procs valgrind -q  --leak-check=yes $exe $args
+
+fi
+
+if [ "$ARCH" = "LINUX" ]; then
+
+echo mpiexec -n $num_procs $exe $args
+
+mpiexec -n $num_procs $exe $args
+#mpiexec -n $num_procs valgrind -q --leak-check=yes $exe $args
+#mpiexec -n $num_procs valgrind -q $exe $args
+#mpiexec  -n $num_procs xterm -e gdb -x gdb.run --args $exe $args
+#cp *out ~/work/vis10/merge_fieldlines
+
+fi
+
+if [ "$ARCH" = "BGP" ]; then
+
+pvfs2-drop-caches -m /pvfs-surveyor
+cqsub -n $num_nodes -c $num_procs -p UltraVis -t 15 -m vn $exe $args
+
+fi
+
+if [ "$ARCH" = "EUREKA" ]; then
+
+mpirun -np $num_procs -machinefile $COBALT_NODEFILE $exe $args
+
+fi
+
