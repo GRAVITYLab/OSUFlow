@@ -1,4 +1,15 @@
 #!/bin/bash
+######################################
+#  VERIFY_OUTPUT
+# 
+# Compares the saved output with that 
+# from the current test programs.
+#
+# Run 'VERIFY_OUTPU save' to save 
+# the results for future use
+#
+# by Chun-Ming Chen
+#####################################
 
 arg=$1
 
@@ -23,7 +34,7 @@ else
     if [ $? -eq 0 ]; then
         echo "OK"
     else
-        echo Error: comparison of "$1" fail
+        echo Error: Verification of "$1" fail
         pause
     fi
 fi
