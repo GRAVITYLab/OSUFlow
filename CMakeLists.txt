@@ -209,7 +209,7 @@ BECOME_FLAG(IS_WARNING)
 
 configure_file (
   "${PROJECT_SOURCE_DIR}/user_defs.mk.in"
-  "${PROJECT_SOURCE_DIR}/user_defs.mk"
+  "${CMAKE_CURRENT_BINARY_DIR}/user_defs.mk"
   )
 # ADD-BY-LEETEN 12/17/2011-END
 
