@@ -50,7 +50,6 @@ file(GLOB HEADER_FILES "*.h" )
 
 list(APPEND SRC_FILES
 	VectorFieldVTK.cxx
-	OSUFlowVTK.cxx
 	vtkOSUFlow.cxx
 	)
 

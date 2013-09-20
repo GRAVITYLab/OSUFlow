@@ -38,9 +38,9 @@ if( ${WITH_GRAPHICS} )
 		StreamlineRenderUnstructured
         )
 endif ()
-if ( ${WITH_MPI} )
+if ( false ) #${WITH_MPI} )
 	LIST (APPEND SIMPLE_TARGETS
-        	#MpiDrawVTK
+        	MpiDrawVTK
 	)
 	# MPI Script
         file (COPY      ${CMAKE_CURRENT_SOURCE_DIR}/MPI_TEST
@@ -62,7 +62,4 @@ if ( ${WITH_PARAVIEW_PLUGINS} AND ${WITH_MPI})
 		MPIStreamlineRender.cpp ../plugins/vtkPOSUFlow.cxx)
 	target_link_libraries( MPIStreamlineRender ${LINK_LIBS})
 endif ()
-### README
-file (COPY	${CMAKE_CURRENT_SOURCE_DIR}/README.txt
-	DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
