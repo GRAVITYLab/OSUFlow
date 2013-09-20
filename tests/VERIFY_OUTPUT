@@ -1,0 +1,61 @@
+#!/bin/bash
+######################################
+#  VERIFY_OUTPUT
+# 
+# Compares the saved output with that 
+# from the current test programs.
+#
+# Run 'VERIFY_OUTPU save' to save 
+# the results for future use
+#
+# by Chun-Ming Chen
+#####################################
+
+arg=$1
+
+run() {
+# $1: command
+
+name=$1 
+name=`echo $name | sed "s/ .*\// /g"`
+name=`echo $name | sed "s/^.*\// /g"`
+name=`echo $name | sed "s/\//~/g"`
+name=`echo $name | sed "s/ /_/g"`
+
+if [ "$arg" == "save" ]; then
+    echo     "$1 > data/out_$name"
+    $1 > data/out_$name
+    echo
+else
+    echo "Running $1 :"
+    $1 > out_tmp
+    echo diff data/out_$name out_tmp
+    diff data/out_$name out_tmp 
+    if [ $? -eq 0 ]; then
+        echo "OK"
+    else
+        echo Error: Verification of "$1" fail
+        pause
+    fi
+fi
+}
+
+pause() {
+read -p "Press enter to continue..."
+}
+
+#################################################
+DATA_DIR=../../osuflow-git/sample_data
+
+PROG_DIR=../Regular/Serial
+# streamlines
+run "$PROG_DIR/StreamlineSimple $DATA_DIR/regular/circle.vec"
+run "$PROG_DIR/StreamlineSimple $DATA_DIR/regular/tornado/1.vec"
+
+# pathlines 
+run "$PROG_DIR/PathlineSimple /data/flow2/tornado/list"
+
+# parallel pathlines
+run "mpiexec -n 4 TestMPI/TestMPI /data/flow2/tornado/all.list 4 5 256 1000 ! 0 !"
+run "mpiexec -n 4 TestMPI/TestMPI /data/flow2/tornado/all.list 4 2 512 1000 ! 0 !"
+

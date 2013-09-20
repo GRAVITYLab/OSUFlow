@@ -2,8 +2,10 @@
 cmake_minimum_required (VERSION 2.8)
 project (regular_serial_examples) 
 
-find_package(OpenGL)
-find_package(GLUT)
+if (${WITH_GRAPHICS})
+ find_package(OpenGL)
+ find_package(GLUT)
+endif (${WITH_GRAPHICS})
 
 # specify the path to the headers
 include_directories(
@@ -12,6 +14,7 @@ include_directories(
 		${RENDERER_DIR}
 		${GCB_DIR}
 		# ADD-BY-LEETEN 01/06/2012-END
+		${GLUT_INCLUDE_PATH}
 )
 
 # specify the path to the libraries
@@ -34,11 +37,13 @@ list(APPEND SRC_FILES
 
 if( ${WITH_GRAPHICS} )
 list(APPEND SRC_FILES
-	glStreamlineSimple 
+	glStreamlineSimple
 	# ADD-BY-LEETEN 01/06/2012-BEGIN
 	FileDraw
 	SerDraw
 	glPathlineSimple
+	gldraw_irregular
+	gldraw_curvilinear
 	# Incompatible w/ Lattice4D: glPathlinePartition1
 	# Incompatible w/ Lattice4D: glPathlinePartition2
 	# Incompatible w/ Lattice4D: glPathlinePartitionSimple
@@ -53,20 +58,6 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 	add_executable(${SAMPLE_NAME} ${SAMPLE_NAME}.C)
 
 	if( ${WITH_GRAPHICS} )
-		# link the libraries
-		if(DEFINED WIN32)
-			target_link_libraries(${SAMPLE_NAME} 
-				opengl32
-				glu32
-				# DEL-BY-LEETEN 08/23/2012:	glut32
-			)
-		else()
-			target_link_libraries(${SAMPLE_NAME} 
-				GL
-				GLU
-				glut
-			)
-		endif()
 		# ADD-BY-LEETEN 01/06/2012-BEGIN
 		target_link_libraries(${SAMPLE_NAME} 
 		  renderer # ADD-BY-LEETEN 01/07/2011
@@ -74,6 +65,12 @@ foreach(SAMPLE_NAME ${SRC_FILES}
 			# DEL-BY-LEETEN 01/07/2011: renderer
 		)
 		# ADD-BY-LEETEN 01/06/2012-END
+
+		# ADD-BY-JIMMY START 5/14/2013
+		# link the opengl libraries
+                target_link_libraries(${SAMPLE_NAME} ${OPENGL_LIBRARY} ${GLU_LIBRARY} ${GLUT_LIBRARY})
+		# ADD-BY-JIMMY END 5/14/2013
+
 	endif()
 	target_link_libraries(${SAMPLE_NAME} 
 		OSUFlow

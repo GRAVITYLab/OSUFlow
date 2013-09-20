@@ -138,6 +138,7 @@ void ReadFieldlines(char *filename) {
 // Swaps 8  bytes from 1-2-3-4-5-6-7-8 to 8-7-6-5-4-3-2-1 order.
 // cast the input as a char and use on any 8 byte variable
 //
+#ifndef _MPI
 void swap8(char *n) {
 
   char *n1;
@@ -167,11 +168,13 @@ void swap8(char *n) {
   *n1 = c;
 
 }
+#endif
 //-----------------------------------------------------------------------------
 //
 // Swaps 4 bytes from 1-2-3-4 to 4-3-2-1 order.
 // cast the input as a char and use on any 4 byte variable
 //
+#if 0 // defined in DIY and OSUFlow
 void swap4(char *n) {
 
   char *n1;
@@ -189,11 +192,13 @@ void swap4(char *n) {
   *n1 = c;
 
 }
+#endif
 //----------------------------------------------------------------------------
 //
 // Swaps 2 bytes from 1-2 to 2-1 order.
 // cast the input as a char and use on any 2 byte variable
 //
+#ifndef _MPI
 void swap2(char *n){
 
   char c;
@@ -203,6 +208,7 @@ void swap2(char *n){
   n[1] = c;
 
 }
+#endif
 //----------------------------------------------------------------------------
 //
 // this is needed to link in the correct order under linux

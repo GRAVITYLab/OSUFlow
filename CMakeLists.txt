@@ -11,13 +11,17 @@ project (osuflow)
 
 # ADD-BY-LEETEN 08/17/2011-BEGIN
 set(WITH_MPI FALSE CACHE BOOL "Specify whether MPI is used")
-set(DIY_DIR "/usr" CACHE PATH "The installed path of DIY")
+set(DIY_DIR "/usr/local/diy" CACHE PATH "The installed path of DIY")
 
 set(WITH_BIL	FALSE CACHE BOOL "Specify whether BIL is used.")	# ADD-BY-LEETEN 12/17/2011
 set(BIL_DIR "/usr" CACHE PATH "The installed path of BIL")
 
 set(WITH_PNETCDF FALSE CACHE BOOL "Specify whether PNETCDF is used")
 set(PNETCDF_PATH "/usr" CACHE PATH "The installed path of PNETCDF")
+set(SAMPLE_DATA_DIR      "${CMAKE_SOURCE_DIR}/sample_data" CACHE STRING "Path to datasets for testing and examples")  # ADDED-BY-JIMMY 08/05/2013
+set(WITH_VTK FALSE CACHE BOOL "Compile with VTK integration in VTK/")
+
+set(WITH_TESTING FALSE CACHE BOOL "Enable testing")
 
 if(NOT DEFINED WIN32 AND NOT DEFINED MAC_OSX_OMPI AND NOT DEFINED MAC_OSX_MPICH)
 	add_definitions(
@@ -36,6 +40,7 @@ endif()
 
 add_definitions(
 	-D_OSUFLOW
+	-DSAMPLE_DATA_DIR="${SAMPLE_DATA_DIR}" # ADDED-BY-JIMMY 08/05/2013
 	)
 
 set(OSUFLOW_DIR 	"${CMAKE_SOURCE_DIR}")
@@ -50,6 +55,16 @@ set(OSUFLOW_INC		"${OSUFLOW_DIR}/include")
 set(RENDERER_DIR	"${OSUFLOW_DIR}/renderer" 	)
 set(GCB_DIR 		"${RENDERER_DIR}/libgcb" 	)
 
+# ADDED-BY-JIMMY 6/10/2013-BEGIN : SHARED-LIBRARY OSUFLOW  (for Paraview Plugin)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build into shared libraries (for Paraview plugin)")
+if (${BUILD_SHARED_LIBS})
+	set(LIB_TYPE SHARED)
+else ()
+	set(LIB_TYPE STATIC)
+endif ()
+# ADDED-BY-JIMMY 6/10/2013-END : SHARED-LIBRARY OSUFLOW
+
+
 include_directories(
 	# ADD-BY-LEETEN 09/01/2011-BEGIN
 	${OSUFLOW_SRC}
@@ -63,9 +78,10 @@ link_directories(
 
 if( WITH_MPI )
    find_package(MPI REQUIRED) 
-   # ADD-BY-LEETEN 01/07/2011-BEGIN
-	set(CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS})
-	set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS})
+	# Corrected by Jimmy: use "..." for not creating CMake list
+	set(CMAKE_CXX_COMPILE_FLAGS "${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}")  
+	set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS}")
+
 	include_directories(MPI_INCLUDE_PATH)
 	# ADD-BY-LEETEN 01/07/2011-END
 	
@@ -82,10 +98,14 @@ if( WITH_MPI )
 		${MPI_INCLUDE_PATH}
 		${DIY_INC}
 		${BIL_INC}
+		${BIL_DIR}/src # compiled location
+		${DIY_DIR}/src # compiled location
 	)
 	link_directories(
 		${DIY_LIB}
 		${BIL_LIB}
+		${DIY_DIR} # compiled location
+		${BIL_DIR} # compiled location
 	)
 
 	if( WITH_PNETCDF )
@@ -107,6 +127,11 @@ if( WITH_MPI )
 endif()
 # ADD-BY-LEETEN 08/17/2011-END
 
+#Jimmy: enable graphics when compiling OSUFlow src
+if( ${WITH_GRAPHICS} )
+	add_definitions(-DGRAPHICS)     
+endif() 
+
 # Recurse into the "src" subdirectory. This does not actually
 # cause another cmake executable to run. The same process will walk through
 # the project's entire directory structure.
@@ -115,18 +140,13 @@ add_subdirectory (src)
 # ADD-BY-LEETEN 12/16/2011-BEGIN
 set(WITH_EXAMPLES  TRUE CACHE BOOL "Specify whether sample programs should be built as well.") # MOD-BY-LEETEN 12/16/2011-FROM: set(WITH_EXAMPLE  TRUE CACHE BOOL "Specify whether sample programs should be built as well.")
 set(WITH_GRAPHICS TRUE CACHE BOOL "Specify whether Graphics-related libraries should be built.")
+
 if( ${WITH_GRAPHICS} )
 # ADD-BY-LEETEN 12/16/2011-END
 
 add_definitions(-DGRAPHICS)	# ADD-BY-LEETEN 01/06/2012-BEGIN
 
 add_subdirectory (renderer)
-add_subdirectory (renderer/libgcb)
-		 if( ${WITH_EXAMPLES} ) # ADD-BY-LEETEN 12/16/2011
-		     add_subdirectory (renderer/examples)
-
-# ADD-BY-LEETEN 12/16/2011-BEGIN
-		 endif() 
 endif() 
 # ADD-BY-LEETEN 12/16/2011-END
 
@@ -143,6 +163,16 @@ if( ${WITH_MPI} ) # MOD-BY-LEETEN 12/16/2011-FROM: if( WITH_MPI )
     endif() # ADD-BY-LEETEN 12/16/2011
 endif()
 # ADD-BY-LEETEN 08/17/2011-END
+
+# ADD-BY-CHENCHU 05/08/2013-BEGIN
+if (WITH_VTK)
+add_subdirectory (VTK)
+endif (WITH_VTK)
+# ADD-BY-CHENCHU 05/08/2013-END
+
+if (${WITH_TESTING})
+    add_subdirectory (tests)
+endif ()
 
 # ADD-BY-LEETEN 12/17/2011-BEGIN
 set(ARCH	 "LINUX" CACHE STRING	"Specify the architecture.")
@@ -179,7 +209,7 @@ BECOME_FLAG(IS_WARNING)
 
 configure_file (
   "${PROJECT_SOURCE_DIR}/user_defs.mk.in"
-  "${PROJECT_SOURCE_DIR}/user_defs.mk"
+  "${CMAKE_CURRENT_BINARY_DIR}/user_defs.mk"
   )
 # ADD-BY-LEETEN 12/17/2011-END
 

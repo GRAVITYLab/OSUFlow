@@ -426,7 +426,7 @@ int Blocks::LoadBlocks4D(int grp, double *time, int nblocks,
 
 }
 
-
+#ifdef _MPI // compatible for builds without MPI
 // ======================================================================= // ZPL begin
 //                                                                         //
 //                         below are the functions                         //
@@ -621,7 +621,7 @@ int 	Blocks::AttachCurvilinearGridDataBlocks4D
 //             added by Zhanping Liu (05/23/2013 ~ 07/08/2013)             //
 //                                                                         //
 // ======================================================================= // ZPL end
-
+#endif
 
 //----------------------------------------------------------------------------
 //

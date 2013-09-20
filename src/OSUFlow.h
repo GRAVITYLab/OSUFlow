@@ -158,6 +158,7 @@ class OSUFlow
 	);
 	// ADD-BY-LEETEN 09/29/2012-END
 
+	bool HasData() { return has_data; }
 private:
 
  protected:
