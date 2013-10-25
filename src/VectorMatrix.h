@@ -41,7 +41,7 @@ public :
 	float operator ()(const int i) const        // return i'th element
 	{ return(vec[i]); };
 	const VECTOR2 & operator =(const VECTOR2 & v0)  // copy vector v0
-	{ vec[0] = v0(0); vec[1] = v0(1); 
+	{ vec[0] = v0(0); vec[1] = v0(1);
 	return(*this); };
 	void Zero()                                  // make zero vector
 	{ vec[0] = vec[1] = 0.0; };
@@ -62,7 +62,7 @@ class VECTOR3
 {
 private :
     // do not add or remove members of this class! there are times in the code
-    // where an array of floats is converted into an array of VECTOR3. 
+    // where an array of floats is converted into an array of VECTOR3.
 	float vec[3];
 
 public :
@@ -99,10 +99,10 @@ public :
 	float GetMag() {return (float)(sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]));}	// get magnitude
 	const VECTOR3 & operator =(const VECTOR3 & v0)					// copy vector v0
 	{vec[0] = v0(0); vec[1] = v0(1); vec[2] = v0(2); return(*this);}
-	float GetMax();													// get the maximum value								
+	float GetMax();													// get the maximum value
 	void Clamp();													// make sure all dimension <=1.0
 	void Normalize();					                            // normalize vector
-	bool IsSame(VECTOR3& a);							
+	bool IsSame(VECTOR3& a);
 	void scale(const float s);
 	void minus(VECTOR3& v1, VECTOR3& v2);
 	void add(float a, float b, float c) { vec[0]+= a; vec[1] += b; vec[2] += c; }
@@ -168,16 +168,17 @@ public :
 	// Note: reference row i, column j of MATRIX3 m0 as m0[i][j] (not m0[i,j])
 	VECTOR3 operator()(const int i) const        // return row i
 	{	return(mat[i]); };
-	float operator ()(const int i, const int j) const   
+	float operator ()(const int i, const int j) const
 	{	return(mat[i](j)); };                    // return element (i,j)
 	MATRIX3 & operator =(const MATRIX3 & m0)     // copy matrix m0
-	{	mat[0] = m0(0); mat[1] = m0(1); mat[2] = m0(2); 
+	{	mat[0] = m0(0); mat[1] = m0(1); mat[2] = m0(2);
 	return(*this); };
 	void Identity();                             // set to identity
 
+	float det();	// determinant of the matrix
+
 	int inverse( MATRIX3& m) ;//added by lijie to handle curvilinear grid
 	MATRIX3 transpose();//added by lijie to handle curvilinear grid
-
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -189,13 +190,13 @@ class MATRIX4
 private :
 	VECTOR4 mat[4];       // a vector represents each matrix row
 
-public :		
+public :
 
 	MATRIX4()                                    // constructor
 	{	Identity(); };
-	MATRIX4(const VECTOR4 & v0, const VECTOR4 & v1, 
+	MATRIX4(const VECTOR4 & v0, const VECTOR4 & v1,
 		const VECTOR4 & v2, const VECTOR4 & v3) // constructor
-	{	mat[0] = v0; mat[1] = v1; mat[2] = v2; mat[3] = v3; };  
+	{	mat[0] = v0; mat[1] = v1; mat[2] = v2; mat[3] = v3; };
 	int Dimension() const
 	{	return 4; };
 	VECTOR4 & operator [](int i)                 // index row i
@@ -209,7 +210,7 @@ public :
 	{	mat[0] = m0(0); mat[1] = m0(1); mat[2] = m0(2); mat[3] = m0(3);
 	return(*this); };
 	MATRIX4 & operator =(const MATRIX3 & m0)     // copy matrix m0
-	{	mat[0] = m0(0); mat[1] = m0(1); mat[2] = m0(2); 
+	{	mat[0] = m0(0); mat[1] = m0(1); mat[2] = m0(2);
 	VECTOR4 temp(0.0,0.0,0.0,1.0);
 	mat[3] = temp;
 	return(*this); };
@@ -241,13 +242,13 @@ inline VECTOR2 operator *(const VECTOR2 & v0, float x0)
 // VECTOR3 operations
 //************************
 
-inline float dot(const VECTOR3 & v0, const VECTOR3 & v1)   
+inline float dot(const VECTOR3 & v0, const VECTOR3 & v1)
 // return dot product of v0 and v1
 {	return(v0(0)*v1(0) + v0(1)*v1(1) + v0(2)*v1(2)); };
 
 inline VECTOR3 cross(const VECTOR3 & v0, const VECTOR3 & v1)
 // return cross product of v0 and v1
-{	return(VECTOR3(v0(1)*v1(2) - v0(2)*v1(1), 
+{	return(VECTOR3(v0(1)*v1(2) - v0(2)*v1(1),
 		   v0(2)*v1(0) - v0(0)*v1(2),
 		   v0(0)*v1(1) - v0(1)*v1(0))); };
 
@@ -278,7 +279,7 @@ inline VECTOR4 get_vector4(VECTOR3 vec)
 // VECTOR4 operations
 //************************
 
-inline float dot(const VECTOR4 & v0, const VECTOR4 & v1)   
+inline float dot(const VECTOR4 & v0, const VECTOR4 & v1)
 // return dot product of v0 and v1
 {	return(v0(0)*v1(0) + v0(1)*v1(1) + v0(2)*v1(2) + v0(3)*v1(3)); };
 

@@ -6,6 +6,18 @@
 // VECTOR3 class definitions
 //////////////////////////////////////////////////////////////////////////
 
+// determinant of the matrix
+float MATRIX3::det() {
+	float d01d12md11d02 = mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2];
+	float d01d22md21d02 = mat[0][1] * mat[2][2] - mat[2][1] * mat[0][2];
+	float d11d22md21d12 = mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2];
+
+	float det = mat[0][0] * d11d22md21d12 - mat[1][0] * d01d22md21d02 +
+		mat[2][0] * d01d12md11d02;
+
+	return det;
+}
+
 //added by lijie
 MATRIX3 MATRIX3::transpose()
 {
@@ -20,7 +32,7 @@ MATRIX3 MATRIX3::transpose()
 	return inv;
 }
 //added by lijie
-int MATRIX3::inverse(MATRIX3& m) 
+int MATRIX3::inverse(MATRIX3& m)
 {
 
 
@@ -51,7 +63,7 @@ int MATRIX3::inverse(MATRIX3& m)
 
 	m=tm*det_inv;
 
-   
+
     return 1;
 
 
@@ -68,7 +80,7 @@ void VECTOR3::Normalize()
 }
 
 // get the maximum value
-float VECTOR3::GetMax() 
+float VECTOR3::GetMax()
 {
 	float maxval = vec[0];
 	if (vec[1] > maxval) maxval = vec[1];
@@ -77,7 +89,7 @@ float VECTOR3::GetMax()
 }
 
 // make sure all dimension <=1.0
-void VECTOR3::Clamp() 
+void VECTOR3::Clamp()
 {
 	for (int i = 0; i < Dimension(); i++)
 		if (vec[i]>1.0) vec[i] = 1.0;
@@ -364,7 +376,7 @@ VECTOR4 operator *(const MATRIX4 & m0, const VECTOR4 & v0)
 VECTOR3 operator *(const MATRIX4 & m0, const VECTOR3 & v0)
 {
 	VECTOR4 v(v0);
-	VECTOR3 result;	
+	VECTOR3 result;
 
 	float temp = dot(m0(3),v);
 	result[0] = dot(m0(0),v)/temp;
@@ -439,7 +451,7 @@ MATRIX4 inverse(const MATRIX4 & m) {
 				return(result);
 			else			/* Exchange rows from lp to end */
 				for( k=lp; k<8; k++ )
-				{	
+				{
 					a=wrk[j][k];
 					wrk[j][k]=wrk[lp][k];
 					wrk[lp][k]=a;
