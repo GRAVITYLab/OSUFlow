@@ -33,6 +33,7 @@ list(APPEND SRC_FILES
 	# Incompatible w/ Lattice4D: StreamlineSimplePartition1
 	# Incompatible w/ Lattice4D: StreamlineSimplePartition2
 	# ADD-BY-LEETEN 01/06/2012-END
+	VortexDetector
 	)
 
 if( ${WITH_GRAPHICS} )
