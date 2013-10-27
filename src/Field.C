@@ -318,6 +318,10 @@ void CVectorField::ScaleField(float scale)
   m_pSolution->Scale(scale);
 }
 
+void CVectorField::TranslateField(VECTOR3& translate) {
+	m_pSolution->Translate(translate);
+}
+
 // ADD-BY-LEETEN 02/02/2012-BEGIN
 void
 CVectorField::Scan
@@ -1611,5 +1615,26 @@ void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, flo
 void CVectorField::GenerateVortexMetricsLine(VECTOR3* const fieldline, const int num, float* lambda2, float* q, float* delta, float* gamma2) {
 	for (int i = 0; i < num; i++) {
 		GenerateVortexMetrics(fieldline[i], lambda2[i], q[i], delta[i], gamma2[i]);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+// to get curvature along samples of a streamline
+//
+// input
+//		Vector3*: streamline samples
+// output
+//      float*: curvatures
+//////////////////////////////////////////////////////////////////////////
+void CVectorField::Curvature(VECTOR3* const fieldline, const int num, float* curvature) {
+	VECTOR3 tangent, tangentPrime;
+	MATRIX3 mj;
+	for (int i = 0; i < num; i++) {
+		mj = UnitJacobian(fieldline[i]);
+		at_phys(fieldline[i], 0, tangent);
+		tangent.Normalize();
+
+		tangentPrime = mj * tangent;
+		curvature[i] = tangentPrime.GetMag();
 	}
 }

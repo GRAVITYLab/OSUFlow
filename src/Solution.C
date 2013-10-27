@@ -1,8 +1,8 @@
 /////////////////////////////////////////////////////////////////////////////
 //
 //                 OSU Flow Vis Library
-//                 Created: Han-Wei Shen, Liya Li 
-//                 The Ohio State University	
+//                 Created: Han-Wei Shen, Liya Li
+//                 The Ohio State University
 //                 Date:		06/2005
 //                 FieldLine
 //
@@ -25,7 +25,7 @@ Solution::Solution()
 
 //////////////////////////////////////////////////////////////////////////
 // input
-//		pData:		this is a 2D array for storing static or 
+//		pData:		this is a 2D array for storing static or
 //					time-varying data
 //		nodeNum:	number of total nodes
 //		timeSteps:	how many time steps, for static data, this is 1
@@ -36,19 +36,19 @@ Solution::Solution(VECTOR3** pData, int nodeNum, int timeSteps)
 	assert((pData != NULL) && (nodeNum > 0) && (timeSteps > 0));
 
 	m_nNodeNum = nodeNum;
-	m_nTimeSteps = timeSteps;	
-	m_MinT = 0; m_MaxT = timeSteps-1; 
+	m_nTimeSteps = timeSteps;
+	m_MinT = 0; m_MaxT = timeSteps-1;
 	m_pDataArray = pData;
 }
 
-Solution::Solution(VECTOR3** pData, int nodeNum, int timeSteps, int min_t, 
+Solution::Solution(VECTOR3** pData, int nodeNum, int timeSteps, int min_t,
 		   int max_t)
 {
 	assert((pData != NULL) && (nodeNum > 0) && (timeSteps > 0));
 
 	m_nNodeNum = nodeNum;
-	m_nTimeSteps = timeSteps;	
-	m_MinT = min_t; m_MaxT = max_t; 
+	m_nTimeSteps = timeSteps;
+	m_MinT = min_t; m_MaxT = max_t;
 	m_pDataArray = pData;
 }
 
@@ -71,8 +71,8 @@ void Solution::Reset()
 {
 	m_pDataArray = NULL;
 	m_nNodeNum = 0;
-	m_nTimeSteps = 1;			
-	m_MinT = 0; m_MaxT = 0; 
+	m_nTimeSteps = 1;
+	m_MinT = 0; m_MaxT = 0;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ void Solution::SetValue(int t, VECTOR3* pData, int nodeNum)
   //	if((t >= 0) && (t < m_nTimeSteps))
   	if((t >= m_MinT) && (t <= m_MaxT))
 	{
-	  t = t-m_MinT; 
+	  t = t-m_MinT;
 	  m_pDataArray[t] = new VECTOR3[nodeNum];
 	  assert(m_pDataArray[t] != NULL);
 	  for(int jFor = 0; jFor < nodeNum; jFor++)
@@ -112,7 +112,7 @@ bool Solution::isTimeVarying(void)
 //////////////////////////////////////////////////////////////////////////
 int Solution::GetValue(int id, float t, VECTOR3& nodeData)
 {
-  float adjusted_t = t - m_MinT; 
+  float adjusted_t = t - m_MinT;
 	if((id < 0) || (id >= m_nNodeNum) || (adjusted_t < 0.0) || (adjusted_t > (float)(m_nTimeSteps-1)))
 		return -1;
 
@@ -130,11 +130,11 @@ int Solution::GetValue(int id, float t, VECTOR3& nodeData)
 			highT = lowT;
 			ratio = 0.0;
 		}
-		nodeData.Set(Lerp(m_pDataArray[lowT][id][0], m_pDataArray[highT][id][0], ratio), 
+		nodeData.Set(Lerp(m_pDataArray[lowT][id][0], m_pDataArray[highT][id][0], ratio),
 					 Lerp(m_pDataArray[lowT][id][1], m_pDataArray[highT][id][1], ratio),
 					 Lerp(m_pDataArray[lowT][id][2], m_pDataArray[highT][id][2], ratio));
 	}
-	
+
 	return 1;
 }
 
@@ -167,7 +167,7 @@ void Solution::Normalize(bool bLocal)
 					w = m_pDataArray[iFor][jFor][2]/mag;
 					m_pDataArray[iFor][jFor].Set(u, v, w);
 				}
-				
+
 				if(mag < m_fMinMag)
 					m_fMinMag = mag;
 				if(mag > m_fMaxMag)
@@ -202,9 +202,6 @@ void Solution::Normalize(bool bLocal)
 	}
 }
 
-
-
-
 void Solution::Scale(float scaleF)
 {
 	int iFor, jFor;
@@ -214,12 +211,26 @@ void Solution::Scale(float scaleF)
 	  {
 	    for(jFor = 0; jFor < m_nNodeNum; jFor++)
 	      {
-		u = m_pDataArray[iFor][jFor][0]*scaleF; 
-		v = m_pDataArray[iFor][jFor][1]*scaleF; 
-		w = m_pDataArray[iFor][jFor][2]*scaleF; 
+		u = m_pDataArray[iFor][jFor][0]*scaleF;
+		v = m_pDataArray[iFor][jFor][1]*scaleF;
+		w = m_pDataArray[iFor][jFor][2]*scaleF;
 		m_pDataArray[iFor][jFor].Set(u, v, w);
 	      }
 	  }
+}
+
+void Solution::Translate(VECTOR3& translate) {
+	int iFor, jFor;
+	float u, v, w;
+
+	for (iFor = 0; iFor < m_nTimeSteps; iFor++) {
+		for (jFor = 0; jFor < m_nNodeNum; jFor++) {
+			u = m_pDataArray[iFor][jFor][0] + translate[0];
+			v = m_pDataArray[iFor][jFor][1] + translate[1];
+			w = m_pDataArray[iFor][jFor][2] + translate[2];
+			m_pDataArray[iFor][jFor].Set(u, v, w);
+		}
+	}
 }
 
 // ADD-BY-LEETEN 02/02/2012-BEGIN
@@ -238,9 +249,9 @@ Solution::Scan
 	      {
 		_func
 		  (
-		      iFor, 
+		      iFor,
 		      jFor,
-		      &m_pDataArray[iFor][jFor] 
+		      &m_pDataArray[iFor][jFor]
 		  );
 	      }
 	  }
@@ -252,7 +263,7 @@ void Solution::ComputeMinMaxValue(void)
 {
 	int indexMin, indexMax, iFor, jFor;
 	float minMag, maxMag, mag;
-	
+
 	m_pMinValue = new VECTOR3[m_nTimeSteps];
 	m_pMaxValue = new VECTOR3[m_nTimeSteps];
 
@@ -301,7 +312,7 @@ int Solution::GetMinMaxValueAll(VECTOR3& minVal, VECTOR3& maxVal)
 // get the min and max value for timestep t
 int Solution::GetMinMaxValue(int t, VECTOR3& minVal, VECTOR3& maxVal)
 {
-        t = t - m_MinT; 
+        t = t - m_MinT;
 	if((t >= 0) && (t < m_nTimeSteps))
 	{
 		minVal = m_pMinValue[t];

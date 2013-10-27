@@ -49,6 +49,7 @@ public:
 	virtual float volume_of_cell(int cellId);
 	virtual void NormalizeField(bool bLocal);
 	virtual void ScaleField(float scale);
+	virtual void TranslateField(VECTOR3& translate);
 
 	// ADD-BY-LEETEN 02/02/2012-BEGIN
 	virtual void Scan
@@ -86,6 +87,7 @@ public:
 
 	void GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2);
 	void GenerateVortexMetricsLine(VECTOR3* const fieldline, const int num, float* lambda2, float* q, float* delta, float* gamma2);
+	void Curvature(VECTOR3* const fieldline, const int num, float* curvature);
 
 protected:
 	// reset
