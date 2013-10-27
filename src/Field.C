@@ -125,7 +125,7 @@ int CVectorField::at_cell(int cellId,
 //////////////////////////////////////////////////////////////////////////
 int CVectorField::at_phys(VECTOR3 pos, float t, VECTOR3& vecData)
 {
-	vector<VECTOR3> vNodeData(6);
+	vector<VECTOR3> vNodeData(8);
 	PointInfo pInfo;
 
 	// find the cell this position belongs to
