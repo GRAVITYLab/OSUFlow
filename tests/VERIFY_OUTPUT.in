@@ -38,6 +38,7 @@ else
         pause
     fi
 fi
+echo
 }
 
 pause() {
@@ -45,17 +46,16 @@ read -p "Press enter to continue..."
 }
 
 #################################################
-DATA_DIR=../../osuflow-git/sample_data
+DATA_DIR=@OSUFLOW_DIR@/sample_data
 
-PROG_DIR=../Regular/Serial
 # streamlines
-run "$PROG_DIR/StreamlineSimple $DATA_DIR/regular/circle.vec"
-run "$PROG_DIR/StreamlineSimple $DATA_DIR/regular/tornado/1.vec"
+run "TestSerial/TestStreamlineSimple $DATA_DIR/regular/circle.vec"
+run "TestSerial/TestStreamlineSimple $DATA_DIR/regular/tornado/1.vec"
 
 # pathlines 
-run "$PROG_DIR/PathlineSimple /data/flow2/tornado/list"
+run "TestSerial/TestPathlineSimple $DATA_DIR/regular/tornado/list"
 
 # parallel pathlines
-run "mpiexec -n 4 TestMPI/TestMPI /data/flow2/tornado/all.list 4 5 256 1000 ! 0 !"
-run "mpiexec -n 4 TestMPI/TestMPI /data/flow2/tornado/all.list 4 2 512 1000 ! 0 !"
+run "mpiexec -n 4 TestMPI/TestMPI $DATA_DIR/regular/tornado/tornado.list 4 5 256 1000 ! 0 !"
+run "mpiexec -n 4 TestMPI/TestMPI $DATA_DIR/regular/tornado/tornado.list 4 2 512 1000 ! 0 !"
 

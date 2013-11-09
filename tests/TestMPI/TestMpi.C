@@ -410,8 +410,10 @@ void AdvanceWeights(int g) {
 
   if (first) {
     MPI_Comm_size(MPI_COMM_WORLD, &groupsize);
-    assert((recv_counts = new int[groupsize]) != NULL);
-    assert((recv_displs = new int[groupsize]) != NULL);
+    recv_counts = new int[groupsize];
+    assert(recv_counts != NULL);
+    recv_displs = new int[groupsize];
+    assert(recv_displs != NULL);
     first = 0;
   }
 
@@ -432,7 +434,8 @@ void AdvanceWeights(int g) {
   tot_nwts = 0;
   for (i = 0; i < groupsize; i++)
     tot_nwts += recv_counts[i];
-  assert((all_wts = new int[2 * tot_nwts]) != NULL);
+  all_wts = new int[2 * tot_nwts];
+  assert(all_wts != NULL);
 
   // exchange weights
   recv_displs[0] = 0;
@@ -588,7 +591,8 @@ void Init() {
 
   // create osuflow object for each block
   // todo: switch to vectors and get rid of memory management
-  assert((osuflow = (OSUFlow**)malloc(nblocks * sizeof(OSUFlow))) != NULL);
+  osuflow = (OSUFlow**)malloc(nblocks * sizeof(OSUFlow));
+  assert(osuflow != NULL);
   for (i = 0; i < nblocks; i++)
     osuflow[i] = new OSUFlow;
 
@@ -701,7 +705,8 @@ void Header(char *filename, float *size, int *tsize, float *vec_scale) {
   const char delims[] = " \t\n";
   int n = 0; // number of tokens parsed so far
 
-  assert((fp = fopen(filename, "r")) != NULL);
+  fp = fopen(filename, "r");
+  assert(fp!=NULL);
 
 	// ADD-BY-LEETEN 11/19/2011-BEGIN
   char szPath[1024];
@@ -731,8 +736,9 @@ void Header(char *filename, float *size, int *tsize, float *vec_scale) {
       else if (n == 3) {
 	*tsize = atoi(token);
 	num_dataset_files = *tsize;
-	assert((dataset_files = (char **)malloc(sizeof(char *) * 
-						num_dataset_files)) != NULL);
+	dataset_files = (char **)malloc(sizeof(char *) * 
+						num_dataset_files);
+        assert(dataset_files != NULL);
 	n++;
       }
 
