@@ -14,7 +14,6 @@ int main(int argc, char** argv) {
   printf("Testing pathline generation\n"); 
 
   OSUFlow *osuflow = new OSUFlow(); 
-  printf("read file %s\n", argv[1]); 
   osuflow->LoadData((const char*)argv[1], false); //flase: a time-varying flow field 
   osuflow->Boundary(minLen, maxLen); 
   printf(" volume boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n", 
