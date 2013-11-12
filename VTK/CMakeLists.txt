@@ -77,10 +77,10 @@ install(
 # setup link libraries
 #message(STATUS "VTKLIBS: ${PARAVIEW_LIBRARIES}")
 list (APPEND LINK_LIBS
-	OSUFlowVTK 
+	OSUFlowVTK
+	OSUFlow
 	${PARAVIEW_LIBRARIES}
 	${VTK_LIBRARIES}
-	OSUFlow
 	)
 if (WITH_GRAPHICS)
 	include_directories ( 

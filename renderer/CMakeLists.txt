@@ -30,8 +30,8 @@ file(GLOB HEADER_FILES "*.h" )
 
 list(APPEND SRC_FILES
 	# ADD-BY-LEETEN 01/06/2012-BEGIN
-	Draw.C			
-	leeten_Draw.C
+	# Draw.C # Jimmy: this may not be needed when leeten_Draw.C is used			
+	leeten_Draw.C 
 	# ADD-BY-LEETEN 01/06/2012-END
 	Renderer.cpp
 	LineAnimatorInOpenGL.cpp       

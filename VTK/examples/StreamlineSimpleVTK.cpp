@@ -124,7 +124,7 @@ int main()
 	// choose one of the following:
 	vtkSmartPointer<vtkDataSet> data = getData_plot3d();
 	//vtkSmartPointer<vtkDataSet> data = getData_vts();
-	//vtkSmartPointer<vtkDataSet> data = getData_vti();
+	//vtkSmartPointer<vtkDataSet> data = getData_vti(); // use CVectorField
 
 
 	OSUFlow *osuflow = new OSUFlow;

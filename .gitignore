@@ -1,0 +1,17 @@
+build/
+
+diy/config.h
+diy/config.log
+diy/config.status
+diy/config_defs
+diy/makefile
+diy/lib
+diy/src/*.o
+diy/src/makefile
+diy/src/bil-0.6.0/*.o
+diy/src/bil-0.6.0/*.a
+diy/src/psort/*.o
+diy/src/psort/pmsort_test
+diy/src/psort/pssort_bench
+diy/src/psort/pssort_bench_record
+diy/src/psort/pssort_test

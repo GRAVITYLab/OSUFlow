@@ -1,5 +1,4 @@
-hello! entering testmainT (time-varying data test)...
-read file /data/flow2/tornado/list
+Testing pathline generation
  volume boundary X: [0.000000 47.000000] Y: [0.000000 47.000000] Z: [0.000000 47.000000]
  seed no. 0 : [39.488823 18.535997 36.805664]
  seed no. 1 : [37.526680 42.847427 9.284914]

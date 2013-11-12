@@ -1795,9 +1795,9 @@ void ParFlow::PrintPerf(double TotTime, double TotInTime, double TotOutTime,
   // alloc space and gather the stats
   all_block_stats = (int *)malloc(n_block_stats * nproc *
 					  sizeof(int));
-  assert(all_time_stats != NULL);
-  all_block_stats = (int *)malloc(n_block_stats * nproc *
-  					  sizeof(int));
+  assert(all_block_stats != NULL);
+  all_time_stats = (double *)malloc(n_time_stats * nproc *
+  					  sizeof(double));
   assert(all_time_stats != NULL);
 	// ADD-BY-LEETEN 04/09/2011-BEGIN
 	#ifdef _MPI 

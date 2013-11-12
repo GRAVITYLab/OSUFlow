@@ -9,6 +9,7 @@
 #include <vtkAMRInterpolatedVelocityField.h>
 #include <vtkCellLocatorInterpolatedVelocityField.h>
 #include <vtkImageData.h>
+#include <vtkImageInterpolator.h>
 #include <Field.h>
 #include "VectorFieldVTK.h"
 
@@ -37,7 +38,7 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 {
 	vtkOverlappingAMR* amrData = vtkOverlappingAMR::SafeDownCast(data);
-	vtkAbstractInterpolatedVelocityField *interpolator;
+	vtkAbstractInterpolatedVelocityField *interpolator = NULL;
 
 	if(amrData)
 	{
@@ -48,18 +49,21 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	else
 	{
 		vtkUnstructuredGrid *unstructured = vtkUnstructuredGrid::SafeDownCast(data);
+		vtkImageData *image = vtkImageData::SafeDownCast(data);
 		if (unstructured) {
+			printf("Unstrcutred data\n");
 			vtkCellLocatorInterpolatedVelocityField *func = vtkCellLocatorInterpolatedVelocityField::New();
 			func->AddDataSet(data);
 			interpolator = func;
-			printf("Unstrcutred data\n");
+		} else if (image) { // regular grid
+			printf("Error: Image Data : Use CVectorField class\n");
 
-		} else
+		} else // structured grid
 		{
+			printf("Structured Data\n");
 			vtkInterpolatedVelocityField *func = vtkInterpolatedVelocityField::New();
 			func->AddDataSet(data);
 			interpolator = func;
-			printf("Mesh Data\n");
 		}
 	}
 
