@@ -1,0 +1,12 @@
+48 48 48 10 # grid size (x, y, z, t; t is number of timesteps)
+1.0 # vector scaling factor
+1.vec #list of file names, one per timestep
+2.vec
+3.vec
+4.vec
+5.vec
+6.vec
+7.vec
+8.vec
+9.vec
+10.vec

@@ -1,8 +1,8 @@
 /////////////////////////////////////////////////////////////////////////////
 //
 //                 OSU Flow Vector Field
-//                 Created: Han-Wei Shen, Liya Li 
-//                 The Ohio State University	
+//                 Created: Han-Wei Shen, Liya Li
+//                 The Ohio State University
 //                 Date:		06/2005
 //                 Vector Field Data
 //
@@ -30,7 +30,7 @@ private:
 	int m_nTimeSteps;					// how many time steps
 	float m_fMinMag;					// minimal magnitude
 	float m_fMaxMag;					// maximum magnitude
-	int m_MinT, m_MaxT; 
+	int m_MinT, m_MaxT;
 
 public:
 	// constructor
@@ -45,12 +45,13 @@ public:
 	void SetMinMaxTime(int min_t, int max_t) {m_MinT = min_t; m_MaxT = max_t;}
 	void SetValue(int t, VECTOR3* pData, int nodeNum);
 	int GetMinMaxValueAll(VECTOR3& minVal, VECTOR3& maxVal);
-	int GetMinMaxValue(int t, VECTOR3& minVal, VECTOR3& maxVal); 
+	int GetMinMaxValue(int t, VECTOR3& minVal, VECTOR3& maxVal);
 	void ComputeMinMaxValue(void);
 	bool isTimeVarying(void);
 	int GetValue(int id, const float t, VECTOR3& nodeData);
 	void Normalize(bool bLocal);
-	void Scale(float scaleF); 
+	void Scale(float scaleF);
+	void Translate(VECTOR3& translate);
 	// ADD-BY-LEETEN 02/02/2012-BEGIN
 	// This function scan the solution with the user-specified function func().
 	void

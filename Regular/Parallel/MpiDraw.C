@@ -966,7 +966,8 @@ void Header(char *filename, float *size, int *tsize, float *vec_scale) {
   const char delims[] = " \t\n";
   int n = 0; // number of tokens parsed so far
 
-  assert((fp = fopen(filename, "r")) != NULL);
+  fp = fopen(filename, "r");
+  assert(fp != NULL);
 
 	// ADD-BY-LEETEN 11/19/2011-BEGIN
   char szPath[1024];
