@@ -24,6 +24,8 @@
 #include "vtkLineWidget.h"
 #include "vtkCommand.h"
 #include "vtkCallbackCommand.h"
+#include "vtkScalarBarActor.h"
+#include "vtkLookupTable.h"
 // streamline
 #include "vtkStreamLine.h"
 // vtu
@@ -40,13 +42,21 @@ vtkLineWidget *lineWidget;
 vtkOSUFlow *streamer;
 vtkRenderWindow *renWin;
 vtkPolyData *seeds ;
+vtkPolyDataMapper *mapper;
+vtkSmartPointer<vtkScalarBarActor> scalarBar;
 
 void computeStreamlines(vtkObject* caller, unsigned long eventId, void *clientdata, void *calldata)
 {
 	printf("compute\n");
 	lineWidget->GetPolyData(seeds);
-	renWin->Render();
 	streamer->Update();
+	//mapper->SetScalarRange(streamer->GetOutput()->GetScalarRange());
+	mapper->SetInputData(streamer->GetOutput());
+	scalarBar->SetLookupTable(mapper->GetLookupTable());
+	renWin->Render();
+
+	double *range = streamer->GetOutput()->GetScalarRange();
+	printf("Range: %lf %lf size=%lld\n", range[0], range[1], streamer->GetOutput()->GetPointData()->GetArray(0)->GetSize());
 }
 
 
@@ -113,10 +123,10 @@ int main(int argc, char **argv)
 	streamer->SetMaximumPropagationTime(200);
 	streamer->SetNumberOfThreads(1);
 	streamer->VorticityOn();
+	streamer->Update();
 
-	vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+	mapper = vtkPolyDataMapper::New();
 	mapper->SetInputConnection(streamer->GetOutputPort());
-	mapper->SetScalarRange(data->GetScalarRange());
 	vtkActor *actor = vtkActor::New();
 	actor->SetMapper(mapper);
 
@@ -149,6 +159,29 @@ int main(int argc, char **argv)
 		outlineActor->GetProperty()->SetColor(0,0,0);
 	}
 
+
+
+	// scalar bar
+	  scalarBar =
+	    vtkSmartPointer<vtkScalarBarActor>::New();
+	  scalarBar->SetLookupTable(mapper->GetLookupTable());
+	  scalarBar->SetTitle("Curvature");
+	  scalarBar->SetNumberOfLabels(4);
+
+
+	  // Create a lookup table to share between the mapper and the scalarbar
+	  vtkSmartPointer<vtkLookupTable> hueLut =
+	    vtkSmartPointer<vtkLookupTable>::New();
+	  hueLut->SetTableRange (streamer->GetOutput()->GetScalarRange());
+	  hueLut->SetHueRange (.7, 0);
+	  hueLut->SetSaturationRange (1, 1);
+	  hueLut->SetValueRange (1, 1);
+	  hueLut->Build();
+
+	  mapper->SetLookupTable( hueLut );
+	  scalarBar->SetLookupTable( hueLut );
+
+
 	//
 	// renderer
 	//
@@ -170,7 +203,9 @@ int main(int argc, char **argv)
 	//ren->AddActor(rakeActor);
 	ren->AddActor(actor);
 	ren->AddActor(outlineActor);
+	//ren->AddActor(scalarBar);
 	ren->SetBackground(.5,.5,.5);
+	//ren->SetBackground(1,1,1);
 
 	renWin->SetSize(500,500);
 

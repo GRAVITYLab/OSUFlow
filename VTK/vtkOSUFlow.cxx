@@ -9,6 +9,8 @@
 #include "vtkInformationVector.h"
 #include "vtkNew.h"
 #include "vtkImageData.h"
+#include "vtkFloatArray.h"
+#include "vtkPointData.h"
 
 #include "VectorFieldVTK.h"
 
@@ -168,8 +170,13 @@ int vtkOSUFlow::RequestData(
 	vtkSmartPointer<vtkCellArray> newLines = vtkSmartPointer<vtkCellArray>::New();
 	vtkSmartPointer<vtkPoints> newPts = vtkSmartPointer<vtkPoints>::New();
 	vtkSmartPointer<vtkIdList> pts = vtkSmartPointer<vtkIdList>::New();
+	vtkSmartPointer<vtkFloatArray> fieldData = vtkSmartPointer<vtkFloatArray>::New();
 
 #if 1
+	fieldData->SetNumberOfComponents(1);
+	fieldData->Allocate(1000);
+	fieldData->SetName("Curvature");
+
 	std::list<vtListSeedTrace*>::iterator pIter;
 	pIter = list.begin();
 	for (; pIter!=list.end(); pIter++) {
@@ -183,6 +190,13 @@ int vtkOSUFlow::RequestData(
 			//vtk
 			ptId = newPts->InsertNextPoint((float *)&p[0]);
 			pts->InsertNextId(ptId);
+
+			// field data
+			float q;
+			VECTOR3 vec(0,0,0);
+			osuflow->GetFlowField()->Curvature(&p, 1, &q);
+			//osuflow->GetFlowField()->at_phys(p, 0, vec);  q = vec.GetMag();
+			fieldData->InsertTuple(ptId, &q);
 
 			// clear up
 			delete *pnIter;
@@ -216,11 +230,13 @@ int vtkOSUFlow::RequestData(
 	//
 	// assign lines to output
 	//
-	if (newPts->GetNumberOfPoints() > 0)
+	//if (newPts->GetNumberOfPoints() > 0)
 	{
 		output->SetPoints(newPts);
 		printf("points=%lld\n", output->GetPoints()->GetNumberOfPoints());
 		output->SetLines(newLines);
+		int idx = output->GetPointData()->AddArray(fieldData);
+		output->GetPointData()->SetActiveAttribute(idx,  vtkDataSetAttributes::SCALARS);
 	}
 	output->Squeeze();  // need it?
 	printf("Done\n");

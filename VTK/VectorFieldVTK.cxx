@@ -93,7 +93,7 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	return -1;
 }
 // get vector
- int VectorFieldVTK::at_phys(VECTOR3 pos, float t, VECTOR3& vecData) {
+ int VectorFieldVTK::at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData) {
 	double  coords[4];
 	coords[0] = pos[0];
 	coords[1] = pos[1];

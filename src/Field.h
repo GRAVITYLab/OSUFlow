@@ -43,7 +43,7 @@ public:
 	virtual int at_cell(int cellId, CellTopoType eCellTopoType, const float t, vector<VECTOR3>& vNodeData);
 	virtual int at_slice(int slice, SliceType eSliceType, const float t, vector<VECTOR3>&vSliceData);
 	virtual int at_vert(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
-	virtual int at_phys(VECTOR3 pos, float t, VECTOR3& vecData);
+	virtual int at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData);
 	virtual int at_phys(const int fromCell, VECTOR3& pos, PointInfo& pInfo,const float t, VECTOR3& nodeData);
 	virtual int at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
 	virtual float volume_of_cell(int cellId);

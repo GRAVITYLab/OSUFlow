@@ -1,0 +1,14 @@
+INSTALL
+=======
+There are two methods to build OSUFlow library:
+
+    Use CMake : See below
+    Use Automake : See README_INSTALL for more information
+
+
+We are constructing a website for collaborative installation and documentation here:
+
+https://sites.google.com/site/gravityvisdb/osuflow/documentation
+
+- Chun-Ming Chen
+11/26/2013

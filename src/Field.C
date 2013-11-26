@@ -123,9 +123,9 @@ int CVectorField::at_cell(int cellId,
 //		1:			operation successful
 //		-1:			operation fail
 //////////////////////////////////////////////////////////////////////////
-int CVectorField::at_phys(VECTOR3 pos, float t, VECTOR3& vecData)
+int CVectorField::at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData)
 {
-	vector<VECTOR3> vNodeData;
+	vector<VECTOR3> vNodeData(6);
 	PointInfo pInfo;
 
 	// find the cell this position belongs to

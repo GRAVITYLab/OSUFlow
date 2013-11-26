@@ -36,7 +36,7 @@ typedef struct PointInfo
 		fromCell = inCell = -1;
 	};
 
-	void Set(VECTOR3& pcoord, VECTOR3& coeff, int fCell, int iCell)
+	void Set(const VECTOR3& pcoord, VECTOR3& coeff, int fCell, int iCell)
 	{
 		phyCoord = pcoord;
 		interpolant = coeff;

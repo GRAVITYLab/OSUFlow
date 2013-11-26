@@ -57,7 +57,7 @@ void compute_streamlines()
   to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
 
   printf("generating seeds...\n"); 
-  osuflow->SetRandomSeedPoints(from, to, 500);
+  osuflow->SetRandomSeedPoints(from, to, 400);
   int nSeeds; 
   VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
   for (int i=0; i<nSeeds; i++) 
@@ -192,13 +192,16 @@ _DisplayFunc()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// render the scene
-    draw_streamlines(); 
+    draw_streamlines();
 
 
-    //glPushMatrix();
+    glPushMatrix();
+    //glTranslatef(minLen[0], minLen[1], minLen[2]);
     //glScalef(len[0]/len[2], len[1]/len[2], 1.f);
-    //draw_cube(0,0,1);
-    //glPopMatrix();
+    glScalef(len[0]/7, len[1]/7, len[2]/7);
+    //glScalef(len[0], len[1], len[2]);
+    draw_cube(1,1,1);
+    glPopMatrix();
 
 
 	// NOTE: Call glutSwapBuffers() at the end of your display function

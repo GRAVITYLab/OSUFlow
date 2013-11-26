@@ -5,7 +5,6 @@ diy/config.log
 diy/config.status
 diy/config_defs
 diy/makefile
-diy/lib
 diy/src/*.o
 diy/src/makefile
 diy/src/bil-0.6.0/*.o
