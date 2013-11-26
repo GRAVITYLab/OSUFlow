@@ -194,8 +194,8 @@ int vtkOSUFlow::RequestData(
 			// field data
 			float q;
 			VECTOR3 vec(0,0,0);
-			osuflow->GetFlowField()->Curvature(&p, 1, &q);
-			//osuflow->GetFlowField()->at_phys(p, 0, vec);  q = vec.GetMag();
+			//osuflow->GetFlowField()->Curvature(&p, 1, &q);
+			osuflow->GetFlowField()->at_phys(p, 0, vec);  q = vec.GetMag();
 			fieldData->InsertTuple(ptId, &q);
 
 			// clear up
