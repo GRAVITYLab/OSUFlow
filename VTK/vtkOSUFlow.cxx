@@ -8,6 +8,7 @@
 #include "vtkTimerLog.h"
 #include "vtkInformationVector.h"
 #include "vtkNew.h"
+#include "vtkImageData.h"
 
 #include "VectorFieldVTK.h"
 
@@ -74,8 +75,47 @@ int vtkOSUFlow::RequestData(
 	//
 	// set data
 	if (source) {
-		CVectorField *field = new VectorFieldVTK( source );
-		osuflow->SetFlowField( field );
+		vtkImageData * image = vtkImageData::SafeDownCast(source);
+		if (image!=NULL) {
+			// use OSUFlow CVectorField
+			printf("Image data\n");
+			CVectorField* field;
+			Solution* pSolution;
+			RegularCartesianGrid* pRegularCGrid;
+			VECTOR3 min_b, max_b;
+			VECTOR4 realMin_b, realMax_b;
+
+			VECTOR3 *pVector = (VECTOR3*)image->GetScalarPointer();
+			VECTOR3 **ppVector = new VECTOR3*[1];
+			ppVector[0] = pVector;
+
+			int *dims  = image->GetDimensions();
+			int totalNum = dims[0]*dims[1]*dims[2];
+			pSolution = new Solution(ppVector, totalNum, 1);
+			pRegularCGrid = new RegularCartesianGrid(dims[0], dims[1], dims[2]);
+
+			double *bounds = image->GetBounds();
+			min_b[0] = bounds[0]; max_b[0] = bounds[1];
+			min_b[1] = bounds[2]; max_b[1] = bounds[3];
+			min_b[2] = bounds[4]; max_b[2] = bounds[5];
+			// Not exactly. TODO:
+			realMin_b[0] = min_b[0]; realMin_b[1] = min_b[1];
+			realMin_b[2] = min_b[2]; realMin_b[3] = 0;
+			realMax_b[0] = max_b[0]; realMax_b[1] = max_b[1];
+			realMax_b[2] = max_b[2]; realMax_b[3] = 0;
+
+			pRegularCGrid->SetBoundary(min_b, max_b);
+			pRegularCGrid->SetRealBoundary(realMin_b, realMax_b);
+
+			assert(pSolution != NULL && pRegularCGrid != NULL);
+
+			field = new CVectorField(pRegularCGrid, pSolution, 1);
+			osuflow->SetFlowField( field );
+
+		} else {
+			CVectorField *field = new VectorFieldVTK( source );
+			osuflow->SetFlowField( field );
+		}
 	} else if (! osuflow->HasData() ) {
 		printf("vtkOSUFlow: no data\n");
 		return 0;

@@ -16,6 +16,7 @@
 #include "vtkTableExtentTranslator.h"
 
 #include "vtkPOSUFlow.h"
+#include "VectorFieldVTK.h"
 #include "Blocks.h"
 #include "ParFlow.h"
 
@@ -312,11 +313,12 @@ int vtkPOSUFlow::RequestData(
 	//
 	// set data.  Since there is only one block per process, we create one osuflow
 	int loc_npart = 1;
-	OSUFlowVTK **pposuflow = new OSUFlowVTK*[loc_npart];
+	OSUFlow **pposuflow = new OSUFlow*[loc_npart];
 	for (i=0; i<loc_npart; i++)
 	{
-		pposuflow[i] = new OSUFlowVTK;
-		pposuflow[i]->setData(data); // TODO
+		pposuflow[i] = new OSUFlow;
+	    CVectorField *field = new VectorFieldVTK( data );
+		pposuflow[i]->SetFlowField(field); // TODO
 	}
     //request->Set(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING(), 1 );
 
@@ -431,7 +433,7 @@ int vtkPOSUFlow::RequestData(
 		for (j = 0; j < this->MaxRounds; j++)
 		{
 
-			printf("Round %d, Rank %d: tracing seeds: %d\n", j, rank, Seeds[0].size());
+			printf("Round %d, Rank %d: tracing seeds: %zu\n", j, rank, Seeds[0].size());
 			// for all blocks
 			for (i = 0; i < loc_npart; i++)
 			{

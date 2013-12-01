@@ -26,31 +26,120 @@
 #include "vtkPolyDataMapper.h"
 #include "vtkStructuredGridOutlineFilter.h"
 #include "vtkProperty.h"
+#include "vtkXMLStructuredGridReader.h"
+#include <vtkXMLStructuredGridReader.h>
+#include <vtkXMLImageDataReader.h>
+#include <vtkInterpolatedVelocityField.h>
+#include <vtkImageData.h>
 // streamline
 #include "vtkStreamLine.h"
 
 using namespace std;
 
 
-int main()
+vtkSmartPointer<vtkDataSet> getData_plot3d()
 {
 	// Start by loading some data.
 	vtkMultiBlockPLOT3DReader *pl3dReader = vtkMultiBlockPLOT3DReader::New();
-	// set data
-	{
-		char path[256];
-		sprintf(path, "%s/curvilinear/combxyz.bin", SAMPLE_DATA_DIR);
-		printf("%s\n", path);
-		pl3dReader->SetXYZFileName(path);
-		sprintf(path, "%s/curvilinear/combq.bin", SAMPLE_DATA_DIR);
-		pl3dReader->SetQFileName(path);
-	}
+	pl3dReader->SetXYZFileName(	SAMPLE_DATA_DIR "/curvilinear/combxyz.bin");
+	pl3dReader->SetQFileName(SAMPLE_DATA_DIR "/curvilinear/combq.bin");
 	pl3dReader->SetScalarFunctionNumber(100);
 	pl3dReader->SetVectorFunctionNumber(202);
 	pl3dReader->Update();
-	vtkDataSet *data = vtkDataSet::SafeDownCast(pl3dReader->GetOutput()->GetBlock(0));
-	data->Register(NULL);
+
+	// random points
+	//vtkStructuredGrid *grid = pl3dReader->GetOutput();
+	//int *dim = grid->GetDimensions();
+	printf("Number of blocks=%d\n", pl3dReader->GetOutput()->GetNumberOfBlocks());
+	vtkSmartPointer<vtkDataSet> data = vtkDataSet::SafeDownCast( pl3dReader->GetOutput()->GetBlock(0) );
 	pl3dReader->Delete();
+
+
+	return data;
+}
+
+// structured VTK format
+vtkSmartPointer<vtkDataSet> getData_vts()
+{
+	vtkXMLStructuredGridReader *reader = vtkXMLStructuredGridReader::New();
+	reader->SetFileName(SAMPLE_DATA_DIR "/curvilinear/comb.vts"); //TODO
+
+#if 0
+	int extent[6];
+	extent[0] = sMin[0]; extent[1] = sMax[0];
+	extent[2] = sMin[1]; extent[3] = sMax[1];
+	extent[4] = sMin[2]; extent[5] = sMax[2];
+	printf("Set Extent: %d %d %d %d %d %d\n", extent[0], extent[1], extent[2], extent[3], extent[4], extent[5]);
+	reader->SetUpdateExtent(0, extent);
+#endif
+	//reader->UpdateInformation();
+	reader->Update();
+
+	//reader->PrintSelf(std::cout, vtkIndent(2));
+
+	int *ext = reader->GetOutput()->GetExtent();
+	printf("Extent: %d %d %d %d %d %d\n", ext[0], ext[1], ext[2], ext[3], ext[4], ext[5]);
+
+	vtkSmartPointer<vtkDataSet> data = vtkDataSet::SafeDownCast( reader->GetOutput() );
+	//data->GetPointData()->SetActiveAttribute("Momentum", vtkDataSetAttributes::VECTORS);
+
+	printf("File read\n");
+	// show content
+	data->PrintSelf(std::cout, vtkIndent(2));
+
+	reader->Delete();
+
+
+	// test
+	vtkInterpolatedVelocityField *interpolator = vtkInterpolatedVelocityField::New();
+	interpolator->AddDataSet(data);
+	double vel[3];
+	double coords[4] = {2,2,2,0};
+	for (int k=0; k<3; k++)
+	{
+		bool success = ((vtkFunctionSet *)interpolator)->FunctionValues(coords, vel);
+		printf("querry success = %d, vec = %lf %lf %lf\n", success, vel[0], vel[1], vel[2]);
+	}
+
+	return data;
+}
+
+
+// VTK image format
+vtkSmartPointer<vtkDataSet> getData_vti()
+{
+	vtkXMLImageDataReader *reader = vtkXMLImageDataReader::New();
+	reader->SetFileName(SAMPLE_DATA_DIR "/regular/tornado/1.vti"); //TODO
+	reader->UpdateInformation();
+	reader->Update();
+
+	int *ext = reader->GetOutput()->GetExtent();
+	printf("Extent: %d %d %d %d %d %d\n", ext[0], ext[1], ext[2], ext[3], ext[4], ext[5]);
+
+	vtkSmartPointer<vtkImageData > data = reader->GetOutput() ;
+
+	printf("File read\n");
+	// show content
+	data->PrintSelf(std::cout, vtkIndent(2));
+	// debug
+	printf("pointer: %p\n", data->GetScalarPointer());
+
+
+	reader->Delete();
+
+
+
+	return data;
+}
+
+
+
+int main()
+{
+	// choose one of the following:
+	//vtkSmartPointer<vtkDataSet> data = getData_plot3d();
+	//vtkSmartPointer<vtkDataSet> data = getData_vts();
+	vtkSmartPointer<vtkDataSet> data = getData_vti();
 
 	//
 	// Determine seeds
@@ -66,7 +155,7 @@ int main()
 	rakeActor->SetMapper(rakeMapper);
 	rakeActor->VisibilityOn();
 
-#if 0
+#if 1
 	// use vtkOSUFlow
 	vtkOSUFlow *streamer = vtkOSUFlow::New();
 	streamer->SetInputData(data);
