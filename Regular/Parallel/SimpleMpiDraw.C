@@ -101,9 +101,9 @@ float wf = 0.1; // wait factor for nonblocking communication
 
 // integration parameters
 const float maxError = 0.001;
-const float initialStepSize = 1.0;
-const float minStepSize = 0.01;
-const float maxStepSize = 5.0;
+float initialStepSize = 0.5;
+float minStepSize = 0.01;
+float maxStepSize = 1.0; // should not allow moving more than one timestep
 const float lowerAngleAccuracy = 3.0;
 const float upperAngleAccuracy = 15.0;
 
@@ -460,6 +460,9 @@ void GetArgs(int argc, char *argv[]) {
     break;
   }
   strncpy(seed_file, argv[8], sizeof(seed_file));
+  if (argc>=10) maxStepSize = atof(argv[9]);
+  if (argc>=11) minStepSize = atof(argv[10]);
+  if (argc>=12) initialStepSize = atof(argv[11]);
 
   pf = end_steps;
 
@@ -876,3 +879,11 @@ int getNumSeedsInTimeGroup(int g)
   return count;
 }
 //-----------------------------------------------------------------------
+
+/* Change Log
+
+2/10/2014 - by Chun-Ming Chen
+Add three args: max, min and initial step sizes
+
+*/
+

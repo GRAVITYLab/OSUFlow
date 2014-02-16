@@ -155,6 +155,10 @@ int vtCFieldLine::oneStepEmbedded(INTEG_ORD integ_ord, TIME_DIR time_dir,
 	float errmax;
 	float h = *dt;
 
+	// prevent input stepsize out of range
+	h = max(h, m_fMinStepSize);
+	h = min(h, m_fMaxStepSize);
+
 	while(true)
 	{
 		if(integ_ord == RK45)
@@ -188,6 +192,7 @@ int vtCFieldLine::oneStepEmbedded(INTEG_ORD integ_ord, TIME_DIR time_dir,
 			h = min(htemp, 0.1f * h);
 
 		h = max(h, m_fMinStepSize);
+        h = min(h, m_fMaxStepSize);
 
 		thisParticle = tempParticle;
 		*curTime = prevTime;

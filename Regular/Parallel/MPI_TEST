@@ -100,8 +100,12 @@ sf=! # indicates no seed file
 # 4 = HDF5 double (64 bit)
 dm=0
 
+maxss=5.0  # max step size
+minss=0.01
+initss=1.0
+
 # all program args
-args="$data $bf $tb $tp $st $pf $dm $sf"
+args="$data $bf $tb $tp $st $pf $dm $sf $maxss $minss $initss"
 
 if [ "$ARCH" = "MAC_OSX" ]; then
 
