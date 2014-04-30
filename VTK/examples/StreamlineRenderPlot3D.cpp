@@ -1,4 +1,5 @@
 // Reference: VTK/Examples/VisualizationAlgorithms/Python/StreamlinesWithLineWidget.py
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -64,11 +65,15 @@ int main(int argc, char **argv)
 	// set data
 	pl3dReader->SetXYZFileName(file1);
 	pl3dReader->SetQFileName(file2);
-	pl3dReader->SetScalarFunctionNumber(100);
-	pl3dReader->SetVectorFunctionNumber(202);
+	pl3dReader->SetAutoDetectFormat(1);  // should be on for loading binary file
+	//pl3dReader->SetScalarFunctionNumber(100);
+	pl3dReader->SetVectorFunctionNumber(200); // load velocity
 	pl3dReader->Update();
 	vtkDataSet *data;
+
 	data = vtkDataSet::SafeDownCast(pl3dReader->GetOutput()->GetBlock(0));
+
+	pl3dReader->PrintSelf(cout, vtkIndent(0));
 
 	//
 	// Determine seeds

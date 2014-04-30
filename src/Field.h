@@ -89,6 +89,8 @@ public:
 	void GenerateVortexMetricsLine(VECTOR3* const fieldline, const int num, float* lambda2, float* q, float* delta, float* gamma2);
 	void Curvature(VECTOR3* const fieldline, const int num, float* curvature);
 
+	// temp function
+	inline Grid *GetGrid() {return m_pGrid;}
 protected:
 	// reset
 	virtual void Reset(void);

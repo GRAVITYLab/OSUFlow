@@ -10,6 +10,7 @@
 #include <vtkCellLocatorInterpolatedVelocityField.h>
 #include <vtkImageData.h>
 #include <vtkImageInterpolator.h>
+#include <vtkMultiBlockDataSet.h>
 #include <Field.h>
 #include "VectorFieldVTK.h"
 
@@ -38,12 +39,33 @@ VectorFieldVTK::VectorFieldVTK(vtkDataSet *sDataset_)
 void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 {
 	vtkOverlappingAMR* amrData = vtkOverlappingAMR::SafeDownCast(data);
+	vtkMultiBlockDataSet *mbData = vtkMultiBlockDataSet::SafeDownCast(data);
 	vtkAbstractInterpolatedVelocityField *interpolator = NULL;
 
 	if(amrData)
 	{
 		vtkAMRInterpolatedVelocityField *func = vtkAMRInterpolatedVelocityField::New();
 		func->SetAMRData(amrData);
+		interpolator = func;
+	}
+	else if (mbData)
+	{
+		int b;
+		vtkInterpolatedVelocityField *func = vtkInterpolatedVelocityField::New();
+		for (b=0; b < mbData->GetNumberOfBlocks(); b++)
+		{
+			vtkDataSet *dataset = vtkDataSet::SafeDownCast( mbData->GetBlock(b) );
+			if (!dataset) {
+				fprintf(stderr, "Hierarchical multiblock dataset not supported yet\n");
+				return;
+			}
+			//double *bounds = dataset->GetBounds();
+			//printf("bounds: %f %f %f %f %f %f\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5], bounds[6]);
+
+			// vector
+			func->AddDataSet(dataset);
+			printf("Multiblock mush dataset \n");
+		}
 		interpolator = func;
 	}
 	else
@@ -206,21 +228,10 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	assert(false);
 }
  void VectorFieldVTK::Boundary(VECTOR3& minB, VECTOR3& maxB) {
-	vtkStructuredGrid *structuredGrid;
-
-	if ((structuredGrid = vtkStructuredGrid::SafeDownCast(sDataset)) != NULL || vtkImageData::SafeDownCast(sDataset)!=NULL) {
-		int *bounds = structuredGrid->GetExtent();
-		minB.Set(bounds[0], bounds[2], bounds[4]);
-		maxB.Set(bounds[1], bounds[3], bounds[5]);
-		//printf("Structured Extent: %d %d %d %d %d %d\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-
-	}
-	//else {
-		double *bounds = sDataset->GetBounds();
-		minB.Set(bounds[0], bounds[2], bounds[4]);
-		maxB.Set(bounds[1], bounds[3], bounds[5]);
-		//printf("Bound: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-	//	}
+	double *bounds = sDataset->GetBounds();
+	minB.Set(bounds[0], bounds[2], bounds[4]);
+	maxB.Set(bounds[1], bounds[3], bounds[5]);
+	//printf("Bound: %lf %lf %lf %lf %lf %lf\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 }
  void VectorFieldVTK::SetBoundary(VECTOR3 minB, VECTOR3 maxB) {
 	printf("Not implemented\n");
