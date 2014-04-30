@@ -53,7 +53,8 @@ void compute_streamlines()
   printf("list size = %d\n", (int)sl_list.size()); 
 
 	// ADD-BY-LEETEN 07/07/2010-BEGIN
-	for(int i = 0; i < sl_list.size(); i++)
+    int n = sl_list.size(); // Jimmy added: list.size() takes O(n) time
+	for(int i = 0; i < n; i++)
 	{
 		VECTOR4 v4Color;
 		switch((i/2)%7)

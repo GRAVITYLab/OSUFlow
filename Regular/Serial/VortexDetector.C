@@ -1,3 +1,8 @@
+// An example detecting vortices in curvilinear grid data
+// Samples regularly and compute the four criteria
+// Stores into raw files with nrrd headers
+// By Chun-Ming Chen
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +15,7 @@ int main(int argc, char ** argv)
 {
 
 	OSUFlow *osuflow = new OSUFlow();
-	printf("read file %s\n", argv[1]);
+	printf("read file %s.soln %s.grid\n", argv[1], argv[1]);
 
 	VECTOR3 minLen, maxLen, minB, maxB;
 	minB[0] = 0; minB[1] = 0; minB[2] = 0;

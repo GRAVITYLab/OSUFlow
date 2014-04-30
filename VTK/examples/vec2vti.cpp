@@ -12,6 +12,8 @@
 #include <vtkSmartPointer.h>
 #include <vtkImageData.h>
 #include <vtkXMLImageDataWriter.h>
+#include "vtkZLibDataCompressor.h"
+
 
 int main ( int argc, char *argv[] )
 {
@@ -55,6 +57,10 @@ int main ( int argc, char *argv[] )
 	fread(imageData->GetScalarPointer(0,0,0), 12, dims[0]*dims[1]*dims[2], fp);
 #endif
 
+    // compressor
+    vtkSmartPointer<vtkDataCompressor> compressor = vtkZLibDataCompressor::New();
+
+
 	vtkSmartPointer<vtkXMLImageDataWriter> writer = vtkSmartPointer<vtkXMLImageDataWriter>::New();
 	writer->SetFileName("output.vti");
 	#if VTK_MAJOR_VERSION <= 5
@@ -62,10 +68,13 @@ int main ( int argc, char *argv[] )
 	#else
 	writer->SetInputData(imageData);
 	#endif
+    writer->SetCompressor(compressor);
+    writer->SetDataModeToBinary();
+
 	writer->Write();
 
 	fclose(fp);
 
-  printf("Done.  Output: output.vti\n");
-  return EXIT_SUCCESS;
+    printf("Done.  Output: output.vti\n");
+    return EXIT_SUCCESS;
 }
