@@ -36,6 +36,7 @@ if( ${WITH_GRAPHICS} )
                 StreamlineRenderVec
                 StreamlineRenderPlot3D
 		StreamlineRenderUnstructured
+                gcbStreamlineVTKMultiBlock
         )
 endif ()
 if ( false ) #${WITH_MPI} )

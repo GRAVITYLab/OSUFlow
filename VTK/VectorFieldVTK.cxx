@@ -63,9 +63,9 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 			//printf("bounds: %f %f %f %f %f %f\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5], bounds[6]);
 
 			// vector
-			func->AddDataSet(dataset);
-			printf("Multiblock mush dataset \n");
+            func->AddDataSet(dataset);
 		}
+        printf("Multiblock dataset \n");
 		interpolator = func;
 	}
 	else

@@ -50,6 +50,7 @@ file(GLOB HEADER_FILES "*.h" )
 
 list(APPEND SRC_FILES
 	VectorFieldVTK.cxx
+        MultiBlockVectorFieldVTK.cxx
 	vtkOSUFlow.cxx
 	)
 

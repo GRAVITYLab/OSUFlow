@@ -13,6 +13,7 @@
 #include "vtkPointData.h"
 
 #include "VectorFieldVTK.h"
+#include "MultiBlockVectorFieldVTK.h"
 
 // Defines static vtkOSUFlow::New() here
 vtkStandardNewMacro(vtkOSUFlow);
@@ -115,8 +116,17 @@ int vtkOSUFlow::RequestData(
 			osuflow->SetFlowField( field );
 
 		} else {
-			CVectorField *field = new VectorFieldVTK( source );
-			osuflow->SetFlowField( field );
+            vtkMultiBlockDataSet *mbData = vtkMultiBlockDataSet::SafeDownCast( source );
+            if (mbData)
+            {
+                printf("Multiblock data\n");
+                CVectorField *field = new MultiBlockVectorFieldVTK( mbData );
+                osuflow->SetFlowField( field );
+            } else
+            {
+                CVectorField *field = new VectorFieldVTK( source );
+                osuflow->SetFlowField( field );
+            }
 		}
 	} else if (! osuflow->HasData() ) {
 		printf("vtkOSUFlow: no data\n");

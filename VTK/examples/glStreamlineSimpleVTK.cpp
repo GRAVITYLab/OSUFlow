@@ -21,6 +21,8 @@
 // ADD-BY-LEETEN 12/20/2011-BEGIN
 #ifdef	WIN32
 #include <windows.h>
+#else
+#include <unistd.h>
 #endif	// #ifdef WIN32
 // ADD-BY-LEETEN 12/20/2011-END
 
