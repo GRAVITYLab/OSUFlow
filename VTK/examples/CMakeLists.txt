@@ -49,8 +49,11 @@ if ( false ) #${WITH_MPI} )
 endif ()
 
 
+
 IF(APPLE)
-  SET(EXECUTABLE_FLAG MACOSX_BUNDLE)
+    # The primitive VTK renderer cannot catch keyboard events
+    # without packed into the mac bundle
+    SET(EXECUTABLE_FLAG MACOSX_BUNDLE)  
 ENDIF(APPLE)
 
 # all targets
