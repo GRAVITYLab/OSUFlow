@@ -1472,15 +1472,14 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
 }
 
 //////////////////////////////////////////////////////////////////////////
-// to get unit Jacobian matrix in pos(i, j, k)
+// to get unit Jacobian matrix in pos(i, j, k).  Each vector is normalized
 //
 // input
 //		Vector3: position in computational space
 // output
 //		Matrix3: unit Jacobian matrix at that position
 //////////////////////////////////////////////////////////////////////////
-MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos) {
-	float delta = 0.1;
+MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 	int s1 = 0, s2 = 0;
 	MATRIX3 jacobian;
 
@@ -1571,9 +1570,9 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos) {
 // output
 //      Metrics Order: lambda2, q, delta, gamma2
 //////////////////////////////////////////////////////////////////////////
-void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2) {
+void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta) {
 	MATRIX3 J, Jt, S, T, S2, T2, M;
-	J = Jacobian(pos); Jt = J.transpose();
+	J = UnitJacobian(pos, JacDelta); Jt = J.transpose();
 	S = 0.5 * (J + Jt); T = 0.5 * (J - Jt);
 	S2 = S * S; T2 = T * T; M = S2 + T2;
 	float s[3][3], m[3][3], eigenvalues[3];

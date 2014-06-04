@@ -83,9 +83,9 @@ public:
 
 	// feature computation - static
 	MATRIX3 Jacobian(const VECTOR3& pos);
-	MATRIX3 UnitJacobian(const VECTOR3& pos);
+	MATRIX3 UnitJacobian(const VECTOR3& pos, float delta=0.1f);
 
-	void GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2);
+	void GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta=0.1f);
 	void GenerateVortexMetricsLine(VECTOR3* const fieldline, const int num, float* lambda2, float* q, float* delta, float* gamma2);
 	void Curvature(VECTOR3* const fieldline, const int num, float* curvature);
 

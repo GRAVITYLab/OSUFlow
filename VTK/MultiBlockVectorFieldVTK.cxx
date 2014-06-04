@@ -42,6 +42,7 @@ void MultiBlockVectorFieldVTK::push_interpolatorAry(vtkMultiBlockDataSet *mbData
 
     int b;
     vtkInterpolatedVelocityField *func = vtkInterpolatedVelocityField::New();
+    bool first = true;
     for (b=0; b < mbData->GetNumberOfBlocks(); b++)
     {
         vtkDataSet *dataset = vtkDataSet::SafeDownCast( mbData->GetBlock(b) );
@@ -51,13 +52,22 @@ void MultiBlockVectorFieldVTK::push_interpolatorAry(vtkMultiBlockDataSet *mbData
         }
         double *bounds = dataset->GetBounds();
         printf("bounds: %f %f %f %f %f %f\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5], bounds[6]);
-        gbounds[0] = min(bounds[0], gbounds[0]);
-        gbounds[1] = max(bounds[1], gbounds[1]);
-        gbounds[2] = min(bounds[2], gbounds[2]);
-        gbounds[3] = max(bounds[3], gbounds[3]);
-        gbounds[4] = min(bounds[4], gbounds[4]);
-        gbounds[5] = max(bounds[5], gbounds[5]);
-
+        if (first) {
+            gbounds[0] = bounds[0];
+            gbounds[1] = bounds[1];
+            gbounds[2] = bounds[2];
+            gbounds[3] = bounds[3];
+            gbounds[4] = bounds[4];
+            gbounds[5] = bounds[5];
+        } else {
+			gbounds[0] = min(bounds[0], gbounds[0]);
+			gbounds[1] = max(bounds[1], gbounds[1]);
+			gbounds[2] = min(bounds[2], gbounds[2]);
+			gbounds[3] = max(bounds[3], gbounds[3]);
+			gbounds[4] = min(bounds[4], gbounds[4]);
+			gbounds[5] = max(bounds[5], gbounds[5]);
+        }
+        first = false;
 
         // vector
         func->AddDataSet(dataset);
