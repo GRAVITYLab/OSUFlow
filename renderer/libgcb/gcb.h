@@ -36,7 +36,7 @@ using namespace std;
 #else
 	#define GLUT_BUILDING_LIB
 
-#if defined(MAC_OSX_OMPI) || defined(MAC_OSX_MPICH)
+#if defined(__APPLE__) || defined(MAC_OSX_OMPI) || defined(MAC_OSX_MPICH)
 #include <GLUT/glut.h>
 #include <OpenGL/gl.h>
 #endif

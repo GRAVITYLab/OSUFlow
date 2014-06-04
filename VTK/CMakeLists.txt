@@ -33,6 +33,7 @@ if (${WITH_PARAVIEW_PLUGINS})
 
 else()
 	find_package(VTK REQUIRED)
+	add_definitions(-DvtkRenderingCore_AUTOINIT=4\(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL\))
 	include (${VTK_USE_FILE})
 endif()
 
