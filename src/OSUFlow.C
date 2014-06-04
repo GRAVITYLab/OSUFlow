@@ -1148,7 +1148,7 @@ void Error(const char *fmt, ...){
 
   va_list argp;
   vfprintf(stderr, fmt, argp);
-  #if !defined(WIN32)	
+  #if !defined(WIN32) && !defined(__APPLE__)
   sleep(5);
   #endif
   exit(0);

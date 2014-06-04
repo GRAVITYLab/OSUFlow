@@ -101,7 +101,7 @@ int DIY_Init(int dim, int *data_size, int num_threads, MPI_Comm comm) {
 
   ::dim = dim;
   ::comm = comm;
-  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_rank(comm, &::rank);
   MPI_Comm_size(comm, &groupsize);
   rounds = 0;
 

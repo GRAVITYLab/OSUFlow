@@ -51,7 +51,7 @@ void MultiBlockVectorFieldVTK::push_interpolatorAry(vtkMultiBlockDataSet *mbData
             return;
         }
         double *bounds = dataset->GetBounds();
-        printf("bounds: %f %f %f %f %f %f\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5], bounds[6]);
+        printf("bounds: %f %f %f %f %f %f\n", bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
         if (first) {
             gbounds[0] = bounds[0];
             gbounds[1] = bounds[1];

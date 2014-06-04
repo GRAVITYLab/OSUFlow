@@ -27,15 +27,15 @@ LIST(APPEND SIMPLE_TARGETS
 	vec2vti
 	vti2vec
 	StreamlineSimpleVTKUnstructured
+	StreamlineRenderVec
+	StreamlineRenderPlot3D
+	StreamlineRenderUnstructured
 )
 if( ${WITH_GRAPHICS} )
         LIST (APPEND SIMPLE_TARGETS
                 glStreamlineSimpleVTK
                 gcbStreamlineVTK
                 StreamlineSimpleVTKPipeline
-                StreamlineRenderVec
-                StreamlineRenderPlot3D
-		StreamlineRenderUnstructured
                 gcbStreamlineVTKMultiBlock
         )
 endif ()
@@ -49,9 +49,13 @@ if ( false ) #${WITH_MPI} )
 endif ()
 
 
+IF(APPLE)
+  SET(EXECUTABLE_FLAG MACOSX_BUNDLE)
+ENDIF(APPLE)
+
 # all targets
 foreach(TARGET ${SIMPLE_TARGETS} )
-	add_executable (${TARGET} ${TARGET}.cpp)
+	add_executable (${TARGET} ${EXECUTABLE_FLAG}  ${TARGET}.cpp)
 	target_link_libraries (${TARGET} ${LINK_LIBS})
 endforeach(TARGET)
 
