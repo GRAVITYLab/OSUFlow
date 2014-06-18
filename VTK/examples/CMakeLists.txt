@@ -25,6 +25,7 @@ LIST(APPEND SIMPLE_TARGETS
 	StreamlineSimpleVTK
 	testVTS
 	vec2vti
+    raw2vti
 	vti2vec
 	StreamlineSimpleVTKUnstructured
 	StreamlineRenderVec
