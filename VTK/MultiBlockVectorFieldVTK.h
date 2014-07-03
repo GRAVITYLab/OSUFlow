@@ -5,7 +5,6 @@
 #include <vtkSmartPointer.h>
 #include <vtkInterpolatedVelocityField.h>
 #include <vtkCellType.h>
-#include <Field.h>
 #include <vtkMultiBlockDataSet.h>
 #include "Field.h"
 
@@ -24,14 +23,14 @@ public:
     MultiBlockVectorFieldVTK(vtkMultiBlockDataSet *sDataset_) ;
     virtual ~MultiBlockVectorFieldVTK () ;
     virtual int lerp_phys_coord(int cellId, CellTopoType eCellTopoType, float* coeff, VECTOR3& pos) ;
+    virtual int phys_coord(const int i, const int j, const int k, VECTOR3 &pos);
     virtual int at_cell(int cellId, CellTopoType eCellTopoType, const float t, vector<VECTOR3>& vNodeData) ;
     virtual int at_slice(int slice, SliceType eSliceType, const float t, vector<VECTOR3>&vSliceData) ;
     virtual int at_vert(const int i, const int j, const int k, const float t, VECTOR3& dataValue) ;
 	// get vector
 	virtual int at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData) ;
 	// get vector
-	virtual int at_phys(const int fromCell, VECTOR3& pos, PointInfo& pInfo,const float t, VECTOR3& nodeData) ;
-	virtual int at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue) ;
+    virtual int at_phys(const int fromCell, VECTOR3& pos, PointInfo& pInfo,const float t, VECTOR3& nodeData) ;
 	// get cell volume
 	virtual float volume_of_cell(int cellId) ;
 	virtual void NormalizeField(bool bLocal) ;

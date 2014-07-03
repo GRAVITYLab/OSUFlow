@@ -11,6 +11,7 @@
 #include <vtkImageData.h>
 #include <vtkImageInterpolator.h>
 #include <vtkMultiBlockDataSet.h>
+#include <vtkPointData.h>
 #include <Field.h>
 #include "VectorFieldVTK.h"
 
@@ -109,11 +110,26 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	assert(false);
 	return -1;
 }
- int VectorFieldVTK::at_vert(const int i, const int j, const int k, const float t, VECTOR3& dataValue) {
-	printf("at_vert Not implemented\n");
-	assert(false);
-	return -1;
+int VectorFieldVTK::at_vert(const int i, const int j, const int k, const float t, VECTOR3& vecData) {
+    vtkDataArray *ary = this->sDataset->GetPointData()->GetArray("Velocity");
+    int w,h,d;
+    this->getDimension(w,h,d);
+    if (i>=w || i<0 || j>=h || j<0 || k>=d || k<0)
+        return -1;
+    double *dval = ary->GetTuple3(i+w*(j+h*k));
+    vecData = VECTOR3(dval[0], dval[1], dval[2]);
+    return 1;
 }
+ int VectorFieldVTK::phys_coord(const int i, const int j, const int k, VECTOR3 &pos) {
+    int w,h,d;
+    this->getDimension(w,h,d);
+    if (i>=w || i<0 || j>=h || j<0 || k>=d || k<0)
+        return -1;
+    double *dpos = this->sDataset->GetPoint(i+w*(j+h*k));
+    pos = VECTOR3(dpos[0], dpos[1], dpos[2]);
+    return 1;
+}
+
 // get vector
  int VectorFieldVTK::at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData) {
 	double  coords[4];
@@ -154,11 +170,6 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 
 	return 1;
 }
- int VectorFieldVTK::at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue) {
-	printf("Not implemented\n");
-	assert(false);
-	return -1;
-}
 // get cell volume
  float VectorFieldVTK::volume_of_cell(int cellId) {
 	double bounds[6];
@@ -180,9 +191,25 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	assert(false);
 	return false;
 }
- void VectorFieldVTK::getDimension(int& xdim, int& ydim, int& zdim) {
-	printf("Not implemented\n");
-	assert(false);
+void VectorFieldVTK::getDimension(int& xdim, int& ydim, int& zdim) {
+    vtkStructuredGrid *structured = vtkStructuredGrid::SafeDownCast(this->sDataset.GetPointer());
+    vtkImageData *image = vtkImageData::SafeDownCast(this->sDataset.GetPointer());
+    if (structured) {
+        const int *dim = structured->GetDimensions();
+        xdim = dim[0];
+        ydim = dim[1];
+        zdim = dim[2];
+    }
+    else if (image) {
+        const int *dim = image->GetDimensions();
+        xdim = dim[0];
+        ydim = dim[1];
+        zdim = dim[2];
+    } else {
+        printf("Not implmented\n");
+        assert(false);
+        xdim = ydim = zdim = 0;
+    }
 }
  CellType VectorFieldVTK::GetCellType(void) {
 	int type = sDataset->GetCellType(0);

@@ -19,21 +19,21 @@ public:
 	VectorFieldVTK(vtkDataSet *sDataset_) ;
 	virtual ~VectorFieldVTK () ;
 	virtual int lerp_phys_coord(int cellId, CellTopoType eCellTopoType, float* coeff, VECTOR3& pos) ;
+    virtual int phys_coord(const int i, const int j, const int k, VECTOR3 &pos);
 	virtual int at_cell(int cellId, CellTopoType eCellTopoType, const float t, vector<VECTOR3>& vNodeData) ;
 	virtual int at_slice(int slice, SliceType eSliceType, const float t, vector<VECTOR3>&vSliceData) ;
 	virtual int at_vert(const int i, const int j, const int k, const float t, VECTOR3& dataValue) ;
 	// get vector
 	virtual int at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData) ;
 	// get vector
-	virtual int at_phys(const int fromCell, VECTOR3& pos, PointInfo& pInfo,const float t, VECTOR3& nodeData) ;
-	virtual int at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue) ;
+    virtual int at_phys(const int fromCell, VECTOR3& pos, PointInfo& pInfo,const float t, VECTOR3& nodeData) ;
 	// get cell volume
 	virtual float volume_of_cell(int cellId) ;
 	virtual void NormalizeField(bool bLocal) ;
 	virtual void ScaleField(float scale) ;
 
-	virtual bool IsNormalized(void) ;
-	virtual void getDimension(int& xdim, int& ydim, int& zdim) ;
+    virtual bool IsNormalized(void) ;
+    virtual void getDimension(int& xdim, int& ydim, int& zdim) ;
 	virtual CellType GetCellType(void) ;
 	virtual void GetInflowRegion(vector<VECTOR3>& inflowVerts, const float t) ;
 	virtual void GetOutflowRegion(vector<VECTOR3>& outflowVerts, const float t) ;

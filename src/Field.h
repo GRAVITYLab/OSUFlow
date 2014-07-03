@@ -40,12 +40,13 @@ public:
 	virtual ~CVectorField();
 
 	virtual int lerp_phys_coord(int cellId, CellTopoType eCellTopoType, float* coeff, VECTOR3& pos);
+    virtual int phys_coord(const int i, const int j, const int k, VECTOR3 &pos);
 	virtual int at_cell(int cellId, CellTopoType eCellTopoType, const float t, vector<VECTOR3>& vNodeData);
 	virtual int at_slice(int slice, SliceType eSliceType, const float t, vector<VECTOR3>&vSliceData);
 	virtual int at_vert(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
-	virtual int at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData);
+    virtual int at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData);
 	virtual int at_phys(const int fromCell, VECTOR3& pos, PointInfo& pInfo,const float t, VECTOR3& nodeData);
-	virtual int at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
+    //virtual int at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
 	virtual float volume_of_cell(int cellId);
 	virtual void NormalizeField(bool bLocal);
 	virtual void ScaleField(float scale);
@@ -59,6 +60,7 @@ public:
 	// ADD-BY-LEETEN 02/02/2012-END
 
 	virtual bool IsNormalized(void);
+    // get the dimension in computational space (structured grids only)
 	virtual void getDimension(int& xdim, int& ydim, int& zdim);
 	virtual CellType GetCellType(void) { return m_pGrid->GetCellType(); }
 	virtual int GetTimeSteps(void) {return m_nTimeSteps;}
@@ -70,9 +72,8 @@ public:
 	virtual void GetInflowSlice(vector<VECTOR3>& inflowVerts, const float t, const int slice, const SliceType eSliceType);
 	virtual void GetOutflowSlice(vector<VECTOR3>& outflowVerts, const float t, const int slice, const SliceType eSliceType);
 	virtual void GetTangentialflowSlice(vector<VECTOR3>& tanflowVerts, const float t, const int slice, const SliceType eSliceType);
-	virtual void Boundary(VECTOR3& minB, VECTOR3& maxB) { m_pGrid->Boundary(minB, maxB); };
-	virtual void SetBoundary(VECTOR3 minB, VECTOR3 maxB) {m_pGrid->SetBoundary(minB, maxB);
-	}
+    virtual void Boundary(VECTOR3& minB, VECTOR3& maxB) { m_pGrid->Boundary(minB, maxB); }
+	virtual void SetBoundary(VECTOR3 minB, VECTOR3 maxB) {m_pGrid->SetBoundary(minB, maxB);	}
 	virtual void at_curl(int, VECTOR3&, VECTOR3&);
 	virtual void BoundaryIntersection(VECTOR3& intersectP,VECTOR3& startP,VECTOR3& endP,float* stepSize,float oldStepSize)
 	{ m_pGrid->BoundaryIntersection(intersectP, startP, endP, stepSize, oldStepSize); }

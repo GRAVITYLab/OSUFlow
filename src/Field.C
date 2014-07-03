@@ -9,6 +9,8 @@
 
 
 #include "Field.h"
+#include "cp_time.h"
+long long jacTime, eigenTime;
 
 #pragma warning(disable : 4251 4100 4244 4101)
 
@@ -190,6 +192,19 @@ int CVectorField::at_vert(const int i,
 	return m_pSolution->GetValue((k*ydim*xdim+j*xdim+i), t, dataValue);
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+// To obtain physical coordinate on grid
+// only works for structured grids
+//////////////////////////////////////////////////////////////////////////
+int CVectorField::phys_coord(int i, int j, int k, VECTOR3 &pos)
+{
+    int xdim, ydim, zdim;
+    getDimension(xdim, ydim, zdim);
+    m_pGrid->at_vertex(i+xdim*(j+ydim*k), pos);
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 // to obtain node data at one slice aligned with X, Y, or Z direction
 //
@@ -275,6 +290,7 @@ int CVectorField::at_slice(int slice,
 //		1:			operation successful
 //		-1:			operation fail
 //////////////////////////////////////////////////////////////////////////
+/*
 int CVectorField::at_comp(const int i,
 			  const int j,
 			  const int k,
@@ -283,6 +299,7 @@ int CVectorField::at_comp(const int i,
 {
 	return 1;
 }
+*/
 
 //////////////////////////////////////////////////////////////////////////
 // volume of a cell
@@ -1571,8 +1588,15 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 //      Metrics Order: lambda2, q, delta, gamma2
 //////////////////////////////////////////////////////////////////////////
 void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta) {
+printf("!!!\n");
 	MATRIX3 J, Jt, S, T, S2, T2, M;
-	J = UnitJacobian(pos, JacDelta); Jt = J.transpose();
+    Timer timer;
+    timer.start();
+	J = UnitJacobian(pos, JacDelta); 
+    timer.end();
+    jacTime += timer.getElapsedUS();
+
+    Jt = J.transpose();
 	S = 0.5 * (J + Jt); T = 0.5 * (J - Jt);
 	S2 = S * S; T2 = T * T; M = S2 + T2;
 	float s[3][3], m[3][3], eigenvalues[3];
@@ -1582,7 +1606,11 @@ void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, flo
 			m[i][j] = M(i, j);
 		}
 	}
+    timer.start();
 	compute_eigenvalues(m, eigenvalues);
+    timer.end();
+    eigenTime += timer.getElapsedUS();
+
 	int min = 0, max = 0;
 	if (eigenvalues[max] < eigenvalues[1]) max = 1;
 	if (eigenvalues[max] < eigenvalues[2]) max = 2;
@@ -1593,7 +1621,12 @@ void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, flo
 	float det = J.det();
 	delta = pow((q / 3.0), 3) + pow(det / 2.0, 2);
 	float sqrt_d = sqrt(T(0, 1) * T(0, 1) + T(0, 2) * T(0, 2) + T(1, 2) * T(1, 2));
+
+    timer.start();
 	compute_eigenvalues(s, eigenvalues);
+    timer.end();
+    eigenTime += timer.getElapsedUS();
+
 	float he = eigenvalues[0];
 	if (he < eigenvalues[1]) he = eigenvalues[1];
 	if (he < eigenvalues[2]) he = eigenvalues[2];
@@ -1601,6 +1634,7 @@ void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, flo
 		gamma2 = fabs(sqrt_d / he);
 	// }
 	// else gamma2 = 0;
+    printf("current jacTime: %lfs, eigenTime: %lfs", jacTime/1000000.0, eigenTime/1000000.0);
 }
 
 //////////////////////////////////////////////////////////////////////////

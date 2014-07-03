@@ -31,6 +31,7 @@ LIST(APPEND SIMPLE_TARGETS
 	StreamlineRenderVec
 	StreamlineRenderPlot3D
 	StreamlineRenderUnstructured
+    VortexDetectorPlot3D
 )
 if( ${WITH_GRAPHICS} )
         LIST (APPEND SIMPLE_TARGETS

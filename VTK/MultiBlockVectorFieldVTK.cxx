@@ -99,6 +99,12 @@ void MultiBlockVectorFieldVTK::push_interpolatorAry(vtkMultiBlockDataSet *mbData
 	assert(false);
 	return -1;
 }
+ int MultiBlockVectorFieldVTK::phys_coord(const int i, const int j, const int k, VECTOR3 &pos) {
+     printf("at_vert Not implemented\n");
+     assert(false);
+     return -1;
+ }
+
 // get vector
  int MultiBlockVectorFieldVTK::at_phys(const VECTOR3 &pos, float t, VECTOR3& vecData) {
 	double  coords[4];
@@ -138,11 +144,6 @@ void MultiBlockVectorFieldVTK::push_interpolatorAry(vtkMultiBlockDataSet *mbData
 	pInfo.inCell = this->interpolatorAry[ this->getThreadID() ]->GetLastCellId();
 
 	return 1;
-}
- int MultiBlockVectorFieldVTK::at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue) {
-	printf("Not implemented\n");
-	assert(false);
-	return -1;
 }
 // get cell volume
  float MultiBlockVectorFieldVTK::volume_of_cell(int cellId) {
