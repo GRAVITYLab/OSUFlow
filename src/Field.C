@@ -9,8 +9,6 @@
 
 
 #include "Field.h"
-#include "cp_time.h"
-long long jacTime, eigenTime;
 
 #pragma warning(disable : 4251 4100 4244 4101)
 
@@ -1410,7 +1408,7 @@ bool CVectorField::IsInRealBoundaries(PointInfo& p, float time)
 MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
 	float delta = 0.1;
 	int s1 = 0, s2 = 0;
-	MATRIX3 jacobian;
+    MATRIX3 jacobian, identity;
 
 	VECTOR3 deltax(delta, 0.0f, 0.0f);
 	VECTOR3 deltay(0.0f, delta, 0.0f);
@@ -1440,6 +1438,8 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
 		jacobian[1][0] = componentGradient[1] / delta;
 		jacobian[2][0] = componentGradient[2] / delta;
 	}
+    else
+        return identity;
 
 	// second column
 	s1 = at_phys(pos + deltay, 0, forwardVector);
@@ -1462,6 +1462,8 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
 		jacobian[1][1] = componentGradient[1] / delta;
 		jacobian[2][1] = componentGradient[2] / delta;
 	}
+    else
+        return identity;
 
 	// third column
 	s1 = at_phys(pos + deltaz, 0, forwardVector);
@@ -1484,12 +1486,14 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
 		jacobian[1][2] = componentGradient[1] / delta;
 		jacobian[2][2] = componentGradient[2] / delta;
 	}
+    else
+        return identity;
 
 	return jacobian;
 }
 
 //////////////////////////////////////////////////////////////////////////
-// to get unit Jacobian matrix in pos(i, j, k).  Each vector is normalized
+// to get unit Jacobian matrix in pos(i, j, k).  **Each vector is normalized**
 //
 // input
 //		Vector3: position in computational space
@@ -1498,7 +1502,7 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
 //////////////////////////////////////////////////////////////////////////
 MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 	int s1 = 0, s2 = 0;
-	MATRIX3 jacobian;
+    MATRIX3 jacobian, identity;
 
 	VECTOR3 deltax(delta, 0.0f, 0.0f);
 	VECTOR3 deltay(0.0f, delta, 0.0f);
@@ -1528,7 +1532,8 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 		jacobian[0][0] = componentGradient[0] / delta;
 		jacobian[1][0] = componentGradient[1] / delta;
 		jacobian[2][0] = componentGradient[2] / delta;
-	}
+    } else
+        return identity;
 
 	// second column
 	s1 = at_phys(pos + deltay, 0, forwardVector);
@@ -1551,7 +1556,8 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 		jacobian[0][1] = componentGradient[0] / delta;
 		jacobian[1][1] = componentGradient[1] / delta;
 		jacobian[2][1] = componentGradient[2] / delta;
-	}
+    } else
+        return identity;
 
 	// third column
 	s1 = at_phys(pos + deltaz, 0, forwardVector);
@@ -1574,11 +1580,129 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 		jacobian[0][2] = componentGradient[0] / delta;
 		jacobian[1][2] = componentGradient[1] / delta;
 		jacobian[2][2] = componentGradient[2] / delta;
-	}
+    } else
+        return identity;
 
 	return jacobian;
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+// to get unit Jacobian matrix in pos(i, j, k).  Each vector is normalized
+// For structured-grid datasets where the coordinates are not regular
+//
+// input
+//		Vector3: position in computational space
+// output
+//		Matrix3: unit Jacobian matrix at that position
+//////////////////////////////////////////////////////////////////////////
+MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const int k) {
+	int s1 = 0, s2 = 0;
+	MATRIX3 jacobian, transform, invTransform;
+	float scale;
+
+	VECTOR3 originVector, forwardVector, backwardVector, componentGradient;
+	VECTOR3 originPos, forwardPos, backwardPos, componentTransform;
+	s1 = at_vert(i, j, k, 0, originVector); originVector.Normalize();
+	assert(s1==1);
+	s1 = phys_coord(i, j, k, originPos);
+
+	// first column
+	s1 = at_vert(i+1, j, k, 0, forwardVector);
+	s2 = at_vert(i-1, j, k, 0, backwardVector);
+	s1 = phys_coord(i+1, j, k, forwardPos);
+	s2 = phys_coord(i-1, j, k, forwardPos);
+	forwardVector.Normalize(); backwardVector.Normalize();
+	if (s1 == 1 && s2 == 1) {
+		componentGradient = forwardVector - backwardVector;
+		componentTransform = forwardPos - backwardPos;
+		scale = .5f;
+	}
+	else if (s1 == -1 && s2 == 1) {
+		componentGradient = originVector - backwardVector;
+		componentTransform = originPos - backwardPos;
+		scale = 1.f;
+	}
+	else if (s1 == 1 && s2 == -1) {
+		componentGradient = forwardVector - originVector;
+		componentTransform = forwardPos - originPos;
+		scale = 1.f;
+	}
+	else
+		assert(false);
+	jacobian[0][0] = componentGradient[0] * scale;
+	jacobian[1][0] = componentGradient[1] * scale;
+	jacobian[2][0] = componentGradient[2] * scale;
+    transform[0] = componentTransform * scale;
+
+	// second column
+	s1 = at_vert(i, j+1, k, 0, forwardVector);
+	s2 = at_vert(i, j-1, k, 0, backwardVector);
+	s1 = phys_coord(i, j+1, k, forwardPos);
+	s2 = phys_coord(i, j-1, k, forwardPos);
+	forwardVector.Normalize(); backwardVector.Normalize();
+	if (s1 == 1 && s2 == 1) {
+		componentGradient = forwardVector - backwardVector;
+		componentTransform = forwardPos - backwardPos;
+		scale = .5f;
+	}
+	else if (s1 == -1 && s2 == 1) {
+		componentGradient = originVector - backwardVector;
+		componentTransform = originPos - backwardPos;
+		scale = 1.f;
+	}
+	else if (s1 == 1 && s2 == -1) {
+		componentGradient = forwardVector - originVector;
+		componentTransform = forwardPos - originPos;
+		scale = 1.f;
+	}
+	else
+		assert(false);
+	jacobian[0][1] = componentGradient[0] * scale;
+	jacobian[1][1] = componentGradient[1] * scale;
+	jacobian[2][1] = componentGradient[2] * scale;
+    transform[1] = componentTransform * scale;
+
+	// third column
+	s1 = at_vert(i, j, k+1, 0, forwardVector);
+	s2 = at_vert(i, j, k-1, 0, backwardVector);
+	s1 = phys_coord(i, j, k+1, forwardPos);
+	s2 = phys_coord(i, j, k-1, forwardPos);
+	forwardVector.Normalize(); backwardVector.Normalize();
+	if (s1 == 1 && s2 == 1) {
+		componentGradient = forwardVector - backwardVector;
+		componentTransform = forwardPos - backwardPos;
+		scale = .5f;
+	}
+	else if (s1 == -1 && s2 == 1) {
+		componentGradient = originVector - backwardVector;
+		componentTransform = originPos - backwardPos;
+		scale = 1.f;
+	}
+	else if (s1 == 1 && s2 == -1) {
+		componentGradient = forwardVector - originVector;
+		componentTransform = forwardPos - originPos;
+		scale = 1.f;
+	}
+	else
+		assert(false);
+	jacobian[0][2] = componentGradient[0] * scale;
+	jacobian[1][2] = componentGradient[1] * scale;
+	jacobian[2][2] = componentGradient[2] * scale;
+    transform[2] = componentTransform * scale;
+
+	s1 = transform.inverse(invTransform);
+	assert(s1==1);
+
+	{
+		MATRIX3 m1 = jacobian;
+		MATRIX3 m2 = transform;
+        printf("m1: [%f %f %f] \t  m2: [%f %f %f]\n", m1[0][0], m1[0][1], m1[0][2], m2[0][0], m2[0][1], m2[0][2]);
+        printf("m1: [%f %f %f] \t  m2: [%f %f %f]\n", m1[1][0], m1[1][1], m1[1][2], m2[1][0], m2[1][1], m2[1][2]);
+        printf("m1: [%f %f %f] \t  m2: [%f %f %f]\n", m1[2][0], m1[2][1], m1[2][2], m2[2][0], m2[2][1], m2[2][2]);
+	}
+    return jacobian * invTransform;
+}
 //////////////////////////////////////////////////////////////////////////
 // to get vortex metrics in pos(i, j, k)
 //
@@ -1588,14 +1712,8 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 //      Metrics Order: lambda2, q, delta, gamma2
 //////////////////////////////////////////////////////////////////////////
 void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta) {
-printf("!!!\n");
 	MATRIX3 J, Jt, S, T, S2, T2, M;
-    Timer timer;
-    timer.start();
 	J = UnitJacobian(pos, JacDelta); 
-    timer.end();
-    jacTime += timer.getElapsedUS();
-
     Jt = J.transpose();
 	S = 0.5 * (J + Jt); T = 0.5 * (J - Jt);
 	S2 = S * S; T2 = T * T; M = S2 + T2;
@@ -1606,10 +1724,7 @@ printf("!!!\n");
 			m[i][j] = M(i, j);
 		}
 	}
-    timer.start();
 	compute_eigenvalues(m, eigenvalues);
-    timer.end();
-    eigenTime += timer.getElapsedUS();
 
 	int min = 0, max = 0;
 	if (eigenvalues[max] < eigenvalues[1]) max = 1;
@@ -1622,10 +1737,7 @@ printf("!!!\n");
 	delta = pow((q / 3.0), 3) + pow(det / 2.0, 2);
 	float sqrt_d = sqrt(T(0, 1) * T(0, 1) + T(0, 2) * T(0, 2) + T(1, 2) * T(1, 2));
 
-    timer.start();
 	compute_eigenvalues(s, eigenvalues);
-    timer.end();
-    eigenTime += timer.getElapsedUS();
 
 	float he = eigenvalues[0];
 	if (he < eigenvalues[1]) he = eigenvalues[1];
@@ -1634,7 +1746,6 @@ printf("!!!\n");
 		gamma2 = fabs(sqrt_d / he);
 	// }
 	// else gamma2 = 0;
-    printf("current jacTime: %lfs, eigenTime: %lfs", jacTime/1000000.0, eigenTime/1000000.0);
 }
 
 //////////////////////////////////////////////////////////////////////////
