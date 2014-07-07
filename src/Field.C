@@ -187,6 +187,8 @@ int CVectorField::at_vert(const int i,
 {
 	int xdim, ydim, zdim;
 	getDimension(xdim, ydim, zdim);
+    if (i<0 || j<0 || k<0 || i>=xdim || j>=ydim || k>=zdim)
+        return -1;
 	return m_pSolution->GetValue((k*ydim*xdim+j*xdim+i), t, dataValue);
 }
 
@@ -199,7 +201,10 @@ int CVectorField::phys_coord(int i, int j, int k, VECTOR3 &pos)
 {
     int xdim, ydim, zdim;
     getDimension(xdim, ydim, zdim);
-    m_pGrid->at_vertex(i+xdim*(j+ydim*k), pos);
+    if (i<0 || j<0 || k<0 || i>=xdim || j>ydim || k>zdim)
+        return -1;
+    bool b = m_pGrid->at_vertex(i+xdim*(j+ydim*k), pos);
+    return b?1:-1;
 }
 
 
@@ -1406,7 +1411,8 @@ bool CVectorField::IsInRealBoundaries(PointInfo& p, float time)
 //		Matrix3: Jacobian matrix at that position
 //////////////////////////////////////////////////////////////////////////
 MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
-	float delta = 0.1;
+    return UnitJacobian(pos, 0.1, false);
+    /*float delta = 0.1;
 	int s1 = 0, s2 = 0;
     MATRIX3 jacobian, identity;
 
@@ -1489,7 +1495,7 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
     else
         return identity;
 
-	return jacobian;
+    return jacobian;*/
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1497,10 +1503,11 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
 //
 // input
 //		Vector3: position in computational space
+//      bNormalize: normalize the vector
 // output
 //		Matrix3: unit Jacobian matrix at that position
 //////////////////////////////////////////////////////////////////////////
-MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
+MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta, bool bNormalize) {
 	int s1 = 0, s2 = 0;
     MATRIX3 jacobian, identity;
 
@@ -1509,12 +1516,13 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 	VECTOR3 deltaz(0.0f, 0.0f, delta);
 
 	VECTOR3 originVector, forwardVector, backwardVector, componentGradient;
-	at_phys(pos, 0, originVector); originVector.Normalize();
+    at_phys(pos, 0, originVector);
+    if (bNormalize) originVector.Normalize();
 
 	// first column
 	s1 = at_phys(pos + deltax, 0, forwardVector);
 	s2 = at_phys(pos - deltax, 0, backwardVector);
-	forwardVector.Normalize(); backwardVector.Normalize();
+    if (bNormalize) {forwardVector.Normalize(); backwardVector.Normalize();}
 	if (s1 == 1 && s2 == 1) {
 		componentGradient = forwardVector - backwardVector;
 		jacobian[0][0] = componentGradient[0] / (2.0 * delta);
@@ -1538,7 +1546,7 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 	// second column
 	s1 = at_phys(pos + deltay, 0, forwardVector);
 	s2 = at_phys(pos - deltay, 0, backwardVector);
-	forwardVector.Normalize(); backwardVector.Normalize();
+    if (bNormalize) {forwardVector.Normalize(); backwardVector.Normalize();}
 	if (s1 == 1 && s2 == 1) {
 		componentGradient = forwardVector - backwardVector;
 		jacobian[0][1] = componentGradient[0] / (2.0 * delta);
@@ -1562,7 +1570,7 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 	// third column
 	s1 = at_phys(pos + deltaz, 0, forwardVector);
 	s2 = at_phys(pos - deltaz, 0, backwardVector);
-	forwardVector.Normalize(); backwardVector.Normalize();
+    if (bNormalize)	{forwardVector.Normalize(); backwardVector.Normalize();}
 	if (s1 == 1 && s2 == 1) {
 		componentGradient = forwardVector - backwardVector;
 		jacobian[0][2] = componentGradient[0] / (2.0 * delta);
@@ -1596,23 +1604,26 @@ MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta) {
 // output
 //		Matrix3: unit Jacobian matrix at that position
 //////////////////////////////////////////////////////////////////////////
-MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const int k) {
+MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const int k, bool bNormalize) {
 	int s1 = 0, s2 = 0;
-	MATRIX3 jacobian, transform, invTransform;
+    MATRIX3 jacobian, transform, invTransform, identity;
 	float scale;
 
 	VECTOR3 originVector, forwardVector, backwardVector, componentGradient;
 	VECTOR3 originPos, forwardPos, backwardPos, componentTransform;
-	s1 = at_vert(i, j, k, 0, originVector); originVector.Normalize();
+    s1 = at_vert(i, j, k, 0, originVector);
+    if (bNormalize)
+        originVector.Normalize();
 	assert(s1==1);
 	s1 = phys_coord(i, j, k, originPos);
 
 	// first column
-	s1 = at_vert(i+1, j, k, 0, forwardVector);
+    s1 = phys_coord(i+1, j, k, forwardPos);
+    s2 = phys_coord(i-1, j, k, backwardPos);
+    s1 = at_vert(i+1, j, k, 0, forwardVector);
 	s2 = at_vert(i-1, j, k, 0, backwardVector);
-	s1 = phys_coord(i+1, j, k, forwardPos);
-	s2 = phys_coord(i-1, j, k, forwardPos);
-	forwardVector.Normalize(); backwardVector.Normalize();
+    if (bNormalize)
+        { forwardVector.Normalize(); backwardVector.Normalize(); }
 	if (s1 == 1 && s2 == 1) {
 		componentGradient = forwardVector - backwardVector;
 		componentTransform = forwardPos - backwardPos;
@@ -1629,18 +1640,19 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 		scale = 1.f;
 	}
 	else
-		assert(false);
+        return identity;
 	jacobian[0][0] = componentGradient[0] * scale;
 	jacobian[1][0] = componentGradient[1] * scale;
 	jacobian[2][0] = componentGradient[2] * scale;
     transform[0] = componentTransform * scale;
 
 	// second column
-	s1 = at_vert(i, j+1, k, 0, forwardVector);
+    s1 = phys_coord(i, j+1, k, forwardPos);
+    s2 = phys_coord(i, j-1, k, backwardPos);
+    s1 = at_vert(i, j+1, k, 0, forwardVector);
 	s2 = at_vert(i, j-1, k, 0, backwardVector);
-	s1 = phys_coord(i, j+1, k, forwardPos);
-	s2 = phys_coord(i, j-1, k, forwardPos);
-	forwardVector.Normalize(); backwardVector.Normalize();
+    if (bNormalize)
+        { forwardVector.Normalize(); backwardVector.Normalize(); }
 	if (s1 == 1 && s2 == 1) {
 		componentGradient = forwardVector - backwardVector;
 		componentTransform = forwardPos - backwardPos;
@@ -1657,18 +1669,19 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 		scale = 1.f;
 	}
 	else
-		assert(false);
+        return identity;
 	jacobian[0][1] = componentGradient[0] * scale;
 	jacobian[1][1] = componentGradient[1] * scale;
 	jacobian[2][1] = componentGradient[2] * scale;
     transform[1] = componentTransform * scale;
 
 	// third column
-	s1 = at_vert(i, j, k+1, 0, forwardVector);
+    s1 = phys_coord(i, j, k+1, forwardPos);
+    s2 = phys_coord(i, j, k-1, backwardPos);
+    s1 = at_vert(i, j, k+1, 0, forwardVector);
 	s2 = at_vert(i, j, k-1, 0, backwardVector);
-	s1 = phys_coord(i, j, k+1, forwardPos);
-	s2 = phys_coord(i, j, k-1, forwardPos);
-	forwardVector.Normalize(); backwardVector.Normalize();
+    if (bNormalize)
+        { forwardVector.Normalize(); backwardVector.Normalize(); }
 	if (s1 == 1 && s2 == 1) {
 		componentGradient = forwardVector - backwardVector;
 		componentTransform = forwardPos - backwardPos;
@@ -1685,14 +1698,14 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 		scale = 1.f;
 	}
 	else
-		assert(false);
+        return identity;
 	jacobian[0][2] = componentGradient[0] * scale;
 	jacobian[1][2] = componentGradient[1] * scale;
 	jacobian[2][2] = componentGradient[2] * scale;
     transform[2] = componentTransform * scale;
 
 	s1 = transform.inverse(invTransform);
-	assert(s1==1);
+    if (s1!=1) return identity;
 
 	{
 		MATRIX3 m1 = jacobian;

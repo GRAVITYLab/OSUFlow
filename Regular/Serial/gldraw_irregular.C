@@ -10,8 +10,8 @@
 
 #include <stdlib.h>
 
-#ifdef MAC_OSX
-#include <GLUT/glut.h> 
+#ifdef __APPLE__
+#include <GLUT/glut.h>
 #include <OpenGL/gl.h>
 #else
 #include <GL/glut.h> 

@@ -111,13 +111,19 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	return -1;
 }
 int VectorFieldVTK::at_vert(const int i, const int j, const int k, const float t, VECTOR3& vecData) {
-    vtkDataArray *ary = this->sDataset->GetPointData()->GetArray("Velocity");
+    vtkDataArray *ary = this->sDataset->GetPointData()->GetVectors();
     int w,h,d;
     this->getDimension(w,h,d);
     if (i>=w || i<0 || j>=h || j<0 || k>=d || k<0)
         return -1;
-    double *dval = ary->GetTuple3(i+w*(j+h*k));
+    int id = i+w*(j+h*k);
+    double *dval = ary->GetTuple3(id);
     vecData = VECTOR3(dval[0], dval[1], dval[2]);
+
+    {
+//        printf("%d %d %d = id %d -> %f %f %f\n", i,j,k, id, vecData[0], vecData[1], vecData[2]);
+    }
+
     return 1;
 }
  int VectorFieldVTK::phys_coord(const int i, const int j, const int k, VECTOR3 &pos) {

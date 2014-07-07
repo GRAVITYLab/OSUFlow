@@ -9,12 +9,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if defined(MAC_OSX_OMPI) || defined(MAC_OSX_MPICH)
-#include <GLUT/glut.h> 
+#ifdef __APPLE__
+#include <GLUT/glut.h>
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
 #else
-#include <GL/glut.h> 
+#include <GL/glut.h>
 #include <GL/gl.h>
 #endif
 

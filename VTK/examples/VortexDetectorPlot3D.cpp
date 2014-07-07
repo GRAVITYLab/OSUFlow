@@ -19,6 +19,7 @@
 #include <vtkFunctionSet.h>
 #include <vtkImageInterpolator.h>
 #include <vtkPointData.h>
+#include <vtkImageData.h>
 
 #include "VectorFieldVTK.h"
 #include "OSUFlow.h"
@@ -27,6 +28,7 @@
 
 int main(int argc, char ** argv)
 {
+#if 1
     // read data
     char file1[256], file2[256];
     int files;
@@ -51,9 +53,17 @@ int main(int argc, char ** argv)
     pl3dReader->Update();
     vtkDataSet *data = vtkDataSet::SafeDownCast( pl3dReader->GetOutput()->GetBlock(0) );
 
-
     OSUFlow *osuflow = new OSUFlow;
     CVectorField *field = new VectorFieldVTK( data );
+#else
+    // test with regular grids
+    OSUFlow *osuflow = new OSUFlow;
+    osuflow->LoadData(SAMPLE_DATA_DIR "/regular/tornado/1.vec", true); //true: static dataset
+    CVectorField *field = osuflow->GetFlowField();
+
+
+#endif
+
     //osuflow->SetFlowField( field );
 
 
@@ -69,8 +79,8 @@ int main(int argc, char ** argv)
                 field->at_vert(i,j,k,0., vec);
                 printf("Computational location: (%d %d %d): Physical : (%f %f %f)\n", i,j,k, pos[0], pos[1], pos[2]);
                 printf("Vector: (%f %f %f)\n", vec[0], vec[1], vec[2]);
-                MATRIX3 m1 = field->UnitJacobian(pos, 0.01);
-                MATRIX3 m2 = field->UnitJacobianStructuredGrid(i,j,k);
+                MATRIX3 m1 = field->UnitJacobian(pos, .01, false);
+                MATRIX3 m2 = field->UnitJacobianStructuredGrid(i,j,k, false);
                 printf("m1: [%f %f %f] \t  m2: [%f %f %f]\n", m1[0][0], m1[0][1], m1[0][2], m2[0][0], m2[0][1], m2[0][2]);
                 printf("m1: [%f %f %f] \t  m2: [%f %f %f]\n", m1[1][0], m1[1][1], m1[1][2], m2[1][0], m2[1][1], m2[1][2]);
                 printf("m1: [%f %f %f] \t  m2: [%f %f %f]\n", m1[2][0], m1[2][1], m1[2][2], m2[2][0], m2[2][1], m2[2][2]);
