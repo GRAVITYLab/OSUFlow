@@ -22,16 +22,16 @@ add_definitions (-DVTK_DATA_ROOT=${VTK_DATA_ROOT})
 
 # List all simple targets
 LIST(APPEND SIMPLE_TARGETS
-	StreamlineSimpleVTK
-	testVTS
-	vec2vti
+    StreamlineSimpleVTK
+    testVTS
+    vec2vti
     raw2vti
-	vti2vec
-	StreamlineSimpleVTKUnstructured
-	StreamlineRenderVec
-	StreamlineRenderPlot3D
-	StreamlineRenderUnstructured
-    VortexDetectorPlot3D
+    vti2vec
+    StreamlineSimpleVTKUnstructured
+    StreamlineRenderVec
+    StreamlineRenderPlot3D
+    StreamlineRenderUnstructured
+    VortexDetectorVTK
 )
 if( ${WITH_GRAPHICS} )
         LIST (APPEND SIMPLE_TARGETS

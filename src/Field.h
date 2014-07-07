@@ -48,7 +48,10 @@ public:
 	virtual int at_phys(const int fromCell, VECTOR3& pos, PointInfo& pInfo,const float t, VECTOR3& nodeData);
     //virtual int at_comp(const int i, const int j, const int k, const float t, VECTOR3& dataValue);
 	virtual float volume_of_cell(int cellId);
-	virtual void NormalizeField(bool bLocal);
+    // bLocal: whether to normalize in each timestep or through all timesteps.
+    //		   if locally, then divide its magnitude; if globally, then divide
+    //		   by the maximal magnitude through the whole field
+    virtual void NormalizeField(bool bLocal);
 	virtual void ScaleField(float scale);
 	virtual void TranslateField(VECTOR3& translate);
 
@@ -83,8 +86,7 @@ public:
 	virtual bool IsInRealBoundaries(PointInfo& p, float time);
 
 	// feature computation - static
-	MATRIX3 Jacobian(const VECTOR3& pos);
-    MATRIX3 UnitJacobian(const VECTOR3& pos, float delta=0.1f, bool bNormalize=false);
+    MATRIX3 Jacobian(const VECTOR3& pos, float delta=0.1f);
     MATRIX3 UnitJacobianStructuredGrid(const int i, const int j, const int k, bool bNormalize=false) ;
 
 

@@ -10,7 +10,7 @@ May, 2010
 
 #define GLUT_BUILDING_LIB
 
-#if defined(__APPLE__)
+#ifdef __APPLE__
 #include <GLUT/glut.h> 
 #endif
 

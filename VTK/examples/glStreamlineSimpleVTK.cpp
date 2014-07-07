@@ -9,14 +9,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-//#if(UNIX and not APPLE)
+#ifdef __APPLE__
 #include <GLUT/glut.h> 
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
-//#else
-//#include <GL/glut.h> 
-//#include <GL/gl.h>
-//#endif
+#else
+#include <GL/glut.h>
+#include <GL/gl.h>
+#endif
 
 // ADD-BY-LEETEN 12/20/2011-BEGIN
 #ifdef	WIN32

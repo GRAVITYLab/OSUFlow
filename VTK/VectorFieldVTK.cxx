@@ -12,6 +12,8 @@
 #include <vtkImageInterpolator.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkPointData.h>
+#include <vtkMath.h>
+#include <vtkNew.h>
 #include <Field.h>
 #include "VectorFieldVTK.h"
 
@@ -184,9 +186,17 @@ int VectorFieldVTK::at_vert(const int i, const int j, const int k, const float t
 	//printf("v=%f\n", v);
 	return v;
 }
- void VectorFieldVTK::NormalizeField(bool bLocal) {
-	printf("Not implemented\n");
-	assert(false);
+ void VectorFieldVTK::NormalizeField(bool bLocal)
+ {
+     vtkDataArray *ary = this->sDataset->GetPointData()->GetVectors();
+     vtkNew<vtkMath> math ;
+     int w,h,d, id;
+     this->getDimension(w,h,d);
+     int n = w*h*d;
+     for (id=0; id<n; id++)
+     {
+        math->Normalize(ary->GetTuple3(id));
+     }
 }
  void VectorFieldVTK::ScaleField(float scale) {
 	this->scaleFactor = scale;

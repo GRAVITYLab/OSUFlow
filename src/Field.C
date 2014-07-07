@@ -1410,10 +1410,9 @@ bool CVectorField::IsInRealBoundaries(PointInfo& p, float time)
 // output
 //		Matrix3: Jacobian matrix at that position
 //////////////////////////////////////////////////////////////////////////
-MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
-    return UnitJacobian(pos, 0.1, false);
-    /*float delta = 0.1;
-	int s1 = 0, s2 = 0;
+MATRIX3 CVectorField::Jacobian(const VECTOR3& pos, float delta) {
+
+    int s1 = 0, s2 = 0;
     MATRIX3 jacobian, identity;
 
 	VECTOR3 deltax(delta, 0.0f, 0.0f);
@@ -1495,109 +1494,13 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos) {
     else
         return identity;
 
-    return jacobian;*/
+    return jacobian;
 }
 
 //////////////////////////////////////////////////////////////////////////
-// to get unit Jacobian matrix in pos(i, j, k).  **Each vector is normalized**
-//
-// input
-//		Vector3: position in computational space
-//      bNormalize: normalize the vector
-// output
-//		Matrix3: unit Jacobian matrix at that position
-//////////////////////////////////////////////////////////////////////////
-MATRIX3 CVectorField::UnitJacobian(const VECTOR3& pos, float delta, bool bNormalize) {
-	int s1 = 0, s2 = 0;
-    MATRIX3 jacobian, identity;
-
-	VECTOR3 deltax(delta, 0.0f, 0.0f);
-	VECTOR3 deltay(0.0f, delta, 0.0f);
-	VECTOR3 deltaz(0.0f, 0.0f, delta);
-
-	VECTOR3 originVector, forwardVector, backwardVector, componentGradient;
-    at_phys(pos, 0, originVector);
-    if (bNormalize) originVector.Normalize();
-
-	// first column
-	s1 = at_phys(pos + deltax, 0, forwardVector);
-	s2 = at_phys(pos - deltax, 0, backwardVector);
-    if (bNormalize) {forwardVector.Normalize(); backwardVector.Normalize();}
-	if (s1 == 1 && s2 == 1) {
-		componentGradient = forwardVector - backwardVector;
-		jacobian[0][0] = componentGradient[0] / (2.0 * delta);
-		jacobian[1][0] = componentGradient[1] / (2.0 * delta);
-		jacobian[2][0] = componentGradient[2] / (2.0 * delta);
-	}
-	else if (s1 == -1 && s2 == 1) {
-		componentGradient = originVector - backwardVector;
-		jacobian[0][0] = componentGradient[0] / delta;
-		jacobian[1][0] = componentGradient[1] / delta;
-		jacobian[2][0] = componentGradient[2] / delta;
-	}
-	else if (s1 == 1 && s2 == -1) {
-		componentGradient = forwardVector - originVector;
-		jacobian[0][0] = componentGradient[0] / delta;
-		jacobian[1][0] = componentGradient[1] / delta;
-		jacobian[2][0] = componentGradient[2] / delta;
-    } else
-        return identity;
-
-	// second column
-	s1 = at_phys(pos + deltay, 0, forwardVector);
-	s2 = at_phys(pos - deltay, 0, backwardVector);
-    if (bNormalize) {forwardVector.Normalize(); backwardVector.Normalize();}
-	if (s1 == 1 && s2 == 1) {
-		componentGradient = forwardVector - backwardVector;
-		jacobian[0][1] = componentGradient[0] / (2.0 * delta);
-		jacobian[1][1] = componentGradient[1] / (2.0 * delta);
-		jacobian[2][1] = componentGradient[2] / (2.0 * delta);
-	}
-	else if (s1 == -1 && s2 == 1) {
-		componentGradient = originVector - backwardVector;
-		jacobian[0][1] = componentGradient[0] / delta;
-		jacobian[1][1] = componentGradient[1] / delta;
-		jacobian[2][1] = componentGradient[2] / delta;
-	}
-	else if (s1 == 1 && s2 == -1) {
-		componentGradient = forwardVector - originVector;
-		jacobian[0][1] = componentGradient[0] / delta;
-		jacobian[1][1] = componentGradient[1] / delta;
-		jacobian[2][1] = componentGradient[2] / delta;
-    } else
-        return identity;
-
-	// third column
-	s1 = at_phys(pos + deltaz, 0, forwardVector);
-	s2 = at_phys(pos - deltaz, 0, backwardVector);
-    if (bNormalize)	{forwardVector.Normalize(); backwardVector.Normalize();}
-	if (s1 == 1 && s2 == 1) {
-		componentGradient = forwardVector - backwardVector;
-		jacobian[0][2] = componentGradient[0] / (2.0 * delta);
-		jacobian[1][2] = componentGradient[1] / (2.0 * delta);
-		jacobian[2][2] = componentGradient[2] / (2.0 * delta);
-	}
-	else if (s1 == -1 && s2 == 1) {
-		componentGradient = originVector - backwardVector;
-		jacobian[0][2] = componentGradient[0] / delta;
-		jacobian[1][2] = componentGradient[1] / delta;
-		jacobian[2][2] = componentGradient[2] / delta;
-	}
-	else if (s1 == 1 && s2 == -1) {
-		componentGradient = forwardVector - originVector;
-		jacobian[0][2] = componentGradient[0] / delta;
-		jacobian[1][2] = componentGradient[1] / delta;
-		jacobian[2][2] = componentGradient[2] / delta;
-    } else
-        return identity;
-
-	return jacobian;
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-// to get unit Jacobian matrix in pos(i, j, k).  Each vector is normalized
+// to get unit Jacobian matrix in pos(i, j, k).
 // For structured-grid datasets where the coordinates are not regular
+// However it is not as accurate as computing Jacobian in phy space
 //
 // input
 //		Vector3: position in computational space
@@ -1726,7 +1629,7 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 //////////////////////////////////////////////////////////////////////////
 void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta) {
 	MATRIX3 J, Jt, S, T, S2, T2, M;
-	J = UnitJacobian(pos, JacDelta); 
+    J = Jacobian(pos, JacDelta);
     Jt = J.transpose();
 	S = 0.5 * (J + Jt); T = 0.5 * (J - Jt);
 	S2 = S * S; T2 = T * T; M = S2 + T2;
@@ -1787,7 +1690,7 @@ void CVectorField::Curvature(VECTOR3* const fieldline, const int num, float* cur
 	VECTOR3 tangent, tangentPrime;
 	MATRIX3 mj;
 	for (int i = 0; i < num; i++) {
-		mj = UnitJacobian(fieldline[i]);
+        mj = Jacobian(fieldline[i]);
 		at_phys(fieldline[i], 0, tangent);
 		tangent.Normalize();
 
