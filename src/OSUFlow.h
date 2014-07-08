@@ -67,7 +67,7 @@ class OSUFlow
 					   int min_t, int max_t);
 
   CVectorField* GetFlowField(void) { return flowField; }
-  void  SetFlowField(CVectorField* field) { flowField = field; }
+  void  SetFlowField(CVectorField* field) { flowField = field; this->has_data = true; }
 
   VECTOR3 *GetSeeds(int& num) {num = numSeeds[0]*numSeeds[1]*numSeeds[2];
     return seedPtr;}
