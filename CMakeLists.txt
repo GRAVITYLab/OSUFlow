@@ -22,6 +22,7 @@ set(SAMPLE_DATA_DIR      "${CMAKE_SOURCE_DIR}/sample_data" CACHE STRING "Path to
 set(WITH_VTK FALSE CACHE BOOL "Compile with VTK integration in VTK/")
 
 set(WITH_TESTING FALSE CACHE BOOL "Enable testing")
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "DEBUG;RELEASE")
 
 if(UNIX AND NOT APPLE)
 	add_definitions(
