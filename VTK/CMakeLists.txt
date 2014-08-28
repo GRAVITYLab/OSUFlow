@@ -65,11 +65,11 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 install(
         FILES ${HEADER_FILES}
-        DESTINATION include/VTK)
+        DESTINATION include/osuflow/VTK)
 
 install(
         TARGETS ${PROJECT_NAME}
-        DESTINATION lib)
+        DESTINATION lib/osuflow)
 
 
 #########################################################

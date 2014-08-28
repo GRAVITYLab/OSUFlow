@@ -21,17 +21,16 @@ int main(int argc, char ** argv)
 	minB[0] = 0; minB[1] = 0; minB[2] = 0;
     maxB[0] = 200; maxB[1] = 200; maxB[2] = 200;
 
-    osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field
-	osuflow->Boundary(minLen, maxLen);
+    osuflow->LoadDataCurvilinear((const char*)argv[1], true, minB, maxB); //true: a steady flow field
+    osuflow->Boundary(minLen, maxLen);
 	printf(" volume boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n",
 								minLen[0], maxLen[0], minLen[1], maxLen[1],
 								minLen[2], maxLen[2]);
 
 
     int dim[3]	;
-    dim[0] = maxLen[0]+1;
-    dim[1] = maxLen[1]+1;
-    dim[2] = maxLen[2]+1;
+    CurvilinearGrid *grid = (CurvilinearGrid*)osuflow->GetFlowField()->GetGrid();
+    grid->GetDimension(dim[0], dim[1], dim[2]);
 	printf("dim: %d %d %d\n", dim[0], dim[1], dim[2]);
 	int i,j,k;
 #if 0
@@ -84,7 +83,33 @@ int main(int argc, char ** argv)
 #endif
 	printf("from: %f %f %f, to: %f %f %f\n", from[0], from[1], from[2], to[0], to[1], to[2]);
 
+#if 1
+	// get min offset unit
+	float min_off[3] =  {1e+9,1e+9,1e+9};
+	{
+		for (i=i1+1; i<i2; i++) {
+			VECTOR3 v1, v2;
+			grid->coordinates_at_vertex(VECTOR3(i-1, j1, k1), &v1);
+			grid->coordinates_at_vertex(VECTOR3(i, j1, k1), &v2);
+			min_off[0] = min(v2[0]-v1[0], min_off[0]);
+		}
+		for (j=j1+1; j<j2; j++) {
+			VECTOR3 v1, v2;
+			grid->coordinates_at_vertex(VECTOR3(i1, j-1, k1), &v1);
+			grid->coordinates_at_vertex(VECTOR3(i1, j, k1), &v2);
+			min_off[1] = min(v2[1]-v1[1], min_off[1]);
+		}
+		for (k=k1+1; k<k2; k++) {
+			VECTOR3 v1, v2;
+			grid->coordinates_at_vertex(VECTOR3(i1, j1, k-1), &v1);
+			grid->coordinates_at_vertex(VECTOR3(i1, j1, k), &v2);
+			min_off[2] = min(v2[2]-v1[2], min_off[2]);
+		}
+		printf("Min grid unit: %f %f %f\n", min_off[0], min_off[1], min_off[2]);
+	}
+#else
     float min_off[3] = {1, 1, 1};
+#endif
 
 	if (!(from[0]<=to[0] && from[1]<=to[1] && from[2]<=to[2]))
 		printf("Input invalid.  Program halts\n");

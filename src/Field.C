@@ -1413,7 +1413,8 @@ bool CVectorField::IsInRealBoundaries(PointInfo& p, float time)
 MATRIX3 CVectorField::Jacobian(const VECTOR3& pos, float delta) {
 
     int s1 = 0, s2 = 0;
-    MATRIX3 jacobian, identity;
+    MATRIX3 jacobian, invalid;
+    invalid[0][0]=invalid[0][1]=invalid[0][2]=invalid[1][0]=invalid[1][1]=invalid[1][2]=invalid[2][0]=invalid[2][1]=invalid[2][2]=NAN;
 
 	VECTOR3 deltax(delta, 0.0f, 0.0f);
 	VECTOR3 deltay(0.0f, delta, 0.0f);
@@ -1444,7 +1445,7 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos, float delta) {
 		jacobian[2][0] = componentGradient[2] / delta;
 	}
     else
-        return identity;
+        return invalid;
 
 	// second column
 	s1 = at_phys(pos + deltay, 0, forwardVector);
@@ -1468,7 +1469,7 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos, float delta) {
 		jacobian[2][1] = componentGradient[2] / delta;
 	}
     else
-        return identity;
+        return invalid;
 
 	// third column
 	s1 = at_phys(pos + deltaz, 0, forwardVector);
@@ -1492,7 +1493,7 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos, float delta) {
 		jacobian[2][2] = componentGradient[2] / delta;
 	}
     else
-        return identity;
+        return invalid;
 
     return jacobian;
 }
@@ -1509,7 +1510,8 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos, float delta) {
 //////////////////////////////////////////////////////////////////////////
 MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const int k, bool bNormalize) {
 	int s1 = 0, s2 = 0;
-    MATRIX3 jacobian, transform, invTransform, identity;
+    MATRIX3 jacobian, transform, invTransform, invalid;
+    invalid[0][0]=invalid[0][1]=invalid[0][2]=invalid[1][0]=invalid[1][1]=invalid[1][2]=invalid[2][0]=invalid[2][1]=invalid[2][2]=NAN;
 	float scale;
 
 	VECTOR3 originVector, forwardVector, backwardVector, componentGradient;
@@ -1543,7 +1545,7 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 		scale = 1.f;
 	}
 	else
-        return identity;
+        return invalid;
 	jacobian[0][0] = componentGradient[0] * scale;
 	jacobian[1][0] = componentGradient[1] * scale;
 	jacobian[2][0] = componentGradient[2] * scale;
@@ -1572,7 +1574,7 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 		scale = 1.f;
 	}
 	else
-        return identity;
+        return invalid;
 	jacobian[0][1] = componentGradient[0] * scale;
 	jacobian[1][1] = componentGradient[1] * scale;
 	jacobian[2][1] = componentGradient[2] * scale;
@@ -1601,14 +1603,14 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 		scale = 1.f;
 	}
 	else
-        return identity;
+        return invalid;
 	jacobian[0][2] = componentGradient[0] * scale;
 	jacobian[1][2] = componentGradient[1] * scale;
 	jacobian[2][2] = componentGradient[2] * scale;
     transform[2] = componentTransform * scale;
 
 	s1 = transform.inverse(invTransform);
-    if (s1!=1) return identity;
+    if (s1!=1) return invalid;
 
 	{
 		MATRIX3 m1 = jacobian;
