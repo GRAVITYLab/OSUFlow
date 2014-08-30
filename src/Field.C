@@ -1421,7 +1421,9 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos, float delta) {
 	VECTOR3 deltaz(0.0f, 0.0f, delta);
 
 	VECTOR3 originVector, forwardVector, backwardVector, componentGradient;
-	at_phys(pos, 0, originVector);
+    s1 = at_phys(pos, 0, originVector);
+    if ( s1 == -1 )
+        return invalid;
 
 	// first column
 	s1 = at_phys(pos + deltax, 0, forwardVector);
