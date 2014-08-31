@@ -1501,16 +1501,18 @@ MATRIX3 CVectorField::Jacobian(const VECTOR3& pos, float delta) {
 }
 
 //////////////////////////////////////////////////////////////////////////
+// Added by Jimmy
 // to get unit Jacobian matrix in pos(i, j, k).
-// For structured-grid datasets where the coordinates are not regular
-// However it is not as accurate as computing Jacobian in phy space
+// Used in structured-grid datasets where the coordinates are not regular
 //
 // input
 //		Vector3: position in computational space
 // output
 //		Matrix3: unit Jacobian matrix at that position
+// Math:
+//      J = J*inv(T)
 //////////////////////////////////////////////////////////////////////////
-MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const int k, bool bNormalize) {
+MATRIX3 CVectorField::JacobianStructuredGrid(const int i, const int j, const int k) {
 	int s1 = 0, s2 = 0;
     MATRIX3 jacobian, transform, invTransform, invalid;
     invalid[0][0]=invalid[0][1]=invalid[0][2]=invalid[1][0]=invalid[1][1]=invalid[1][2]=invalid[2][0]=invalid[2][1]=invalid[2][2]=NAN;
@@ -1519,19 +1521,16 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 	VECTOR3 originVector, forwardVector, backwardVector, componentGradient;
 	VECTOR3 originPos, forwardPos, backwardPos, componentTransform;
     s1 = at_vert(i, j, k, 0, originVector);
-    if (bNormalize)
-        originVector.Normalize();
-	assert(s1==1);
 	s1 = phys_coord(i, j, k, originPos);
+    if (s1 != 1)
+        return invalid;
 
-	// first column
+    // deferential over xi
     s1 = phys_coord(i+1, j, k, forwardPos);
     s2 = phys_coord(i-1, j, k, backwardPos);
-    s1 = at_vert(i+1, j, k, 0, forwardVector);
-	s2 = at_vert(i-1, j, k, 0, backwardVector);
-    if (bNormalize)
-        { forwardVector.Normalize(); backwardVector.Normalize(); }
-	if (s1 == 1 && s2 == 1) {
+    s1 = at_vert   (i+1, j, k, 0, forwardVector);
+    s2 = at_vert   (i-1, j, k, 0, backwardVector);
+    if (s1 == 1 && s2 == 1) {
 		componentGradient = forwardVector - backwardVector;
 		componentTransform = forwardPos - backwardPos;
 		scale = .5f;
@@ -1548,18 +1547,18 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 	}
 	else
         return invalid;
-	jacobian[0][0] = componentGradient[0] * scale;
-	jacobian[1][0] = componentGradient[1] * scale;
-	jacobian[2][0] = componentGradient[2] * scale;
-    transform[0] = componentTransform * scale;
+    jacobian[0][0] = componentGradient[0] * scale;
+    jacobian[1][0] = componentGradient[1] * scale;
+    jacobian[2][0] = componentGradient[2] * scale;
+    transform[0][0] = componentTransform[0] * scale;
+    transform[1][0] = componentTransform[1] * scale;
+    transform[2][0] = componentTransform[2] * scale;
 
-	// second column
+    // deferential over eta
     s1 = phys_coord(i, j+1, k, forwardPos);
     s2 = phys_coord(i, j-1, k, backwardPos);
-    s1 = at_vert(i, j+1, k, 0, forwardVector);
-	s2 = at_vert(i, j-1, k, 0, backwardVector);
-    if (bNormalize)
-        { forwardVector.Normalize(); backwardVector.Normalize(); }
+    s1 = at_vert   (i, j+1, k, 0, forwardVector);
+    s2 = at_vert   (i, j-1, k, 0, backwardVector);
 	if (s1 == 1 && s2 == 1) {
 		componentGradient = forwardVector - backwardVector;
 		componentTransform = forwardPos - backwardPos;
@@ -1577,18 +1576,18 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 	}
 	else
         return invalid;
-	jacobian[0][1] = componentGradient[0] * scale;
-	jacobian[1][1] = componentGradient[1] * scale;
-	jacobian[2][1] = componentGradient[2] * scale;
-    transform[1] = componentTransform * scale;
+    jacobian[0][1] = componentGradient[0] * scale;
+    jacobian[1][1] = componentGradient[1] * scale;
+    jacobian[2][1] = componentGradient[2] * scale;
+    transform[0][1] = componentTransform[0] * scale;
+    transform[1][1] = componentTransform[1] * scale;
+    transform[2][1] = componentTransform[2] * scale;
 
-	// third column
+    // deferential over zeta
     s1 = phys_coord(i, j, k+1, forwardPos);
     s2 = phys_coord(i, j, k-1, backwardPos);
-    s1 = at_vert(i, j, k+1, 0, forwardVector);
-	s2 = at_vert(i, j, k-1, 0, backwardVector);
-    if (bNormalize)
-        { forwardVector.Normalize(); backwardVector.Normalize(); }
+    s1 = at_vert   (i, j, k+1, 0, forwardVector);
+    s2 = at_vert   (i, j, k-1, 0, backwardVector);
 	if (s1 == 1 && s2 == 1) {
 		componentGradient = forwardVector - backwardVector;
 		componentTransform = forwardPos - backwardPos;
@@ -1606,21 +1605,24 @@ MATRIX3 CVectorField::UnitJacobianStructuredGrid(const int i, const int j, const
 	}
 	else
         return invalid;
-	jacobian[0][2] = componentGradient[0] * scale;
-	jacobian[1][2] = componentGradient[1] * scale;
-	jacobian[2][2] = componentGradient[2] * scale;
-    transform[2] = componentTransform * scale;
+    jacobian[0][2] = componentGradient[0] * scale;
+    jacobian[1][2] = componentGradient[1] * scale;
+    jacobian[2][2] = componentGradient[2] * scale;
+    transform[0][2] = componentTransform[0] * scale;
+    transform[1][2] = componentTransform[1] * scale;
+    transform[2][2] = componentTransform[2] * scale;
+
 
 	s1 = transform.inverse(invTransform);
     if (s1!=1) return invalid;
 
-	{
-		MATRIX3 m1 = jacobian;
+    #if 0
+        MATRIX3 m1 = jacobian;
 		MATRIX3 m2 = transform;
-        printf("m1: [%f %f %f] \t  m2: [%f %f %f]\n", m1[0][0], m1[0][1], m1[0][2], m2[0][0], m2[0][1], m2[0][2]);
-        printf("m1: [%f %f %f] \t  m2: [%f %f %f]\n", m1[1][0], m1[1][1], m1[1][2], m2[1][0], m2[1][1], m2[1][2]);
-        printf("m1: [%f %f %f] \t  m2: [%f %f %f]\n", m1[2][0], m1[2][1], m1[2][2], m2[2][0], m2[2][1], m2[2][2]);
-	}
+        printf("j: %f %f %f \t  t: %f %f %f\n", m1[0][0], m1[0][1], m1[0][2], m2[0][0], m2[0][1], m2[0][2]);
+        printf("j: %f %f %f \t  t: %f %f %f\n", m1[1][0], m1[1][1], m1[1][2], m2[1][0], m2[1][1], m2[1][2]);
+        printf("j: %f %f %f \t  t: %f %f %f\n", m1[2][0], m1[2][1], m1[2][2], m2[2][0], m2[2][1], m2[2][2]);
+    #endif
     return jacobian * invTransform;
 }
 //////////////////////////////////////////////////////////////////////////
