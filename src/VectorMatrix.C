@@ -416,15 +416,15 @@ VECTOR3 operator *(const VECTOR3 & v0, const MATRIX4 & m0)
 //Code was taken from the original 'edge' library written by dave ebert.
 MATRIX4 inverse(const MATRIX4 & m) {
 	register int lp,i,j,k;
-	static float wrk[4][8];
-	static float a, b;
+    static double wrk[4][8];
+    static double a, b;
 	MATRIX4 result;
 
 	for( i=0; i<4; i++ )	/* Set up matrices */
 	{
 		for( j=0; j<4; j++ )
 		{
-			wrk[i][j]=(float)m(i,j);
+            wrk[i][j]=m(i,j);
 			wrk[i][j+4]=0.0;
 			result[i][j] = 0.0;
 		}
