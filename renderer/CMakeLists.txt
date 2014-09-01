@@ -54,11 +54,11 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 install(
 	FILES ${HEADER_FILES}
-	DESTINATION include/renderer)
+	DESTINATION include/osuflow/renderer)
 	
 install(
 	TARGETS ${PROJECT_NAME}
-	DESTINATION lib)
+	DESTINATION lib/osuflow)
 # ADD-BY-LEETEN 09/01/2011-END
 
 # subdirectories

@@ -302,6 +302,10 @@ int RegularCartesianGrid::phys_to_cell(PointInfo& pInfo)
   xidx = (int)floor(cx); 
   yidx = (int)floor(cy); 
   zidx = (int)floor(cz); 
+  // spetial treatment for the end
+  if (xidx == xcelldim()) xidx--;
+  if (yidx == ycelldim()) yidx--;
+  if (zidx == zcelldim()) zidx--;
 
   int inCell = zidx * ycelldim() * xcelldim() + yidx * xcelldim() + xidx;
 

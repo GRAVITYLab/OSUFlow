@@ -87,7 +87,7 @@ public:
 
 	// feature computation - static
     MATRIX3 Jacobian(const VECTOR3& pos, float delta=0.1f);
-    MATRIX3 UnitJacobianStructuredGrid(const int i, const int j, const int k, bool bNormalize=false) ;
+    MATRIX3 JacobianStructuredGrid(const int i, const int j, const int k) ;
 
 
 	void GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta=0.1f);
