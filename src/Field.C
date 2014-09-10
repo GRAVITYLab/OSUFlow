@@ -1633,9 +1633,8 @@ MATRIX3 CVectorField::JacobianStructuredGrid(const int i, const int j, const int
 // output
 //      Metrics Order: lambda2, q, delta, gamma2
 //////////////////////////////////////////////////////////////////////////
-void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta) {
-	MATRIX3 J, Jt, S, T, S2, T2, M;
-    J = Jacobian(pos, JacDelta);
+void CVectorField::GenerateVortexMetrics(MATRIX3& J, float& lambda2, float& q, float& delta, float& gamma2) {
+    MATRIX3 Jt, S, T, S2, T2, M;
     Jt = J.transpose();
 	S = 0.5 * (J + Jt); T = 0.5 * (J - Jt);
 	S2 = S * S; T2 = T * T; M = S2 + T2;
@@ -1670,6 +1669,17 @@ void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, flo
 	// else gamma2 = 0;
 }
 
+void CVectorField::GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta) {
+    MATRIX3 J, Jt, S, T, S2, T2, M;
+    J = Jacobian(pos, JacDelta);
+    GenerateVortexMetrics(J, lambda2, q, delta, gamma2);
+}
+
+void CVectorField::GenerateVortexMetrics(int i, int j, int k, float& lambda2, float& q, float& delta, float& gamma2) {
+    MATRIX3 J, Jt, S, T, S2, T2, M;
+    J = JacobianStructuredGrid(i, j, k);
+    GenerateVortexMetrics(J, lambda2, q, delta, gamma2);
+}
 //////////////////////////////////////////////////////////////////////////
 // to get vortex metrics along samples of a streamline
 //
