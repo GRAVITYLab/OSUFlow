@@ -91,7 +91,10 @@ public:
 
 
 	void GenerateVortexMetrics(const VECTOR3& pos, float& lambda2, float& q, float& delta, float& gamma2, float JacDelta=0.1f);
-	void GenerateVortexMetricsLine(VECTOR3* const fieldline, const int num, float* lambda2, float* q, float* delta, float* gamma2);
+    void GenerateVortexMetrics(MATRIX3& J, float& lambda2, float& q, float& delta, float& gamma2) ;
+    void GenerateVortexMetrics(int i, int j, int k, float& lambda2, float& q, float& delta, float& gamma2) ;
+    void GenerateVortexMetricsLine(VECTOR3* const fieldline, const int num, float* lambda2, float* q, float* delta, float* gamma2);
+
 	void Curvature(VECTOR3* const fieldline, const int num, float* curvature);
 
 	// temp function
