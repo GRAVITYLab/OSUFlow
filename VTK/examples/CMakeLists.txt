@@ -11,11 +11,9 @@ set(PARAVIEW_DATA_ROOT      "$ENV{HOME}/project/VTKData" CACHE STRING "Root to V
 
 # specify the path to the headers
 include_directories(
-	${OSUFLOWVTK_DIR}
 )
 
 link_directories (
-	${OSUFLOWVTK_DIR}
 )
 
 add_definitions (-DVTK_DATA_ROOT=${VTK_DATA_ROOT})

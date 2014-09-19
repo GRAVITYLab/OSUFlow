@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
 //   BIL_Init(MPI_COMM_WORLD);
 // #endif
 
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_rank(MPI_COMM_WORLD, &::rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
   Init();
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 
 //#ifdef GRAPHICS
 #if 0
-  if (rank == 0) {
+  if (::rank == 0) {
     VECTOR3 min, max;
     min = VECTOR3(0.0f, 0.0f, 0.0f);
     max = VECTOR3((float)(size[0] - 1), (float)(size[1] - 1),
@@ -189,14 +189,14 @@ int main(int argc, char *argv[]) {
         }
 
 #if 1
-  if (rank==0) {
+  if (::rank==0) {
         PathlineLoader trace("field_lines.out");
         trace.connectTraces();
         trace.dump();
   }
 #else
   // The direct printout does not have fixed order
-  if (rank==0)
+  if (::rank==0)
   {
     printf("Traces=%d\n", tot_ntrace);
     int i,j, c=0;

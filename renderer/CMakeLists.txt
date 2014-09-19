@@ -4,25 +4,21 @@
 cmake_minimum_required (VERSION 2.8)
 project (renderer) 
 
-find_package(OpenGL REQUIRED)
-find_package(GLUT REQUIRED)
+# find_package(OpenGL REQUIRED)
+# find_package(GLUT REQUIRED)
 
 # set paths to OSUFlow-related libraries
-set(OSUFLOW_DIR 	"${CMAKE_SOURCE_DIR}" ) #		CACHE	PATH "The path to OSUFlow.")
+# set(OSUFLOW_DIR 	"${CMAKE_SOURCE_DIR}" ) #		CACHE	PATH "The path to OSUFlow.")
 
-if(UNIX AND NOT APPLE)
-	add_definitions(
-		-DLINUX
-	)
-endif()
+#if(UNIX AND NOT APPLE)
+#	add_definitions(
+#		-DLINUX
+#	)
+#endif()
 
 # specify the path to the headers
 include_directories(
 		. 
-		${OSUFLOW_DIR}/src
-		${OPENGL_INCLUDE_DIR}
-		${GLU_INCLUDE_PATH}
-		${GLUT_INCLUDE_PATH}
 	)
 
 # grab all the header files

@@ -5,18 +5,7 @@ cmake_minimum_required (VERSION 2.8)
 project (OSUFlowVTK) 
 
 set(WITH_PARAVIEW_PLUGINS	OFF	CACHE	BOOL	"Use Paraview Package")
-set(OSUFLOWVTK_DIR      "${CMAKE_PROJECT_DIR}")
-
-
-if (${WITH_MPI})
-	find_package(MPI REQUIRED)
-	include_directories(${MPI_CXX_INCLUDE_PATH})
-endif (${WITH_MPI})
-
-if (${WITH_GRAPHICS})
- find_package(OpenGL)
- find_package(GLUT)
-endif (${WITH_GRAPHICS})
+set(OSUFLOWVTK_DIR      "${CMAKE_PROJECT_DIR}/VTK")
 
 
 
@@ -40,10 +29,8 @@ endif()
 
 # specify the path to the headers
 include_directories(
-	. 
-	${OSUFLOW_DIR}/src
-        ${OSUFLOWVTK_DIR}
-
+	.
+        # ${OSUFLOWVTK_DIR}
 )
 
 # grab all the header files
@@ -85,14 +72,7 @@ list (APPEND LINK_LIBS
 	${VTK_LIBRARIES}
 	)
 if (WITH_GRAPHICS)
-	include_directories ( 
-		${OSUFLOW_DIR}/renderer 
-		${OSUFLOW_DIR}/renderer/libgcb
-	)
-	list (APPEND LINK_LIBS
-		renderer
-		gcb
-	)
+	list (APPEND LINK_LIBS renderer gcb)
         list (APPEND LINK_LIBS ${OPENGL_LIBRARY} ${GLU_LIBRARY} ${GLUT_LIBRARY})
 endif ()
 
