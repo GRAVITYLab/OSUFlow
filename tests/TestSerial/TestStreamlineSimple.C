@@ -23,7 +23,8 @@ main(int argc, char**argv) {
   float from[3], to[3]; 
   from[0] = minLen[0];   from[1] = minLen[1];   from[2] = minLen[2]; 
   to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
-  osuflow->SetRandomSeedPoints(from, to, 100); 
+  size_t seeding[]={10,10,10};
+  osuflow->SetRegularSeedPoints(from, to, seeding); 
   int nSeeds; 
   VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
   for (int i=0; i<nSeeds; i++) 
