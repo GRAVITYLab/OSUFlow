@@ -61,6 +61,7 @@ ParFlow::ParFlow(Blocks *blocks,
   this->nb = nb;
   this->blocks = blocks;
   this->comm = MPI_COMM_WORLD; // Jimmy added for default comm.
+  this->integrationDir = FORWARD_DIR;
 
   // deleted by TP 9/12/12  
 //   this->blocking = blocking;
@@ -115,6 +116,7 @@ ParFlow::ParFlow(Lattice4D *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
+  this->integrationDir = FORWARD_DIR;
 
   // deleted TP 9/12/12  
 //   this->nbhds = NULL;
@@ -149,7 +151,7 @@ ParFlow::ParFlow(LatticeAMR *lat, OSUFlow **osuflow,
   this->tot_ntrace = tot_ntrace;
   this->track_seed_id = track_seed_id;
   this->nb = nb;
-  integrationDir = FORWARD_DIR;
+  this->integrationDir = FORWARD_DIR;
 
   TotSeeds = 0;
   TotSteps = 0;
