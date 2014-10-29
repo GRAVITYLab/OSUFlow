@@ -893,7 +893,9 @@ int	CurvilinearGrid::phys_to_comp_coords(const VECTOR3  p,
 		
 		VECTOR3 dp = p-xp;
 		
-		if (dp.GetMag()<1e-6)
+        // Origin: ** due to float precision, GetMag may degrade the precision even more
+        //   if (dp.GetMag()<1e-6)
+        if (dp[0]<1e-6 && dp[1]<1e-6 && dp[2]<1e-6)
 		{
 			break;
 		}
