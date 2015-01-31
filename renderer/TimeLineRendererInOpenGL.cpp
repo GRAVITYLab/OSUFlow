@@ -84,6 +84,7 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 
 	static VECTOR3 v3PrevNormal;
 	VECTOR3 v3Normal;
+	#if	0	// TEST-MOD
 	int iMinDir = 0;
 	for(int i = 1; i < 3; i++)
 		if( fabsf(v3Tangent[iMinDir]) > fabsf(v3Tangent[i]) )
@@ -94,6 +95,9 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 	case 1:	v3Normal = VECTOR3(-v3Tangent[2], 0.0f, v3Tangent[0]);	break;
 	case 2:	v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);	break;
 	}
+	#else
+	_ComputeNormal(v3Tangent, v3Normal);
+	#endif
 	v3Normal.Normalize();
 
 	if( 0 < iPointIndex )
@@ -101,6 +105,7 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 		// Re-adjust the normal to reduce twisting.
 		if( 1 < iPointIndex )
 		{
+			#if	0	// TEST-MOD
 			VECTOR3 v3Up = cross(v3Normal, v3Tangent);
 			v3Up.Normalize();
 
@@ -108,6 +113,9 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 			float fPrevNormalToUp = dot(v3PrevNormal, v3Up);
 			VECTOR3 v3NewNormal = v3Normal * fPrevNormalToNormal + v3Up * fPrevNormalToUp;
 			v3Normal = v3NewNormal;
+			#else
+			_AdjustNormal(v3Tangent, v3PrevNormal, v3Normal);
+			#endif
 			v3Normal.Normalize();
 		}
 

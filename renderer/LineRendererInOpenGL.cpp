@@ -281,6 +281,7 @@ CLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, float fX
 	VECTOR3 v3Tangent = v3Point - v3PrevPoint;
 	v3Tangent.Normalize();
 	VECTOR3 v3Normal;
+	#if	0	// TEST-MOD
 	int iMinDir = 0;
 	for(int i = 1; i < 3; i++)
 		if( fabsf(v3Tangent[iMinDir]) > fabsf(v3Tangent[i]) )
@@ -291,6 +292,9 @@ CLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, float fX
 	case 1:	v3Normal = VECTOR3(-v3Tangent[2], 0.0f, v3Tangent[0]);	break;
 	case 2:	v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);	break;
 	}
+	#else
+	_ComputeNormal(v3Tangent, v3Normal);
+	#endif
 	v3Normal.Normalize();
 
 	if( iPointIndex > 0 )
@@ -299,6 +303,7 @@ CLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, float fX
 		static VECTOR3 v3PrevNormal;
 		if( 1 < iPointIndex )
 		{
+			#if	0	// TEST-MOD
 			VECTOR3 v3Up = cross(v3Normal, v3Tangent);
 			v3Up.Normalize();
 
@@ -310,6 +315,9 @@ CLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, float fX
 
 			v3Up = cross(v3Normal, v3Tangent);
 			v3Up.Normalize();
+			#else
+			_AdjustNormal(v3Tangent, v3PrevNormal, v3Normal);
+			#endif
 		}
 		v3PrevNormal = v3Normal;
 		pv3Normals.push_back(v3Normal);
