@@ -174,6 +174,19 @@ CLineRendererInOpenGL::_TraverseLinesEnd()
 			cVertexArray.pfTexCoords[p] = pv4TexCoords[v][i];
 	glTexCoordPointer(4, GL_FLOAT, 0, cVertexArray.pfTexCoords);
 
+	#if	1	// TEST-ADD
+	if( cVertexArray.pfNormals )
+	{
+		free(cVertexArray.pfNormals );
+		cVertexArray.pfNormals = NULL;
+	}
+	cVertexArray.pfNormals = (float*)calloc(sizeof(cVertexArray.pfNormals[0]) * 3, pv3Normals.size());
+	for(int		p  = 0,	v = 0; v < pv3Normals.size(); v++)
+		for(int			i = 0; i < 3; i++, p++)
+			cVertexArray.pfNormals[p] = pv3Normals[v][i];
+	glNormalPointer(GL_FLOAT, 0, cVertexArray.pfNormals);
+	#endif
+
 	// ADD-BY-LEETEN 07/07/2010-BEGIN
 	if( cVertexArray.pfColors )
 	{
@@ -204,6 +217,9 @@ CLineRendererInOpenGL::_TraverseLinesEnd()
 	// ADD-BY-LEETEN 07/07/2010-BEGIN
 	pv4Colors.clear();
 	// ADD-BY-LEETEN 07/07/2010-END
+	#if	1	// TEST-ADD
+	pv3Normals.clear();
+	#endif
 }
 
 
@@ -268,13 +284,52 @@ CLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, float fX
 	#else	// MOD-BY-LEETEN 02/03/2012-TO:
 	VECTOR3 v3Tangent = v3Point - v3PrevPoint;
 	v3Tangent.Normalize();
+	#if	1	// TEST-ADD
+	VECTOR3 v3Normal;
+	int iMinDir = 0;
+	for(int i = 1; i < 3; i++)
+		if( fabsf(v3Tangent[iMinDir]) > fabsf(v3Tangent[i]) )
+			iMinDir = i;
+	switch(iMinDir)
+	{
+	case 0:	v3Normal = VECTOR3(0.0f, -v3Tangent[2], v3Tangent[1]);	break;
+	case 1:	v3Normal = VECTOR3(-v3Tangent[2], 0.0f, v3Tangent[0]);	break;
+	case 2:	v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);	break;
+	}
+	v3Normal.Normalize();
+	#endif
 
 	if( iPointIndex > 0 )
 	{
+		#if	1	// TEST-ADD
+		// Re-adjust the normal to reduce twisting.
+		static VECTOR3 v3PrevNormal;
+		if( 1 < iPointIndex )
+		{
+			VECTOR3 v3Up = cross(v3Normal, v3Tangent);
+			v3Up.Normalize();
+
+			float fPrevNormalToNormal = dot(v3PrevNormal, v3Normal);
+			float fPrevNormalToUp = dot(v3PrevNormal, v3Up);
+			VECTOR3 v3NewNormal = v3Normal * fPrevNormalToNormal + v3Up * fPrevNormalToUp;
+			v3Normal = v3NewNormal;
+			v3Normal.Normalize();
+
+			v3Up = cross(v3Normal, v3Tangent);
+			v3Up.Normalize();
+		}
+		v3PrevNormal = v3Normal;
+		pv3Normals.push_back(v3Normal);
+		#endif
+
 		pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
 		pv4Coords.push_back(VECTOR4(v3Point[0], v3Point[1], v3Point[2], 1.0));
 		pv4Colors.push_back(v4Color);
 	}
+	#if	1	// TEST-ADD
+	pv3Normals.push_back(v3Normal);
+	#endif
+
 	pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
 	pv4Coords.push_back(VECTOR4(v3Point[0], v3Point[1], v3Point[2], 1.0));
 	pv4Colors.push_back(v4Color);
@@ -378,6 +433,9 @@ CLineRendererInOpenGL::_Draw()
 	glColorPointer(4, GL_FLOAT, 0, cVertexArray.pfColors);
 	glVertexPointer(4, GL_FLOAT, 0, cVertexArray.pfCoords);
 	glTexCoordPointer(4, GL_FLOAT, 0, cVertexArray.pfTexCoords);
+	#if	1	// TEST-ADD
+	glNormalPointer(GL_FLOAT, 0, cVertexArray.pfNormals);
+	#endif
 	// DEL-BY-LEETEN 01/19/2011-BEGIN
 		// glEnableClientState(GL_COLOR_ARRAY);
 	// DEL-BY-LEETEN 01/19/2011-END
@@ -387,6 +445,9 @@ CLineRendererInOpenGL::_Draw()
 	// ADD-BY-LEETEN 01/20/2011-END
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	#if	1	// TEST-ADD
+	glEnableClientState(GL_NORMAL_ARRAY);
+	#endif
 	// MOD-BY-LEETEN 01/18/2011-FROM:
 		// glDrawArrays(GL_LINES, 0, cVertexArray.iNrOfVertices);
 	// TO:

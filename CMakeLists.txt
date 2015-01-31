@@ -135,6 +135,24 @@ if( ${WITH_GRAPHICS} )
 	find_package(GLUT)
 
 	add_definitions(-DGRAPHICS)	# ADD-BY-LEETEN 01/06/2012-BEGIN
+	
+	# TEST-ADD-BEGIN
+	if( WIN32 )
+		set(WITH_FREEGLUT TRUE CACHE BOOL "Specify whether freeglut is used.")
+		if(WITH_FREEGLUT)
+			set(FREEGLUT_DIR "/usr" CACHE PATH "The installed root of freeglut.")
+			add_definitions(-DUSE_FREEGLUT)
+			include_directories("${FREEGLUT_DIR}/include")
+			link_directories("${FREEGLUT_DIR}/lib")
+			
+			set(WITH_FREEGLUT_STATIC TRUE CACHE BOOL "Specify whether the freeglut is static.")
+			if(WITH_FREEGLUT_STATIC)
+				add_definitions(-DFREEGLUT_STATIC)
+			endif()
+		endif()
+	endif()
+	# TEST-ADD-END	
+	
 	include_directories( 
                 ${OPENGL_INCLUDE_DIR}
                 ${GLU_INCLUDE_PATH}

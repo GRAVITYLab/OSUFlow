@@ -82,8 +82,25 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 	VECTOR3 v3Tangent = v3Point - v3PrevPoint;
 	v3Tangent.Normalize();
 
+	#if	1	// TEST-ADD
+	static VECTOR3 v3PrevNormal;
+	VECTOR3 v3Normal;
+	int iMinDir = 0;
+	for(int i = 1; i < 3; i++)
+		if( fabsf(v3Tangent[iMinDir]) > fabsf(v3Tangent[i]) )
+			iMinDir = i;
+	switch(iMinDir)
+	{
+	case 0:	v3Normal = VECTOR3(0.0f, -v3Tangent[2], v3Tangent[1]);	break;
+	case 1:	v3Normal = VECTOR3(-v3Tangent[2], 0.0f, v3Tangent[0]);	break;
+	case 2:	v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);	break;
+	}
+	v3Normal.Normalize();
+	#endif
+
 	if( 0 < iPointIndex )
 	{
+		#if	0	// TEST-MOD
 		float fT0 = max(fPrevT, fMinTimeStep);
 		float fT1 = min(fT, fMaxTimeStep);
 		if( fT0 < fT1 )
@@ -104,11 +121,56 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 				VECTOR3 v3NextP = v3PrevPoint + fMaxCoeff * (v3Point - v3PrevPoint);
 				pv4Coords.push_back(VECTOR4(v3NextP[0], v3NextP[1], v3NextP[2], 1.0));
 				pv4Colors.push_back(v4Color);
+
 			}
 			iNrOfRenderedParticles++;
 		}
+		#else
+		// Re-adjust the normal to reduce twisting.
+		if( 1 < iPointIndex )
+		{
+			VECTOR3 v3Up = cross(v3Normal, v3Tangent);
+			v3Up.Normalize();
+
+			float fPrevNormalToNormal = dot(v3PrevNormal, v3Normal);
+			float fPrevNormalToUp = dot(v3PrevNormal, v3Up);
+			VECTOR3 v3NewNormal = v3Normal * fPrevNormalToNormal + v3Up * fPrevNormalToUp;
+			v3Normal = v3NewNormal;
+			v3Normal.Normalize();
+		}
+
+		// find the time interval from T to prevT
+		// that are overlapped with [fMinTimeStep, fMaxTimeStep].
+		float fT0 = max(fPrevT, fMinTimeStep);
+		float fT1 = min(fT, fMaxTimeStep);
+		if( fT0 < fT1 )
+		{
+			if( fT0 > fPrevT ) 
+			{
+				float fMinCoeff = (fT0 - fPrevT)/(fT - fPrevT);
+				if( 1 == iPointIndex )
+					pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
+				else
+					pv4TexCoords.push_back(VECTOR4(v3PrevTangent[0], v3PrevTangent[1], v3PrevTangent[2], 1.0));
+				VECTOR3 v3PrevP = v3PrevPoint + fMinCoeff * (v3Point - v3PrevPoint);
+				pv4Coords.push_back(VECTOR4(v3PrevP[0], v3PrevP[1], v3PrevP[2], 1.0));
+				pv4Colors.push_back(v4PrevColor);
+				pv3Normals.push_back(v3PrevNormal);
+			}
+
+			float fMaxCoeff = (fT1 - fPrevT)/(fT - fPrevT);
+			pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
+			VECTOR3 v3NextP = v3PrevPoint + fMaxCoeff * (v3Point - v3PrevPoint);
+			pv4Coords.push_back(VECTOR4(v3NextP[0], v3NextP[1], v3NextP[2], 1.0));
+			pv4Colors.push_back(v4Color);
+			pv3Normals.push_back(v3Normal);
+		}
+		#endif
 	}
 	fPrevT = fT;
+	#if	1	// TEST-ADD
+	v3PrevNormal = v3Normal;
+	#endif
 
 	v3PrevPoint = v3Point;
 	v3PrevTangent = v3Tangent;

@@ -29,8 +29,11 @@ using namespace std;
 	// MOD-BY-LEETEN 08/13/2010-FROM:
 		// #pragma comment (lib, "freeglut.lib")      /* link with Windows MultiMedia lib */
 	// TO:
+
+	#if	0	// TEST-DEL
 	#ifdef  WIN32
 		#pragma comment (lib, "freeglut.lib")      /* link with Windows MultiMedia lib */
+	#endif
 	#endif
 	// MOD-BY-LEETEN 08/13/2010-END
 #else
