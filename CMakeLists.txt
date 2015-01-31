@@ -136,7 +136,6 @@ if( ${WITH_GRAPHICS} )
 
 	add_definitions(-DGRAPHICS)	# ADD-BY-LEETEN 01/06/2012-BEGIN
 	
-	# TEST-ADD-BEGIN
 	if( WIN32 )
 		set(WITH_FREEGLUT TRUE CACHE BOOL "Specify whether freeglut is used.")
 		if(WITH_FREEGLUT)
@@ -151,7 +150,6 @@ if( ${WITH_GRAPHICS} )
 			endif()
 		endif()
 	endif()
-	# TEST-ADD-END	
 	
 	include_directories( 
                 ${OPENGL_INCLUDE_DIR}

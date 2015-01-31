@@ -82,7 +82,6 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 	VECTOR3 v3Tangent = v3Point - v3PrevPoint;
 	v3Tangent.Normalize();
 
-	#if	1	// TEST-ADD
 	static VECTOR3 v3PrevNormal;
 	VECTOR3 v3Normal;
 	int iMinDir = 0;
@@ -96,36 +95,9 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 	case 2:	v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);	break;
 	}
 	v3Normal.Normalize();
-	#endif
 
 	if( 0 < iPointIndex )
 	{
-		#if	0	// TEST-MOD
-		float fT0 = max(fPrevT, fMinTimeStep);
-		float fT1 = min(fT, fMaxTimeStep);
-		if( fT0 < fT1 )
-		{
-			float fMinCoeff = (fT0 - fPrevT)/(fT - fPrevT);
-			float fMaxCoeff = (fT1 - fPrevT)/(fT - fPrevT);
-			if( iPointIndex > 0 )
-			{
-				if( 1 == iPointIndex )
-					pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
-				else
-					pv4TexCoords.push_back(VECTOR4(v3PrevTangent[0], v3PrevTangent[1], v3PrevTangent[2], 1.0));
-				VECTOR3 v3PrevP = v3PrevPoint + fMinCoeff * (v3Point - v3PrevPoint);
-				pv4Coords.push_back(VECTOR4(v3PrevP[0], v3PrevP[1], v3PrevP[2], 1.0));
-				pv4Colors.push_back(v4PrevColor);
-
-				pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
-				VECTOR3 v3NextP = v3PrevPoint + fMaxCoeff * (v3Point - v3PrevPoint);
-				pv4Coords.push_back(VECTOR4(v3NextP[0], v3NextP[1], v3NextP[2], 1.0));
-				pv4Colors.push_back(v4Color);
-
-			}
-			iNrOfRenderedParticles++;
-		}
-		#else
 		// Re-adjust the normal to reduce twisting.
 		if( 1 < iPointIndex )
 		{
@@ -165,13 +137,9 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 			pv4Colors.push_back(v4Color);
 			pv3Normals.push_back(v3Normal);
 		}
-		#endif
 	}
 	fPrevT = fT;
-	#if	1	// TEST-ADD
 	v3PrevNormal = v3Normal;
-	#endif
-
 	v3PrevPoint = v3Point;
 	v3PrevTangent = v3Tangent;
 	v4PrevColor = v4Color;

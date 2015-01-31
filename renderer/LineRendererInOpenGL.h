@@ -49,9 +49,7 @@ protected:
 	// the temp. STL vectors that store the vertex attributes and indices
 	vector<VECTOR4> pv4Coords;
 	vector<VECTOR4> pv4TexCoords;
-	#if	1	// TEST-ADD
 	vector<VECTOR3> pv3Normals;
-	#endif
 	// ADD-BY-LEETEN 07/07/2010-BEGIN
 	vector<VECTOR4> pv4Colors;
 	// ADD-BY-LEETEN 07/07/2010-END
@@ -72,14 +70,10 @@ protected:
 		// ADD-BY-LEETEN 07/07/2010-BEGIN
 		float *pfColors;
 		// ADD-BY-LEETEN 07/07/2010-END
-		#if	1	// TEST-ADD
 		float *pfNormals;
-		#endif
 
 		CVertexArray()
-			#if	1	// TEST-ADD
 			:pfNormals(NULL)
-			#endif
 		{
 			// ADD-BY-LEETEN 08/26/2010-BEGIN
 			iNrOfVertices = 0;
@@ -93,11 +87,10 @@ protected:
 
 		~CVertexArray()
 		{
-			#if	1	// TEST-ADD
 			if( pfNormals )
 				free(pfNormals);
 			pfNormals = NULL;
-			#endif
+			
 			if( pfCoords )
 				free(pfCoords);
 			pfCoords = NULL;
