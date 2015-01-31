@@ -204,7 +204,6 @@ CLineRenderer::_GetFloatv(int iParameter,		int iNrOfValues, float pfValues[])
 	}
 }
 
-#if	1	// TEST-ADD
 void
 CLineRenderer::_ComputeNormal
 	(
@@ -240,8 +239,6 @@ CLineRenderer::_AdjustNormal
 	VECTOR3 v3NewNormal = v3Normal * fPrevNormalToNormal + v3Up * fPrevNormalToUp;
 	v3Normal = v3NewNormal;
 }
-
-#endif
 
 void 
 CLineRenderer::_TraverseLines()
