@@ -235,7 +235,6 @@ configure_file (
   )
 # ADD-BY-LEETEN 12/17/2011-END
 
-# TEST-ADD-BEGIN
 set(CONFIG_FILENAME "${PROJECT_NAME}Config.cmake")
 configure_file("${CONFIG_FILENAME}.in"
   "${PROJECT_BINARY_DIR}/${CONFIG_FILENAME}" @ONLY)
@@ -243,7 +242,6 @@ configure_file("${CONFIG_FILENAME}.in"
 install(
 	FILES "${PROJECT_BINARY_DIR}/${CONFIG_FILENAME}"
 	DESTINATION ".")
-# TEST-ADD-END
 
 #
 # $Log$
