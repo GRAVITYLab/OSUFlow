@@ -10,10 +10,6 @@ list(APPEND osuflow_INCLUDE_DIRS
 list(APPEND osuflow_LIBRARY_DIRS
 	${osuflow_DIR}/lib/osuflow
 )
-
-list(APPEND osuflow_LIBRARIES
-	debug OSUFlow_d optimized OSUFlow
-)
 	
 set(WITH_GRAPHICS	@WITH_GRAPHICS@)
 if( WITH_GRAPHICS ) 
@@ -33,10 +29,18 @@ if( WITH_VTK )
 	find_package(VTK REQUIRED)
 	include(${VTK_USE_FILE})
 	
+    list(APPEND osuflow_INCLUDE_DIRS    
+        ${osuflow_DIR}/include/osuflow/VTK
+    )
+
 	list(APPEND osuflow_LIBRARIES
 		debug OSUFlowVTK_d optimized OSUFlowVTK
 	)
 endif()
+
+list(APPEND osuflow_LIBRARIES
+    debug OSUFlow_d optimized OSUFlow
+)
 
 include_directories(${osuflow_INCLUDE_DIRS})
 
