@@ -81,6 +81,11 @@ protected:
 		}
 	} cMaterial;
 
+	//! Adjust the current normal based on the previous one to reduce the twisting.
+	void _AdjustNormal(const VECTOR3& v3Tangent, const VECTOR3& v3PrevNormal, VECTOR3& v3Normal);
+
+	//! Compute a normal vector that is perpendicular to the tangent.
+	void _ComputeNormal(const VECTOR3& v3Tangent, VECTOR3& v3Normal);
 public:
 	enum  EParameter{
 		PARAMETER_BASE = CRenderer::MAX_NR_OF_PARAMETERS,

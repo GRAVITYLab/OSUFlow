@@ -135,6 +135,22 @@ if( ${WITH_GRAPHICS} )
 	find_package(GLUT)
 
 	add_definitions(-DGRAPHICS)	# ADD-BY-LEETEN 01/06/2012-BEGIN
+	
+	if( WIN32 )
+		set(WITH_FREEGLUT TRUE CACHE BOOL "Specify whether freeglut is used.")
+		if(WITH_FREEGLUT)
+			set(FREEGLUT_DIR "/usr" CACHE PATH "The installed root of freeglut.")
+			add_definitions(-DUSE_FREEGLUT)
+			include_directories("${FREEGLUT_DIR}/include")
+			link_directories("${FREEGLUT_DIR}/lib")
+			
+			set(WITH_FREEGLUT_STATIC TRUE CACHE BOOL "Specify whether the freeglut is static.")
+			if(WITH_FREEGLUT_STATIC)
+				add_definitions(-DFREEGLUT_STATIC)
+			endif()
+		endif()
+	endif()
+	
 	include_directories( 
                 ${OPENGL_INCLUDE_DIR}
                 ${GLU_INCLUDE_PATH}
@@ -218,6 +234,14 @@ configure_file (
   "${CMAKE_CURRENT_BINARY_DIR}/user_defs.mk"
   )
 # ADD-BY-LEETEN 12/17/2011-END
+
+set(CONFIG_FILENAME "${PROJECT_NAME}Config.cmake")
+configure_file("${CONFIG_FILENAME}.in"
+  "${PROJECT_BINARY_DIR}/${CONFIG_FILENAME}" @ONLY)
+
+install(
+	FILES "${PROJECT_BINARY_DIR}/${CONFIG_FILENAME}"
+	DESTINATION ".")
 
 #
 # $Log$

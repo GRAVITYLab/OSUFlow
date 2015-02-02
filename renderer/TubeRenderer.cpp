@@ -118,16 +118,7 @@ CTubeRenderer::_TraversePoint(int iPointIndex, int iTraceIndex, float fX, float 
 
 		// MOD-BY-LEETEN 08/23/2012-FROM:	VECTOR3 v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);
 		VECTOR3 v3Normal;
-		int iMinDir = 0;
-		for(int i = 1; i < 3; i++)
-			if( fabsf(v3Tangent[iMinDir]) > fabsf(v3Tangent[i]) )
-				iMinDir = i;
-		switch(iMinDir)
-		{
-		case 0:	v3Normal = VECTOR3(0.0f, -v3Tangent[2], v3Tangent[1]);	break;
-		case 1:	v3Normal = VECTOR3(-v3Tangent[2], 0.0f, v3Tangent[0]);	break;
-		case 2:	v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);	break;
-		}
+		_ComputeNormal(v3Tangent, v3Normal);
 		// MOD-BY-LEETEN 08/23/2012-END
 		v3Normal.Normalize();
 
@@ -147,11 +138,7 @@ CTubeRenderer::_TraversePoint(int iPointIndex, int iTraceIndex, float fX, float 
 		static VECTOR3 v3PrevNormal;
 		if( 1 < iPointIndex )
 		{
-			float fPrevNormalToNormal = dot(v3PrevNormal, v3Normal);
-			float fPrevNormalToUp = dot(v3PrevNormal, v3Up);
-			VECTOR3 v3NewNormal = v3Normal * fPrevNormalToNormal + v3Up * fPrevNormalToUp;
-			v3Normal = v3NewNormal;
-			v3Normal.Normalize();
+			_AdjustNormal(v3Tangent, v3PrevNormal, v3Normal);
 
 			v3Up = cross(v3Normal, v3Tangent);
 			v3Up.Normalize();
