@@ -17,12 +17,13 @@ if (${WITH_PARAVIEW_PLUGINS})
 	# should enable argument -fPIC
 
 	# Build VTK rendering modules when using Paraview package
-	add_definitions(-DvtkRenderingCore_AUTOINIT=4\(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL\))
-	add_definitions(-DvtkRenderingVolume_AUTOINIT=1\(vtkRenderingVolumeOpenGL\))
+	#add_definitions(-DvtkRenderingCore_AUTOINIT=4\(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL\))
+	#add_definitions(-DvtkRenderingVolume_AUTOINIT=1\(vtkRenderingVolumeOpenGL\))
 
 else()
 	find_package(VTK REQUIRED)
-	add_definitions(-DvtkRenderingCore_AUTOINIT=4\(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL\))
+    # The following may be needed for earlier VTK versions
+	#add_definitions(-DvtkRenderingCore_AUTOINIT=4\(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL\))
 	include (${VTK_USE_FILE})
 endif()
 

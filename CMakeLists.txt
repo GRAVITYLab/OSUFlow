@@ -166,6 +166,10 @@ if( ${WITH_GRAPHICS} )
 	add_subdirectory (renderer)
 endif() 
 
+if (WITH_VTK)
+    add_subdirectory (VTK)
+endif (WITH_VTK)
+
 # ADD-BY-LEETEN 12/23/2011-BEGIN
 if( ${WITH_EXAMPLES} ) 
 	add_subdirectory (Regular/Serial)
@@ -179,10 +183,6 @@ if( ${WITH_MPI} ) # MOD-BY-LEETEN 12/16/2011-FROM: if( WITH_MPI )
     endif() # ADD-BY-LEETEN 12/16/2011
 endif()
 # ADD-BY-LEETEN 08/17/2011-END
-
-if (WITH_VTK)
-	add_subdirectory (VTK)
-endif (WITH_VTK)
 
 if (${WITH_TESTING})
     add_subdirectory (tests)

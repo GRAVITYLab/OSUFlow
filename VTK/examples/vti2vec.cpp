@@ -61,6 +61,7 @@ int main ( int argc, char *argv[] )
 	if (size != imageData->GetNumberOfPoints()) {
 		printf("Data size not matching dimension!\n");
 	}
+    printf("Number of points=%d\n", size);
 
 	fwrite(dims, 3, 4, fp);
 	if (imageData->GetScalarType() == VTK_FLOAT) {
