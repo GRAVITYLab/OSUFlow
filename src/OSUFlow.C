@@ -7,6 +7,7 @@
 #include "CurvilinearGrid.h" //added by lijie
 #include "OSUFlow.h"
 #include "Plot3DReader.h" //added by lijie
+#include "UncertainSolution.h"
 
 #pragma warning(disable : 4251 4100 4244 4101)
 
@@ -384,7 +385,7 @@ void OSUFlow::InitStaticFlowField(void)
   maxB[1] = dimension[1]-1; 
   maxB[2] = dimension[2]-1; 
 
-  flowField = CreateStaticFlowField(pData, dimension[0], dimension[1], 
+  flowField = CreateStaticFlowField(pData, dimension[0], dimension[1],
 				    dimension[2],  minB, maxB); 
 }
 
@@ -830,14 +831,37 @@ void OSUFlow::InitFieldLine(vtCFieldLine* fieldline, int maxPoints)
 // input
 // listSeedTraces: STL list to keep the advection result
 // maxPoints: how many advection points each streamline
-// randomSeed: seed for random number generator
+// randomSeed: seed for random number generator (Not used?)
+// samples: Monte Carlo computation for the same seeds
 //////////////////////////////////////////////////////////////////////////
 bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces, 
 			     TRACE_DIR traceDir,
 			     int maxPoints,
-			     unsigned int randomSeed)
+                 unsigned int randomSeed,
+                 int samples)
 {
-  
+#if 1
+    // first generate seeds
+    if (seedPtr==NULL)  {
+        nSeeds = numSeeds[0]*numSeeds[1]*numSeeds[2];
+        seedPtr = new VECTOR3[nSeeds];
+        SeedGenerator* pSeedGenerator = new SeedGenerator((const float*)minRakeExt,
+                                (const float*)maxRakeExt,
+                                (const size_t*)numSeeds);
+        pSeedGenerator->GetSeeds(seedPtr, bUseRandomSeeds);
+        delete pSeedGenerator;
+    }
+
+    return GenStreamLines(seedPtr,
+                     traceDir,
+                     nSeeds,
+                     maxPoints,
+                     listSeedTraces,
+                     NULL,
+                     NULL,
+                     samples);
+
+#else // Jimmy deleted: to remove replicated codes
   if (has_data == false) DeferredLoadData(); 
 
 	// first generate seeds
@@ -852,6 +876,7 @@ bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces,
 	  delete pSeedGenerator;
 	}
 	// or, seeds have already been generated previously, do nothing. 
+
 	listSeedTraces.clear();
 
 	// execute streamline
@@ -866,15 +891,19 @@ bool OSUFlow::GenStreamLines(list<vtListSeedTrace*>& listSeedTraces,
 	case FORWARD_DIR:
 		pStreamLine->setBackwardTracing(false);
 		break;
-	case BACKWARD_AND_FORWARD:
+    case BACKWARD_AND_FORWARD:
 		break;
+    default:
+        pStreamLine->setForwardTracing(false);
+        break;
 	}
 	InitFieldLine(pStreamLine, maxPoints);
 	pStreamLine->setSeedPoints(seedPtr, nSeeds, currentT);
-	pStreamLine->execute((void *)&currentT, listSeedTraces);
+    pStreamLine->execute((void *)&currentT, listSeedTraces, samples);
 	// release resource
 	delete pStreamLine;
 	return true;
+#endif
 }
 
 
@@ -888,15 +917,28 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 			     const int maxPoints, 
 			     list<vtListSeedTrace*>& listSeedTraces,
 			     int64_t *seedIds,
-			     list<int64_t> *listSeedIds)
+                 list<int64_t> *listSeedIds,
+                 int samples)
 {
 
   if (has_data == false) DeferredLoadData(); 
 
-	nSeeds = seedNum; 
+    nSeeds = seedNum;
+    VECTOR3 *seedsIn = seeds;
 
-	// this will copy the contents of seed to seedPtr
-	SetSeedPoints(seeds, seedNum);
+    // this will copy the contents of seed to seedPtr
+    //SetSeedPoints(seedsIn, seedNum);
+
+    // Monte Carlo seeds
+    if (samples > 1) {
+        nSeeds = seedNum * samples;
+        seedsIn = new VECTOR3[nSeeds];
+        // clone seeds
+        for (int i=0; i<seedNum; i++) {
+            for (int j = 0; j<samples; j++)
+                seedsIn[i*samples+j] = seeds[i];
+        }
+    }
 
 	listSeedTraces.clear();
 	if (listSeedIds != NULL)
@@ -918,8 +960,8 @@ bool OSUFlow::GenStreamLines(VECTOR3* seeds,
 		break;
 	}
 	InitFieldLine(pStreamLine, maxPoints);
-	pStreamLine->setSeedPoints(seedPtr, nSeeds, currentT, seedIds);
-	pStreamLine->execute((void *)&currentT, listSeedTraces, listSeedIds);
+    pStreamLine->setSeedPoints(seedsIn, nSeeds, currentT, seedIds);
+    pStreamLine->execute((void *)&currentT, listSeedTraces, listSeedIds);
 
 	// release resource
 	delete pStreamLine;
@@ -1510,3 +1552,67 @@ OSUFlow::
 	fclose(fp);
 }
 // ADD-BY-LEETEN 09/29/2012-END
+
+
+// Uncertainty
+
+////////////////////////////////////////////////////////////////////////
+//
+// Load the whole static or time-varying data set in Gaussian uncertainty
+//
+void OSUFlow::LoadUncertainDataInGaussian(const char* fname, const char *stdfname, bool bStatic)
+{
+    bStaticFlow = bStatic;
+
+    has_data = false;
+
+    if(bStaticFlow) {
+        numTimesteps = 1;
+        MinT = MaxT = 0;
+        //InitStaticFlowField();
+
+        int dimension[3];
+        float* pData, *pStd;
+
+        pData = ReadStaticDataRaw(fname, dimension);
+        pStd = ReadStaticDataRawNoHeader(stdfname, dimension);
+
+        // update the domain bounds
+        gMin.Set(0.0, 0.0, 0.0);
+        gMax.Set((float)(dimension[0]-1), (float)(dimension[1]-1), (float)(dimension[2]-1));
+
+        lMin = gMin;
+        lMax = gMax;
+
+        //flowField = CreateStaticFlowField(pData, dimension[0], dimension[1],
+        //                  dimension[2],  minB, maxB);
+
+        CVectorField* field;
+        GaussianSolution* pSolution;
+        RegularCartesianGrid* pRegularCGrid;
+        VECTOR3** ppVector, **ppStd;
+        VECTOR4 realminB(lMin), realmaxB(lMax);
+
+        ppVector = new VECTOR3*[1];
+        ppVector[0] = (VECTOR3*)pData;
+
+        ppStd = new VECTOR3*[1];
+        ppStd[0] = (VECTOR3*)pStd;
+
+        int totalNum = dimension[0]*dimension[1]*dimension[2];
+        pSolution = new GaussianSolution(ppVector, ppStd, totalNum, 1);
+        pRegularCGrid = new RegularCartesianGrid(dimension[0], dimension[1], dimension[2]);
+
+        pRegularCGrid->SetBoundary(lMin, lMax);
+        pRegularCGrid->SetRealBoundary(realminB, realmaxB);
+
+        assert(pSolution != NULL && pRegularCGrid != NULL);
+
+        flowField = new CVectorField(pRegularCGrid, pSolution, 1);
+
+    }
+    else {
+        //InitTimeVaryingFlowField();
+    }
+    has_data = true;
+}

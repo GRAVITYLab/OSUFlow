@@ -26,7 +26,7 @@
 
 class CVectorField
 {
-private:
+protected:
 	Grid* m_pGrid;						// grid
 	Solution* m_pSolution;				// vector data
 	int m_nTimeSteps;

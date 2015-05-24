@@ -51,6 +51,8 @@ class OSUFlow
 		float *sMin, float *sMax, int* sRealMin, int* sRealMax,
 		float *dim, int min_t, int max_t, DataMode mode,
 		float **data = NULL);
+  // Uncertainty
+  void LoadUncertainDataInGaussian(const char *fname, const char *stdname, bool bStatic);
 
   // create a flow field from input data array
   CVectorField* CreateStaticFlowField(float*, int xsize, int ysize, int zsize,
@@ -75,11 +77,12 @@ class OSUFlow
   void InitFieldLine(vtCFieldLine* fieldline, int maxPoints);
 
   // --- streamline methods
-  bool GenStreamLines(list<vtListSeedTrace*>&, TRACE_DIR, int, unsigned int);
+  bool GenStreamLines(list<vtListSeedTrace*>&, TRACE_DIR, int, unsigned int, int samples=1);
   bool GenStreamLines(VECTOR3*, TRACE_DIR,const int num_seeds,
 		      const int maxPoints, list<vtListSeedTrace*>&,
 		      int64_t *seedIds = NULL,
-		      list<int64_t> *listSeedIds = NULL);
+              list<int64_t> *listSeedIds = NULL,
+              int samples=1);
   // ---  pathline methods
   // use preset seedPtr, all seeds start at currentT
   bool GenPathLines(VECTOR4* seeds, list<vtListTimeSeedTrace*>& listSeedTraces,

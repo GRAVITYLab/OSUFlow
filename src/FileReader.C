@@ -24,7 +24,7 @@ static int num_files = 0; // number of timestep files
 
 /////////////////////////////////////////////////////////
 
-float* ReadStaticDataRaw(char* fname, int* dimension) 
+float* ReadStaticDataRaw(const char* fname, int* dimension)
 {
  
   FILE * fIn; 
@@ -42,11 +42,27 @@ float* ReadStaticDataRaw(char* fname, int* dimension)
 }
 
 
+float* ReadStaticDataRawNoHeader(const char* fname, int* dimension)
+{
+
+  FILE * fIn;
+  int totalNum;
+  float *pData;
+
+  fIn = fopen(fname, "rb");
+  assert(fIn != NULL);
+  totalNum = dimension[0] * dimension[1] * dimension[2];
+  pData = new float[totalNum * 3];
+  fread(pData, sizeof(float), totalNum*3, fIn);
+  fclose(fIn);
+  return(pData);
+}
+
 //////////////////////////////////////////////////////////
 //
 //  Read a subset of the data file
 //
-float* ReadStaticDataRaw(char *fname, int* dimension, 
+float* ReadStaticDataRaw(const char *fname, int* dimension,
 			       float* sMin, float* sMax) 
 {
  
@@ -240,7 +256,7 @@ ReadTimeVaryingDataHeader
 }
 // ADD-BY-LEETEN 12/22/2011-END
 
-float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps, 
+float** ReadTimeVaryingDataRaw(const char *fname, int& n_timesteps,
 				     int *dimension)
 {
   FILE *fIn;
@@ -329,7 +345,7 @@ float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps,
 
 //////////////////////////////////////////////////////////
 
-float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps, 
+float** ReadTimeVaryingDataRaw(const char *fname, int& n_timesteps,
 			       int *dimension, 
 			       float *minB, float *maxB, 
 			       int min_t, int max_t) {
@@ -446,7 +462,7 @@ void DatasetFiles(char **names, int num_names) {
 // min_t, max_t: time range of subdomain
 // data_mode: RAW, RAW_HEADER, NETCDF
 //
-float** ReadData(char *fname, float *dim, float *minB, 
+float** ReadData(const char *fname, float *dim, float *minB,
 		 float *maxB, int min_t, int max_t,
 		 DataMode data_mode) { 
 

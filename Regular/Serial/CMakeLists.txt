@@ -27,6 +27,9 @@ list(APPEND SRC_FILES
 	# ADD-BY-LEETEN 01/06/2012-END
 	VortexDetector
     VortexDetectorCurvilinear
+	StreamlineSimpleGaussianSample
+	raw2vec
+	vec2raw
 	)
 
 if( ${WITH_GRAPHICS} )
