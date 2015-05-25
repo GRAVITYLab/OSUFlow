@@ -17,11 +17,12 @@ May, 2010
 #include "LineRendererInOpenGL.h"
 
 // Monte Carlo seed samples
-const int samples = 500;
+const int samples = 100;
+
 // max steps
 const int max_steps = 500;
 
-const size_t seedsPerDim[3] = {10,10,1};
+const size_t seedsPerDim[3] = {5,5,5};
 
 float alpha = .01;
 
