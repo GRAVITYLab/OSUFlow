@@ -330,7 +330,7 @@ CLineRendererInOpenGL::_Draw()
 	{
 	// ADD-BY-LEETEN 08/23/2012-END
 	float fMaxDim = 0;
-	for(int i = 1; i < 3; i++)
+    for(int i = 0; i < 3; i++)
 		fMaxDim = max(fMaxDim, 
 			(cBoundingBox.pv3Corners[1][i] - cBoundingBox.pv3Corners[0][i]) );
 
