@@ -22,7 +22,7 @@ const int samples = 100;
 // max steps
 const int max_steps = 500;
 
-const size_t seedsPerDim[3] = {5,5,5};
+const size_t seedsPerDim[3] = {3,3,3};
 
 float alpha = .01;
 
@@ -58,8 +58,8 @@ void compute_streamlines()
 
   sl_list.clear(); 
 
-  printf("compute streamlines..\n"); 
-  osuflow->SetIntegrationParams(1, 5); 
+  printf("compute streamlines with %d samples..\n", samples);
+  osuflow->SetIntegrationParams(1, 5);
   osuflow->GenStreamLines(sl_list , FORWARD_DIR, max_steps, 0, samples);
   printf(" done integrations\n"); 
   printf("list size = %d\n", (int)sl_list.size()); 
@@ -69,17 +69,16 @@ void compute_streamlines()
 	for(int i = 0; i < n; i++)
 	{
 		VECTOR4 v4Color;
-		switch((i/2)%7)
+        switch((i/samples)%6)
 		{
 		case 0: v4Color = VECTOR4(1.0f, 0.0f, 0.0f, 1.0f);	break;
-		case 1: v4Color = VECTOR4(0.0f, 1.0f, 0.0f, 1.0f);	break;
-		case 2: v4Color = VECTOR4(0.0f, 0.0f, 1.0f, 1.0f);	break;
-		case 3: v4Color = VECTOR4(1.0f, 1.0f, 0.0f, 1.0f);	break;
-		case 4: v4Color = VECTOR4(1.0f, 0.0f, 1.0f, 1.0f);	break;
-		case 5: v4Color = VECTOR4(0.0f, 1.0f, 1.0f, 1.0f);	break;
-		case 6: v4Color = VECTOR4(1.0f, 1.0f, 1.0f, 1.0f);	break;
+        case 1: v4Color = VECTOR4(1.0f, 1.0f, 0.0f, 1.0f);	break;
+        case 2: v4Color = VECTOR4(0.0f, 1.0f, 0.0f, 1.0f);	break;
+        case 3: v4Color = VECTOR4(0.0f, 1.0f, 1.0f, 1.0f);	break;
+        case 4: v4Color = VECTOR4(0.0f, 0.0f, 1.0f, 1.0f);	break;
+        case 5: v4Color = VECTOR4(1.0f, 0.0f, 1.0f, 1.0f);	break;
 		}
-		liv4Colors.push_back(v4Color);
+        liv4Colors.push_back(v4Color*0.1);
 	}
 	// ADD-BY-LEETEN 07/07/2010-END
 	cLineRenderer._Update();
@@ -241,6 +240,8 @@ quit()
 int
 main(int argc, char* argv[])
 {
+    printf("Input arguments: [flow vec file] [std raw file without header]\n");
+
 	///////////////////////////////////////////////////////////////
 	// when use GCB, it is still needed to initialize GLUT
 	glutInit(&argc, argv);
@@ -284,8 +285,8 @@ main(int argc, char* argv[])
 	cLineRenderer._SetDataSource(&sl_list);
 	// ADD-BY-LEETEN /2010-BEGIN
 	cLineRenderer._SetColorSource(&liv4Colors);
-    //cLineRenderer._SetInteger(CLineRenderer::COLOR_SCHEME, CLineRenderer::CColorScheme::COLOR_PER_TRACE);
-    cLineRenderer._SetInteger(CLineRenderer::COLOR_SCHEME, CLineRenderer::CColorScheme::COLOR_ALL_WHITE);
+    cLineRenderer._SetInteger(CLineRenderer::COLOR_SCHEME, CLineRenderer::CColorScheme::COLOR_PER_TRACE);
+    //cLineRenderer._SetInteger(CLineRenderer::COLOR_SCHEME, CLineRenderer::CColorScheme::COLOR_ALL_WHITE);
 	// ADD-BY-LEETEN 07/07/2010-END
 
 	///////////////////////////////////////////////////////////////
