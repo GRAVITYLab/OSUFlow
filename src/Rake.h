@@ -45,6 +45,7 @@ class Rake
 public:
 	virtual void GenSeedRandom( const size_t numSeeds[3], const float min[3], const float max[3], VECTOR3* pSeed) = 0;
 	virtual void GenSeedRegular(const size_t numSeeds[3], const float min[3], const float max[3], VECTOR3* pSeed) = 0;
+	virtual ~Rake() {}
 };
 
 class LineRake : public Rake

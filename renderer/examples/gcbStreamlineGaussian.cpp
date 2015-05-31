@@ -78,7 +78,7 @@ void compute_streamlines()
         case 4: v4Color = VECTOR4(0.0f, 0.0f, 1.0f, 1.0f);	break;
         case 5: v4Color = VECTOR4(1.0f, 0.0f, 1.0f, 1.0f);	break;
 		}
-        liv4Colors.push_back(v4Color*0.1);
+        liv4Colors.push_back(v4Color*0.5);
 	}
 	// ADD-BY-LEETEN 07/07/2010-END
 	cLineRenderer._Update();
