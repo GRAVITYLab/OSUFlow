@@ -70,6 +70,7 @@ list(APPEND SRC_FILES
 	LatticeAMR.C 
 	Plot3DReader.C
 	CurvilinearGrid.C
+        UncertainSolution.C
 	)
 
 # DEL-BY-LEETEN 01/06/2012-BEGIN

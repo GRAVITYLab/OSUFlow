@@ -204,6 +204,42 @@ CLineRenderer::_GetFloatv(int iParameter,		int iNrOfValues, float pfValues[])
 	}
 }
 
+void
+CLineRenderer::_ComputeNormal
+	(
+		const VECTOR3& v3Tangent, 
+		VECTOR3& v3Normal
+	)
+{
+	int iMinDir = 0;
+	for(int i = 1; i < 3; i++)
+		if( fabsf(v3Tangent[iMinDir]) > fabsf(v3Tangent[i]) )
+			iMinDir = i;
+	switch(iMinDir)
+	{
+	case 0:	v3Normal = VECTOR3(0.0f, -v3Tangent[2], v3Tangent[1]);	break;
+	case 1:	v3Normal = VECTOR3(-v3Tangent[2], 0.0f, v3Tangent[0]);	break;
+	case 2:	v3Normal = VECTOR3(-v3Tangent[1], v3Tangent[0], 0.0f);	break;
+	}
+}
+
+void
+CLineRenderer::_AdjustNormal
+	(
+		const VECTOR3& v3Tangent, 
+		const VECTOR3& v3PrevNormal, 
+		VECTOR3& v3Normal
+	)
+{
+	VECTOR3 v3Up = cross(v3Normal, v3Tangent);
+	v3Up.Normalize();
+
+	float fPrevNormalToNormal = dot(v3PrevNormal, v3Normal);
+	float fPrevNormalToUp = dot(v3PrevNormal, v3Up);
+	VECTOR3 v3NewNormal = v3Normal * fPrevNormalToNormal + v3Up * fPrevNormalToUp;
+	v3Normal = v3NewNormal;
+}
+
 void 
 CLineRenderer::_TraverseLines()
 {

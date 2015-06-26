@@ -303,7 +303,7 @@ int RegularCartesianGrid::phys_to_cell(PointInfo& pInfo)
   yidx = (int)floor(cy);
   zidx = (int)floor(cz); 
 
-  // spetial treatment for the very boundary pos
+  // special treatment for the very boundary position -- fixed by Jimmy 8/30/2014
   if (xidx == xcelldim()) xidx--;
   if (yidx == ycelldim()) yidx--;
   if (zidx == zcelldim()) zidx--;

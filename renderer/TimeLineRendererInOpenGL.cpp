@@ -82,16 +82,29 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 	VECTOR3 v3Tangent = v3Point - v3PrevPoint;
 	v3Tangent.Normalize();
 
+	static VECTOR3 v3PrevNormal;
+	VECTOR3 v3Normal;
+	_ComputeNormal(v3Tangent, v3Normal);
+	v3Normal.Normalize();
+
 	if( 0 < iPointIndex )
 	{
+		// Re-adjust the normal to reduce twisting.
+		if( 1 < iPointIndex )
+		{
+			_AdjustNormal(v3Tangent, v3PrevNormal, v3Normal);
+			v3Normal.Normalize();
+		}
+
+		// find the time interval from T to prevT
+		// that are overlapped with [fMinTimeStep, fMaxTimeStep].
 		float fT0 = max(fPrevT, fMinTimeStep);
 		float fT1 = min(fT, fMaxTimeStep);
 		if( fT0 < fT1 )
 		{
-			float fMinCoeff = (fT0 - fPrevT)/(fT - fPrevT);
-			float fMaxCoeff = (fT1 - fPrevT)/(fT - fPrevT);
-			if( iPointIndex > 0 )
+			if( fT0 > fPrevT ) 
 			{
+				float fMinCoeff = (fT0 - fPrevT)/(fT - fPrevT);
 				if( 1 == iPointIndex )
 					pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
 				else
@@ -99,17 +112,19 @@ CTimeLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, floa
 				VECTOR3 v3PrevP = v3PrevPoint + fMinCoeff * (v3Point - v3PrevPoint);
 				pv4Coords.push_back(VECTOR4(v3PrevP[0], v3PrevP[1], v3PrevP[2], 1.0));
 				pv4Colors.push_back(v4PrevColor);
-
-				pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
-				VECTOR3 v3NextP = v3PrevPoint + fMaxCoeff * (v3Point - v3PrevPoint);
-				pv4Coords.push_back(VECTOR4(v3NextP[0], v3NextP[1], v3NextP[2], 1.0));
-				pv4Colors.push_back(v4Color);
+				pv3Normals.push_back(v3PrevNormal);
 			}
-			iNrOfRenderedParticles++;
+
+			float fMaxCoeff = (fT1 - fPrevT)/(fT - fPrevT);
+			pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
+			VECTOR3 v3NextP = v3PrevPoint + fMaxCoeff * (v3Point - v3PrevPoint);
+			pv4Coords.push_back(VECTOR4(v3NextP[0], v3NextP[1], v3NextP[2], 1.0));
+			pv4Colors.push_back(v4Color);
+			pv3Normals.push_back(v3Normal);
 		}
 	}
 	fPrevT = fT;
-
+	v3PrevNormal = v3Normal;
 	v3PrevPoint = v3Point;
 	v3PrevTangent = v3Tangent;
 	v4PrevColor = v4Color;

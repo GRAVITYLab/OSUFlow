@@ -17,17 +17,14 @@ project (examples)
 # specify the path to the headers
 include_directories(
 		. 
-		# DEL-BY-LEETEN 08/17/2011		${OSUFLOW_DIR}/src
-		#${RENDERER_DIR}
-		${GCB_DIR}
-		#${GLUT_INCLUDE_PATH}
+		# ${GCB_DIR}
+		# ${GLUT_INCLUDE_PATH}
 	)
 
 # specify the path to the libraries
 link_directories(
 	# DEL-BY-LEETEN 08/17/2011		${OSUFLOW_DIR}/src
-	${RENDERER_DIR}
-	${GCB_DIR}
+	# ${GCB_DIR}
 )
 
 	foreach(SAMPLE_NAME 
@@ -40,6 +37,7 @@ link_directories(
 			gcbTubeDynamicColor
 			gcbPathline
 			gcbFileRenderer # ADD-BY-LEETEN 10/02/2012
+			gcbStreamlineGaussian
 	)
 
 	# build the project as a library

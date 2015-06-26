@@ -174,6 +174,17 @@ CLineRendererInOpenGL::_TraverseLinesEnd()
 			cVertexArray.pfTexCoords[p] = pv4TexCoords[v][i];
 	glTexCoordPointer(4, GL_FLOAT, 0, cVertexArray.pfTexCoords);
 
+	if( cVertexArray.pfNormals )
+	{
+		free(cVertexArray.pfNormals );
+		cVertexArray.pfNormals = NULL;
+	}
+	cVertexArray.pfNormals = (float*)calloc(sizeof(cVertexArray.pfNormals[0]) * 3, pv3Normals.size());
+	for(int		p  = 0,	v = 0; v < pv3Normals.size(); v++)
+		for(int			i = 0; i < 3; i++, p++)
+			cVertexArray.pfNormals[p] = pv3Normals[v][i];
+	glNormalPointer(GL_FLOAT, 0, cVertexArray.pfNormals);
+
 	// ADD-BY-LEETEN 07/07/2010-BEGIN
 	if( cVertexArray.pfColors )
 	{
@@ -204,6 +215,7 @@ CLineRendererInOpenGL::_TraverseLinesEnd()
 	// ADD-BY-LEETEN 07/07/2010-BEGIN
 	pv4Colors.clear();
 	// ADD-BY-LEETEN 07/07/2010-END
+	pv3Normals.clear();
 }
 
 
@@ -268,13 +280,27 @@ CLineRendererInOpenGL::_TraversePoint(int iPointIndex, int iTraceIndex, float fX
 	#else	// MOD-BY-LEETEN 02/03/2012-TO:
 	VECTOR3 v3Tangent = v3Point - v3PrevPoint;
 	v3Tangent.Normalize();
+	VECTOR3 v3Normal;
+	_ComputeNormal(v3Tangent, v3Normal);
+	v3Normal.Normalize();
 
 	if( iPointIndex > 0 )
 	{
+		// Re-adjust the normal to reduce twisting.
+		static VECTOR3 v3PrevNormal;
+		if( 1 < iPointIndex )
+		{
+			_AdjustNormal(v3Tangent, v3PrevNormal, v3Normal);
+		}
+		v3PrevNormal = v3Normal;
+		pv3Normals.push_back(v3Normal);
+
 		pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
 		pv4Coords.push_back(VECTOR4(v3Point[0], v3Point[1], v3Point[2], 1.0));
 		pv4Colors.push_back(v4Color);
 	}
+	pv3Normals.push_back(v3Normal);
+
 	pv4TexCoords.push_back(VECTOR4(v3Tangent[0], v3Tangent[1], v3Tangent[2], 1.0));
 	pv4Coords.push_back(VECTOR4(v3Point[0], v3Point[1], v3Point[2], 1.0));
 	pv4Colors.push_back(v4Color);
@@ -304,7 +330,7 @@ CLineRendererInOpenGL::_Draw()
 	{
 	// ADD-BY-LEETEN 08/23/2012-END
 	float fMaxDim = 0;
-	for(int i = 1; i < 3; i++)
+    for(int i = 0; i < 3; i++)
 		fMaxDim = max(fMaxDim, 
 			(cBoundingBox.pv3Corners[1][i] - cBoundingBox.pv3Corners[0][i]) );
 
@@ -378,6 +404,7 @@ CLineRendererInOpenGL::_Draw()
 	glColorPointer(4, GL_FLOAT, 0, cVertexArray.pfColors);
 	glVertexPointer(4, GL_FLOAT, 0, cVertexArray.pfCoords);
 	glTexCoordPointer(4, GL_FLOAT, 0, cVertexArray.pfTexCoords);
+	glNormalPointer(GL_FLOAT, 0, cVertexArray.pfNormals);
 	// DEL-BY-LEETEN 01/19/2011-BEGIN
 		// glEnableClientState(GL_COLOR_ARRAY);
 	// DEL-BY-LEETEN 01/19/2011-END
@@ -387,6 +414,7 @@ CLineRendererInOpenGL::_Draw()
 	// ADD-BY-LEETEN 01/20/2011-END
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	glEnableClientState(GL_NORMAL_ARRAY);
 	// MOD-BY-LEETEN 01/18/2011-FROM:
 		// glDrawArrays(GL_LINES, 0, cVertexArray.iNrOfVertices);
 	// TO:

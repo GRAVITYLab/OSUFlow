@@ -15,25 +15,27 @@ typedef enum {
 
 void DatasetFiles(char **dataset_files, int num_dataset_files);
 
-float* ReadStaticDataRaw(char* fname, int* dimension); 
+float* ReadStaticDataRaw(const char* fname, int* dimension);
 
-float* ReadStaticDataRaw(char *fname, int* dimension, 
+float* ReadStaticDataRawNoHeader(const char* fname, int* dimension);
+
+float* ReadStaticDataRaw(const char *fname, int* dimension,
 			 float* sMin, float* sMax); 
 
-float* ReadStaticDataRaw(char *fname, float *sMin, float* sMax, int* dim);
+float* ReadStaticDataRaw(const char *fname, float *sMin, float* sMax, int* dim);
 
-float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps, 
+float** ReadTimeVaryingDataRaw(const char *fname, int& n_timesteps,
 			       int *dimension); 
 
-float** ReadTimeVaryingDataRaw(char *fname, int& n_timesteps, 
+float** ReadTimeVaryingDataRaw(const char *fname, int& n_timesteps,
 			       int *dimension, 
 			       float *minB, float *maxB, 
 			       int min_t, int max_t); 
 
-float** ReadTimeVaryingDataRaw(char *fname, float* sMin, float* sMax, 
+float** ReadTimeVaryingDataRaw(const char *fname, float* sMin, float* sMax,
 			       int* dim, int bt_max, int t_min, int t_max);
 
-float** ReadData(char *fname, float *dim, float *minB, 
+float** ReadData(const char *fname, float *dim, float *minB,
 		 float *maxB, int min_t, int max_t,
 		 DataMode data_mode);
 

@@ -35,10 +35,16 @@ vtkSmartPointer<vtkImageData> getData_vti(const char *fname)
 
 int main ( int argc, char *argv[] )
 {
-	printf("Usage: vti2vec file.vti\n");
+    printf("Usage: vti2vec file.vti [variable_name]\n");
 	printf("Output: output.vec\n\n");
 
 	vtkSmartPointer<vtkImageData> imageData = getData_vti(argv[1]);
+
+    // default variable is imageScalar
+    if (argc > 2) {
+        printf("Using variable %s\n", argv[2]);
+        imageData->GetPointData()->SetActiveScalars(argv[2]);
+    }
 
 	int dims[3];
 	imageData->GetDimensions(dims);
@@ -61,6 +67,7 @@ int main ( int argc, char *argv[] )
 	if (size != imageData->GetNumberOfPoints()) {
 		printf("Data size not matching dimension!\n");
 	}
+    printf("Number of points=%d\n", size);
 
 	fwrite(dims, 3, 4, fp);
 	if (imageData->GetScalarType() == VTK_FLOAT) {

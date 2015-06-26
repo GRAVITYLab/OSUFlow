@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h> 
 #include "OSUFlow.h"
+#include "UncertainSolution.h"
 
 #include <list>
 #include <iterator>
@@ -12,10 +13,11 @@ main(int argc, char**argv) {
 
   VECTOR3 minLen, maxLen; 
 
-  printf("Testing streamline geneation...\n"); 
+  printf("hello! entering testmain...\n"); 
 
   OSUFlow *osuflow = new OSUFlow(); 
-  osuflow->LoadData((const char*)argv[1], true); //true: a steady flow field 
+  printf("read file %s\n", argv[1]); 
+  osuflow->LoadUncertainDataInGaussian(argv[1], argv[2], true); //true: a steady flow field
   osuflow->Boundary(minLen, maxLen); 
   printf(" volume boundary X: [%f %f] Y: [%f %f] Z: [%f %f]\n", 
                                 minLen[0], maxLen[0], minLen[1], maxLen[1], 
@@ -23,17 +25,22 @@ main(int argc, char**argv) {
   float from[3], to[3]; 
   from[0] = minLen[0];   from[1] = minLen[1];   from[2] = minLen[2]; 
   to[0] = maxLen[0];   to[1] = maxLen[1];   to[2] = maxLen[2]; 
-  size_t seeding[]={10,10,10};
-  osuflow->SetRegularSeedPoints(from, to, seeding); 
-  int nSeeds; 
+
+  size_t numSeeds[3] = {1,1,1};
+  osuflow->SetRegularSeedPoints(from, to, numSeeds);
+
+  // print seeds
+  int nSeeds;
   VECTOR3* seeds = osuflow->GetSeeds(nSeeds); 
   for (int i=0; i<nSeeds; i++) 
     printf(" seed no. %d : [%f %f %f]\n", i, seeds[i][0], 
 	   seeds[i][1], seeds[i][2]); 
 
+  int samples = 10;
+
   list<vtListSeedTrace*> list; 
   osuflow->SetIntegrationParams(1, 5); 
-  osuflow->GenStreamLines(list , FORWARD_DIR, 50, 0); 
+  osuflow->GenStreamLines(list , FORWARD_DIR, 50, 0, samples);
   printf(" done integrations\n"); 
   printf("list size = %d\n", (int)list.size()); 
 
@@ -52,7 +59,7 @@ main(int argc, char**argv) {
 
 
     }
-    printf("\n");
+    printf("\n\n");
   }
   return 0;	// ADD-BY-LEETEN 12/20/2011
 }

@@ -10,19 +10,11 @@ endif (${WITH_GRAPHICS})
 # specify the path to the headers
 include_directories(
 		. 
-		# ADD-BY-LEETEN 01/06/2012-BEGIN
-		${RENDERER_DIR}
-		${GCB_DIR}
-		# ADD-BY-LEETEN 01/06/2012-END
 		${GLUT_INCLUDE_PATH}
 )
 
 # specify the path to the libraries
 link_directories(
-		# ADD-BY-LEETEN 01/06/2012-BEGIN
-		${RENDERER_DIR}
-		${GCB_DIR}
-		# ADD-BY-LEETEN 01/06/2012-END
 )
 
 list(APPEND SRC_FILES
@@ -35,6 +27,9 @@ list(APPEND SRC_FILES
 	# ADD-BY-LEETEN 01/06/2012-END
 	VortexDetector
     VortexDetectorCurvilinear
+	StreamlineSimpleGaussianSample
+	raw2vec
+	vec2raw
 	)
 
 if( ${WITH_GRAPHICS} )

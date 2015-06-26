@@ -22,7 +22,7 @@
 
 class Solution
 {
-private:
+protected:
 	VECTOR3** m_pDataArray;				// data value
 	VECTOR3* m_pMinValue;				// value with min magnitude for each time step
 	VECTOR3* m_pMaxValue;				// value with max magnitude for each time step
@@ -39,22 +39,22 @@ public:
 	Solution(VECTOR3** pData, int nodeNum, int timeSteps, int min_t, int max_t);
 	~Solution();
 
-	void Reset();
+    virtual void Reset();
 
 	// solution functions
-	void SetMinMaxTime(int min_t, int max_t) {m_MinT = min_t; m_MaxT = max_t;}
-	void SetValue(int t, VECTOR3* pData, int nodeNum);
-	int GetMinMaxValueAll(VECTOR3& minVal, VECTOR3& maxVal);
-	int GetMinMaxValue(int t, VECTOR3& minVal, VECTOR3& maxVal);
-	void ComputeMinMaxValue(void);
-	bool isTimeVarying(void);
-	int GetValue(int id, const float t, VECTOR3& nodeData);
-	void Normalize(bool bLocal);
-	void Scale(float scaleF);
-	void Translate(VECTOR3& translate);
+    virtual void SetMinMaxTime(int min_t, int max_t) {m_MinT = min_t; m_MaxT = max_t;}
+    virtual void SetValue(int t, VECTOR3* pData, int nodeNum);
+    virtual int GetMinMaxValueAll(VECTOR3& minVal, VECTOR3& maxVal);
+    virtual int GetMinMaxValue(int t, VECTOR3& minVal, VECTOR3& maxVal);
+    virtual void ComputeMinMaxValue(void);
+    virtual bool isTimeVarying(void);
+    virtual int GetValue(int id, const float t, VECTOR3& nodeData);
+    virtual void Normalize(bool bLocal);
+    virtual void Scale(float scaleF);
+    virtual void Translate(VECTOR3& translate);
 	// ADD-BY-LEETEN 02/02/2012-BEGIN
 	// This function scan the solution with the user-specified function func().
-	void
+    void
 	  Scan
 	  (
 	   void (*func)(int iLocalT, int iNode, VECTOR3* pv3)

@@ -1,0 +1,48 @@
+# Setup the following variables:
+# osuflow_INCLUDE_DIRS
+# osuflow_LIBRARY_DIRS
+# osuflow_LIBRARIES
+
+list(APPEND osuflow_INCLUDE_DIRS	
+	${osuflow_DIR}/include/osuflow
+)
+
+list(APPEND osuflow_LIBRARY_DIRS
+	${osuflow_DIR}/lib/osuflow
+)
+	
+set(WITH_GRAPHICS	@WITH_GRAPHICS@)
+if( WITH_GRAPHICS ) 
+	list(APPEND osuflow_INCLUDE_DIRS	
+		${osuflow_DIR}/include/osuflow/renderer
+	)
+
+	list(APPEND osuflow_LIBRARIES
+		debug renderer_d optimized renderer
+		debug gcb_d optimized gcb
+	)
+endif() 
+
+set(WITH_VTK	@WITH_VTK@)
+if( WITH_VTK ) 
+	set(VTK_DIR	@VTK_DIR@)
+	find_package(VTK REQUIRED)
+	include(${VTK_USE_FILE})
+	
+    list(APPEND osuflow_INCLUDE_DIRS    
+        ${osuflow_DIR}/include/osuflow/VTK
+    )
+
+	list(APPEND osuflow_LIBRARIES
+		debug OSUFlowVTK_d optimized OSUFlowVTK
+	)
+endif()
+
+list(APPEND osuflow_LIBRARIES
+    debug OSUFlow_d optimized OSUFlow
+)
+
+include_directories(${osuflow_INCLUDE_DIRS})
+
+link_directories(${osuflow_LIBRARY_DIRS})
+

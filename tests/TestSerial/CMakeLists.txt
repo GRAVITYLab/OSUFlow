@@ -4,7 +4,6 @@ project (TestSerial)
 
 # specify the path to the headers
 include_directories(
-		${OSUFLOW_INC}
 	)
 
 # build the project as a library

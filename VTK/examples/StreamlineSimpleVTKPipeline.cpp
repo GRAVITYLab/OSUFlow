@@ -1,8 +1,8 @@
 // Reference: VTK/Examples/VisualizationAlgorithms/Python/StreamlinesWithLineWidget.py
 
 // Compatibility with Paraview
-#define vtkRenderingCore_AUTOINIT 4(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL)
-#define vtkRenderingVolume_AUTOINIT 1(vtkRenderingVolumeOpenGL) 
+//#define vtkRenderingCore_AUTOINIT 4(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL)
+//#define vtkRenderingVolume_AUTOINIT 1(vtkRenderingVolumeOpenGL) 
 // Compatibility with Paraview
 
 #include <stdio.h>

@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
 //   BIL_Init(MPI_COMM_WORLD);
 // #endif
 
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_rank(MPI_COMM_WORLD, &::rank); // Jimmy: rank is defined in OSX compiler.  Use ::rank to remove ambiguity.
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
   Init();
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef GRAPHICS
 
-  if (rank == 0) {
+  if (::rank == 0) {
     VECTOR3 min, max;
     min = VECTOR3(0.0f, 0.0f, 0.0f);
     max = VECTOR3((float)(size[0] - 1), (float)(size[1] - 1),

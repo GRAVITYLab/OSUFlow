@@ -18,7 +18,6 @@ project (TestMPI)
 
 # specify the path to the headers
 include_directories(
-		${OSUFLOW_INC}
 		. 
 	)
 
