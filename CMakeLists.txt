@@ -12,10 +12,10 @@ project (osuflow)
 # Parameter settings
 # ADD-BY-LEETEN 08/17/2011-BEGIN
 set(WITH_MPI FALSE CACHE BOOL "Specify whether MPI is used")
-set(DIY_DIR "/usr/local/diy" CACHE PATH "The installed path of DIY")
+set(DIY_DIR "${CMAKE_SOURCE_DIR}/diy" CACHE PATH "The installed path of DIY")
 
 set(WITH_BIL	FALSE CACHE BOOL "Specify whether BIL is used.")	# ADD-BY-LEETEN 12/17/2011
-set(BIL_DIR "/usr" CACHE PATH "The installed path of BIL")
+set(BIL_DIR "${CMAKE_SOURCE_DIR}/diy/src/bil-0.6.0" CACHE PATH "The installed path of BIL")
 
 set(WITH_PNETCDF FALSE CACHE BOOL "Specify whether PNETCDF is used")
 set(PNETCDF_PATH "/usr" CACHE PATH "The installed path of PNETCDF")
