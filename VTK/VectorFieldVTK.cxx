@@ -113,7 +113,10 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 	return -1;
 }
 int VectorFieldVTK::at_vert(const int i, const int j, const int k, const float t, VECTOR3& vecData) {
+     // GetVectors() assumes the active vectors are set by the main program.
+     // If not, add this command: vtkdata->GetPointData()->SetActiveVectors(array);
     vtkDataArray *ary = this->sDataset->GetPointData()->GetVectors();
+    assert(ary);
     int w,h,d;
     this->getDimension(w,h,d);
     if (i>=w || i<0 || j>=h || j<0 || k>=d || k<0)
@@ -188,7 +191,10 @@ int VectorFieldVTK::at_vert(const int i, const int j, const int k, const float t
 }
  void VectorFieldVTK::NormalizeField(bool bLocal)
  {
+     // GetVectors() assumes the active vectors are set by the main program.
+     // If not, add this command: vtkdata->GetPointData()->SetActiveVectors(array);
      vtkDataArray *ary = this->sDataset->GetPointData()->GetVectors();
+     assert(ary);
      vtkNew<vtkMath> math ;
      int w,h,d, id;
      this->getDimension(w,h,d);
