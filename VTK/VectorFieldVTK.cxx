@@ -68,7 +68,7 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 			// vector
             func->AddDataSet(dataset);
 		}
-        printf("Multiblock dataset \n");
+        //printf("Multiblock dataset \n");
 		interpolator = func;
 	}
 	else
@@ -76,7 +76,7 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 		vtkUnstructuredGrid *unstructured = vtkUnstructuredGrid::SafeDownCast(data);
 		vtkImageData *image = vtkImageData::SafeDownCast(data);
 		if (unstructured) {
-			printf("Unstrcutred data\n");
+			//printf("Unstrcutred data\n");
 			vtkCellLocatorInterpolatedVelocityField *func = vtkCellLocatorInterpolatedVelocityField::New();
 			func->AddDataSet(data);
 			interpolator = func;
@@ -85,7 +85,7 @@ void VectorFieldVTK::push_interpolatorAry(vtkDataSet *data)
 
 		} else // structured grid
 		{
-			printf("Structured Data\n");
+			//printf("Structured Data\n");
 			vtkInterpolatedVelocityField *func = vtkInterpolatedVelocityField::New();
 			func->AddDataSet(data);
 			interpolator = func;
