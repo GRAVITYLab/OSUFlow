@@ -12,6 +12,9 @@
 #include <vtkImageInterpolator.h>
 #include <vtkMultiBlockDataSet.h>
 #include <Field.h>
+#include <vtkPointData.h>
+#include <vtkNew.h>
+#include <vtkMath.h>
 #include "MultiBlockVectorFieldVTK.h"
 
 // OPENMP currently not used, because core OSUFlow has to be modified too
@@ -155,8 +158,22 @@ void MultiBlockVectorFieldVTK::push_interpolatorAry(vtkMultiBlockDataSet *mbData
     //return v;
 }
  void MultiBlockVectorFieldVTK::NormalizeField(bool bLocal) {
-	printf("Not implemented\n");
-	assert(false);
+  // GetVectors() assumes the active vectors are set by the main program.
+  // If not, add this command: vtkdata->GetPointData()->SetActiveVectors(array);
+  int i;
+  for (i=0; i<this->sDataset->GetNumberOfBlocks(); i++)
+  {
+    vtkDataArray *ary = vtkDataSet::SafeDownCast( this->sDataset->GetBlock(i) )->GetPointData()->GetVectors();
+    assert(ary);
+    vtkNew<vtkMath> math;
+    int w,h,d, id;
+    this->getDimension(w,h,d);
+    int n = w*h*d;
+    for (id=0; id<n; id++)
+    {
+       math->Normalize(ary->GetTuple3(id));
+    }
+  }
 }
  void MultiBlockVectorFieldVTK::ScaleField(float scale) {
 	this->scaleFactor = scale;
