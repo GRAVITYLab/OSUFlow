@@ -1714,3 +1714,15 @@ void CVectorField::Curvature(VECTOR3* const fieldline, const int num, float* cur
 		curvature[i] = tangentPrime.GetMag();
 	}
 }
+
+float CVectorField::Curvature(int i, int j, int k) {
+  VECTOR3 tangent, tangentPrime;
+  MATRIX3 mj;
+  mj = JacobianStructuredGrid(i,j,k);
+
+  at_vert(i,j,k, 0, tangent);
+  tangent.Normalize();
+
+  tangentPrime = mj * tangent;
+  return tangentPrime.GetMag();
+}

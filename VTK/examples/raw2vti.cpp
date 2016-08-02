@@ -69,7 +69,7 @@ int main ( int argc, char *argv[] )
 	writer->SetInputData(imageData);
 	#endif
     writer->SetCompressor(compressor);
-    writer->SetDataModeToBinary();
+    writer->EncodeAppendedDataOff ();
 
 	writer->Write();
 

@@ -30,7 +30,9 @@ LIST(APPEND SIMPLE_TARGETS
     StreamlineRenderPlot3D
     StreamlineRenderUnstructured
     VortexDetectorVTK
+    VectorAnalysis
 )
+
 if( ${WITH_GRAPHICS} )
         LIST (APPEND SIMPLE_TARGETS
                 glStreamlineSimpleVTK

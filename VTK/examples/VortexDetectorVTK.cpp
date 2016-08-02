@@ -27,7 +27,7 @@
 
 int main(int argc, char ** argv)
 {
-#if 1
+#if 0
     // read PLOT3D data
     char file1[256], file2[256];
     int files;
@@ -57,12 +57,18 @@ int main(int argc, char ** argv)
     osuflow->SetFlowField( field );
 
 #else
+    char file[256];
+    if (argc<=1) {
+      sprintf(file, "%s/regular/tornado/1.vec", SAMPLE_DATA_DIR);
+    } else {
+      strcpy(file, argv[1]);
+    }
+
     // debug with regular grids
     OSUFlow *osuflow = new OSUFlow;
-    osuflow->LoadData(SAMPLE_DATA_DIR "/regular/tornado/1.vec", true); //true: static dataset
+    osuflow->LoadData(file, true); //true: static dataset
     CVectorField *field = osuflow->GetFlowField();
 #endif
-
 
     //field->NormalizeField(true);
 

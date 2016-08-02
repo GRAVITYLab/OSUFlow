@@ -95,7 +95,10 @@ public:
     void GenerateVortexMetrics(int i, int j, int k, float& lambda2, float& q, float& delta, float& gamma2) ;
     void GenerateVortexMetricsLine(VECTOR3* const fieldline, const int num, float* lambda2, float* q, float* delta, float* gamma2);
 
-	void Curvature(VECTOR3* const fieldline, const int num, float* curvature);
+    void Curvature(VECTOR3* const fieldline, const int num, float* curvature) ;
+
+    // Compute curvature in computation space
+    float Curvature(int i, int j, int k);
 
 	// temp function
 	inline Grid *GetGrid() {return m_pGrid;}
