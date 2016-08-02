@@ -196,12 +196,14 @@ int VectorFieldVTK::at_vert(const int i, const int j, const int k, const float t
      vtkDataArray *ary = this->sDataset->GetPointData()->GetVectors();
      assert(ary);
      vtkNew<vtkMath> math ;
-     int w,h,d, id;
-     this->getDimension(w,h,d);
-     int n = w*h*d;
+     int id;
+     int n = ary->GetNumberOfTuples();
      for (id=0; id<n; id++)
      {
-        math->Normalize(ary->GetTuple3(id));
+       double vec[10]; // in case for many components
+       ary->GetTuple(id, vec);
+       math->Normalize(vec); // always normalize first 3 components
+       ary->SetTuple(id, vec);
      }
 }
  void VectorFieldVTK::ScaleField(float scale) {
